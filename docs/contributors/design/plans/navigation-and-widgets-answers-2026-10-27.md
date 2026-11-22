@@ -4824,5 +4824,8 @@ the admin "This file needs this offset" so the admin can fix it for all users."
 - **How a person tells the admin:** a "Tell the admin" button beside "This file" sends the existing
   problem report with the file and the offset filled in; the admin's view of that report gets an
   "Apply to everyone" button. One way to do the job (rule 11): no second channel.
+- **Each setting is a row, not a button** (the owner, 2026-11-22): "the "device" and "this file"
+  things should be text with the new widget beside them, not buttons that pop up a dialog box".
+  The label is text, and the number input sits beside it in the menu itself.
 - **Kept per file,** not per video: the lost sound is in that file. A video's other version, or a
   file that replaces it, starts at 0.
