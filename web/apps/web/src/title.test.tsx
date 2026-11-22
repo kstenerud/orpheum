@@ -756,11 +756,14 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
     expect(page.querySelectorAll("a.title__play")).toHaveLength(1);
     expect(page.querySelector("a.title__play")?.getAttribute("href")).toBe("/play/1?item=10");
     await click(buttonNamed(page, "More actions"));
-    await click(buttonWithText(page, "Versions"));
-    const offered = [...(page.querySelector("dialog")?.querySelectorAll("a") ?? [])].map((link) => [
-      link.textContent,
-      link.getAttribute("href"),
-    ]);
+    // D538 §3: its versions are a list in the "…"'s place at its opener, not a dialog of their own.
+    const entry = page.querySelector(".list-box__submenu-entry");
+    expect(entry?.textContent).toContain("Versions");
+    await click(entry);
+    expect(page.querySelector(".modal-dialog")).toBeNull();
+    const offered = [...(page.querySelector("dialog .list-box")?.querySelectorAll("a") ?? [])].map(
+      (link) => [link.textContent, link.getAttribute("href")],
+    );
     expect(offered).toEqual([
       ["Play version 1", "/play/1?item=10"],
       ["Play version 2", "/play/5?item=10"],
@@ -790,7 +793,7 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
     const page = mounted.container;
     expect(page.querySelectorAll("section details.title__details")).toHaveLength(2);
     await click(buttonNamed(page, "More actions"));
-    expect(buttonWithText(page, "Versions")).toBeDefined();
+    expect(page.querySelector(".list-box__submenu-entry")?.textContent).toContain("Versions");
     expect(buttonWithText(page, "File details")).toBeUndefined();
     mounted.unmount();
   });

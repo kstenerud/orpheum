@@ -22,8 +22,12 @@ import { ConfirmButton } from "./confirm-button.tsx";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import { identifiedCorrectlyAction, identifiedIncorrectlyAction } from "./match-correction.tsx";
 import { rescanAction } from "./rescan-action.tsx";
-import { MoreActions, type MoreAction } from "./more-actions.tsx";
-import { ModalDialog } from "./modal-dialog.tsx";
+import {
+  MoreActions,
+  type MoreAction,
+  type MoreChoice,
+  type MoreSubmenu,
+} from "./more-actions.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { StatusNotes } from "./status-cues.tsx";
 import { isPictureAlone, Poster, WideArt } from "./poster.tsx";
@@ -221,39 +225,30 @@ function TitleMoreActions(props: {
     actions.push({
       key: "versions",
       label: t("title.chooseVersion"),
-      dialog: (close) => (
-        <ModalDialog label={t("title.chooseVersion")} onClose={close}>
-          <h2>{t("title.chooseVersion")}</h2>
-          <VersionChoice itemId={title.id} versions={versions} />
-        </ModalDialog>
-      ),
+      submenu: versionChoices(t, title.id, versions),
     });
   }
   return <MoreActions actions={actions} />;
 }
 
-/** Each version of a title by its number, a Play for each of its files: the "…"'s choice. */
-function VersionChoice(props: {
-  /** The title the page shows, which each file plays as (B0 question 20). */
-  readonly itemId: number;
-  readonly versions: readonly components["schemas"]["VersionBody"][];
-}): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <div className="more-actions__offers">
-      {props.versions.map((version, index) =>
-        (version.files ?? []).map((file) => (
-          <Link
-            key={file.id}
-            to={{ screen: "play", fileId: file.id, itemId: props.itemId }}
-            className="title__action"
-          >
-            {t("title.playVersion", { index: index + 1 })}
-          </Link>
-        )),
-      )}
-    </div>
+/**
+ * Each version of a title by its number, a Play for each of its files, in the "…"'s own list at its
+ * opener (D538 §3: a pop-up chooser, not a dialog); the first, which Play plays, marked as now.
+ */
+function versionChoices(
+  t: TFunction,
+  itemId: number,
+  versions: readonly components["schemas"]["VersionBody"][],
+): MoreSubmenu {
+  const choices = versions.flatMap((version, index) =>
+    (version.files ?? []).map((file): MoreChoice => ({
+      key: String(file.id),
+      label: t("title.playVersion", { index: index + 1 }),
+      // The title the page shows, which each file plays as (B0 question 20).
+      to: { screen: "play", fileId: file.id, itemId },
+    })),
   );
+  return { value: t("title.versionCount", { count: choices.length }), choices };
 }
 
 /**

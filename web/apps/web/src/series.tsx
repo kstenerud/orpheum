@@ -36,7 +36,7 @@ import { usePages, type Page } from "./use-pages.ts";
 import { EndOfList } from "./end-of-list.tsx";
 import { useItemsInView } from "./items-in-view.ts";
 import { groupName, placeCode } from "./episode-place.ts";
-import { FilesOrderingDialog, OrderingDialog, OrderingFetching } from "./series-orderings.tsx";
+import { OrderingFetching, useOrderingActions, type OrderingActions } from "./series-orderings.tsx";
 import { useWarmsUpOnPress } from "./warm-on-press.ts";
 import { MarkWatched, WatchedRowMark } from "./watched-mark.tsx";
 
@@ -105,6 +105,7 @@ export function SeriesView(props: {
   const [marks, onWatchedChanged] = useMarksCounted(props.onWatchedChanged);
   // One that cannot be played now is said among the notes; one that can, the actions row's first.
   const { nextUpPlay, isNextUpPlayable, warmsUp } = useNextUpPlay(series, seasons.length === 1);
+  const orderings = useOrderingActions(series, props.onOrderingChosen);
   return (
     <article className="series" onClickCapture={warmsUp}>
       <TitleHead
@@ -121,7 +122,7 @@ export function SeriesView(props: {
           <>
             <StatusNotes subject={series} />
             {isNextUpPlayable ? null : nextUpPlay}
-            <OrderingFetching series={series} />
+            <OrderingFetching series={series} told={orderings.told} />
           </>
         }
         actions={
@@ -135,7 +136,7 @@ export function SeriesView(props: {
           <SeriesMoreActions
             series={series}
             onMatchCorrected={props.onMatchCorrected}
-            onOrderingChosen={props.onOrderingChosen}
+            orderings={orderings}
           />
         }
         overview={series.overview}
@@ -162,30 +163,13 @@ export function SeriesView(props: {
 function SeriesMoreActions(props: {
   readonly series: SeriesDetail;
   readonly onMatchCorrected: (() => void) | undefined;
-  readonly onOrderingChosen: (() => void) | undefined;
+  /** Its orderings' lists (useOrderingActions), first. */
+  readonly orderings: OrderingActions;
 }): JSX.Element | null {
   const { t } = useTranslation();
   const isAdmin = use(IsAdminContext);
   const { series, onMatchCorrected } = props;
-  const actions: MoreAction[] = [];
-  if ((series.orderings ?? []).length > 1) {
-    actions.push({
-      key: "ordering",
-      label: t("ordering.label"),
-      dialog: (close) => (
-        <OrderingDialog series={series} onClose={close} onChosen={props.onOrderingChosen} />
-      ),
-    });
-  }
-  if (isAdmin && (series.orderings ?? []).length > 1) {
-    actions.push({
-      key: "files-ordering",
-      label: t("ordering.filesLabel"),
-      dialog: (close) => (
-        <FilesOrderingDialog series={series} onClose={close} onChosen={props.onOrderingChosen} />
-      ),
-    });
-  }
+  const actions: MoreAction[] = [...props.orderings.actions];
   if (isAdmin) {
     const onCorrected = onMatchCorrected ?? (() => undefined);
     actions.push(
