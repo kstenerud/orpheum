@@ -30982,7 +30982,7 @@ not), and a cast receiver gets the file's only where it starts a playback throug
 
 **Proven by:**
 - 1, 2, 3, 4: `TestFileSoundOffset_EveryonesIsAnAdminsAndAPersonsOwnOverridesItUntilForgotten` (internal/core/api), `TestSoundOffset_APersonsOwnOverridesEveryonesForThemUntilForgotten` (internal/core/preferences); `web/apps/web/src/sound-menu.test.tsx`: This device and This file shown apart, a step of This file kept as the person's own, Make it everyone's setting every person's and forgetting their own
-- 2, 5 (the admin's report view): `web/apps/web/src/system-problem-reports.test.tsx`: a report's suggested offset applied to everyone at the confirmed press, by the file's everyone's call
+- 2, 5: the admin's report view, `web/apps/web/src/system-problem-reports.test.tsx`: a report's suggested offset applied to everyone at the confirmed press, by the file's everyone's call
 - 5: `TestProblemReports_AReportSuggestsAFilesSoundOffsetAndTheListSaysIt` (internal/core/api); `web/apps/web/src/sound-menu.test.tsx`: Tell the admin offered to anyone but an admin, a report suggesting their own
 - 6: `TestMoveChoicesToCopysFile_MovesEveryonesSoundOffsetWhereTheFileHasNone` (internal/core/preferences)
 - 7: `TestRescan_ADiscardingRescanThrowsOutWhatTheAppMadeAndKeepsWhatAPersonDid` (internal/core/api), `TestDiscard_EveryTableSaysWhatADiscardDoesWithIt` (internal/store)
@@ -30998,7 +30998,8 @@ the principles are written from it, in the standards ([ui.md](../standards/ui.md
 principles (the "Interface" heading of [the principles](../principles/README.md#interface), §31
 to §41).
 
-**Status:** decided. §1–§11 are not built in full (the UI revamp's batches build them); §12's API side is built, the pages not yet: GET /needs-attention lists, beside
+**Status:** decided; §1–7, §9 and §11 not built. §12's API side is built, the pages not yet:
+GET /needs-attention lists, beside
 its counts, everything that needs an admin by page with where each item links
 (TestNeedsAttention_PagesListEachPlaceOfflineWithItsMachineAndPath,
 TestNeedsAttention_PagesPutSystemsWorkFailingBeforeItsChecks); GET /jobs counts the jobs failed
@@ -31011,12 +31012,6 @@ player: every sound setting is in its Sound menu, ⁝ keeps none, and ⁝'s Qual
 Data use choice, Play the original file last in it for a person showing debug tools
 (`web/apps/web/src/player-menus.test.tsx`, `web/apps/web/src/sound-menu.test.tsx`,
 `web/apps/web/src/player-menus-input.browser.test.tsx`; on devices, VQ379).
-
-**Proven by:**
-- 12: TestNeedsAttention_PagesListEachPlaceOfflineWithItsMachineAndPath,
-  TestNeedsAttention_PagesPutSystemsWorkFailingBeforeItsChecks,
-  TestJobs_TheViewCountsTheJobsFailedWithinTheHealthWindow, TestPeople_TheListSaysWhenEachLastWatched,
-  TestLibraries_TheHoursBetweenChecksAreAWeekAtMost
 
 1. **One standard, one set of parts:** every screen is built of the parts the standard lists, each
    built once; a screen that needs one not there adds it to the set, not to itself.
@@ -31042,6 +31037,11 @@ Data use choice, Play the original file last in it for a person showing debug to
 12. **The warning sign leads to the Needs attention page** (D280 §4 kept), which lists every
     problem the server knows of, not only the libraries'; the API adds what the pages need to read
     and changes no call already there.
+
+**Proven by:**
+- 8: `web/apps/web/src/sound-menu.test.tsx`, `web/apps/web/src/player-menus.test.tsx`: every sound setting in the Sound menu, ⁝ ordered as the spec does with none; VQ379
+- 10: `web/apps/web/src/player-menus.test.tsx`: Quality lists Automatic, then the rungs in GB per hour, the original last and only while debug tools show, played for one playback; `web/apps/web/src/player-menus-input.browser.test.tsx`; VQ379
+- 12: `TestNeedsAttention_PagesListEachPlaceOfflineWithItsMachineAndPath`, `TestNeedsAttention_PagesPutSystemsWorkFailingBeforeItsChecks`, `TestJobs_TheViewCountsTheJobsFailedWithinTheHealthWindow`, `TestPeople_TheListSaysWhenEachLastWatched`, `TestLibraries_TheHoursBetweenChecksAreAWeekAtMost` (internal/core/api), the API side
 
 ## D539 — One file browser chooses a folder and browses every library by its folders
 
