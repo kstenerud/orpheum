@@ -2,7 +2,7 @@
 
 import "./modal-layer.css";
 
-import { use, useEffect, useLayoutEffect, type RefObject } from "react";
+import { use, useEffect, useLayoutEffect, useState, type RefObject } from "react";
 
 import { arriveWhenDrawn, choiceArrivalIn, scrollIntoViewGently } from "./focus-navigation.ts";
 import { useCommands } from "./input-layer.tsx";
@@ -102,12 +102,14 @@ function giveFocusBack(
 /** Closes the dialog on a remote's or a controller's Back, told to onClose as Escape's is. */
 function useBackCloses(
   ref: RefObject<HTMLDialogElement | null>,
-  toldRef: RefObject<{ readonly onClose: () => void }>,
+  toldRef: RefObject<ModalLayerTold>,
 ): void {
   useCommands(ref, (detail, event) => {
     if (detail.command === "back") {
       event.preventDefault();
-      toldRef.current.onClose();
+      if (toldRef.current.onBack?.() !== true) {
+        toldRef.current.onClose();
+      }
     }
   });
 }
@@ -119,14 +121,20 @@ function useBackCloses(
  * 2026-10-28: "I can only exit without choosing by pressing the back button, which actually brings me
  * back a page"). Where no services run, as a test of the dialog alone, there is no history to hold.
  */
-function useHistoryBackCloses(toldRef: RefObject<{ readonly onClose: () => void }>): void {
+function useHistoryBackCloses(toldRef: RefObject<ModalLayerTold>): void {
   const navigation = use(ServicesContext)?.navigation;
+  // A Back its onBack took used the entry held: another is held for the next.
+  const [holds, setHolds] = useState(0);
   useEffect(
     () =>
       navigation?.holdBack(() => {
+        if (toldRef.current.onBack?.() === true) {
+          setHolds((count) => count + 1);
+          return;
+        }
         toldRef.current.onClose();
       }),
-    [navigation, toldRef],
+    [navigation, toldRef, holds],
   );
 }
 
@@ -144,6 +152,12 @@ export interface ModalLayerTold {
    * least harmful choice at its foot (ModalDialog's isConfirm).
    */
   readonly arrivalOf?: ((root: HTMLElement) => HTMLElement | undefined) | undefined;
+  /**
+   * Offered Back and Escape before they close it, the browser's own Back too: whether it took them,
+   * as a file browser goes up a folder before its dialog closes (D539 §4). A press outside still
+   * closes it.
+   */
+  readonly onBack?: (() => boolean) | undefined;
 }
 
 /**
@@ -178,11 +192,18 @@ export function useModalLayer(
     );
     const cancel = (event: Event): void => {
       event.preventDefault(); // the page, not the browser, closes it, by unmounting it
-      toldRef.current.onClose();
+      if (toldRef.current.onBack?.() !== true) {
+        toldRef.current.onClose();
+      }
     };
     const keepEscape = (event: KeyboardEvent): void => {
       if (event.key === "Escape") {
         event.stopPropagation();
+        // Taken, its keydown is cancelled, so the browser sends no cancel: a cancel it let pass
+        // uncancelled would close the dialog on the next Escape (D539 §4).
+        if (toldRef.current.onBack?.() === true) {
+          event.preventDefault();
+        }
       }
     };
     // A press on the backdrop reaches the dialog itself, outside its box.

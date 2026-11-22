@@ -549,12 +549,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **The admin's libraries are a list, each with a page of its own, and creating one is a page too**
   (D361): `/libraries` lists each library at a glance with "Manage this library"; `/libraries/<id>`
   holds everything that changes it, deleting it (confirmed first) going back to the list;
-  `/libraries/new` creates one, replaced by the new library's page once made. The folder browser is
-  a modal dialog (`FolderBrowser`, over `modal-dialog.tsx`) wherever a folder is chosen: creating,
-  adding a folder, saying one moved. `src/library-pages.test.tsx`, `src/retire.test.tsx`,
-  `src/folder-picker.test.tsx`, `src/folder-picker.browser.test.tsx`, `src/router.test.ts`.
+  `/libraries/new` creates one, replaced by the new library's page once made. The file browser's
+  Choose is a modal dialog (`Choose` in `file-browser-choose.tsx`, over `modal-dialog.tsx`, D539 §2)
+  wherever a folder is chosen: creating, adding a folder, saying one moved. Back and Escape in it go
+  up one folder, closing it only at its places (D539 §4). `src/library-pages.test.tsx`,
+  `src/retire.test.tsx`, `src/file-browser.test.tsx`, `src/file-browser.browser.test.tsx`,
+  `src/router.test.ts`.
 - **A modal dialog gives focus back to what had it once it closes** (D361 §3): the browser does not
-  for a dialog the page removes (idiosyncrasies.md). `src/folder-picker.browser.test.tsx`.
+  for a dialog the page removes (idiosyncrasies.md). `src/file-browser.browser.test.tsx`.
 - **The session token travels in the Authorization header**; images load through the media
   cookie sign-in sets (D154), by addresses from `artUrl` in `@orpheum/sdk`.
 - **A poster or still whose image does not load shows its blank and asks for it again** on the
@@ -1203,7 +1205,7 @@ for anything a person sees, [standards/ui.md](../../../docs/contributors/standar
   `src/router.ts` and `src/app.tsx`.
 - The screens: `browse.tsx` (films and series), `title.tsx`, `series.tsx`, `library-browse.tsx`
   (the Libraries page, D349, with `alphabet-rail.tsx`; a list's Sort and filter is
-  `listing-tools.tsx`, D417), `identify.tsx` (needs a match), `libraries.tsx` (the admin's list of libraries and "Rescan everything", D361 §1, D357), `library-manage.tsx` (one library's page: its folders, scans, its "Rescan", retiring a folder and deleting the library, each confirmed by `confirm-button.tsx`, D361 §2), `create-library.tsx` (the page creating one; its form's fields and defaults are `library-draft.ts`'s), `welcome.tsx` (the first admin's first-time pages after being made, at /welcome and /welcome/discovery: libraries, then what a discovery gives, ending in a link home and one to Remote access, D528 §1; posters have no page, Orpheum ships its own TMDB key, D527 §1.3, §3), `library-offer.tsx` and `library-offer-kinds.ts` (the first of them offers a library for each folder of a media folder, its kind guessed from the folder's name), `folder-picker.tsx` (the folder browser and its dialog, D359, D361 §3), `match-correction.tsx` (an admin's "Identified incorrectly" on a film's, an episode's or a series' page, and its dialog of Enter manually and Report this, D301 §2, D306 §3), `rescan-action.tsx` (an admin's Rescan in a video page's "…", D535 §3, §5), `more-actions.tsx` (a page's "…" of rarely used actions), `files.tsx` (what
+  `listing-tools.tsx`, D417), `identify.tsx` (needs a match), `libraries.tsx` (the admin's list of libraries and "Rescan everything", D361 §1, D357), `library-manage.tsx` (one library's page: its folders, scans, its "Rescan", retiring a folder and deleting the library, each confirmed by `confirm-button.tsx`, D361 §2), `create-library.tsx` (the page creating one; its form's fields and defaults are `library-draft.ts`'s), `welcome.tsx` (the first admin's first-time pages after being made, at /welcome and /welcome/discovery: libraries, then what a discovery gives, ending in a link home and one to Remote access, D528 §1; posters have no page, Orpheum ships its own TMDB key, D527 §1.3, §3), `library-offer.tsx` and `library-offer-kinds.ts` (the first of them offers a library for each folder of a media folder, its kind guessed from the folder's name), `file-browser.tsx` (the file browser's rows, path bar and states, D539 §1) with `file-browser-choose.tsx` (its Choose dialog, D539 §2) and `library-folders.tsx` (its Browse of a library's folders, D539 §3), `match-correction.tsx` (an admin's "Identified incorrectly" on a film's, an episode's or a series' page, and its dialog of Enter manually and Report this, D301 §2, D306 §3), `rescan-action.tsx` (an admin's Rescan in a video page's "…", D535 §3, §5), `more-actions.tsx` (a page's "…" of rarely used actions), `files.tsx` (what
   the scanner saw), `settings.tsx` (keys, passwords and server settings), `jobs.tsx` (the job view), `system.tsx` (the System page: the server's facts, doctor's findings, and each machine's software, sandbox, hardware encoding, disks and recent prepares, D225), `remote-access.tsx` (the Remote access page, `system-discovery.tsx`'s section on a page of its own, which System links to, D528 §1), `node-confinement.tsx` (a machine's FFmpeg sandbox, on the System page), `about.tsx`,
   `sign-in.tsx`, `play.tsx` (the player, with `play-opened.ts`, how it opens its playback,
   `player-tracks.tsx`, the track and sound choices every piece over or under the film reads,

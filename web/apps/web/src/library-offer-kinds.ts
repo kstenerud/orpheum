@@ -5,7 +5,7 @@
  * suggests, and the rows the offer shows. Pure, so the guess is tested without a page.
  */
 
-import { folderInside } from "./folder-picker.tsx";
+import { folderInside } from "./file-browser.tsx";
 import type { Route, WelcomeStep } from "./router.ts";
 
 /** The kind of a library an offered folder becomes. */

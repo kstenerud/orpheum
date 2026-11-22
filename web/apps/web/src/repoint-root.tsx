@@ -8,14 +8,15 @@ import { useTranslation } from "react-i18next";
 import type { Api, components } from "@orpheum/sdk";
 
 import { arrivalMark, dangerousMark } from "./focus-navigation.ts";
-import { FolderBrowser, type Place } from "./folder-picker.tsx";
+import { ChooseOpener } from "./file-browser-choose.tsx";
+import type { Place } from "./file-browser.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { StatusNote } from "./status-note.tsx";
 
-export type { Place } from "./folder-picker.tsx";
+export type { Place } from "./file-browser.tsx";
 
 /** A repoint's dry run, as the server answers it: what would move, and why it would be refused. */
 export type RepointReport = components["schemas"]["RepointPreviewOutputBody"];
@@ -58,13 +59,13 @@ async function previewRepoint(api: Api, from: Place, to: Place): Promise<Repoint
 
 /**
  * Saying a folder moved (D429 §2), its "This folder moved…" under its "…" (ui-audit-2026-11-04.md §3,
- * A library): a dialog where the admin chooses where it is now, among the connected nodes' roots, or
- * a folder browsed to inside one in the folder browser's dialog (D359 §3, D361 §3), then checks what
+ * A library): a dialog where the admin chooses where it is now in the file browser's Choose (D539 §2),
+ * which opens at the folder's own place, or the nearest folder above it that is there, then checks what
  * the move would do, a dry run that changes nothing, and only then, when nothing refuses it, confirms;
  * everything known under the folder takes the new path with its history, and the next scan confirms
  * each file. The folder's own place is not offered. "Keep it where it is", the least harmful choice,
  * comes before the check and the move, which is marked a dangerous action, and is focused as it opens
- * (D421): marked the arrival by hand, the place to choose being the dialog's first control.
+ * (D421): marked the arrival by hand. It starts at the first other place offered.
  */
 export function RepointDialog(props: {
   readonly from: Place;
@@ -99,7 +100,7 @@ interface Checked {
 }
 
 /**
- * Where the folder is now, chosen among the places offered or a folder browsed to inside one, then
+ * Where the folder is now, the first other place offered until another is chosen in Choose, then
  * checked, and confirmed or kept where it is. Choosing another place forgets the last check.
  */
 function RepointForm(props: {
@@ -109,23 +110,15 @@ function RepointForm(props: {
   readonly onKeep: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const [browsed, setBrowsed] = useState<Place | undefined>(undefined);
-  const offered = props.places.filter((place) => !isSamePlace(place, props.from));
-  const choices = browsed === undefined ? offered : [...offered, browsed];
-  const [chosenIndex, setChosenIndex] = useState(0);
-  const chosen = choices[chosenIndex];
+  const [chosen, setChosen] = useState<Place | undefined>(() =>
+    props.places.find((place) => !isSamePlace(place, props.from)),
+  );
   const { report, check, forget } = useRepointCheck(props.from, chosen);
-  const choose = (index: number): void => {
-    setChosenIndex(index);
-    forget();
-  };
   return (
     <>
       <RepointChoice
-        choices={choices}
-        chosenIndex={chosenIndex}
+        chosen={chosen}
         canMove={report?.report !== undefined && (report.report.refusals ?? []).length === 0}
-        onChoose={choose}
         onCheck={check}
         onConfirm={() => {
           if (chosen !== undefined) {
@@ -134,15 +127,15 @@ function RepointForm(props: {
         }}
         onKeep={props.onKeep}
       />{" "}
-      <FolderBrowser
+      <ChooseOpener
         opener={t("libraries.browseInside")}
         heading={t("libraries.repointHeading")}
-        starts={props.places}
+        places={props.places}
+        startAt={props.from}
         onChoose={(place) => {
-          const known = offered.findIndex((each) => isSamePlace(each, place));
           if (!isSamePlace(place, props.from)) {
-            setBrowsed(known === -1 ? place : undefined);
-            choose(known === -1 ? offered.length : known);
+            setChosen(place);
+            forget();
           }
         }}
       />
@@ -196,14 +189,12 @@ function useRepointCheck(
 }
 
 /**
- * Where the folder is now, chosen among the places, and keeping it where it is, checking the move, or,
- * once checked and not refused, confirming it.
+ * Where the folder is now, and keeping it where it is, checking the move, or, once checked and not
+ * refused, confirming it.
  */
 function RepointChoice(props: {
-  readonly choices: readonly Place[];
-  readonly chosenIndex: number;
+  readonly chosen: Place | undefined;
   readonly canMove: boolean;
-  readonly onChoose: (index: number) => void;
   readonly onCheck: () => void;
   readonly onConfirm: () => void;
   readonly onKeep: () => void;
@@ -211,21 +202,12 @@ function RepointChoice(props: {
   const { t } = useTranslation();
   return (
     <span>
-      <label>
-        {t("libraries.repointTo")}{" "}
-        <select
-          value={props.chosenIndex}
-          onChange={(event) => {
-            props.onChoose(Number(event.currentTarget.value));
-          }}
-        >
-          {props.choices.map((place, index) => (
-            <option key={`${place.nodeName}:${place.path}`} value={index}>
-              {t("libraries.root", { node: place.nodeName, path: place.path })}
-            </option>
-          ))}
-        </select>
-      </label>{" "}
+      {t("libraries.repointTo")}{" "}
+      <output className="repoint-root__chosen">
+        {props.chosen === undefined
+          ? null
+          : t("libraries.root", { node: props.chosen.nodeName, path: props.chosen.path })}
+      </output>{" "}
       {t("libraries.repointConsequence")}{" "}
       <button type="button" {...arrivalMark} onClick={props.onKeep}>
         {t("libraries.repointKeep")}

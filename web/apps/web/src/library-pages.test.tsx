@@ -16,6 +16,7 @@ import {
 import { LibraryPage } from "./library-manage.tsx";
 import { Libraries } from "./libraries.tsx";
 import {
+  buttonNamed,
   buttonWithText,
   click,
   enter,
@@ -377,13 +378,12 @@ describe("the admin's Libraries pages (D361)", () => {
     const page = mounted.container;
     await settleAnswers();
     await click(buttonWithText(page, "Add a folder…"));
-    await click(buttonWithText(page, "Browse nas: /tank"));
     await settleAnswers();
     for (const name of ["media", "films", "extras"]) {
-      await click(buttonWithText(page, name));
+      await click(buttonNamed(page, name));
       await settleAnswers();
     }
-    await click(buttonWithText(page, "Choose this folder"));
+    await click(buttonWithText(page, "Use extras"));
     await settleAnswers();
     expect(page.textContent).toContain(
       "Not added: /tank/media/films/extras is inside /tank/media/films, which this library already reads.",

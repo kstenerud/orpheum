@@ -1,0 +1,253 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/*
+ * The file browser (file-browser.tsx, D539): its path bar over its list, which alone scrolls, and in
+ * Browse on a wide screen a side panel beside the list, never over it.
+ */
+.file-browser {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-block-size: 0;
+}
+
+/* In Choose's dialog it fills the dialog's fixed height, its list scrolling inside. */
+.file-browser--choose {
+  flex: 1;
+}
+
+.file-browser__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: var(--size-control);
+}
+
+.file-browser__crumbs {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.file-browser__crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.file-browser__crumbs li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.file-browser__crumb,
+.file-browser__back {
+  min-block-size: var(--size-control);
+  padding-inline: var(--space-2);
+  border: none;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.file-browser__chevron {
+  color: var(--color-muted);
+}
+
+.file-browser__here,
+.file-browser__narrow-here {
+  padding-inline: var(--space-2);
+  font-weight: var(--font-weight-strong);
+}
+
+/* The narrow bar is drawn only under 40rem, the crumbs only from it (D539 §1). */
+.file-browser__narrow-bar {
+  display: none;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+@container (width < 40rem) {
+  .file-browser__crumbs {
+    display: none;
+  }
+
+  .file-browser__narrow-bar {
+    display: flex;
+  }
+}
+
+.file-browser__body {
+  display: flex;
+  flex: 1;
+  gap: var(--space-4);
+  min-block-size: 0;
+}
+
+.file-browser__shown {
+  flex: 1;
+  min-inline-size: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.file-browser__group + .file-browser__group {
+  margin-block-start: var(--space-4);
+}
+
+.file-browser__group-heading {
+  margin: 0 0 var(--space-2);
+  color: var(--color-muted);
+  font-size: var(--font-size-small);
+}
+
+.file-browser__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.file-browser__entry {
+  display: flex;
+  align-items: center;
+  border-block-end: 1px solid var(--color-border);
+}
+
+/* A row: one press, at least 3.5rem tall, its name wrapping to two lines at most. */
+.file-browser__row {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-3);
+  min-inline-size: 0;
+  min-block-size: 3.5rem;
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .file-browser__row:hover,
+  .file-browser__crumb:hover,
+  .file-browser__back:hover {
+    background: var(--color-surface-raised);
+  }
+}
+
+.file-browser__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.file-browser__name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+/* The focused row shows its whole name, growing as it must (D539 §1). */
+.file-browser__row:focus-visible .file-browser__name {
+  display: block;
+}
+
+.file-browser__under,
+.file-browser__details {
+  color: var(--color-muted);
+  font-size: var(--font-size-small);
+}
+
+.file-browser__details {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.file-browser__progress progress {
+  inline-size: 3rem;
+  block-size: 0.25rem;
+  accent-color: var(--color-accent);
+}
+
+.file-browser__watched {
+  display: flex;
+  align-items: center;
+}
+
+/* Words a screen reader reads that the marks beside them say to the eye. */
+.file-browser__said,
+.file-browser__told {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.file-browser__more {
+  flex: none;
+}
+
+.file-browser__skeleton {
+  block-size: 3.5rem;
+  margin-block-end: var(--space-1);
+  border-radius: var(--radius-control);
+  background: var(--color-placeholder);
+  opacity: 0.2;
+}
+
+/* Browse's side panel, from 60rem: what focus rested on, never a stop of its own (D539 §5). */
+.file-browser__side {
+  display: none;
+}
+
+@container (width >= 60rem) {
+  .file-browser--with-side .file-browser__side {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    gap: var(--space-2);
+    inline-size: 22rem;
+  }
+}
+
+.file-browser__side-still {
+  inline-size: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-card);
+}
+
+.file-browser__side-name {
+  margin: 0;
+  font-size: var(--font-size-h3);
+}
+
+.file-browser__side-said {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--font-size-small);
+}
+
+.file-browser__problem {
+  margin: 0;
+}

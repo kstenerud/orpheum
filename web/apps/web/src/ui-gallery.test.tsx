@@ -54,6 +54,9 @@ it("shows every icon the app draws together, each drawn by Icon (the owner, 2026
     "eye-icon",
     "route-chooser__chevron",
     "poster__clapperboard",
+    "file-browser__icon",
+    "file-browser__icon",
+    "file-browser__icon",
     "app-shell__place-glyph",
     "app-shell__place-glyph",
     "app-shell__place-glyph",
@@ -203,4 +206,14 @@ it("shows a page's layout parts, drawn by the parts themselves: Page, Section, A
   }
   expect(parts).toContain("Needs you");
   expect(parts).toContain("Still watching?");
+});
+
+it("shows the file browser loading, empty, with a count not finished, unreadable and with a machine not answering (D539 §1)", () => {
+  const markup = renderToStaticMarkup(withServices(<UiGallery />));
+  const states = markup.slice(markup.indexOf('id="gallery-file-browser"'));
+  expect(states).toContain('aria-busy="true"');
+  expect(states).toContain("No folders in media");
+  expect(states).toContain("12 videos");
+  expect(states).toContain("Orpheum can&#x27;t read media");
+  expect(states).toContain("attic isn&#x27;t answering");
 });

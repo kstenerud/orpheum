@@ -6,7 +6,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
-import { FolderBrowser } from "./folder-picker.tsx";
+import { ChooseOpener } from "./file-browser-choose.tsx";
 import { LibraryOffer } from "./library-offer.tsx";
 import { blankLibrary, libraryToCreate, libraryWords, type NewLibrary } from "./library-draft.ts";
 import { useRequest } from "./use-request.ts";
@@ -95,77 +95,100 @@ export function hasARoot(draft: NewLibrary): boolean {
 }
 
 /**
- * Where the library's folders are: a connected node, and which of its configured roots or folders
- * inside them (D359).
+ * Where the library's folders are (D359): every connected machine's configured roots, each with its
+ * machine beside it, and folders chosen inside one in Choose (D539 §2), which starts at the places
+ * grouped by machine, so the form asks no machine of its own. A library reads one machine's
+ * folders: ticking one on another machine starts its folders there. A machine not connected is said,
+ * its folders not offered.
  */
 function WhereItIs(props: {
   readonly draft: NewLibrary;
   readonly nodes: readonly LibraryNode[];
-  readonly setAnswer: SetAnswer;
+  /** Sets the machine and its folders together, as one change of the draft. */
+  readonly setFolders: (nodeName: string, rootPaths: string[]) => void;
   readonly markOf: MarkOf;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { draft, nodes, setAnswer } = props;
-  if (!nodes.some((node) => node.isConnected)) {
+  const { draft, nodes, setFolders } = props;
+  const connected = nodes.filter((node) => node.isConnected);
+  if (connected.length === 0) {
     return <p>{t("libraries.noNodes")}</p>;
   }
-  const chosenNode = nodes.find((node) => node.name === draft.nodeName);
   const roots = draft.rootPaths ?? [];
+  const tick = (nodeName: string, folder: string, isTicked: boolean): void => {
+    setFolders(
+      nodeName,
+      nodeName === draft.nodeName
+        ? withRootChosen(roots, folder, isTicked)
+        : isTicked
+          ? [folder]
+          : [],
+    );
+  };
+  const places = connected.flatMap((node) =>
+    (node.rootPaths ?? []).map((path) => ({ nodeName: node.name, path })),
+  );
   return (
     <>
-      <label>
-        {t("libraries.node")}
-        <select
-          value={draft.nodeName}
-          {...props.markOf("body.nodeName")}
-          onChange={(event) => {
-            props.setAnswer("nodeName", event.target.value);
-            props.setAnswer("rootPaths", []);
-          }}
-        >
-          {nodes.map((node) => (
-            <option key={node.name} value={node.name} disabled={!node.isConnected}>
-              {node.isConnected ? node.name : t("libraries.nodeAway", { name: node.name })}
-            </option>
-          ))}
-        </select>
-      </label>
       <fieldset>
         <legend>{t("libraries.roots")}</legend>
         <p>{t("libraries.rootsHelp")}</p>
-        {chosenNode !== undefined && (chosenNode.rootPaths ?? []).length === 0 ? (
-          <p>{t("libraries.noRootsYet", { name: chosenNode.name })}</p>
-        ) : null}
-        <FolderTicks
-          offered={foldersOffered(chosenNode?.rootPaths ?? [], roots)}
-          chosen={roots}
-          mark={props.markOf("body.rootPaths")}
-          onChange={(chosen) => {
-            setAnswer("rootPaths", chosen);
-          }}
-        />
+        {connected.map((node) => (
+          <FolderTicks
+            key={node.name}
+            node={node}
+            offered={foldersOffered(
+              node.rootPaths ?? [],
+              node.name === draft.nodeName ? roots : [],
+            )}
+            chosen={node.name === draft.nodeName ? roots : []}
+            mark={props.markOf("body.rootPaths")}
+            onTick={(folder, isTicked) => {
+              tick(node.name, folder, isTicked);
+            }}
+          />
+        ))}
+        {nodes
+          .filter((node) => !node.isConnected)
+          .map((node) => (
+            <p key={node.name} className="create-library__away">
+              {t("libraries.nodeAway", { name: node.name })}
+            </p>
+          ))}
       </fieldset>
-      {chosenNode === undefined ? null : (
-        <BrowseInside
-          key={chosenNode.name}
-          node={chosenNode}
-          onChoose={(path) => {
-            setAnswer("rootPaths", withRootChosen(roots, path, true));
-          }}
-        />
+      {places.length === 0 ? null : (
+        <p>
+          <ChooseOpener
+            opener={t("libraries.browseInside")}
+            heading={t("libraries.browseInsideHeading")}
+            places={places}
+            away={nodes.filter((node) => !node.isConnected).map((node) => node.name)}
+            onChoose={(place) => {
+              tick(place.nodeName, place.path, true);
+            }}
+          />
+        </p>
       )}
     </>
   );
 }
 
-/** The folders offered, each ticked when chosen, and ticked or unticked by a press. */
+/**
+ * A machine's folders offered, each ticked when chosen, and ticked or unticked by a press, its machine
+ * named beside it; that it has offered none yet, said.
+ */
 function FolderTicks(props: {
+  readonly node: LibraryNode;
   readonly offered: readonly string[];
   readonly chosen: readonly string[];
   /** The roots' mark while a refusal of them shows, on each, as a group cannot carry one. */
   readonly mark: FieldMark;
-  readonly onChange: (chosen: string[]) => void;
+  readonly onTick: (folder: string, isTicked: boolean) => void;
 }): JSX.Element {
+  const { t } = useTranslation();
+  if (props.offered.length === 0) {
+    return <p>{t("libraries.noRootsYet", { name: props.node.name })}</p>;
+  }
   return (
     <>
       {props.offered.map((folder) => (
@@ -175,41 +198,13 @@ function FolderTicks(props: {
             type="checkbox"
             checked={props.chosen.includes(folder)}
             onChange={(event) => {
-              props.onChange(withRootChosen(props.chosen, folder, event.target.checked));
+              props.onTick(folder, event.target.checked);
             }}
           />
-          <code>{folder}</code>
+          <code>{folder}</code> <span className="create-library__machine">{props.node.name}</span>
         </label>
       ))}
     </>
-  );
-}
-
-/**
- * Choosing a folder inside one of the node's configured roots (D359 §1), in the folder browser's
- * dialog (D361 §3); nothing while it has none.
- */
-function BrowseInside(props: {
-  readonly node: LibraryNode;
-  readonly onChoose: (path: string) => void;
-}): JSX.Element | null {
-  const { t } = useTranslation();
-  const { node } = props;
-  const starts = (node.rootPaths ?? []).map((path) => ({ nodeName: node.name, path }));
-  if (starts.length === 0) {
-    return null;
-  }
-  return (
-    <p>
-      <FolderBrowser
-        opener={t("libraries.browseInside")}
-        heading={t("libraries.browseInsideHeading")}
-        starts={starts}
-        onChoose={(place) => {
-          props.onChoose(place.path);
-        }}
-      />
-    </p>
   );
 }
 
@@ -439,7 +434,14 @@ export function CreateLibraryForm(props: {
         <WhatItHolds draft={draft} setAnswer={setAnswer} markOf={marks.markOf} />
       </FormGroup>
       <FormGroup id="create-library-source" heading={t("libraries.groupSource")}>
-        <WhereItIs draft={draft} nodes={props.nodes} setAnswer={setAnswer} markOf={marks.markOf} />
+        <WhereItIs
+          draft={draft}
+          nodes={props.nodes}
+          setFolders={(nodeName, rootPaths) => {
+            marks.editing("body.rootPaths", props.onDraftChange)({ ...draft, nodeName, rootPaths });
+          }}
+          markOf={marks.markOf}
+        />
         <MetadataQuestion draft={draft} setAnswer={setAnswer} />
         <WritableChoice draft={draft} setAnswer={setAnswer} />
       </FormGroup>

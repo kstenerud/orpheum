@@ -20,11 +20,13 @@ import {
   Clapperboard,
   EyeIcon,
   FilmsIcon,
+  FolderIcon,
   FilmStripIcon,
   FindDevicesIcon,
   GearIcon,
   GoogleCastIcon,
   LibrariesIcon,
+  MachineIcon,
   MenuIcon,
   MicrophoneIcon,
   MoreIcon,
@@ -39,6 +41,7 @@ import {
   StillReadingIcon,
   TogetherIcon,
   UncertainMatchIcon,
+  VideoFileIcon,
   WaitingIcon,
   WarningIcon,
   WatchedIcon,
@@ -71,6 +74,7 @@ import {
 } from "./player-icons.tsx";
 import { RouteChooser } from "./route-chooser.tsx";
 import { StatusNotes, StatusTray, type CueSubject } from "./status-cues.tsx";
+import { GalleryFileBrowser } from "./ui-gallery-files.tsx";
 import { Stepper } from "./stepper.tsx";
 import { Timeline } from "./timeline.tsx";
 import { GalleryLayoutParts } from "./ui-gallery-layout.tsx";
@@ -144,6 +148,7 @@ export function UiGallery(): JSX.Element {
       <FormParts />
       <PopUpsAndLayouts />
       <GalleryLayoutParts />
+      <GalleryFileBrowser />
       <OverlayParts />
       <PlayerWidgets />
     </article>
@@ -279,6 +284,11 @@ function Icons(): JSX.Element {
         <span className="ui-gallery__blank-mark">
           <Clapperboard />
         </span>
+      </p>
+      <p className="ui-gallery__icons">
+        <MachineIcon />
+        <FolderIcon />
+        <VideoFileIcon />
       </p>
       <PlacesAndToolsIcons />
       <p className="ui-gallery__icons">

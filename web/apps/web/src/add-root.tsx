@@ -5,11 +5,12 @@ import "./libraries-words.ts";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { FolderBrowser, type Place } from "./folder-picker.tsx";
+import { ChooseOpener } from "./file-browser-choose.tsx";
+import type { Place } from "./file-browser.tsx";
 
 /**
  * Adding a folder to a library (D359 §3): one of the connected nodes' configured roots, or a folder
- * browsed to inside one, chosen in the folder browser's dialog (D361 §3), which the server adds and
+ * browsed to inside one, chosen in the file browser's Choose (D539 §2), which the server adds and
  * scans. Nothing is offered while no node is connected.
  */
 export function AddRoot(props: {
@@ -21,10 +22,10 @@ export function AddRoot(props: {
     return null;
   }
   return (
-    <FolderBrowser
+    <ChooseOpener
       opener={t("libraries.addRoot")}
       heading={t("libraries.addRootHeading")}
-      starts={props.places}
+      places={props.places}
       onChoose={props.onAdd}
     />
   );

@@ -81,8 +81,11 @@ async function mountBrowse(
   }>,
   answers: Record<string, Answer | readonly Answer[]>,
   heard: Heard[] = [],
+  /** Given the services the page is mounted with, to read where it went. */
+  servedWith: ReturnType<typeof servedBy>[] = [],
 ): Promise<Mounted> {
   const services = servedBy(answers, heard);
+  servedWith.push(services);
   return await mount(
     <BackgroundChangesContext value={neverAsks}>
       {withServices(
@@ -539,6 +542,7 @@ describe("the Libraries page (D349)", () => {
 
   it("opens an other library on Folders, lists its subfolders and videos, and Up leaves a folder", async () => {
     const heard: Heard[] = [];
+    const servedWith: ReturnType<typeof servedBy>[] = [];
     mounted = await mountBrowse(
       { library: 5, view: "folders", folder: "2024/Summer" },
       {
@@ -559,18 +563,32 @@ describe("the Libraries page (D349)", () => {
                 recorded: { recordedAt: 1_700_000_000_000, from: "tag", fileName: "picnic.mp4" },
               },
             ],
+            videos: [
+              {
+                fileId: 7,
+                name: "picnic.mp4",
+                title: { id: 90, kind: "other", name: "Picnic", identificationState: "identified" },
+                durationMs: 600_000,
+                resumePositionMs: 150_000,
+              },
+            ],
           },
         ],
       },
       heard,
+      servedWith,
     );
-    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
-    expect(mounted.container.textContent).toContain("Beach");
-    expect(mounted.container.textContent).toContain("Picnic");
-    const crumbs = mounted.container.querySelectorAll<HTMLAnchorElement>(".up-trail a");
-    const up = crumbs[crumbs.length - 1];
-    expect(up?.getAttribute("href")).toContain("folder=2024");
-    expect(up?.getAttribute("href")).not.toContain("folder=2024%2FSummer");
+    await settleUntil(() => mounted?.container.querySelector(".file-browser__row") !== null);
+    // In rows (D539 §1), the folders first: each folder with its count, each video its file.
+    const rows = [...mounted.container.querySelectorAll(".file-browser__row")];
+    expect(rows.map((row) => row.getAttribute("aria-label"))).toEqual(["Beach", "picnic.mp4"]);
+    expect(rows[0]?.textContent).toContain("3 videos");
+    expect(rows[1]?.textContent).toContain("Picnic");
+    expect(rows[1]?.textContent).toContain("25% watched");
+    // The path bar's crumb above the folder leads up one, to 2024.
+    const crumbs = [...mounted.container.querySelectorAll(".file-browser__crumbs button")];
+    await click(crumbs.at(-1) ?? null);
+    expect(servedWith[0]?.navigation.route()).toMatchObject({ folder: "2024" });
     const folderRequest = heard.find((each) => each.methodAndPath === "GET /libraries/5/folders");
     expect(new URLSearchParams(folderRequest?.query).get("folder")).toBe("2024/Summer");
   });

@@ -222,3 +222,11 @@
   inline-size: 1.5rem;
   block-size: 1.5rem;
 }
+
+/* A file browser row's mark (file-browser.tsx): a machine, a folder or a video file, muted beside its name. */
+.file-browser__icon {
+  flex: none;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  color: var(--color-muted);
+}

@@ -529,3 +529,43 @@ export function EyeIcon(props: { readonly isCrossed: boolean }): JSX.Element {
     </Icon>
   );
 }
+
+// ---- The file browser ----
+
+/*
+ * A file browser's rows (file-browser.tsx, D539 §6): a machine before each of its places, a folder,
+ * a video file, as the design system draws them (folder.svg, machine.svg, video-file.svg).
+ */
+
+/** A machine: two drives stacked, a light and a slot on each. */
+export function MachineIcon(): JSX.Element {
+  return (
+    <Icon className="file-browser__icon">
+      <path
+        fillRule="evenodd"
+        d="M5 3h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z M5 13h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2z M6.5 6.5h2v2h-2z M6.5 15.5h2v2h-2z M11 7h6v1.5h-6z M11 16h6v1.5h-6z"
+      />
+    </Icon>
+  );
+}
+
+/** A folder, its tab at the top left. */
+export function FolderIcon(): JSX.Element {
+  return (
+    <Icon className="file-browser__icon">
+      <path d="M3 6a2 2 0 0 1 2-2h4.2a2 2 0 0 1 1.4.6L12 6h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    </Icon>
+  );
+}
+
+/** A video file: a page, its corner folded, a play mark on it. */
+export function VideoFileIcon(): JSX.Element {
+  return (
+    <Icon className="file-browser__icon">
+      <path
+        fillRule="evenodd"
+        d="M6 2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z M10 11v7l5.5-3.5z"
+      />
+    </Icon>
+  );
+}

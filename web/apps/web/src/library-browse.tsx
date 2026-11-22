@@ -2,7 +2,6 @@
 
 import "./library-browse.css";
 
-import type { components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 import { useCallback, useEffect, useRef, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
@@ -20,13 +19,12 @@ import {
 } from "./alphabet-rail.tsx";
 import { listsKept, PosterGrid, type Entry } from "./browse.tsx";
 import { EndOfList } from "./end-of-list.tsx";
-import { Link } from "./link.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useListDrawsToFocusNoted } from "./input-layer.tsx";
 import { useItemsInView } from "./items-in-view.ts";
 import type { Navigation } from "./navigation.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
-import { UpTrail } from "./up-trail.tsx";
+import { LibraryFolders } from "./library-folders.tsx";
 import type { Upward } from "./upward.ts";
 import { dataOrThrow } from "./problem.ts";
 import {
@@ -60,10 +58,9 @@ import {
 import { useServices } from "./services.tsx";
 import { isByName, isSameChoice, orderOf, orderQuery, type SortChoice } from "./sort-choices.ts";
 import { usePages, type Page, type Pages } from "./use-pages.ts";
-import { useResource, type Resource } from "./use-resource.ts";
+import type { Resource } from "./use-resource.ts";
 
 /** A subfolder of an other library's folder, as the server sends it. */
-type SubfolderBody = components["schemas"]["SubfolderBody"];
 
 /** Which titles a list asks for: a library's own kind, or every kind for All libraries. */
 type TitlesKind = ListedKind;
@@ -188,7 +185,8 @@ function resolveBrowse(
   const chosen = chosenLibraryOf(state, sorted);
   const kind: TitlesKind = state.library === "all" ? "all" : titlesKindOf(chosen?.kind);
   const sortOptions = sortOptionsFor(kind);
-  const showsFolders = kind === "other";
+  // Every single library offers its folders (D539 §3); All libraries has none of its own.
+  const showsFolders = state.library !== "all";
   const sort = resolvedSortOf(state, sortOptions);
   return {
     kind,
@@ -414,18 +412,16 @@ function LibraryBrowseBody(props: {
   if (resolved.view === "folders" && state.query === "" && resolved.libraryId !== undefined) {
     return (
       <>
-        <UpTrail
+        <LibraryFolders
+          key={`${String(resolved.libraryId)}/${resolved.sort}/${resolved.order}`}
+          libraryId={resolved.libraryId}
+          folder={state.folder}
+          choice={resolved}
           upward={folderUpward(
             { id: resolved.libraryId, name: resolved.currentLabel },
             state.folder,
             (folder) => routeFor(state, { folder }),
           )}
-        />
-        <FolderView
-          key={`${String(resolved.libraryId)}/${resolved.sort}/${resolved.order}/${state.folder ?? ""}`}
-          libraryId={resolved.libraryId}
-          folder={state.folder}
-          choice={resolved}
           folderRoute={(folder) => routeFor(state, { folder })}
         />
       </>
@@ -625,77 +621,4 @@ export function folderUpward(
     ],
     here,
   };
-}
-
-/** A folder's subfolders, each leading into its own (D349 §9.1): its name and how many videos it
- * holds, in the folders inside it too. */
-function Subfolders(props: {
-  readonly subfolders: readonly SubfolderBody[];
-  readonly folderRoute: (folder: string | undefined) => Route;
-}): JSX.Element {
-  return (
-    <ul className="library-browse__subfolders" data-focus-container="">
-      {props.subfolders.map((subfolder) => (
-        <li key={subfolder.path}>
-          <Link to={props.folderRoute(subfolder.path)}>
-            <span className="library-browse__subfolder-name">{subfolder.name}</span>
-            <span className="library-browse__subfolder-count">{subfolder.videoCount}</span>
-          </Link>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/**
- * One folder of an other library (D349 §9.1, §9.2): the folders in it, each leading into its own,
- * and its own videos, in the sort the page chose. Only a view (library-browsing.md §4.1): it reads
- * every page of the folder before it shows it, so it still shows the folder whole (D432 §3).
- */
-function FolderView(props: {
-  readonly libraryId: number;
-  readonly folder: string | undefined;
-  readonly choice: SortChoice;
-  readonly folderRoute: (folder: string | undefined) => Route;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { api } = useServices();
-  const { libraryId, folder, choice } = props;
-  // An other library's folder has no release date to sort by; its sorts never offer one.
-  const sort = choice.sort === "released" ? "recorded" : choice.sort;
-  const [result] = useResource(
-    `browse-folder/${String(libraryId)}/${folder ?? ""}/${sort}/${choice.order}`,
-    async () => {
-      // No limit: the whole folder in one answer (D475).
-      const page = dataOrThrow(
-        await api.GET("/libraries/{id}/folders", {
-          params: {
-            path: { id: libraryId },
-            query: { sort, ...orderQuery(choice), ...(folder === undefined ? {} : { folder }) },
-          },
-        }),
-      );
-      return { subfolders: page.subfolders ?? [], titles: page.titles ?? [] };
-    },
-    { poller: useBackgroundChangesPoller() },
-  );
-  return (
-    <Loaded
-      resource={result}
-      render={(data) => {
-        const subfolders: readonly SubfolderBody[] = data.subfolders;
-        const titles: readonly Entry[] = data.titles;
-        const isEmpty = subfolders.length === 0 && titles.length === 0;
-        return (
-          <>
-            {isEmpty ? <p className="browse__empty">{t("browse.folderEmpty")}</p> : null}
-            {subfolders.length === 0 ? null : (
-              <Subfolders subfolders={subfolders} folderRoute={props.folderRoute} />
-            )}
-            {titles.length === 0 ? null : <PosterGrid entries={titles} />}
-          </>
-        );
-      }}
-    />
-  );
 }

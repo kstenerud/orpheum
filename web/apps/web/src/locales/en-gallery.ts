@@ -6,6 +6,14 @@
  */
 export const enGallery = {
   gallery: {
+    fileBrowser: "The file browser",
+    fileBrowserLoading: "Loading",
+    fileBrowserEmpty: "An empty folder",
+    fileBrowserSlowCount: "A count not finished",
+    fileBrowserCounted: "Counted",
+    fileBrowserUncounted: "Still counting",
+    fileBrowserError: "A folder it cannot read",
+    fileBrowserOffline: "A machine not answering",
     heading: "UI gallery",
     what: "The client's parts with made-up data, to see how they look: the banner's status tray with each sign it shows, each status cue over pale, mid, dark and busy posters, the notes a page says them with, the icons alone, the buttons and the player's widgets. Nothing here reads the server.",
     tone: {

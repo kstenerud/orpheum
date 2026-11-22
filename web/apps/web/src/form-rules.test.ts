@@ -30,9 +30,6 @@ type Banned = keyof typeof banned;
  */
 const knownSites: Readonly<Record<Banned, Readonly<Record<string, number>>>> = {
   nativeSelect: {
-    // Batch 3, D539: the machine chooser, and the place a folder is chosen in.
-    "create-library.tsx": 1,
-    "repoint-root.tsx": 1,
     // A person's role: chosen in the pop-up chooser, its Saved note did not survive the page read
     // again after it (user.tsx's saved); left a select until that is understood.
     "user.tsx": 1,
@@ -56,8 +53,6 @@ const knownSites: Readonly<Record<Banned, Readonly<Record<string, number>>>> = {
   alertParagraph: {
     // The player's menus, which another part of the revamp is moving onto the parts.
     "audio-tracks.tsx": 1,
-    // Batch 3, D539: the file browser replaces the folder picker.
-    "folder-picker.tsx": 1,
     // The player's notes under the video: play.tsx is at its 800-line cap and the player's other
     // agent is in it; the owner decides where its parts go.
     "play.tsx": 2,

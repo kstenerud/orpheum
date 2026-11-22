@@ -6,7 +6,7 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { blankLibrary, libraryToCreate, libraryWords } from "./library-draft.ts";
-import { listFolders } from "./folder-picker.tsx";
+import { listFolders } from "./file-browser.tsx";
 import { idempotent } from "./idempotent.ts";
 import { holdsTwoKinds, offerRows, type OfferKind, type OfferRow } from "./library-offer-kinds.ts";
 import { useReadLibrariesAgain } from "./libraries-reached.ts";

@@ -25,6 +25,12 @@
   width: min(40rem, 92vw);
 }
 
+/* A large dialog, whose height stays put as what it lists changes: the file browser (D539 §6). */
+.modal-dialog--large {
+  width: min(48rem, 92vw);
+  height: 85dvh;
+}
+
 /* A confirm, a short question before what cannot be undone, as narrow at any width (D538 §4). */
 .modal-dialog--confirm {
   width: min(24rem, 92vw);
@@ -98,6 +104,7 @@
 @media (width < 36rem) {
   .modal-dialog,
   .modal-dialog--wide,
+  .modal-dialog--large,
   .modal-dialog--confirm {
     width: 100%;
     max-width: 100%;

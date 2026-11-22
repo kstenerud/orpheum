@@ -8,7 +8,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { RepointDialog, type Place } from "./repoint-root.tsx";
 import {
   buttonWithText,
-  choose,
   click,
   mount,
   servedBy,
@@ -47,6 +46,22 @@ const places = [
   { nodeName: "attic", path: "/films" },
 ];
 
+/**
+ * Chooses the place of the machine named in Choose: opened, at the folder's own place, up to the
+ * places, into the machine's one, and used.
+ */
+async function chooseAtThePlaces(container: HTMLElement, machine: string): Promise<void> {
+  await click(buttonWithText(container, "Choose a folder inside one…"));
+  await settleAnswers();
+  await click(buttonWithText(container, "Places"));
+  const group = [...container.querySelectorAll(".file-browser__group")].find(
+    (each) => each.querySelector(".file-browser__group-heading")?.textContent === machine,
+  );
+  await click(group?.querySelector(".file-browser__row") ?? null);
+  await settleAnswers();
+  await click(buttonWithText(container, "Use films"));
+}
+
 /** Mounts the dialog for /media/films on devnas, the server answering each dry run in turn. */
 async function mountDialog(
   reports: readonly unknown[],
@@ -62,7 +77,14 @@ async function mountDialog(
         onClose={() => undefined}
       />,
       servedBy(
-        { "POST /repoints/preview": reports.map((report) => [200, report] as const) },
+        {
+          "POST /repoints/preview": reports.map((report) => [200, report] as const),
+          "GET /nodes/devnas/folders": [
+            200,
+            { path: "/media/films", state: "readable", folders: [] },
+          ],
+          "GET /nodes/attic/folders": [200, { path: "/films", state: "readable", folders: [] }],
+        },
         heard,
       ),
     ),
@@ -74,15 +96,15 @@ describe("saying a folder moved (D429 §2)", () => {
     const moves: Place[] = [];
     const heard: Heard[] = [];
     mounted = await mountDialog([cleanReport], moves, heard);
-    const options = [...mounted.container.querySelectorAll("option")].map(
-      (option) => option.textContent,
-    );
-    expect(options).toEqual(["devnas: /mnt/films", "attic: /films"]);
-    await choose(mounted.container.querySelector("select"), "1");
+    // It starts at the first other folder; another is chosen in Choose, at the places.
+    expect(mounted.container.querySelector("output")?.textContent).toBe("devnas: /mnt/films");
+    await chooseAtThePlaces(mounted.container, "attic");
+    expect(mounted.container.querySelector("output")?.textContent).toBe("attic: /films");
     expect(mounted.container.textContent).not.toContain("Use the new place");
     await click(buttonWithText(mounted.container, "Check what moves"));
     await settleAnswers();
-    expect(heard.map((each) => each.body)).toEqual([
+    const previews = heard.filter((each) => each.methodAndPath === "POST /repoints/preview");
+    expect(previews.map((each) => each.body)).toEqual([
       { nodeName: "devnas", path: "/media/films", newNodeName: "attic", newPath: "/films" },
     ]);
     expect(mounted.container.textContent).toContain("2 files and folders move there");
@@ -115,7 +137,7 @@ describe("saying a folder moved (D429 §2)", () => {
     await click(buttonWithText(mounted.container, "Check what moves"));
     await settleAnswers();
     expect(mounted.container.textContent).toContain("Use the new place");
-    await choose(mounted.container.querySelector("select"), "1");
+    await chooseAtThePlaces(mounted.container, "attic");
     expect(mounted.container.textContent).not.toContain("Use the new place");
   });
 });

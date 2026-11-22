@@ -358,7 +358,9 @@ describe("libraries", () => {
     ]);
     const [what = "", source = "", scanning = ""] = groups;
     expect(what).toContain("<legend>What it holds</legend>");
-    expect(source).toContain("Machine");
+    // Each folder names its machine beside it; no machine is chosen apart (D539 §2).
+    expect(source).toContain('<span class="create-library__machine">local</span>');
+    expect(source).not.toContain("<select");
     expect(source).toContain("<legend>Folders this library reads</legend>");
     expect(source).toContain("<legend>Where information comes from</legend>");
     expect(source).toContain("May the server write beside the media");

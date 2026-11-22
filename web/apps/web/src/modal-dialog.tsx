@@ -36,6 +36,16 @@ interface ModalDialogProps {
    * folders (the folder browser), or what a setting is for, need room.
    */
   readonly isWide?: boolean;
+  /**
+   * Whether it is large, 48rem wide and 85% of the screen's height where it has room, its height
+   * fixed so moving between folders never resizes it (D539 §6): the file browser's Choose.
+   */
+  readonly isLarge?: boolean;
+  /**
+   * Offered Back and Escape first, whether it took them: a file browser going up a folder, the
+   * dialog closing only at its top (D539 §4).
+   */
+  readonly onBack?: () => boolean;
   /** What its top edge says, where it says anything: "warning", a notice in the warning yellow. */
   readonly mark?: "warning";
   readonly children: ReactNode;
@@ -103,6 +113,7 @@ export function ModalDialog(props: ModalDialogProps): JSX.Element {
     onClose: props.onClose,
     shouldFocusFirstField: true,
     arrivalOf: props.isConfirm === true ? confirmArrivalIn : undefined,
+    onBack: props.onBack,
   });
   useReplacesTheOneUnder(ref);
   useModalLayer(ref, toldRef);
@@ -141,6 +152,7 @@ function classesOf(props: ModalDialogProps): string {
     hasPartsIn(props) ? "modal-dialog--parts" : "",
     props.isConfirm === true ? "modal-dialog--confirm" : "",
     props.isWide === true ? "modal-dialog--wide" : "",
+    props.isLarge === true ? "modal-dialog--large" : "",
     props.mark === "warning" ? "modal-dialog--warning" : "",
   ]
     .filter((name) => name !== "")
