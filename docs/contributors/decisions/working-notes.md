@@ -30989,7 +30989,9 @@ revamp, in the plan's "The UI revamp"
 ([navigation-and-widgets-answers-2026-10-27.md](../design/plans/navigation-and-widgets-answers-2026-10-27.md)).
 The owner: "I want a solid UI/UX design spec with clear rules and policies, and a set of UX and UI
 principles we live by from now on." The standard and
-the principles are written from it, in the standards and the principles.
+the principles are written from it, in the standards ([ui.md](../standards/ui.md)) and the
+principles (the "Interface" heading of [the principles](../principles/README.md#interface), §31
+to §41).
 
 **Status:** decided.
 

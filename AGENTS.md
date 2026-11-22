@@ -20,7 +20,11 @@ pointers.
 3. **Standards:** [`docs/contributors/standards/`](docs/contributors/standards/README.md).
    Principles: [`docs/contributors/principles/`](docs/contributors/principles/README.md).
    Decisions: [`docs/contributors/decisions/index.md`](docs/contributors/decisions/index.md).
-4. **When a platform misbehaves** (a browser, hls.js, the kernel, a tool), look it up in
+4. **Changing anything a person sees?** Read the interface standard,
+   [`docs/contributors/standards/ui.md`](docs/contributors/standards/ui.md), and pass its
+   checklist; the principles it applies are the
+   [Interface ones](docs/contributors/principles/README.md#interface) (D538).
+5. **When a platform misbehaves** (a browser, hls.js, the kernel, a tool), look it up in
    [`docs/contributors/idiosyncrasies.md`](docs/contributors/idiosyncrasies.md) before
    diagnosing; when you suspect a new one, search online for who else has met it and what
    worked for them, then add it there, in the commit with its workaround.

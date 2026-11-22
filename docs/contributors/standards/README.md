@@ -37,6 +37,7 @@ branch gates (`make check-pr`) run on pull requests. Gate files are the owner's 
 | [go.md](go.md) | the server, the node, the tools |
 | [sql.md](sql.md) | SQLite, sqlc, migrations |
 | [typescript.md](typescript.md) | the web client, cast receiver, SDK and player; React; CSS |
+| [ui.md](ui.md) | the interface: its rules, controls, dialogs, what goes over a film, the parts, and the checklist for every screen |
 | [testing.md](testing.md) | tests in every language |
 | [python.md](python.md) | the gate scripts and hooks |
 | [shell.md](shell.md) | shell scripts and git hooks |

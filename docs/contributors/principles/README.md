@@ -68,6 +68,24 @@ work they bear on, and one that bears on two kinds of work is listed under both.
 - [§16](16-people-are-responsible-for-what-they-play.md) — People are responsible for what they
   play; we never supply, locate, unlock or promote it
 
+## Interface
+
+How the client looks and behaves on a desk, a phone, a touch screen and a TV. The standard that
+applies them, rule by rule, is [ui.md](../standards/ui.md).
+
+- [§31](31-the-art-is-the-colour.md) — The art is the colour; the chrome is neutral
+- [§32](32-near-black-not-black.md) — Near-black, not black
+- [§33](33-each-colour-has-one-meaning.md) — Each colour has one meaning, and never carries it alone
+- [§34](34-every-value-is-a-token.md) — Every value is a token
+- [§35](35-focus-only-adds.md) — Focus only adds, and is always seen
+- [§36](36-fingertip-sized.md) — Fingertip-sized, for every hand and every remote
+- [§37](37-short-rare-optional-motion.md) — Motion is short, rare and optional
+- [§38](38-plain-specific-words.md) — Plain, specific words
+- [§39](39-one-home.md) — Each thing has one home, and other places link to it
+- [§40](40-problems-first.md) — Problems come first
+- [§41](41-one-way-for-each-interaction.md) — One way for each kind of interaction; [§4](04-one-way.md)
+  for the interface
+
 ## Debugging
 
 - [§19](19-a-defect-is-a-sample.md) — A defect is a sample: look for its siblings before fixing it
