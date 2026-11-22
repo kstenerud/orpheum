@@ -125,6 +125,9 @@ export const enPlay = {
       earlierBy: "Sound on this device: {{ms}} ms earlier",
       earlier: "Sound {{ms}} ms earlier",
       later: "Sound {{ms}} ms later",
+      row: "Sound on this device",
+      field: "Sound on this device, in ms: more is later, less is earlier",
+      unit: "ms",
       cannotEarlier:
         "This film plays as its own file, whose sound cannot be played earlier here; a streamed copy's can.",
     },

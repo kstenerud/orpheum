@@ -3717,3 +3717,20 @@ An item is ticked only by the person who did it, and only with what they saw.
   4. Open the menu that says who is signed in, choose Report a problem, and send one saying
      "VQ377". Report that you sent it, so I can read that the playback started on the sound the
      server makes, for audioTiming, with no copied sound given up.
+- [ ] **VQ378** — ⁝'s "Sound on this device" is a row of its own, its label with a number input
+  right beside it, set by a TV's remote (the owner, 2026-11-22). Only a television's browser says
+  whether moving onto a text field by an arrow opens its on-screen keyboard, and whether its own
+  spatial navigation leaves the row's Left and Right to the app, which no test's browser does. On
+  staging, with "feat(web): a number input, typed or stepped by its arrows, sets the sound's
+  timing", on the Fire TV in Silk and then on the TCL TV in TV Bro, signed in as yourself:
+  1. Play any film, open the player's ⁝ and press Down until the row "Sound on this device" has
+     focus. Report whether the label, the number, "ms" and the two arrows are on one row, and
+     whether an on-screen keyboard opened as focus came onto the number.
+  2. Press Right until the up arrow has focus, then OK three times. Report whether the number goes
+     up by 50 each press, ⁝ stays open, and the sound moves later.
+  3. Press Left back to the number, then Down, then Up. Report whether each leaves the row to the
+     place below or above it, the number unchanged.
+  4. On the number, press OK. Report whether the on-screen keyboard opens, and, typing -200 and
+     pressing its Done, whether the number becomes -200.
+  5. Open the menu that says who is signed in, choose Report a problem, and send one saying
+     "VQ378". Report that you sent it.

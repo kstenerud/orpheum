@@ -15,7 +15,7 @@ import { reportFailure } from "@orpheum/sdk";
 
 import { ButtonByRole } from "./button-by-role.tsx";
 import { listPlace, overOpenerPlace, type ScreenBox } from "./drop-down-place.ts";
-import { caretOf } from "./focus-engine.ts";
+import { caretOf, focusTargetsIn, rowAttribute } from "./focus-engine.ts";
 import { directionOfKey, keyCodeOf } from "./input-buttons.ts";
 import { commandEventName } from "./input-commands.ts";
 import { useCommands } from "./input-layer.tsx";
@@ -292,8 +292,11 @@ function useStuckArrowTold(
     content?.addEventListener(commandEventName, commanded);
     const heard = (event: KeyboardEvent): void => {
       const direction = directionOfKey(event.key, keyCodeOf(event));
-      // A text field keeps Left and Right, the pop-up open (isTakenInPopUp).
-      if ((direction !== "left" && direction !== "right") || isInTextField()) {
+      // A text field keeps Left and Right, and a row moves along them, the pop-up open (isTakenInPopUp).
+      if (direction !== "left" && direction !== "right") {
+        return;
+      }
+      if (isInTextField() || isAlongARow(direction === "left" ? -1 : 1)) {
         return;
       }
       const isTakenBefore = event.defaultPrevented;
@@ -405,13 +408,32 @@ function isInTextField(): boolean {
   return focused !== null && caretOf(focused) !== undefined;
 }
 
-/** Left or Right in a pop-up (isTakenInPopUp): the caret's in a text field, a step along a row, else closing it. */
+/**
+ * Whether Left (-1) or Right (1) moves along a row of the pop-up's column (focus-engine.ts's
+ * rowAttribute), to a control of it beside the one focused, as an arrow does in any row: the input
+ * layer moves it there, and the pop-up stays open.
+ */
+function isAlongARow(direction: -1 | 1): boolean {
+  const focused = document.activeElement;
+  const row = focused?.closest(`[${rowAttribute}]`);
+  if (row === null || row === undefined || !(focused instanceof HTMLElement)) {
+    return false;
+  }
+  const targets = focusTargetsIn(row);
+  const at = targets.indexOf(focused);
+  return at !== -1 && targets[at + direction] !== undefined;
+}
+
+/**
+ * Left or Right in a pop-up (isTakenInPopUp): the caret's in a text field, a step along a row of its
+ * column or of one control's, else closing it.
+ */
 function isAcrossTaken(
   direction: -1 | 1,
   oneControl: OneControl | undefined,
   onClose: () => void,
 ): boolean {
-  if (isInTextField()) {
+  if (isInTextField() || isAlongARow(direction)) {
     return false;
   }
   if (oneControl?.across?.(direction) !== true) {

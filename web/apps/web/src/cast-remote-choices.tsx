@@ -12,7 +12,6 @@ import type {
   PlaybackSound,
   SoundChannel,
 } from "@orpheum/sdk";
-import { longestSoundOffsetMs } from "@orpheum/player";
 import { useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -31,7 +30,7 @@ import {
 } from "./player-menus.tsx";
 import { currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
 import { useServices } from "./services.tsx";
-import { soundOffsetStepMs, TimingRow } from "./sound-delay.tsx";
+import { SoundOffsetInput } from "./sound-delay.tsx";
 import { SessionTalk } from "./together-voice.tsx";
 import type { Previous } from "./around-file.ts";
 
@@ -216,9 +215,9 @@ function ReceiverSoundPlaces(props: {
 /**
  * The receiver's sound timing, for a TV that plays its sound late (the owner, 2026-11-06: "Put a
  * control in watch together and cast so that I can adjust the sound timing"): as the receiver said
- * it stands, each press moving it a step from there, which the receiver keeps with its device as its
- * own press. As an entry of ⁝'s list, its text on a line of its own, its buttons in a row below, as
- * the player's (SoundOffsetControl).
+ * it stands, each arrow moving it a step from there or a number typed setting it, which the receiver
+ * keeps with its device as its own press. As an entry of ⁝'s list, its words on a line of their own,
+ * its field and arrows below, the player's number input (SoundOffsetInput).
  */
 function RemoteSoundOffset(props: {
   readonly ms: number;
@@ -226,34 +225,21 @@ function RemoteSoundOffset(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { ms, connection } = props;
-  const move = (byMs: number): void => {
-    const next = Math.min(Math.max(ms + byMs, -longestSoundOffsetMs), longestSoundOffsetMs);
-    connection.chooseSound({ kind: "soundOffset", ms: next });
-  };
   let shown = t("cast.soundOffset.inStep");
   if (ms !== 0) {
     shown =
       ms > 0 ? t("cast.soundOffset.laterBy", { ms }) : t("cast.soundOffset.earlierBy", { ms: -ms });
   }
   return (
-    <TimingRow isInAList text={shown} notes={null}>
-      <button
-        type="button"
-        onClick={() => {
-          move(-soundOffsetStepMs);
-        }}
-      >
-        {t("play.soundOffset.earlier", { ms: soundOffsetStepMs })}
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          move(soundOffsetStepMs);
-        }}
-      >
-        {t("play.soundOffset.later", { ms: soundOffsetStepMs })}
-      </button>
-    </TimingRow>
+    <SoundOffsetInput
+      label={t("cast.soundOffset.field")}
+      valueText={shown}
+      ms={ms}
+      layout={{ kind: "wordsAbove" }}
+      onChange={(next) => {
+        connection.chooseSound({ kind: "soundOffset", ms: next });
+      }}
+    />
   );
 }
 

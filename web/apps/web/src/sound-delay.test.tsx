@@ -12,7 +12,16 @@ import {
   soundOffsetKeptAfterMs,
 } from "./sound-delay.tsx";
 import { newSoundPanel, SoundPanelContext } from "./sound-panel.ts";
-import { fire, mount, refusal, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  buttonNamed,
+  enter,
+  fire,
+  mount,
+  refusal,
+  servedBy,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 let mounted: Mounted | undefined;
@@ -32,13 +41,11 @@ function holdTheClock(): void {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
 }
 
-/** Presses the control's button whose text is text, on the test's held clock. */
-function press(text: string): void {
-  const button = [...(mounted?.container.querySelectorAll("button") ?? [])].find(
-    (each) => each.textContent === text,
-  );
+/** Presses the control's button named name, its number input's arrow, on the test's held clock. */
+function press(name: string): void {
+  const button = mounted === undefined ? undefined : buttonNamed(mounted.container, name);
   if (button === undefined) {
-    throw new Error(`no button ${text}`);
+    throw new Error(`no button ${name}`);
   }
   act(() => {
     button.click();
@@ -66,6 +73,33 @@ describe("this device's sound timing (the owner's TCL TV, 2026-10-24)", () => {
     expect(mounted.container.textContent).toContain("Sound on this device: 600 ms later");
     await letPass(soundOffsetKeptAfterMs);
     expect(heard).toEqual([{ methodAndPath: "PUT /me/devices/5", body: { soundOffsetMs: 600 } }]);
+  });
+
+  it("keeps a number typed into its field on the device, held at the longest the player plays (the owner, 2026-11-22)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy({ "PUT /me/devices/5": [204, undefined] }, heard);
+    services.session.signIn("token", { deviceId: 5 });
+    mounted = await mount(
+      withServices(<SoundOffsetControl videoRef={createRef()} initialMs={0} />, services),
+    );
+    const field = mounted.container.querySelector("input");
+    expect(field?.getAttribute("aria-label")).toBe(
+      "Sound on this device, in ms: more is later, less is earlier",
+    );
+    await enter(field, "-1200");
+    holdTheClock();
+    act(() => {
+      field?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    });
+    expect(mounted.container.textContent).toContain("Sound on this device: 1200 ms earlier");
+    await letPass(soundOffsetKeptAfterMs);
+    expect(heard).toEqual([{ methodAndPath: "PUT /me/devices/5", body: { soundOffsetMs: -1200 } }]);
+    act(() => {
+      Reflect.set(HTMLInputElement.prototype, "value", "9000", field);
+      field?.dispatchEvent(new Event("input", { bubbles: true }));
+      field?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    });
+    expect(mounted.container.textContent).toContain("Sound on this device: 2000 ms later");
   });
 
   it("keeps a run of presses as one write, of where it ended (the audit of 2026-10-25, W9)", async () => {
@@ -130,9 +164,7 @@ describe("this device's sound timing (the owner's TCL TV, 2026-10-24)", () => {
     mounted = await mount(
       withServices(<SoundOffsetControl videoRef={createRef()} initialMs={50} />, services),
     );
-    const less = [...mounted.container.querySelectorAll("button")].find(
-      (each) => each.textContent === "Sound 50 ms earlier",
-    );
+    const less = buttonNamed(mounted.container, "Sound 50 ms earlier");
     await fire(less ?? null, new MouseEvent("click", { bubbles: true }));
     mounted.unmount();
     // The next film's decision was asked for before the change, and still says 50.
@@ -152,9 +184,7 @@ describe("this device's sound timing (the owner's TCL TV, 2026-10-24)", () => {
     mounted = await mount(
       withServices(<SoundOffsetControl videoRef={videoRef} initialMs={0} />, services),
     );
-    const earlier = [...mounted.container.querySelectorAll("button")].find(
-      (each) => each.textContent === "Sound 50 ms earlier",
-    );
+    const earlier = buttonNamed(mounted.container, "Sound 50 ms earlier");
     await fire(earlier ?? null, new MouseEvent("click", { bubbles: true }));
     expect(mounted.container.textContent).toContain("Sound on this device: 50 ms earlier");
     // No chunked playback plays this video: its sound cannot be moved earlier, and the page says so.
@@ -178,7 +208,7 @@ describe("this device's sound timing (the owner's TCL TV, 2026-10-24)", () => {
     act(() => {
       first?.click();
     });
-    const shown = [...mounted.container.querySelectorAll(".play__sound-delay span")].map(
+    const shown = [...mounted.container.querySelectorAll(".play__sound-delay output")].map(
       (each) => each.textContent,
     );
     expect(shown).toEqual([
@@ -227,7 +257,7 @@ describe("this device's sound timing (the owner's TCL TV, 2026-10-24)", () => {
       panel.choose({ kind: "soundOffset", ms: -200 });
     });
     expect(panel.read()?.soundOffsetMs).toBe(-200);
-    const shown = [...mounted.container.querySelectorAll("span")].map((each) => each.textContent);
+    const shown = [...mounted.container.querySelectorAll("output")].map((each) => each.textContent);
     expect(shown).toEqual([
       "Sound on this device: 200 ms earlier",
       "Sound on this device: 200 ms earlier",

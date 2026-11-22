@@ -190,6 +190,13 @@ function isDrawn(element: HTMLElement): boolean {
 export const rovingAttribute = "data-focus-roving";
 
 /**
+ * The attribute on a row of controls in a pop-up's column, a menu's number input's (number-input.tsx):
+ * Left and Right move along it, as they do in any row, and close the pop-up only past its ends
+ * (popover.tsx's isAlongARow), so a remote reaches each of its controls (the owner, 2026-11-22).
+ */
+export const rowAttribute = "data-focus-row";
+
+/**
  * The attribute on the control an arrow entering its container from outside goes to, before what last
  * had focus there: the alphabet rail's letter of the poster beside it (the owner, 2026-11-11), set
  * by standTabStopAt (roving-tab-stop.ts) and gone once focus moves in the container.

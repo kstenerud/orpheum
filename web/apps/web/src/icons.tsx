@@ -174,6 +174,15 @@ export function RowArrowIcon(props: { readonly direction: "back" | "on" }): JSX.
   );
 }
 
+/** A number input's arrow (number-input.tsx): a triangle pointing up, a step up, or down, a step down. */
+export function StepArrowIcon(props: { readonly direction: "up" | "down" }): JSX.Element {
+  return (
+    <Icon className="number-input__arrow">
+      <path d={props.direction === "up" ? "M12 6.5 19.5 16h-15z" : "M12 17.5 4.5 8h15z"} />
+    </Icon>
+  );
+}
+
 // ---- The status tray and its cues ----
 
 /**

@@ -59,6 +59,7 @@ export const enCast = {
       inStep: "Sound there: in step with the picture",
       laterBy: "Sound there: {{ms}} ms later",
       earlierBy: "Sound there: {{ms}} ms earlier",
+      field: "Sound timing there, in ms: more is later, less is earlier",
     },
     readyOn: "Ready on {{name}}. What you play now plays there.",
     stop: "Stop casting",

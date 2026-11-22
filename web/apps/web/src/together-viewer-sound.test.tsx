@@ -9,6 +9,7 @@ import { LiveProvider } from "./live.tsx";
 import { createNavigation } from "./navigation.ts";
 import { MeContext } from "./signed-in-me.ts";
 import {
+  buttonNamed,
   buttonWithText,
   click,
   mount,
@@ -115,7 +116,7 @@ describe("a Watch Together viewer's sound timing (the owner, 2026-11-06)", () =>
     await settleUntil(() =>
       mounted.container.textContent.includes("Sound on this device: 200 ms earlier"),
     );
-    expect(buttonWithText(mounted.container, "Sound 50 ms earlier")).toBeDefined();
+    expect(buttonNamed(mounted.container, "Sound 50 ms earlier")).toBeDefined();
     mounted.unmount();
   });
 
@@ -146,7 +147,7 @@ describe("a Watch Together viewer's sound timing (the owner, 2026-11-06)", () =>
     await settleUntil(() =>
       mounted.container.textContent.includes("Sound on this device: in step"),
     );
-    await click(buttonWithText(mounted.container, "Sound 50 ms earlier"));
+    await click(buttonNamed(mounted.container, "Sound 50 ms earlier"));
     expect(mounted.container.textContent).toContain("Sound on this device: 50 ms earlier");
     mounted.unmount();
   });

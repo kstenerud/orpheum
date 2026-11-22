@@ -11,9 +11,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { AudioTrack } from "./audio-tracks.tsx";
+import { startInput } from "./input-commands.ts";
 import type { PlayerSound } from "./player-controls.tsx";
 import { PlayerMenus, PlayerMenusContext, type PlayerMenusWays } from "./player-menus.tsx";
 import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
+import { forgetSoundOffsetSetInThisTab } from "./sound-delay.tsx";
 import type { SubtitleTrack } from "./subtitles.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
@@ -107,31 +109,81 @@ describe("the overlay's pop-ups, laid out by a real browser", () => {
     expect(boxOf(later).left - boxOf(offset).right).toBeCloseTo(8, 0);
   });
 
-  it("keeps ⁝'s Sound earlier where it is as the timing's text changes (the owner's TCL TV, 2026-11-06)", async () => {
+  // The owner, 2026-11-22: "Sound on this device" is a text label with the number input right
+  // beside it, in ⁝'s row itself, not a button that opens a pop-up; and, on the owner's TCL TV
+  // (2026-11-06), its arrows stay where they are as it steps.
+  it("is ⁝'s row Sound on this device, its label with the number input beside it, which stays put as it steps", async () => {
     await page.viewport(960, 480);
-    mounted = await mount(
-      withServices(
-        <PlayerTracksContext value={subtitledTracks}>
-          <PlayerMenusContext value={ways}>
-            <PlayerMenus videoRef={createRef()} shown={["more"]} onOpenChange={() => undefined} />
-          </PlayerMenusContext>
-        </PlayerTracksContext>,
-      ),
+    await openMore();
+    const label = [...document.querySelectorAll("dialog span")].find(
+      (each) => each.textContent === "Sound on this device",
     );
-    await userEvent.click(page.getByRole("button", { name: "Settings" }));
+    const field = soundField();
     const earlier = page.getByRole("button", { name: "Sound 50 ms earlier" }).element();
-    const text = [...document.querySelectorAll("dialog span")].find((each) =>
-      each.textContent.startsWith("Sound on this device"),
-    );
+    const middle = (box: DOMRect): number => box.top + box.height / 2;
+    for (const part of [field, earlier]) {
+      expect(middle(boxOf(part))).toBeCloseTo(middle(boxOf(label)), 0);
+    }
+    expect(boxOf(label).right).toBeLessThanOrEqual(boxOf(field).left + roundingPx);
+    expect(boxOf(field).right).toBeLessThanOrEqual(boxOf(earlier).left + roundingPx);
     const before = boxOf(earlier);
-    expect(boxOf(text).bottom).toBeLessThanOrEqual(before.top + roundingPx);
     for (const press of [1, 2, 3]) {
       await userEvent.click(earlier);
-      await expect
-        .element(page.getByText(`Sound on this device: ${String(press * 50)} ms earlier`))
-        .toBeVisible();
+      await expect.poll(() => field.value).toBe(String(-press * 50));
       expect(boxOf(earlier).top).toBeCloseTo(before.top, 0);
       expect(boxOf(earlier).left).toBeCloseTo(before.left, 0);
+    }
+    // Its words are said, a screen reader hearing each value, and not shown beside the label.
+    const said = [...document.querySelectorAll("dialog output")].find((each) =>
+      each.textContent.startsWith("Sound on this device"),
+    );
+    expect(said?.textContent).toBe("Sound on this device: 150 ms earlier");
+    expect(boxOf(said).width).toBeLessThanOrEqual(1);
+  });
+
+  it("reaches ⁝'s sound timing by a remote: Right from its field along its arrows, OK steps, Up and Down leave its row (the owner, 2026-11-22)", async () => {
+    await page.viewport(960, 480);
+    const input = startInput({ goBack: () => false, isNavigating: () => true });
+    try {
+      await openMore();
+      forgetSoundOffsetSetInThisTab();
+      let field = soundField();
+      const focusAtEnd = (): void => {
+        field.focus();
+        field.setSelectionRange(field.value.length, field.value.length);
+      };
+      focusAtEnd();
+      await userEvent.keyboard("{ArrowRight}");
+      expect(document.activeElement?.getAttribute("aria-label")).toBe("Sound 50 ms earlier");
+      await userEvent.keyboard("{ArrowRight}");
+      expect(document.activeElement?.getAttribute("aria-label")).toBe("Sound 50 ms later");
+      await userEvent.keyboard("{Enter}");
+      await expect.poll(() => field.value).toBe("50");
+      await userEvent.keyboard("{ArrowLeft}");
+      await userEvent.keyboard("{ArrowLeft}");
+      expect(document.activeElement).toBe(field);
+      // Past the row's end, Right closes ⁝, as it does from any of its places.
+      page.getByRole("button", { name: "Sound 50 ms later" }).element().focus();
+      await userEvent.keyboard("{ArrowRight}");
+      await expect.poll(() => document.querySelector("dialog[open]")).toBeNull();
+      await userEvent.click(page.getByRole("button", { name: "Settings" }));
+      field = soundField();
+      const row = field.closest(".cluster");
+      for (const key of ["{ArrowDown}", "{ArrowUp}"]) {
+        focusAtEnd();
+        await userEvent.keyboard(key);
+        const focused = document.activeElement;
+        expect(drawnIn("dialog").contains(focused)).toBe(true);
+        expect(row?.contains(focused)).toBe(false);
+      }
+      for (const key of ["{ArrowDown}", "{ArrowUp}"]) {
+        page.getByRole("button", { name: "Sound 50 ms later" }).element().focus();
+        await userEvent.keyboard(key);
+        expect(row?.contains(document.activeElement)).toBe(false);
+      }
+      expect(field.value).toBe("50");
+    } finally {
+      input.stop();
     }
   });
 });
@@ -239,6 +291,31 @@ function manyTracks(chosen: {
       problem: undefined,
     },
   };
+}
+
+/** Draws ⁝ for a film with subtitles, as the player's overlay has it, and opens it. */
+async function openMore(): Promise<void> {
+  mounted = await mount(
+    withServices(
+      <PlayerTracksContext value={subtitledTracks}>
+        <PlayerMenusContext value={ways}>
+          <PlayerMenus videoRef={createRef()} shown={["more"]} onOpenChange={() => undefined} />
+        </PlayerMenusContext>
+      </PlayerTracksContext>,
+    ),
+  );
+  await userEvent.click(page.getByRole("button", { name: "Settings" }));
+}
+
+/** ⁝'s field of this device's sound timing. */
+function soundField(): HTMLInputElement {
+  const field = page
+    .getByRole("textbox", { name: "Sound on this device, in ms: more is later, less is earlier" })
+    .element();
+  if (!(field instanceof HTMLInputElement)) {
+    throw new Error("no sound timing field");
+  }
+  return field;
 }
 
 /** The first element the selector finds, or a failure where none is drawn. */

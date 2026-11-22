@@ -33,6 +33,7 @@ import {
   SeriesIcon,
   SortArrowIcon,
   SortIcon,
+  StepArrowIcon,
   StillReadingIcon,
   TogetherIcon,
   UncertainMatchIcon,
@@ -43,6 +44,7 @@ import {
 import { FilmWaitsLook, linkWaitBarAfterMs, linkWaitShare } from "./film-waits.tsx";
 import { Cluster, Stack } from "./layout.tsx";
 import { ListBox, ListNote, ListOption } from "./list-box.tsx";
+import { NumberInput } from "./number-input.tsx";
 import { PlayUpwardContext } from "./play-up.tsx";
 import { PlayerControls, type PlayerSource } from "./player-controls.tsx";
 import { OverlayRows } from "./player-overlay.tsx";
@@ -290,7 +292,10 @@ function Icons(): JSX.Element {
   );
 }
 
-/** The icons of the banner's places, a listing's tools, a row's arrows, Cast's menu and a poster. */
+/**
+ * The icons of the banner's places, a listing's tools, a row's arrows, a number input's arrows,
+ * Cast's menu and a poster.
+ */
 function PlacesAndToolsIcons(): JSX.Element {
   return (
     <p className="ui-gallery__icons">
@@ -308,6 +313,12 @@ function PlacesAndToolsIcons(): JSX.Element {
       <span className="icon-button">
         <RowArrowIcon direction="on" />
       </span>
+      <span className="icon-button">
+        <StepArrowIcon direction="down" />
+      </span>
+      <span className="icon-button">
+        <StepArrowIcon direction="up" />
+      </span>
       <GoogleCastIcon />
       <FindDevicesIcon />
       <FilmStripIcon />
@@ -318,7 +329,7 @@ function PlacesAndToolsIcons(): JSX.Element {
   );
 }
 
-/** The buttons: plain, disabled, one that asks first, and a chooser. */
+/** The buttons: plain, disabled, one that asks first, and a chooser; and a number input. */
 function Buttons(): JSX.Element {
   const { t } = useTranslation();
   return (
@@ -349,7 +360,35 @@ function Buttons(): JSX.Element {
         ]}
         isAView
       />
+      <GalleryNumberInput />
     </section>
+  );
+}
+
+/** How far the gallery's number input goes either way, and each of its arrows' steps, in ms. */
+const galleryNumberMs = { bound: 500, step: 50 } as const;
+
+/**
+ * A number input (number-input.tsx), working: typed, or stepped by its arrows, from -500 to 500 ms,
+ * its words saying where it stands, as the player's sound timing is.
+ */
+function GalleryNumberInput(): JSX.Element {
+  const { t } = useTranslation();
+  const [ms, setMs] = useState(0);
+  const { bound, step } = galleryNumberMs;
+  return (
+    <NumberInput
+      label={t("gallery.numberInput")}
+      valueText={t("gallery.numberInputWords", { ms })}
+      value={ms}
+      min={-bound}
+      max={bound}
+      step={step}
+      unit={t("gallery.numberInputUnit")}
+      stepDownLabel={t("gallery.numberInputDown", { ms: step })}
+      stepUpLabel={t("gallery.numberInputUp", { ms: step })}
+      onChange={setMs}
+    />
   );
 }
 

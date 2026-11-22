@@ -23,7 +23,8 @@ import { useTranslation } from "react-i18next";
 
 import { setMyDeviceSoundOffset } from "./accounts.ts";
 import { latestWrite } from "./latest-write.ts";
-import { Cluster, Stack } from "./layout.tsx";
+import { Stack } from "./layout.tsx";
+import { NumberInput, type NumberInputLayout } from "./number-input.tsx";
 import { problemText } from "./problem.ts";
 import { soundLatencyMemory } from "./sound-latency.ts";
 import { useSoundPart } from "./sound-panel.ts";
@@ -85,8 +86,10 @@ export function forgetSoundOffsetSetInThisTab(): void {
  * the device's own, kept by the core with the device and given with each playback (initialMs), or
  * as this tab last set it, every control drawn showing the one value; it applies at once, and the
  * player counts Web Audio's own latency. A Watch Together viewer with no device of its own still
- * sets it, kept by the tab alone (the owner, 2026-11-06: "Put a control in watch together"). As an entry of ⁝'s list
- * (isInAList, player-menus.tsx), its text is on a line of its own, its buttons in a row below.
+ * sets it, kept by the tab alone (the owner, 2026-11-06: "Put a control in watch together"). It is
+ * typed, or stepped by its arrows, in a number input (SoundOffsetInput). As an entry of ⁝'s list
+ * (isInAList, player-menus.tsx), it is a row of the list: the label "Sound on this device" with the
+ * input right beside it, not a button that opens a pop-up (the owner, 2026-11-22).
  */
 export function SoundOffsetControl(props: {
   readonly videoRef: RefObject<HTMLVideoElement | null>;
@@ -116,34 +119,54 @@ export function SoundOffsetControl(props: {
     }
   };
   useMovedByTheRemote(props.isInAList === true ? undefined : offsetMs, setTo);
-  const buttons = (
-    <>
-      <button
-        type="button"
-        onClick={() => {
-          setTo(offsetMs - soundOffsetStepMs);
-        }}
-      >
-        {t("play.soundOffset.earlier", { ms: soundOffsetStepMs })}
-      </button>{" "}
-      <button
-        type="button"
-        onClick={() => {
-          setTo(offsetMs + soundOffsetStepMs);
-        }}
-      >
-        {t("play.soundOffset.later", { ms: soundOffsetStepMs })}
-      </button>
-    </>
-  );
   return (
     <TimingRow
       isInAList={props.isInAList === true}
-      text={timingText(t, offsetMs)}
       notes={<TimingNotes isEarlierRefused={isEarlierRefused} failure={failure} />}
     >
-      {buttons}
+      <SoundOffsetInput
+        label={t("play.soundOffset.field")}
+        valueText={timingText(t, offsetMs)}
+        ms={offsetMs}
+        layout={
+          props.isInAList === true
+            ? { kind: "labelled", rowLabel: t("play.soundOffset.row") }
+            : { kind: "wordsLead" }
+        }
+        onChange={setTo}
+      />
     </TimingRow>
+  );
+}
+
+/**
+ * A sound timing's number input (number-input.tsx), the player's and a cast's remote's alike: the
+ * milliseconds later the sound plays, below zero earlier, typed or stepped by soundOffsetStepMs, from
+ * the longest earlier to the longest later the player plays. A row of a menu is its labelled layout,
+ * which a second timing's row, a file's own, takes as this device's does.
+ */
+export function SoundOffsetInput(props: {
+  readonly label: string;
+  readonly valueText: string;
+  readonly ms: number;
+  readonly layout: NumberInputLayout;
+  readonly onChange: (ms: number) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <NumberInput
+      label={props.label}
+      valueText={props.valueText}
+      value={props.ms}
+      min={-longestSoundOffsetMs}
+      max={longestSoundOffsetMs}
+      step={soundOffsetStepMs}
+      unit={t("play.soundOffset.unit")}
+      stepDownLabel={t("play.soundOffset.earlier", { ms: soundOffsetStepMs })}
+      stepUpLabel={t("play.soundOffset.later", { ms: soundOffsetStepMs })}
+      layout={props.layout}
+      onChange={props.onChange}
+    />
   );
 }
 
@@ -183,25 +206,24 @@ function useMovedByTheRemote(ms: number | undefined, setTo: (ms: number) => void
 }
 
 /**
- * The timing's parts under the video, or as an entry of ⁝'s list (the cast remote's too, D444): there its text has a line of its
- * own above the buttons, as its length changes with each press, and in one row with them it moved
- * Earlier between the row and the next on the owner's TCL TV (2026-11-06).
+ * The timing's parts under the video, or as an entry of ⁝'s list, its notes below its row: there its
+ * label never changes, so its field and arrows stay where they are with each press, where words that
+ * changed in one row with them moved the buttons between the row and the next on the owner's TCL TV
+ * (2026-11-06).
  */
-export function TimingRow(props: {
+function TimingRow(props: {
   readonly isInAList: boolean;
-  readonly text: string;
   readonly notes: ReactNode;
   readonly children: ReactNode;
 }): JSX.Element {
   return props.isInAList ? (
     <Stack space="1">
-      <span>{props.text}</span>
-      <Cluster space="2">{props.children}</Cluster>
+      {props.children}
       {props.notes}
     </Stack>
   ) : (
     <div className="play__sound-delay">
-      <span>{props.text}</span> {props.children}
+      {props.children}
       {props.notes}
     </div>
   );

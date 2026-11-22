@@ -355,10 +355,10 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(page.textContent).not.toContain("Sound there");
     await said(-200);
     expect(page.textContent).toContain("Sound there: 200 ms earlier");
-    await click(buttonWithText(page, "Sound 50 ms earlier"));
+    await click(buttonNamed(page, "Sound 50 ms earlier"));
     await said(0);
     expect(page.textContent).toContain("Sound there: in step with the picture");
-    await click(buttonWithText(page, "Sound 50 ms later"));
+    await click(buttonNamed(page, "Sound 50 ms later"));
     expect(server.heard.filter((each) => each["type"] === "sound")).toEqual([
       { v: 3, type: "sound", sound: { kind: "soundOffset", ms: -250 } },
       { v: 3, type: "sound", sound: { kind: "soundOffset", ms: 50 } },
@@ -528,7 +528,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     });
     await openedMenu(mounted.container, "Settings");
     expect(mounted.container.textContent).toContain("Sound there: 400 ms earlier");
-    await click(buttonWithText(mounted.container, "Sound 50 ms earlier"));
+    await click(buttonNamed(mounted.container, "Sound 50 ms earlier"));
     expect(castSession.heard.at(-1)).toMatchObject({
       type: "sound",
       sound: { kind: "soundOffset", ms: -450 },
