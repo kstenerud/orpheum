@@ -4788,7 +4788,11 @@ for the probe. Mechanical, not remembered (principles §17).
 
 A rescan stays selective meanwhile (D535 §5): revisited if a report shows someone stuck on bad data.
 
-## A video's own sound offset, and a number input, a later batch (the owner, 2026-11-22)
+## A video's own sound offset, and a number input, next batch (the owner, 2026-11-22)
+
+**Scheduled (the owner, 2026-11-22):** "put it in the next batch, along with the new widget that
+we'll need for it (the number input one with up and down arrows)". The batch is this section and
+"A made thing's recipe" above; the widget is built first, since the offset's settings use it.
 
 Found by VQ377: film 20597's file lost about 1.2 s of sound before its picture starts, which no
 timestamp says (D534 places it as well as the file can tell); the owner had it in sync only with the
