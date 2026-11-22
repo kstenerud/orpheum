@@ -30705,3 +30705,6 @@ D357 §1's limit of a rescan to a film or a series.
    "Scan now", so it says the scan otherwise runs on its own (the owner: "'Scan' at the library level
    should be called 'Scan now' so that it's clear that this would otherwise be an automatic
    operation").
+   A rescan throws out only what the differences touch, as D392 §3 does, never everything of a
+   video (the owner, 2026-11-22: "we'll keep it selective for now, and revisit if we ever get
+   reports of users being stuck on bad data").
