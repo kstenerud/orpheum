@@ -109,10 +109,10 @@ describe("the overlay's pop-ups, laid out by a real browser", () => {
     expect(boxOf(later).left - boxOf(offset).right).toBeCloseTo(8, 0);
   });
 
-  // The owner, 2026-11-22: "Sound on this device" is a text label with the number input right
-  // beside it, in ⁝'s row itself, not a button that opens a pop-up; and, on the owner's TCL TV
-  // (2026-11-06), its arrows stay where they are as it steps.
-  it("is ⁝'s row Sound on this device, its label with the number input beside it, which stays put as it steps", async () => {
+  // The owner, 2026-11-22: "Sound on this device" is a text label with the stepper right beside
+  // it, in ⁝'s row itself, not a button that opens a pop-up; and, on the owner's TCL TV
+  // (2026-11-06), its − and + stay where they are as it steps (D538 §9).
+  it("is ⁝'s row Sound on this device, its label with the stepper beside it, which stays put as it steps", async () => {
     await page.viewport(960, 480);
     await openMore();
     const label = [...document.querySelectorAll("dialog span")].find(
@@ -124,24 +124,26 @@ describe("the overlay's pop-ups, laid out by a real browser", () => {
     for (const part of [field, earlier]) {
       expect(middle(boxOf(part))).toBeCloseTo(middle(boxOf(label)), 0);
     }
-    expect(boxOf(label).right).toBeLessThanOrEqual(boxOf(field).left + roundingPx);
-    expect(boxOf(field).right).toBeLessThanOrEqual(boxOf(earlier).left + roundingPx);
+    expect(boxOf(label).right).toBeLessThanOrEqual(boxOf(earlier).left + roundingPx);
+    expect(boxOf(earlier).right).toBeLessThanOrEqual(boxOf(field).left + roundingPx);
     const before = boxOf(earlier);
     for (const press of [1, 2, 3]) {
       await userEvent.click(earlier);
-      await expect.poll(() => field.value).toBe(String(-press * 50));
+      // Below zero with the minus sign, as the stepper shows it.
+      await expect.poll(() => field.value).toBe(`−${String(press * 50)}`);
       expect(boxOf(earlier).top).toBeCloseTo(before.top, 0);
       expect(boxOf(earlier).left).toBeCloseTo(before.left, 0);
     }
-    // Its words are said, a screen reader hearing each value, and not shown beside the label.
+    // Its caption spells the value out under the control, where it moves nothing in the row, and a
+    // screen reader hears each value (D538 §9).
     const said = [...document.querySelectorAll("dialog output")].find((each) =>
       each.textContent.startsWith("Sound on this device"),
     );
     expect(said?.textContent).toBe("Sound on this device: 150 ms earlier");
-    expect(boxOf(said).width).toBeLessThanOrEqual(1);
+    expect(boxOf(said).top).toBeGreaterThanOrEqual(boxOf(earlier).bottom);
   });
 
-  it("reaches ⁝'s sound timing by a remote: Right from its field along its arrows, OK steps, Up and Down leave its row (the owner, 2026-11-22)", async () => {
+  it("reaches ⁝'s sound timing by a remote: Left and Right from its field to − and +, OK steps, Up and Down leave its row (the owner, 2026-11-22)", async () => {
     await page.viewport(960, 480);
     const input = startInput({ goBack: () => false, isNavigating: () => true });
     try {
@@ -152,14 +154,18 @@ describe("the overlay's pop-ups, laid out by a real browser", () => {
         field.focus();
         field.setSelectionRange(field.value.length, field.value.length);
       };
-      focusAtEnd();
-      await userEvent.keyboard("{ArrowRight}");
+      // In step again, drawn before the caret is put at the start, which a new value would move.
+      await expect.poll(() => field.value).toBe("0");
+      field.focus();
+      field.setSelectionRange(0, 0);
+      await userEvent.keyboard("{ArrowLeft}");
       expect(document.activeElement?.getAttribute("aria-label")).toBe("Sound 50 ms earlier");
+      await userEvent.keyboard("{ArrowRight}");
+      focusAtEnd();
       await userEvent.keyboard("{ArrowRight}");
       expect(document.activeElement?.getAttribute("aria-label")).toBe("Sound 50 ms later");
       await userEvent.keyboard("{Enter}");
       await expect.poll(() => field.value).toBe("50");
-      await userEvent.keyboard("{ArrowLeft}");
       await userEvent.keyboard("{ArrowLeft}");
       expect(document.activeElement).toBe(field);
       // Past the row's end, Right closes ⁝, as it does from any of its places.
@@ -168,7 +174,7 @@ describe("the overlay's pop-ups, laid out by a real browser", () => {
       await expect.poll(() => document.querySelector("dialog[open]")).toBeNull();
       await userEvent.click(page.getByRole("button", { name: "Settings" }));
       field = soundField();
-      const row = field.closest(".cluster");
+      const row = field.closest("fieldset");
       for (const key of ["{ArrowDown}", "{ArrowUp}"]) {
         focusAtEnd();
         await userEvent.keyboard(key);

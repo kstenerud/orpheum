@@ -228,7 +228,7 @@ describe("play state", () => {
 
   it("holds the lost video on screen while the server comes back, and opens the new one where it has got to", async () => {
     // The page's reopening line, not the overlay's volume, drawn over the film too (D418 §1).
-    const reopening = "output:not(.player-overlay-volume, .number-input__words)";
+    const reopening = "output:not(.player-overlay-volume, .stepper__caption)";
     const heard: Heard[] = [];
     mounted = await mount(
       withServices(

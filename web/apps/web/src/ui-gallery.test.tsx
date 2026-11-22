@@ -62,8 +62,8 @@ it("shows every icon the app draws together, each drawn by Icon (the owner, 2026
     "listing-tools__arrow",
     "poster-row__arrow-icon",
     "poster-row__arrow-icon",
-    "number-input__arrow",
-    "number-input__arrow",
+    "stepper__sign",
+    "stepper__sign",
     "cast-kind cast-kind--chromecast",
     "cast-kind cast-kind--find",
     "volume-row__film-icon",
@@ -122,18 +122,20 @@ it("shows the player's widgets, drawn by the components themselves (D369 §1)", 
   }
 });
 
-it("shows a number input among the buttons, its field, its unit and its two arrows (the owner, 2026-11-22)", () => {
+it("shows a stepper among the buttons, its field, its unit and its − and + (the owner, 2026-11-22; D538 §9)", () => {
   const markup = renderToStaticMarkup(withServices(<UiGallery />));
   const buttons = markup.slice(
     markup.indexOf('id="gallery-buttons"'),
     markup.indexOf('id="gallery-pop-ups"'),
   );
   expect(buttons).toMatch(
-    /<input type="text" class="number-input__field"[^>]*aria-label="A number, in ms, from -500 to 500"[^>]*value="0"/u,
+    /<input type="text" class="stepper__field"[^>]*aria-label="A number, in ms, from -500 to 500"[^>]*value="0"/u,
   );
   expect(buttons).toContain('aria-label="50 ms less"');
   expect(buttons).toContain('aria-label="50 ms more"');
-  expect(buttons).toContain('<output class="number-input__words">A number input: 0 ms</output>');
+  expect(buttons).toMatch(
+    /<output id="[^"]+" class="stepper__caption stepper__caption--unshown">A stepper: 0 ms<\/output>/u,
+  );
 });
 
 it("shows the parts the widgets are built from, a pop-up at its button and the layout primitives (D408; plans/toolkit.md step 7)", () => {

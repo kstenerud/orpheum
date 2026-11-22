@@ -174,11 +174,17 @@ export function RowArrowIcon(props: { readonly direction: "back" | "on" }): JSX.
   );
 }
 
-/** A number input's arrow (number-input.tsx): a triangle pointing up, a step up, or down, a step down. */
-export function StepArrowIcon(props: { readonly direction: "up" | "down" }): JSX.Element {
+/** A stepper's sign (stepper.tsx): a minus, a step less or earlier, or a plus, a step more or later. */
+export function StepIcon(props: { readonly direction: "less" | "more" }): JSX.Element {
   return (
-    <Icon className="number-input__arrow">
-      <path d={props.direction === "up" ? "M12 6.5 19.5 16h-15z" : "M12 17.5 4.5 8h15z"} />
+    <Icon className="stepper__sign">
+      <path
+        d={props.direction === "more" ? "M5 12h14M12 5v14" : "M5 12h14"}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
     </Icon>
   );
 }

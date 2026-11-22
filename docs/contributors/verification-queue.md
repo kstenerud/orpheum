@@ -3717,20 +3717,37 @@ An item is ticked only by the person who did it, and only with what they saw.
   4. Open the menu that says who is signed in, choose Report a problem, and send one saying
      "VQ377". Report that you sent it, so I can read that the playback started on the sound the
      server makes, for audioTiming, with no copied sound given up.
-- [ ] **VQ378** — ⁝'s "Sound on this device" is a row of its own, its label with a number input
-  right beside it, set by a TV's remote (the owner, 2026-11-22). Only a television's browser says
-  whether moving onto a text field by an arrow opens its on-screen keyboard, and whether its own
-  spatial navigation leaves the row's Left and Right to the app, which no test's browser does. On
-  staging, with "feat(web): a number input, typed or stepped by its arrows, sets the sound's
-  timing", on the Fire TV in Silk and then on the TCL TV in TV Bro, signed in as yourself:
-  1. Play any film, open the player's ⁝ and press Down until the row "Sound on this device" has
-     focus. Report whether the label, the number, "ms" and the two arrows are on one row, and
-     whether an on-screen keyboard opened as focus came onto the number.
-  2. Press Right until the up arrow has focus, then OK three times. Report whether the number goes
-     up by 50 each press, ⁝ stays open, and the sound moves later.
-  3. Press Left back to the number, then Down, then Up. Report whether each leaves the row to the
-     place below or above it, the number unchanged.
-  4. On the number, press OK. Report whether the on-screen keyboard opens, and, typing -200 and
-     pressing its Done, whether the number becomes -200.
-  5. Open the menu that says who is signed in, choose Report a problem, and send one saying
-     "VQ378". Report that you sent it.
+- [ ] **VQ378** — ⁝'s "Sound on this device" is a row of its own, its label with a stepper right
+  beside it: − then the number and "ms" then +, one framed control, its words under it (the owner,
+  2026-11-22: the stepper is the number input's next form; D538 §9). Only real devices say whether a
+  finger hits − and + cleanly, whether moving onto the number by a remote's arrow opens a TV's
+  on-screen keyboard, and whether its own spatial navigation leaves the row's Left and Right to the
+  app, which no test's browser does. On staging, with "feat(web): the number input grows into the
+  stepper, − and + either side and its words under it", signed in as yourself, play any film on
+  each device and open the player's ⁝ (if ⁝ says the film's sound cannot be played earlier here,
+  pick another film):
+  1. On your phone, tap − three times. Report whether the number goes to −150 (with a minus sign),
+     the words under it say "Sound on this device: 150 ms earlier", ⁝ stays open, and the sound
+     moves earlier.
+  2. Still on the phone, tap the number, type 200 on the keyboard and press its Done. Report whether
+     the number becomes 200 and the words under it say "Sound on this device: 200 ms later".
+  3. On a computer, click + until the number reaches 2000 (or type 1950 and press Enter, then click
+     + once). Report whether + then looks faded, a further click does nothing, and the number stays
+     2000.
+  4. Still on the computer, click the number, press Tab, then Space. Report whether focus moved to
+     + with the white ring round it and Space did nothing at 2000; then press Shift+Tab twice and
+     Space, and report whether focus is on − and the number went down by 50.
+  5. On the Fire TV in Silk, press Down until the row "Sound on this device" has focus. Report
+     whether the label, −, the number, "ms" and + are on one row, and whether an on-screen keyboard
+     opened as focus came onto the number.
+  6. On the Fire TV, press Right until + has focus, then OK three times. Report whether the number
+     goes up by 50 each press, the words appear under it once it is not 0, ⁝ stays open, and the
+     sound moves later.
+  7. On the Fire TV, press Left until − has focus. Report whether focus passed through the number
+     on the way and never vanished.
+  8. On the Fire TV, press Down, then Up. Report whether each leaves the row to the place below or
+     above it, the number unchanged.
+  9. On the Fire TV, on the number, press OK. Report whether the on-screen keyboard opens, and,
+     typing -200 and pressing its Done, whether the number becomes −200.
+  10. Open the menu that says who is signed in, choose Report a problem, and send one saying
+      "VQ378". Report that you sent it.

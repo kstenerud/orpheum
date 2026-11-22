@@ -24,9 +24,9 @@ import { useTranslation } from "react-i18next";
 import { setMyDeviceSoundOffset } from "./accounts.ts";
 import { latestWrite } from "./latest-write.ts";
 import { Stack } from "./layout.tsx";
-import { NumberInput, type NumberInputLayout } from "./number-input.tsx";
 import { problemText } from "./problem.ts";
 import { soundLatencyMemory } from "./sound-latency.ts";
+import { Stepper } from "./stepper.tsx";
 import { useSoundPart } from "./sound-panel.ts";
 import { useServices } from "./services.tsx";
 import { useMe } from "./signed-in-me.ts";
@@ -87,9 +87,9 @@ export function forgetSoundOffsetSetInThisTab(): void {
  * as this tab last set it, every control drawn showing the one value; it applies at once, and the
  * player counts Web Audio's own latency. A Watch Together viewer with no device of its own still
  * sets it, kept by the tab alone (the owner, 2026-11-06: "Put a control in watch together"). It is
- * typed, or stepped by its arrows, in a number input (SoundOffsetInput). As an entry of ⁝'s list
- * (isInAList, player-menus.tsx), it is a row of the list: the label "Sound on this device" with the
- * input right beside it, not a button that opens a pop-up (the owner, 2026-11-22).
+ * typed, or stepped by − and +, in a stepper (SoundOffsetInput), its label "Sound on this device"
+ * leading it. As an entry of ⁝'s list (isInAList, player-menus.tsx), it is a row of the list, not a
+ * button that opens a pop-up (the owner, 2026-11-22).
  */
 export function SoundOffsetControl(props: {
   readonly videoRef: RefObject<HTMLVideoElement | null>;
@@ -125,14 +125,10 @@ export function SoundOffsetControl(props: {
       notes={<TimingNotes isEarlierRefused={isEarlierRefused} failure={failure} />}
     >
       <SoundOffsetInput
-        label={t("play.soundOffset.field")}
+        label={t("play.soundOffset.row")}
+        fieldLabel={t("play.soundOffset.field")}
         valueText={timingText(t, offsetMs)}
         ms={offsetMs}
-        layout={
-          props.isInAList === true
-            ? { kind: "labelled", rowLabel: t("play.soundOffset.row") }
-            : { kind: "wordsLead" }
-        }
         onChange={setTo}
       />
     </TimingRow>
@@ -140,22 +136,23 @@ export function SoundOffsetControl(props: {
 }
 
 /**
- * A sound timing's number input (number-input.tsx), the player's and a cast's remote's alike: the
- * milliseconds later the sound plays, below zero earlier, typed or stepped by soundOffsetStepMs, from
- * the longest earlier to the longest later the player plays. A row of a menu is its labelled layout,
- * which a second timing's row, a file's own, takes as this device's does.
+ * A sound timing's stepper (stepper.tsx), the player's and a cast's remote's alike: the milliseconds
+ * later the sound plays, below zero earlier, typed or stepped by soundOffsetStepMs, from the longest
+ * earlier to the longest later the player plays; − earlier, + later. Its label leads its row, which
+ * a second timing's row, a file's own, takes as this device's does.
  */
 export function SoundOffsetInput(props: {
   readonly label: string;
+  readonly fieldLabel: string;
   readonly valueText: string;
   readonly ms: number;
-  readonly layout: NumberInputLayout;
   readonly onChange: (ms: number) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <NumberInput
+    <Stepper
       label={props.label}
+      fieldLabel={props.fieldLabel}
       valueText={props.valueText}
       value={props.ms}
       min={-longestSoundOffsetMs}
@@ -164,7 +161,6 @@ export function SoundOffsetInput(props: {
       unit={t("play.soundOffset.unit")}
       stepDownLabel={t("play.soundOffset.earlier", { ms: soundOffsetStepMs })}
       stepUpLabel={t("play.soundOffset.later", { ms: soundOffsetStepMs })}
-      layout={props.layout}
       onChange={props.onChange}
     />
   );

@@ -18,9 +18,14 @@
 
 /* A hover is a pointer's, as base.css's. */
 @media (hover: hover) {
-  .icon-button:hover:not(:disabled) {
+  .icon-button:hover:not(:disabled, [aria-disabled="true"]) {
     background: var(--color-surface-raised);
   }
+}
+
+/* What it does cannot be done now: faint, as a disabled button is (base.css), yet focusable. */
+.icon-button[aria-disabled="true"] {
+  opacity: 0.55;
 }
 
 /* An icon it draws, a little smaller than the button, so the button's ground shows round it. */

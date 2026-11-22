@@ -4,7 +4,7 @@
 import { useState, type JSX } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { NumberInput, numberTyped } from "./number-input.tsx";
+import { Stepper, numberTyped } from "./stepper.tsx";
 import { buttonNamed, click, enter, fire, mount, type Mounted } from "./test-dom.tsx";
 
 let mounted: Mounted | undefined;
@@ -14,12 +14,13 @@ afterEach(() => {
   mounted = undefined;
 });
 
-/** A number input from -100 to 100 in steps of 25, starting at start, each value it heard kept. */
+/** A stepper from -100 to 100 in steps of 25, starting at start, each value it heard kept. */
 function Tested(props: { readonly start: number; readonly heard: number[] }): JSX.Element {
   const [value, setValue] = useState(props.start);
   return (
-    <NumberInput
+    <Stepper
       label="Delay"
+      fieldLabel="Delay, in ms"
       valueText={`Delay: ${String(value)} ms`}
       value={value}
       min={-100}
@@ -45,7 +46,7 @@ function fieldOf(container: HTMLElement): HTMLInputElement {
   return field;
 }
 
-/** The mounted input's words, its output. */
+/** The mounted stepper's caption, its output. */
 function wordsOf(container: HTMLElement): string {
   return container.querySelector("output")?.textContent ?? "";
 }
@@ -56,7 +57,7 @@ async function typeAndEnter(field: HTMLInputElement, text: string): Promise<void
   await fire(field, new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
 }
 
-describe("a number input (the owner, 2026-11-22)", () => {
+describe("a stepper, the number input's next form (the owner, 2026-11-22; D538 §9)", () => {
   it("steps its value by its down and up arrows, held at its bounds", async () => {
     const heard: number[] = [];
     mounted = await mount(<Tested start={50} heard={heard} />);
@@ -88,6 +89,10 @@ describe("a number input (the owner, 2026-11-22)", () => {
     expect(field.value).toBe("100");
     await typeAndEnter(field, "−250");
     expect(heard).toEqual([-60, 40, 100, -100]);
+    // Below zero it shows the minus sign, which it takes back typed as it is.
+    expect(field.value).toBe("−100");
+    await typeAndEnter(field, field.value);
+    expect(heard).toEqual([-60, 40, 100, -100]);
   });
 
   it("refuses what is not a whole number, showing its value again", async () => {
@@ -108,7 +113,7 @@ describe("a number input (the owner, 2026-11-22)", () => {
     mounted = await mount(<Tested start={0} heard={[]} />);
     const field = fieldOf(mounted.container);
     expect(field.type).toBe("text");
-    expect(field.getAttribute("aria-label")).toBe("Delay");
+    expect(field.getAttribute("aria-label")).toBe("Delay, in ms");
     const unit = document.getElementById(field.getAttribute("aria-describedby") ?? "");
     expect(unit?.textContent).toBe("ms");
     expect(field.size).toBe(4);
@@ -120,5 +125,48 @@ describe("a number input (the owner, 2026-11-22)", () => {
       "25 ms more",
     ]);
     expect(arrows.every((each) => !each.disabled && each.textContent === "")).toBe(true);
+  });
+
+  it("is a group named by its label, described by its caption, shown only while the value is not 0", async () => {
+    mounted = await mount(<Tested start={0} heard={[]} />);
+    const { container } = mounted;
+    const group = container.querySelector("fieldset");
+    const named = (attribute: string): HTMLElement | null =>
+      document.getElementById(group?.getAttribute(attribute) ?? "");
+    expect(named("aria-labelledby")?.textContent).toBe("Delay");
+    const caption = named("aria-describedby");
+    if (!caption) {
+      throw new Error("no caption");
+    }
+    expect(caption.tagName).toBe("OUTPUT");
+    expect(caption.textContent).toBe("Delay: 0 ms");
+    expect(caption.classList.contains("stepper__caption--unshown")).toBe(true);
+    await click(buttonNamed(container, "25 ms less"));
+    expect(caption.textContent).toBe("Delay: -25 ms");
+    expect(caption.classList.contains("stepper__caption--unshown")).toBe(false);
+  });
+
+  it("marks − at its least and + at its most unavailable, a press doing nothing, yet focusable (D538 §9)", async () => {
+    const heard: number[] = [];
+    mounted = await mount(<Tested start={-100} heard={heard} />);
+    const { container } = mounted;
+    const less = buttonNamed(container, "25 ms less");
+    const more = buttonNamed(container, "25 ms more");
+    if (!less || !more) {
+      throw new Error("no − or +");
+    }
+    expect(less.getAttribute("aria-disabled")).toBe("true");
+    expect(more.hasAttribute("aria-disabled")).toBe(false);
+    await click(less);
+    expect(heard).toEqual([]);
+    // Never disabled, which would drop a television's focus with nowhere to go.
+    expect(less.hasAttribute("disabled")).toBe(false);
+    less.focus();
+    expect(document.activeElement).toBe(less);
+    await click(more);
+    expect(heard).toEqual([-75]);
+    expect(less.hasAttribute("aria-disabled")).toBe(false);
+    await typeAndEnter(fieldOf(container), "100");
+    expect(more.getAttribute("aria-disabled")).toBe("true");
   });
 });

@@ -30,6 +30,12 @@ export function IconButton(props: {
   readonly isExpanded?: boolean | undefined;
   readonly isDisabled?: boolean | undefined;
   /**
+   * Whether what it does cannot be done now (a stepper's − at its least, stepper.tsx): marked
+   * aria-disabled and drawn faint, a press doing nothing, but kept in the focus order, where a
+   * disabled button would drop a television's focus with nowhere to go (D538 §9).
+   */
+  readonly isUnavailable?: boolean | undefined;
+  /**
    * Whether it is drawn on a card over a film (the up-next offer's), not on the film's control
    * ground: --color-video-card, hover included. Only with isOverVideo.
    */
@@ -59,6 +65,7 @@ export function IconButton(props: {
   if (mark !== undefined) {
     classes.push(markClass[mark]);
   }
+  const isUnavailable = props.isUnavailable === true;
   return (
     <button
       ref={ref}
@@ -67,6 +74,7 @@ export function IconButton(props: {
       aria-label={label}
       aria-expanded={isExpanded}
       disabled={isDisabled}
+      aria-disabled={isUnavailable ? true : undefined}
       tabIndex={isPointerOnly ? -1 : undefined}
       onMouseDown={
         isPointerOnly
@@ -75,7 +83,7 @@ export function IconButton(props: {
             }
           : undefined
       }
-      onClick={onClick}
+      onClick={isUnavailable ? undefined : onClick}
     >
       {icon}
     </button>

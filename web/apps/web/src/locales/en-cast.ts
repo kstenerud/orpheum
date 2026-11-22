@@ -60,6 +60,7 @@ export const enCast = {
       laterBy: "Sound there: {{ms}} ms later",
       earlierBy: "Sound there: {{ms}} ms earlier",
       field: "Sound timing there, in ms: more is later, less is earlier",
+      row: "Sound there",
     },
     readyOn: "Ready on {{name}}. What you play now plays there.",
     stop: "Stop casting",

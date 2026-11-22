@@ -216,8 +216,8 @@ function ReceiverSoundPlaces(props: {
  * The receiver's sound timing, for a TV that plays its sound late (the owner, 2026-11-06: "Put a
  * control in watch together and cast so that I can adjust the sound timing"): as the receiver said
  * it stands, each arrow moving it a step from there or a number typed setting it, which the receiver
- * keeps with its device as its own press. As an entry of ⁝'s list, its words on a line of their own,
- * its field and arrows below, the player's number input (SoundOffsetInput).
+ * keeps with its device as its own press. As an entry of ⁝'s list, the player's stepper
+ * (SoundOffsetInput), "Sound there" leading it and its caption below.
  */
 function RemoteSoundOffset(props: {
   readonly ms: number;
@@ -232,10 +232,10 @@ function RemoteSoundOffset(props: {
   }
   return (
     <SoundOffsetInput
-      label={t("cast.soundOffset.field")}
+      label={t("cast.soundOffset.row")}
+      fieldLabel={t("cast.soundOffset.field")}
       valueText={shown}
       ms={ms}
-      layout={{ kind: "wordsAbove" }}
       onChange={(next) => {
         connection.chooseSound({ kind: "soundOffset", ms: next });
       }}

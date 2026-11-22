@@ -1,0 +1,75 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A stepper (stepper.tsx, D538 §9): its label leading its row; then one joined control,
+   − then the field and its unit then +, framed by the control's edge; its caption under it, at its
+   end, while the value is not 0. */
+
+/* The label on the control's middle line, not its caption's, which has a line of its own. */
+.stepper {
+  display: grid;
+  justify-content: start;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+
+/* Not clipped, so a part's focus ring shows whole; the part focused sits above its neighbours. */
+.stepper__control {
+  display: inline-flex;
+  grid-column: 2;
+  align-items: stretch;
+  min-height: var(--size-control);
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-control-edge);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+
+.stepper__control > :focus-visible {
+  position: relative;
+  z-index: 1;
+}
+
+.stepper__middle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border-inline: 1px solid var(--color-border);
+}
+
+/* The field is the frame's middle, its edge the frame's own; its digits line up at its end. */
+.stepper__field {
+  min-width: var(--size-control);
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.stepper__unit,
+.stepper__caption {
+  color: var(--color-muted);
+}
+
+.stepper__caption {
+  grid-column: 2;
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+/* At 0 there is nothing to spell out: the caption is said, as a screen reader hears each value, but
+   not shown. Out of the layout, a pixel clipped to nothing. */
+.stepper__caption--unshown {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

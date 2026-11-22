@@ -1110,18 +1110,22 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `ModalDialog` takes none either: its looks are `isWide` and `mark` (`"warning"`), a look one dialog
   needs inside it on its own element (the folder browser's paths); "a modal dialog's looks, named
   options rather than a class" in `src/modal-dialog.browser.test.tsx`.
-- **A number is set in a number input** (the owner, 2026-11-22: "a field to enter a number, with an
-  up and down arrow to step up/down"): `NumberInput` (`src/number-input.tsx`), a text field and a
-  down and an up `IconButton` beside it, given a min, a max, a step and a unit. A remote moves
-  through its field as through every one-line field, Up and Down leaving the row and never stepping
-  it, Left and Right moving the caret and, past its ends, along to the arrows, which OK presses; in
-  a pop-up, a menu's row of it (its `labelled` layout, a text label with the input right beside it,
-  ⁝'s "Sound on this device") moves along by Left and Right before they close it (`rowAttribute`,
-  `popover.tsx`). What is typed applies on Enter or on leaving the field, held at its bounds; what
-  is no whole number is refused; its words are an `output`, said at each change.
-  `src/number-input.test.tsx`, `src/number-input.browser.test.tsx`,
-  "reaches ⁝'s sound timing by a remote" in `src/player-menus.browser.test.tsx`, and the gallery's
-  "shows a number input among the buttons" in `src/ui-gallery.test.tsx`.
+- **A number is set in a stepper** (the owner, 2026-11-22: "a field to enter a number, with an up
+  and down arrow to step up/down"; D538 §9, its next form): `Stepper` (`src/stepper.tsx`), its
+  label leading one joined control, − then a text field and its unit then +, each sign an
+  `IconButton`, given a min, a max, a step and a unit; a group (a `fieldset`) named by its label.
+  A remote moves through its field as through every one-line field, Up and Down leaving the row
+  and never stepping it, Left and Right moving the caret and, past its ends, to − and +, which OK
+  presses; in a pop-up the control moves along by Left and Right before they close it
+  (`rowAttribute`, `popover.tsx`), ⁝'s "Sound on this device" among them. At a bound the sign that
+  can go no further is `aria-disabled`, a press doing nothing, and stays in the focus order
+  (`IconButton`'s `isUnavailable`), so a television never loses its focus. What is typed applies
+  on Enter or on leaving the field, held at its bounds; what is no whole number is refused; below
+  zero it shows the minus sign. Its caption is an `output` describing the group, said at each
+  change and shown under the control while the value is not 0. `src/stepper.test.tsx`,
+  `src/stepper.browser.test.tsx`, "reaches ⁝'s sound timing by a remote" in
+  `src/player-menus.browser.test.tsx`, and the gallery's "shows a stepper among the buttons" in
+  `src/ui-gallery.test.tsx`.
 - **The player is drawn from one set of widgets** (D369 §1): a button that is an icon alone is an
   `IconButton` (`src/icon-button.tsx`), one size, 2.75rem, the status tray's too; a film's timeline
   is a `Timeline` (`src/timeline.tsx`), in milliseconds, touched anywhere; and the controls over a
@@ -1164,7 +1168,7 @@ for anything a person sees, [standards/ui.md](../../../docs/contributors/standar
   `player-overlay.tsx` over the film in full screen and `page-controls.tsx` under it otherwise, with
   `player-menus.tsx` (the overlay's 🔈 and its subtitle, audio and more menus),
   `convenience-area.tsx` (the offers and when the film ends), `play-up.tsx` (Up and the trail),
-  `timeline.tsx`, `icon-button.tsx` and `player-icons.tsx`; every other icon is in `icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `library-configure.tsx` (a library's Configure: the person's own Show in Films or Series, D349 §8, and Show on Home, D366 §5), `upward.ts` (where each page sits, D367), `up-trail.tsx` (the trail and Up), `episode-reached.ts` (the episode a series' page returns to), `route-chooser.tsx` (a drop-down of routes, or of choices a page keeps), `drop-down-place.ts` (where a drop-down's list opens), `phone-width.ts` (a phone's width, the stylesheets' breakpoint), `drop-down.tsx` (the one drop-down: a chooser's and the menu's, a pop-up holding a list), `popover.tsx` (a pop-up at its button, as wide as what it holds, with no Close, D408 §2), `number-input.tsx` (the one number input: a field and its down and up arrows), `list-box.tsx` (a pop-up's list and its options, a place of context either side of the one focused, D408 §3), `copy-button.tsx` (the one Copy: its button, and its note saying the text was copied or the copy refused), `layout.tsx` (the layout primitives, `Stack` and `Cluster`, their gaps from the space scale), `page.tsx`, `section.tsx` and `action-row.tsx` (the layout parts: a page, its sections, the buttons that end them, D538 §1), `pill.tsx` and `offer-card.tsx` (a note and an offer over a film), `grid-list.tsx` (a list whose rows share lined-up columns, each one pressable), `modal-layer.tsx` (what a dialog and a pop-up share: the browser's modal, its closes, focus given back), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up
+  `timeline.tsx`, `icon-button.tsx` and `player-icons.tsx`; every other icon is in `icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `library-configure.tsx` (a library's Configure: the person's own Show in Films or Series, D349 §8, and Show on Home, D366 §5), `upward.ts` (where each page sits, D367), `up-trail.tsx` (the trail and Up), `episode-reached.ts` (the episode a series' page returns to), `route-chooser.tsx` (a drop-down of routes, or of choices a page keeps), `drop-down-place.ts` (where a drop-down's list opens), `phone-width.ts` (a phone's width, the stylesheets' breakpoint), `drop-down.tsx` (the one drop-down: a chooser's and the menu's, a pop-up holding a list), `popover.tsx` (a pop-up at its button, as wide as what it holds, with no Close, D408 §2), `stepper.tsx` (the one way to set a number: a field between − and +, D538 §9), `list-box.tsx` (a pop-up's list and its options, a place of context either side of the one focused, D408 §3), `copy-button.tsx` (the one Copy: its button, and its note saying the text was copied or the copy refused), `layout.tsx` (the layout primitives, `Stack` and `Cluster`, their gaps from the space scale), `page.tsx`, `section.tsx` and `action-row.tsx` (the layout parts: a page, its sections, the buttons that end them, D538 §1), `pill.tsx` and `offer-card.tsx` (a note and an offer over a film), `grid-list.tsx` (a list whose rows share lined-up columns, each one pressable), `modal-layer.tsx` (what a dialog and a pop-up share: the browser's modal, its closes, focus given back), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up
   and letting go of the last film's playbacks, D258), `sound.tsx` (the switches of the person's own choices: the boost, levelling),
   `audio-tracks.tsx` (the audio track menu, D230), `ladder-sound.ts` (each sound by its place and level, and a track or the boost switched in place), `watch-together.tsx` (the host's Watch Together
   controls, in the tray's dialog: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by

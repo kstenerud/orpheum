@@ -190,7 +190,7 @@ function isDrawn(element: HTMLElement): boolean {
 export const rovingAttribute = "data-focus-roving";
 
 /**
- * The attribute on a row of controls in a pop-up's column, a menu's number input's (number-input.tsx):
+ * The attribute on a row of controls in a pop-up's column, a menu's stepper's (stepper.tsx):
  * Left and Right move along it, as they do in any row, and close the pop-up only past its ends
  * (popover.tsx's isAlongARow), so a remote reaches each of its controls (the owner, 2026-11-22).
  */

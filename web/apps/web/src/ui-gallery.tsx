@@ -33,7 +33,7 @@ import {
   SeriesIcon,
   SortArrowIcon,
   SortIcon,
-  StepArrowIcon,
+  StepIcon,
   StillReadingIcon,
   TogetherIcon,
   UncertainMatchIcon,
@@ -44,7 +44,6 @@ import {
 import { FilmWaitsLook, linkWaitBarAfterMs, linkWaitShare } from "./film-waits.tsx";
 import { Cluster, Stack } from "./layout.tsx";
 import { ListBox, ListNote, ListOption } from "./list-box.tsx";
-import { NumberInput } from "./number-input.tsx";
 import { PlayUpwardContext } from "./play-up.tsx";
 import { PlayerControls, type PlayerSource } from "./player-controls.tsx";
 import { OverlayRows } from "./player-overlay.tsx";
@@ -69,6 +68,7 @@ import {
 } from "./player-icons.tsx";
 import { RouteChooser } from "./route-chooser.tsx";
 import { StatusNotes, StatusTray, type CueSubject } from "./status-cues.tsx";
+import { Stepper } from "./stepper.tsx";
 import { Timeline } from "./timeline.tsx";
 import { GalleryLayoutParts } from "./ui-gallery-layout.tsx";
 import { SessionVoiceContext, type VoiceInUse } from "./together-voice.tsx";
@@ -295,7 +295,7 @@ function Icons(): JSX.Element {
 }
 
 /**
- * The icons of the banner's places, a listing's tools, a row's arrows, a number input's arrows,
+ * The icons of the banner's places, a listing's tools, a row's arrows, a stepper's signs,
  * Cast's menu and a poster.
  */
 function PlacesAndToolsIcons(): JSX.Element {
@@ -316,10 +316,10 @@ function PlacesAndToolsIcons(): JSX.Element {
         <RowArrowIcon direction="on" />
       </span>
       <span className="icon-button">
-        <StepArrowIcon direction="down" />
+        <StepIcon direction="less" />
       </span>
       <span className="icon-button">
-        <StepArrowIcon direction="up" />
+        <StepIcon direction="more" />
       </span>
       <GoogleCastIcon />
       <FindDevicesIcon />
@@ -331,7 +331,7 @@ function PlacesAndToolsIcons(): JSX.Element {
   );
 }
 
-/** The buttons: plain, disabled, one that asks first, and a chooser; and a number input. */
+/** The buttons: plain, disabled, one that asks first, and a chooser; and a stepper. */
 function Buttons(): JSX.Element {
   const { t } = useTranslation();
   return (
@@ -362,33 +362,34 @@ function Buttons(): JSX.Element {
         ]}
         isAView
       />
-      <GalleryNumberInput />
+      <GalleryStepper />
     </section>
   );
 }
 
-/** How far the gallery's number input goes either way, and each of its arrows' steps, in ms. */
-const galleryNumberMs = { bound: 500, step: 50 } as const;
+/** How far the gallery's stepper goes either way, and each of its steps, in ms. */
+const galleryStepperMs = { bound: 500, step: 50 } as const;
 
 /**
- * A number input (number-input.tsx), working: typed, or stepped by its arrows, from -500 to 500 ms,
- * its words saying where it stands, as the player's sound timing is.
+ * A stepper (stepper.tsx), working: typed, or stepped by − and +, from -500 to 500 ms, its caption
+ * saying where it stands, as the player's sound timing is.
  */
-function GalleryNumberInput(): JSX.Element {
+function GalleryStepper(): JSX.Element {
   const { t } = useTranslation();
   const [ms, setMs] = useState(0);
-  const { bound, step } = galleryNumberMs;
+  const { bound, step } = galleryStepperMs;
   return (
-    <NumberInput
-      label={t("gallery.numberInput")}
-      valueText={t("gallery.numberInputWords", { ms })}
+    <Stepper
+      label={t("gallery.stepper")}
+      fieldLabel={t("gallery.stepperField")}
+      valueText={t("gallery.stepperWords", { ms })}
       value={ms}
       min={-bound}
       max={bound}
       step={step}
-      unit={t("gallery.numberInputUnit")}
-      stepDownLabel={t("gallery.numberInputDown", { ms: step })}
-      stepUpLabel={t("gallery.numberInputUp", { ms: step })}
+      unit={t("gallery.stepperUnit")}
+      stepDownLabel={t("gallery.stepperDown", { ms: step })}
+      stepUpLabel={t("gallery.stepperUp", { ms: step })}
       onChange={setMs}
     />
   );
