@@ -31019,3 +31019,34 @@ to §41).
 12. **The warning sign leads to the Needs attention page** (D280 §4 kept), which lists every
     problem the server knows of, not only the libraries'; the API adds what the pages need to read
     and changes no call already there.
+
+## D539 — One file browser chooses a folder and browses every library by its folders
+
+**Decided** (2026-11-22), by the project owner, approving a design agent's file-browser plan (its six
+choices, all as recommended) and asking the lead to fit it into the UI revamp's batches. Amends
+D349 §5 (only an other library has a Folders view) and D538 §5 (Back closes a dialog). The design is
+the second handoff's `file-browser-spec.md`; the standard gains the part in its catalogue.
+
+**Status:** decided; batch 3 of the UI revamp makes it, with the pages.
+
+1. **One part, FileBrowser, has two uses:** Choose picks a folder on a machine (Create a library, Add
+   a folder, A folder moved), and Browse lists a library's folders and videos. They share the path
+   bar, the rows, the states and the input. The folder chooser it replaces goes.
+2. **Rows, not tiles:** one column, folders first and then videos, names in natural order without
+   regard to case, sorted by the client.
+3. **Every library has a View, All or Folders** (amends D349 §5), offered when one library is
+   chosen. Folders lists only folders holding a video below them, and only video files; a video plays
+   on OK, resuming, and its More menu offers play from the start, its title page and Files.
+4. **Choose starts at the places,** every connected machine's configured roots grouped by machine,
+   which replaces the separate Machine chooser; one machine with one root opens inside it, and a
+   folder being changed opens at itself or its nearest parent still there. "Go to…" takes a typed
+   path inside the machine's places, off a TV; it is the dialog's one text field (D538 §3).
+5. **Inside a FileBrowser, Back and Escape go up one folder,** and close a Choose dialog or leave the
+   page only at the top (amends D538 §5's going back). A press outside still closes it.
+6. **On a wide screen, Browse has a side panel** with the focused video's still, title, length and
+   watched state, changed after the focus rests 150 ms.
+7. **The API adds what this reads and changes no call already there** (as D538 §12): a machine's
+   folder listing adds each folder's video count, counted within a time budget and left out where
+   the budget runs out, so a slow disk never holds the listing; a library's folder listing answers
+   every kind of library, and each video carries its file id, name, matched item, length and resume
+   point.

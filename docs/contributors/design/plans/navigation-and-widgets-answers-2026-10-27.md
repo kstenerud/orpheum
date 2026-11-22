@@ -4898,5 +4898,10 @@ owner's answers to that review, each recorded in D538:
   check-pr and one owner walk at the end.
   1. The standard, the principles, the tokens, the input-mode module and the parts.
   2. The player's menus, every dialog and confirm, every form.
-  3. The API additions and the pages (pages-spec 1–3).
+  3. The API additions and the pages (pages-spec 1–3), and the file browser (D539).
   4. The player's overlay and banners (player-spec).
+- **The file browser** (the owner, 2026-11-22, with a second handoff holding the first and
+  `file-browser-spec.md`: "Fit it in whatever batch makes the most sense"): D539. It goes in batch 3,
+  since it is built of batch 1 and 2's parts (Dialog, PickerScreen, Menu, StatusNote, Field), needs
+  API additions as the pages do, and replaces Create a library's Machine chooser, which the pages
+  rebuild there.
