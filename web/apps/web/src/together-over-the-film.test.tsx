@@ -187,7 +187,7 @@ it("opens the tray's Watch Together dialog over the film, the host's controls wi
   const dialog = await openOverTheFilm();
   await settleUntil(() => buttonWithText(dialog, "End the session") !== undefined);
   expect(dialog.getAttribute("aria-label")).toBe("Watch Together");
-  expect(dialog.querySelector("h2#watch-together-heading")?.textContent).toBe("Watch Together");
+  expect(dialog.querySelector("header h2")?.textContent).toBe("Watch Together");
   const controls = dialog.querySelector(".watch-together__controls");
   const panel = dialog.querySelector(".counting");
   if (controls === null || panel === null) {

@@ -118,9 +118,9 @@ export function SkippedPopUp(props: {
       label={summary}
       role="alertdialog"
       onClose={close}
+      heading={summary}
       footer={<DialogClose onClose={close} />}
     >
-      <h2>{summary}</h2>
       <p>{told}</p>
     </ModalDialog>
   );

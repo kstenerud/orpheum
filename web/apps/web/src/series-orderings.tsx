@@ -32,8 +32,12 @@ export function OrderingDialog(props: {
   const { t } = useTranslation();
   const heading = t("ordering.label");
   return (
-    <ModalDialog label={heading} onClose={props.onClose}>
-      <h2>{heading}</h2>
+    <ModalDialog
+      label={heading}
+      heading={heading}
+      onClose={props.onClose}
+      footer={<CancelChoice onClose={props.onClose} />}
+    >
       <OrderingChoice
         series={props.series}
         onChosen={() => {
@@ -57,8 +61,12 @@ export function FilesOrderingDialog(props: {
   const { t } = useTranslation();
   const heading = t("ordering.filesLabel");
   return (
-    <ModalDialog label={heading} onClose={props.onClose}>
-      <h2>{heading}</h2>
+    <ModalDialog
+      label={heading}
+      heading={heading}
+      onClose={props.onClose}
+      footer={<CancelChoice onClose={props.onClose} />}
+    >
       <FilesOrderingChoice
         series={props.series}
         onChosen={() => {
@@ -67,6 +75,16 @@ export function FilesOrderingDialog(props: {
         }}
       />
     </ModalDialog>
+  );
+}
+
+/** The foot of a dialog whose choice acts as it is made: Cancel, to leave it as it is. */
+function CancelChoice(props: { readonly onClose: () => void }): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <button type="button" onClick={props.onClose}>
+      {t("dialog.cancel")}
+    </button>
   );
 }
 

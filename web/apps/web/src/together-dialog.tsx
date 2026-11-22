@@ -50,11 +50,11 @@ export function TogetherDialog(props: {
   return (
     <ModalDialog
       label={t("watchTogether.heading")}
+      heading={t("watchTogether.heading")}
       onClose={props.onClose}
       footer={<DialogClose onClose={props.onClose} />}
     >
-      <section className="watch-together" aria-labelledby="watch-together-heading">
-        <h2 id="watch-together-heading">{t("watchTogether.heading")}</h2>
+      <section className="watch-together">
         {isGuest && !hasPanel ? (
           <GuestsSession membership={viewing} onEnded={props.onClose} />
         ) : null}

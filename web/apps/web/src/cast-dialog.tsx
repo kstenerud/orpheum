@@ -40,6 +40,7 @@ export function CastDialog(props: { readonly onClose: () => void }): JSX.Element
   return (
     <ModalDialog
       label={t("cast.page")}
+      heading={t("cast.page")}
       onClose={props.onClose}
       footer={<DialogClose onClose={props.onClose} />}
     >

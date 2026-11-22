@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 
 import { CandidateChooser, identifyProblemText } from "./candidate-chooser.tsx";
 import { FilingReportButton } from "./filing-report.tsx";
+import { arrivalMark } from "./focus-navigation.ts";
 import { idempotent } from "./idempotent.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
 import type { MoreAction } from "./more-actions.tsx";
@@ -62,31 +63,43 @@ function IdentifiedCorrectlyDialog(props: {
   const { api } = useServices();
   const confirming = useRequest((cause) => identifyProblemText(t, cause));
   const heading = t("title.identifiedCorrectly");
+  const confirmMatch = (
+    <button
+      type="button"
+      {...arrivalMark}
+      disabled={confirming.isBusy}
+      onClick={() => {
+        confirming.runRequest(async (idempotencyKey) => {
+          throwIfRefused(
+            await api.POST("/items/{id}/confirm-match", {
+              params: { path: { id: props.itemId } },
+              ...idempotent(idempotencyKey),
+            }),
+          );
+          props.onClose();
+          props.onConfirmed();
+        });
+      }}
+    >
+      {t("title.confirmMatch")}
+    </button>
+  );
   return (
-    <ModalDialog label={heading} onClose={props.onClose}>
-      <h2>{heading}</h2>
+    <ModalDialog
+      label={heading}
+      heading={heading}
+      onClose={props.onClose}
+      footer={
+        <>
+          <button type="button" onClick={props.onClose}>
+            {t("dialog.cancel")}
+          </button>
+          {confirmMatch}
+        </>
+      }
+    >
       <p>{t("title.identifiedCorrectlyExplain")}</p>
-      <div className="more-actions__offers">
-        <button
-          type="button"
-          disabled={confirming.isBusy}
-          onClick={() => {
-            confirming.runRequest(async (idempotencyKey) => {
-              throwIfRefused(
-                await api.POST("/items/{id}/confirm-match", {
-                  params: { path: { id: props.itemId } },
-                  ...idempotent(idempotencyKey),
-                }),
-              );
-              props.onClose();
-              props.onConfirmed();
-            });
-          }}
-        >
-          {t("title.confirmMatch")}
-        </button>
-        {confirming.problem === undefined ? null : <output>{confirming.problem}</output>}
-      </div>
+      {confirming.problem === undefined ? null : <output>{confirming.problem}</output>}
     </ModalDialog>
   );
 }
@@ -106,8 +119,9 @@ function IdentifiedIncorrectlyDialog(props: {
   const [isChoosing, setIsChoosing] = useState(false);
   const heading = t("title.identifiedIncorrectly");
   return (
-    <ModalDialog label={heading} onClose={props.onClose}>
-      <h2>{heading}</h2>
+    // Its search and its choice of a match become a page, "Fix the match", in the pages batch
+    // (dialogs-spec, ui.md rule 6); until then it keeps today's behaviour.
+    <ModalDialog label={heading} heading={heading} onClose={props.onClose}>
       <div className="more-actions__offers">
         {props.isWork ? (
           <button

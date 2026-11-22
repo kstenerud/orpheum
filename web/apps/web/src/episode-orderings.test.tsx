@@ -129,6 +129,10 @@ describe("a series in the ordering its person chose (episode-orderings.md §4)",
     await click(buttonNamed(atSeason.container, "More actions"));
     await click(buttonWithText(atSeason.container, "Order"));
     expect(atSeason.container.querySelectorAll("dialog")).toHaveLength(1);
+    // Its heading in its head, and Cancel, to leave the order as it is, at its foot (dialogs-spec).
+    const ordering = atSeason.container.querySelector("dialog");
+    expect(ordering?.querySelector("header h2")?.textContent).toBe("Order");
+    expect(ordering?.querySelector("footer")?.textContent).toBe("Cancel");
     expect(
       atSeason.container.querySelector("dialog .series__ordering .route-chooser"),
     ).not.toBeNull();

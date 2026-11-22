@@ -55,6 +55,12 @@ it("offers an admin Identified correctly on a series whose match is a guess, whi
   await click(buttonNamed(page, "More actions"));
   expect(page.textContent).toContain("Identified incorrectly");
   await click(buttonWithText(page, "Identified correctly"));
+  // A plain confirm (dialogs-spec): its heading in its head, Cancel then Confirm at its foot.
+  const dialog = page.querySelector("dialog");
+  expect(dialog?.querySelector("header h2")?.textContent).toBe("Identified correctly");
+  expect(
+    [...(dialog?.querySelectorAll("footer button") ?? [])].map((button) => button.textContent),
+  ).toEqual(["Cancel", "Confirm"]);
   await click(buttonWithText(page, "Confirm"));
   await settleUntil(() => confirmed === 1);
   expect(heard.map((request) => request.methodAndPath)).toContain("POST /items/20/confirm-match");

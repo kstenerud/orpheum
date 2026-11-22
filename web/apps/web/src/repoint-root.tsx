@@ -74,8 +74,9 @@ export function RepointDialog(props: {
   const { t } = useTranslation();
   const heading = t("libraries.repointHeading");
   return (
-    <ModalDialog label={heading} onClose={props.onClose}>
-      <h2>{heading}</h2>
+    // Its check, preview and apply become a page, "A library folder moved", in the pages batch
+    // (dialogs-spec, ui.md rule 6); until then it keeps today's behaviour.
+    <ModalDialog label={heading} heading={heading} onClose={props.onClose}>
       <RepointForm
         from={props.from}
         places={props.places}

@@ -198,6 +198,8 @@ export function CreateAccountDialog(props: {
     setAccount({ ...account, ...change });
   };
   return (
+    // Its several fields make it a page, "Add an account", in the pages batch (dialogs-spec, ui.md
+    // rule 6); until then it keeps today's behaviour.
     <ModalDialog label={t("people.setUp")} onClose={props.onClose}>
       <BusyGroup isBusy={isBusy}>
         <FormRow
