@@ -3,14 +3,19 @@
 
 import "./i18n.ts";
 
-import { playerFoundUnplayableEvent, ReportRefused, steadinessNoter } from "@orpheum/player";
+import {
+  playerFoundUnplayableEvent,
+  playerOwnSoundGivenUpEvent,
+  ReportRefused,
+  steadinessNoter,
+} from "@orpheum/player";
 import { startGateOf } from "@orpheum/sdk";
 import { act, createElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Play, PlayView } from "./play.tsx";
 import { directDecision } from "./test-fixtures.ts";
-import { sendReport, tellUnplayable, whenOwnPictureGivenUp } from "./play-state.ts";
+import { sendReport, tellUnplayable, whenCopyGivenUp } from "./play-state.ts";
 import { decisionTimesKept, decisionTimesOf, noteDecisionTimes } from "./decision-times.ts";
 import { ApiProblem } from "./problem.ts";
 import { testServices } from "./test-services.tsx";
@@ -490,7 +495,7 @@ describe("a quality the player cannot play here (D266)", () => {
   it("tells the page where the video stood when the film's own picture is given up, and only then (D323 §2)", () => {
     const video = document.createElement("video");
     const told: unknown[] = [];
-    const stop = whenOwnPictureGivenUp(video, (at) => told.push(at));
+    const stop = whenCopyGivenUp(video, (at) => told.push(at));
     const at = (detail: object): void => {
       video.dispatchEvent(new CustomEvent(playerFoundUnplayableEvent, { detail }));
     };
@@ -501,10 +506,34 @@ describe("a quality the player cannot play here (D266)", () => {
     expect(told).toEqual([{ positionMs: 420_500, isPaused: false }]);
   });
 
+  it("asks the page to start again where the video stood, saying the own sound was given up, when its player is refused it (D533 §2)", () => {
+    const video = document.createElement("video");
+    Object.defineProperty(video, "readyState", { value: 4 });
+    const told: unknown[] = [];
+    const stop = whenCopyGivenUp(video, (at, cause) => told.push([at, cause]));
+    video.dispatchEvent(
+      new CustomEvent(playerFoundUnplayableEvent, {
+        detail: { qualityKbps: 3096, positionMs: 20_000, isFilmsOwnPicture: true },
+      }),
+    );
+    video.dispatchEvent(new Event("pause"));
+    video.dispatchEvent(
+      new CustomEvent(playerOwnSoundGivenUpEvent, { detail: { positionMs: 35_200 } }),
+    );
+    stop();
+    video.dispatchEvent(
+      new CustomEvent(playerOwnSoundGivenUpEvent, { detail: { positionMs: 40_000 } }),
+    );
+    expect(told).toEqual([
+      [{ positionMs: 20_000, isPaused: false }, "ownPictureGivenUp"],
+      [{ positionMs: 35_200, isPaused: true }, "ownSoundGivenUp"],
+    ]);
+  });
+
   it("opens the twin playing when the own picture is given up before its first frame, which reads as paused (the owner's test, 2026-11-03)", () => {
     const video = document.createElement("video");
     const told: unknown[] = [];
-    const stop = whenOwnPictureGivenUp(video, (at) => told.push(at));
+    const stop = whenCopyGivenUp(video, (at) => told.push(at));
     video.dispatchEvent(
       new CustomEvent(playerFoundUnplayableEvent, {
         detail: {
@@ -524,7 +553,7 @@ describe("a quality the player cannot play here (D266)", () => {
     const video = document.createElement("video");
     Object.defineProperty(video, "readyState", { value: 4 });
     const told: unknown[] = [];
-    const stop = whenOwnPictureGivenUp(video, (at) => told.push(at));
+    const stop = whenCopyGivenUp(video, (at) => told.push(at));
     video.dispatchEvent(new Event("pause"));
     video.dispatchEvent(
       new CustomEvent(playerFoundUnplayableEvent, {

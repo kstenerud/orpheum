@@ -8655,6 +8655,7 @@
               "dataCapStarted",
               "playbackGone",
               "ownPictureGivenUp",
+              "ownSoundGivenUp",
               "mediaBack",
               "castOver"
             ],

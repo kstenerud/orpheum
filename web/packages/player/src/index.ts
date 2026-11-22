@@ -51,9 +51,12 @@ export { playChunked, playerFoundUnplayableEvent, unplayableOf } from "./chunked
 export { offeredRungsOf, playerOfferedRungsEvent, tellOfferedRungs } from "./offered-rungs.ts";
 export { LinkOutages, pageLinkOutages, type Outage } from "./link-outage.ts";
 export {
+  ownSoundGivenUpOf,
+  playerOwnSoundGivenUpEvent,
   playerSkippedEvent,
   skippedStretchOf,
   skipsAtMostMs,
+  type OwnSoundGivenUp,
   type SkippedStretch,
 } from "./skip-unmade.ts";
 export type { ChunkedPlayback, PlayedLevel, UnplayableQuality } from "./chunked.ts";

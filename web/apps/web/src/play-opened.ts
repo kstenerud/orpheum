@@ -3,13 +3,18 @@
 /**
  * How the Play page opens its playback: the decision asked for, asked for again when the page says
  * why, and opened again where a playback the server lost, or whose player gave the film's own
- * picture up, stood (play.tsx's PlayHere).
+ * picture or sound up, stood (play.tsx's PlayHere).
  */
 
 import { use, useCallback, useRef, useState, type RefObject } from "react";
 
 import { OpenedAsContext } from "./around-file.ts";
-import { openPlayback, type Opened, type Reopening } from "./play-start-timing.ts";
+import {
+  openPlayback,
+  type CopyGivenUpCause,
+  type Opened,
+  type Reopening,
+} from "./play-start-timing.ts";
 import { reopenAtMostEveryMs, type ReopenAt } from "./reopen.ts";
 import { useServices } from "./services.tsx";
 import { useResource, type Resource } from "./use-resource.ts";
@@ -51,8 +56,9 @@ export function shownOf(opened: Resource<Opened>, held: Opened | undefined): Ope
 
 /**
  * How the Play page opens its playback again: a lost one at most every reopenAtMostEveryMs, saying
- * whether it does, and one whose player gave the film's own picture up from where the video stood,
- * asked for again at the twin (D323 §2). What played before is held on screen meanwhile.
+ * whether it does, and one whose player gave the film's own picture or sound up from where the video
+ * stood, asked for again at what the server makes in its place (D323 §2, D533 §2). What played
+ * before is held on screen meanwhile.
  */
 function useReopening(parts: {
   readonly reopenRef: RefObject<Reopening | undefined>;
@@ -60,7 +66,7 @@ function useReopening(parts: {
   readonly hold: () => void;
 }): {
   readonly reopenPlayback: (whereNow: () => ReopenAt) => boolean;
-  readonly startAtTheTwin: (at: ReopenAt) => void;
+  readonly startAtTheMade: (at: ReopenAt, cause: CopyGivenUpCause) => void;
   readonly reopenWhenBack: (at: ReopenAt) => void;
 } {
   const { reopenRef, reload, hold } = parts;
@@ -87,9 +93,9 @@ function useReopening(parts: {
     },
     [reopen],
   );
-  const startAtTheTwin = useCallback(
-    (at: ReopenAt): void => {
-      reopen({ whereNow: () => at, cause: "ownPictureGivenUp" });
+  const startAtTheMade = useCallback(
+    (at: ReopenAt, cause: CopyGivenUpCause): void => {
+      reopen({ whereNow: () => at, cause });
     },
     [reopen],
   );
@@ -99,7 +105,7 @@ function useReopening(parts: {
     },
     [reopen],
   );
-  return { reopenPlayback, startAtTheTwin, reopenWhenBack };
+  return { reopenPlayback, startAtTheMade, reopenWhenBack };
 }
 
 /**
@@ -116,7 +122,7 @@ export function useOpenedPlayback(
   readonly held: Opened | undefined;
   readonly decideAgain: DecideAgain;
   readonly reopenPlayback: (whereNow: () => ReopenAt) => boolean;
-  readonly startAtTheTwin: (at: ReopenAt) => void;
+  readonly startAtTheMade: (at: ReopenAt, cause: CopyGivenUpCause) => void;
   readonly reopenWhenBack: (at: ReopenAt) => void;
 } {
   const { api, playableFormats } = useServices();
@@ -128,7 +134,8 @@ export function useOpenedPlayback(
     first === undefined ? undefined : { positionMs: first.atMs, isPaused: first.isPaused === true },
   );
   // Where a playback opened again is, read as its new one comes, for that to start from, and why it
-  // is: the server lost it, or its player gave the film's own picture up; and when the last lost one
+  // is: the server lost it, or its player gave the film's own picture or sound up; and when the last
+  // lost one
   // was opened again, on the page's clock.
   const reopenRef = useRef<Reopening | undefined>(undefined);
   const [held, setHeld] = useState<Opened | undefined>(undefined);
@@ -164,12 +171,12 @@ export function useOpenedPlayback(
     },
     [reload],
   );
-  const { reopenPlayback, startAtTheTwin, reopenWhenBack } = useReopening({
+  const { reopenPlayback, startAtTheMade, reopenWhenBack } = useReopening({
     reopenRef,
     reload,
     hold: () => {
       setHeld(opened.state === "loaded" ? opened.value : undefined);
     },
   });
-  return { opened, held, decideAgain, reopenPlayback, startAtTheTwin, reopenWhenBack };
+  return { opened, held, decideAgain, reopenPlayback, startAtTheMade, reopenWhenBack };
 }

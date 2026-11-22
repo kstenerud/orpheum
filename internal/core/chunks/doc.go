@@ -281,8 +281,11 @@
 //     TestStartOnLadder_AStartWhoseEveryChunkAheadIsGivenUpCannotBeMade and
 //     TestPlayback_AStartWithEveryChunkGivenUpCannotBeConverted (internal/core/api). A
 //     track whose copy is so given up on is offered no more copied meanwhile: a playback started anew
-//     plays the top with the sound the server makes. Enforced by
-//     TestStartOnLadder_ATrackWhoseCopyCannotBeMadePlaysTheSoundTheServerMakes. A picture whose copy
+//     plays the top with the sound the server makes; one offered the copy before keeps it, its player
+//     refused the chunk given up, ErrCannotBeMade, not ErrNoStream, so it starts the playback again
+//     where it was (D533 §2). Enforced by
+//     TestStartOnLadder_ATrackWhoseCopyCannotBeMadePlaysTheSoundTheServerMakes and
+//     TestStoreFileOf_ASoundWhoseCopyIsGivenUpIsRefusedAsOneThatCannotBeMade. A picture whose copy
 //     is so given up, as one its node refuses at its bounds, is encoded instead where its node encodes
 //     as fast as it plays: a playback started anew is offered its twin at the top; one offered the
 //     copy before keeps it, its player refused the chunk given up, so it gives the copy up for the

@@ -10,13 +10,39 @@
 import Hls, { type ErrorData, type Fragment } from "hls.js";
 
 import { ownPictureLevel } from "./abr-choice.ts";
-import { isNotMade, loadAgainFrom, recoverFrom } from "./abr-controller.ts";
+import { isNotMade, isOwnSoundNotMade, loadAgainFrom, recoverFrom } from "./abr-controller.ts";
 import type { GivingUpQuality } from "./decode-recovery.ts";
 import { seekTo } from "./report.ts";
 import { resumePositionOf, type ResumingHls } from "./resume-position.ts";
 
 /** The event a video is sent each time its player steps over chunks the core cannot make. */
 export const playerSkippedEvent = "orpheumplayerskipped";
+
+/**
+ * The event a video is sent, once, when its player is refused a chunk of a track's own sound,
+ * copied, as one the core cannot make: the copy was given up, and the page starts the playback again
+ * where the video stands, its new playback offered the sound the server makes (D533 §2). Its detail
+ * is an OwnSoundGivenUp.
+ */
+export const playerOwnSoundGivenUpEvent = "orpheumplayerownsoundgivenup";
+
+/** Where the video stood when its player was refused its own sound, in ms of the film. */
+export interface OwnSoundGivenUp {
+  readonly positionMs: number;
+}
+
+/** The OwnSoundGivenUp an event carries, or undefined where it carries none. */
+export function ownSoundGivenUpOf(event: Event): OwnSoundGivenUp | undefined {
+  if (!(event instanceof CustomEvent)) {
+    return undefined;
+  }
+  const detail: unknown = event.detail;
+  if (typeof detail !== "object" || detail === null) {
+    return undefined;
+  }
+  const { positionMs } = Object.fromEntries(Object.entries(detail));
+  return typeof positionMs === "number" ? { positionMs } : undefined;
+}
 
 /**
  * A stretch of the film stepped over, from where it starts to where the film plays on, in ms of the
@@ -84,7 +110,11 @@ export function skippedStretchOf(event: Event): SkippedStretch | undefined {
  * own picture, copied, is not stepped over where its quality can be given up (quality): the core
  * refuses the copy's chunks at bounds its node cannot cut, and offers the twin instead, so the copy
  * is given up for it (D266), the page reopening at the twin (D323 §2), rather than stepped over chunk
- * by chunk (file 17099 on staging, 2026-11-16; D500 §2). Returns the stopping.
+ * by chunk (file 17099 on staging, 2026-11-16; D500 §2). A chunk of a track's own sound, copied,
+ * that the core answers so is not stepped over either: the core gave the copy up, so the player stops
+ * loading and asks the page to start the playback again where the video stands
+ * (restartAtTheMadeSound), its film's sound having started 32 s late and failed at a 404 before
+ * (film 20597 on staging, 2026-11-22; D533 §2). Returns the stopping.
  */
 export function skipChunksNotMade(
   hls: SkippingHls,
@@ -97,7 +127,12 @@ export function skipChunksNotMade(
 ): () => void {
   const { note, quality } = by;
   const skipping = new Skipping(hls, video, note);
+  const restart = restartAtTheMadeSound(hls, video, note);
   const onError = (_event: unknown, data: ErrorData): void => {
+    if (isOwnSoundNotMade(data)) {
+      restart(data);
+      return;
+    }
     const { frag } = data;
     if (frag === undefined || !isNotMade(data) || isInitsLoad(data, frag)) {
       return;
@@ -134,6 +169,36 @@ export function skipChunksNotMade(
     video.removeEventListener("timeupdate", moveIfArrived);
     video.removeEventListener("waiting", moveIfArrived);
     video.removeEventListener("seeking", onSeeking);
+  };
+}
+
+/**
+ * Answers each refusal of a chunk of a track's own sound, copied, as one the core cannot make
+ * (isOwnSoundNotMade): the error marked recovered, so failOnFatal passes it by, and the loading
+ * stopped, where hls.js would ask for it again; the first sends the video a playerOwnSoundGivenUpEvent
+ * from where it stands, for the page to start the playback again there (D533 §2).
+ */
+function restartAtTheMadeSound(
+  hls: Pick<Hls, "stopLoad">,
+  video: Pick<SkippingVideo, "currentTime" | "dispatchEvent">,
+  note: (note: string) => void,
+): (data: ErrorData) => void {
+  let isAsked = false;
+  return (data) => {
+    recoverFrom(data);
+    hls.stopLoad();
+    if (isAsked) {
+      return;
+    }
+    isAsked = true;
+    const positionMs = Math.round(video.currentTime * 1000);
+    const chunkS = data.frag?.start ?? 0;
+    note(
+      `the film's own sound cannot be made at ${chunkS.toFixed(1)} s: the playback` +
+        ` starts again at ${(positionMs / 1000).toFixed(1)} s with the sound the server makes`,
+    );
+    const givenUp: OwnSoundGivenUp = { positionMs };
+    video.dispatchEvent(new CustomEvent(playerOwnSoundGivenUpEvent, { detail: givenUp }));
   };
 }
 

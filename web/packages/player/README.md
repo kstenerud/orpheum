@@ -137,7 +137,12 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   cannot make (422) gives the copy up so too, where a quality is below it, rather than being stepped
   over (`skipChunksNotMade`): the core offers the twin in its place, and the page reopens there
   (D323 §2); file 17099's copy was refused at the bounds of every run, each chunk stepped over in turn
-  (staging, 2026-11-16; D500 §2; `skip-unmade.test.ts`, `abr-decoding.test.ts`). `abr-outage.test.ts`, `abr-choice.test.ts`, `abr.test.ts`, `abr-first-piece.test.ts`, `abr-given-up.test.ts`, `abr-busy.test.ts`, `abr-trust.test.ts`, `abr-measure.test.ts`,
+  (staging, 2026-11-16; D500 §2; `skip-unmade.test.ts`, `abr-decoding.test.ts`). A chunk of a
+  track's own sound, copied, that the core cannot make (422) is not stepped over either, nor does
+  it end the playback: the player stops loading and sends its video a `playerOwnSoundGivenUpEvent`
+  from where it stands, once, for the page to start the playback again there, which the core offers
+  the sound it makes (film 20597 on staging, 2026-11-22, its 404 failing the page before; D533 §2;
+  `skip-unmade.test.ts`). `abr-outage.test.ts`, `abr-choice.test.ts`, `abr.test.ts`, `abr-first-piece.test.ts`, `abr-given-up.test.ts`, `abr-busy.test.ts`, `abr-trust.test.ts`, `abr-measure.test.ts`,
   `cache-hit.test.ts`, `link-estimate.test.ts`, `steadiness.test.ts`, `step-up.test.ts`,
   `diagnosis.test.ts`, `chunked.test.ts`, `report.test.ts`.
 - **A chunked playback never waits for good on a chunk stuck on its way**: one the core answered,

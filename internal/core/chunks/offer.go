@@ -230,6 +230,27 @@ func (service *Service) isPictureCopyGivenUp(film cutFilm, isTooSlowToEncode boo
 	return !isTooSlowToEncode && service.runs.hasGivenUp(film.storeDir(Stream{Kind: nodeproto.StreamPicture}))
 }
 
+// wasOfferedCopy is whether stream is the film's own picture or a track's own sound, copied, that the
+// playback was offered before the copy was given up (hasGivenUp): the playback keeps it, so its
+// player is refused the chunk given up, ErrCannotBeMade, rather than told the stream is no longer
+// offered, ErrNoStream, which it cannot answer. Refused so, its player gives the picture up for the
+// twin (D500 §2), and its sound by starting the playback again where it was, the new playback offered
+// the sound the server makes (D533 §2); what was made of the copy plays meanwhile.
+func wasOfferedCopy(film cutFilm, playback Playback, stream Stream) bool {
+	if !copiesPicture(film, playback) {
+		return false
+	}
+	switch stream.Kind {
+	case nodeproto.StreamPicture:
+		return true
+	case nodeproto.StreamSoundCopied:
+		top := []Stream{{Kind: nodeproto.StreamPicture}}
+		return slices.Contains(copiedTracksOf(film, playback, top), stream.AudioTrackIndex)
+	case nodeproto.StreamQuality, nodeproto.StreamSound:
+	}
+	return false
+}
+
 // copiesPicture is whether the playback may play the film's own picture copied: its player decodes
 // it, and the film is cut on its keyframes, which a copy needs (D269 §1).
 func copiesPicture(film cutFilm, playback Playback) bool {
@@ -596,10 +617,7 @@ func (service *Service) offeredStream(
 	if err != nil {
 		return film, stream, err
 	}
-	// A playback offered the copy before it was given up keeps it, so its player is refused the chunk
-	// given up, ErrCannotBeMade, and gives the copy up for the twin rather than losing its playback
-	// (D500 §2); what was made of the copy plays meanwhile.
-	if offered.has(stream) || stream.Kind == nodeproto.StreamPicture && copiesPicture(film, playback) {
+	if offered.has(stream) || wasOfferedCopy(film, playback, stream) {
 		return film, stream, nil
 	}
 	// A playback offered its film before its picture's bytes in each second were known was offered

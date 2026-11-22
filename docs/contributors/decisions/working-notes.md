@@ -30605,7 +30605,7 @@ server makes, tried on the node, broke on the same packet: its chunk 1 started a
 then reported a stall at position 0 every 8 s, each a drop of the link, raising the device's
 unsteadiness. Amends D500 §2.
 
-**Status:** decided.
+**Status:** decided, built.
 
 1. **The sound the server makes fills a gap in the film's own with silence**, FFmpeg's
    `aresample=async=1:first_pts=0` before its trim, so its chunks are cut on their grid however
@@ -30619,8 +30619,15 @@ unsteadiness. Amends D500 §2.
 3. **A page that failed reports no stalls**: once it shows that the film could not play, its
    player's standing still is no stall of the link, and counts toward nothing.
 
-**Built** (2026-11-22): §1 and §3.
+**Built** (2026-11-22): all three.
 
 **Proven by:** §1, `TestMake_AMadeSoundFillsAGapInTheFilmsSoundWithSilence` (internal/node/chunks);
-§3, "reports no stall of its player once the page shows the film could not play"
-(`apps/web/src/play-failure.test.tsx`).
+§2, `TestStoreFileOf_ASoundWhoseCopyIsGivenUpIsRefusedAsOneThatCannotBeMade`
+(internal/core/chunks), the player's "asks the page once to start the playback again where the
+video stands, and does not end it" and "keeps the sound at a chunk of its own sound, copied, which
+the playback started again replaces (D533 §2)" (`skip-unmade.test.ts`), and the page's "asks the
+page to start again where the video stood, saying the own sound was given up, when its player is
+refused it (D533 §2)" (`apps/web/src/play-state.test.ts`) and "says why, and that no picture was
+given up" (`apps/web/src/watching.test.ts`); §3, "reports no stall of its player once the page
+shows the film could not play" (`apps/web/src/play-failure.test.tsx`). Only a device shows film
+20597 playing with its sound: VQ377.

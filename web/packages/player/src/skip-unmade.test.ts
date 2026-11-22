@@ -16,6 +16,8 @@ import { orpheumAbr } from "./abr-controller.ts";
 import type { PlaybackFailure } from "./failure.ts";
 import { failOnFatal } from "./hls.ts";
 import {
+  ownSoundGivenUpOf,
+  playerOwnSoundGivenUpEvent,
   playerSkippedEvent,
   skipChunksNotMade,
   skippedStretchOf,
@@ -336,8 +338,11 @@ describe("a chunk of the film's own picture the core cannot make (D500 §2)", ()
 });
 
 describe("hls.js at a chunk the core cannot make", () => {
-  /** hls.js with the player's controller, told that sn's chunk failed with code; what it made of it. */
-  function told(code: number): ErrorData {
+  /**
+   * hls.js with the player's controller, told that a chunk failed with code, a picture's of quality 2
+   * or the one given; what it made of it.
+   */
+  function told(code: number, frag: Fragment = chunk(1100, 2)): ErrorData {
     const abr = orpheumAbr({
       startAtBps: 0,
       monotonicMs: () => 0,
@@ -349,7 +354,7 @@ describe("hls.js at a chunk the core cannot make", () => {
       type: ErrorTypes.NETWORK_ERROR,
       details: ErrorDetails.FRAG_LOAD_ERROR,
       fatal: false,
-      frag: chunk(1100, 2),
+      frag,
       response: { url: "", code, text: "" },
       error: new Error(`HTTP Error ${String(code)}`),
     };
@@ -365,7 +370,74 @@ describe("hls.js at a chunk the core cannot make", () => {
     expect(notMade.fatal).toBe(false);
   });
 
+  it("keeps the sound at a chunk of its own sound, copied, which the playback started again replaces (D533 §2)", () => {
+    const frag = new Fragment(
+      PlaylistLevelType.AUDIO,
+      "/api/v1/chunks/token/sound1-own/stream.m3u8",
+    );
+    frag.level = 1;
+    frag.sn = 18;
+    const notMade = told(422, frag);
+    expect(notMade.errorAction?.action).toBe(0); // NetworkErrorAction.DoNothing
+    expect(notMade.fatal).toBe(false);
+  });
+
   it("leaves a chunk the link failed to hls.js's own handling", () => {
     expect(told(503).errorAction?.action).not.toBe(0);
+  });
+});
+
+/** hls.js's word that the core refused sn's chunk of the sound whose playlist is at playlist, 422. */
+function soundCannotMake(
+  hls: LoadingHls,
+  sn: number,
+  asked: { readonly playlist: string; readonly isFatal?: boolean },
+): void {
+  const frag = new Fragment(PlaylistLevelType.AUDIO, asked.playlist);
+  frag.level = 0;
+  frag.sn = sn;
+  frag.start = sn * 2.002;
+  frag.duration = 2.002;
+  hls.trigger(Events.ERROR, {
+    type: ErrorTypes.NETWORK_ERROR,
+    details: ErrorDetails.FRAG_LOAD_ERROR,
+    fatal: asked.isFatal ?? false,
+    frag,
+    response: { url: "", code: 422, text: "" },
+    error: new Error("HTTP Error 422"),
+  });
+}
+
+describe("a chunk of the film's own sound, copied, that the core cannot make (D533 §2)", () => {
+  const ownSound = "https://orpheum.example/api/v1/chunks/token/sound0-own/stream.m3u8";
+
+  it("asks the page once to start the playback again where the video stands, and does not end it", () => {
+    const video = new FilmVideo(35.2);
+    const { hls, failures, skipped } = skipping(video);
+    const asked: unknown[] = [];
+    video.addEventListener(playerOwnSoundGivenUpEvent, (event) => {
+      asked.push(ownSoundGivenUpOf(event));
+    });
+    soundCannotMake(hls, 18, { playlist: ownSound });
+    soundCannotMake(hls, 18, { playlist: ownSound, isFatal: true });
+    expect(asked).toEqual([{ positionMs: 35_200 }]);
+    expect(failures).toEqual([]);
+    expect(hls.stops).toBeGreaterThan(0); // where hls.js would ask for it again
+    expect(skipped).toEqual([]);
+  });
+
+  it("leaves a sound the server makes to fail as it did, the playback started again offering it the same", () => {
+    const video = new FilmVideo(35.2);
+    const { hls, failures } = skipping(video);
+    const asked: unknown[] = [];
+    video.addEventListener(playerOwnSoundGivenUpEvent, (event) => {
+      asked.push(ownSoundGivenUpOf(event));
+    });
+    soundCannotMake(hls, 18, {
+      playlist: "https://orpheum.example/api/v1/chunks/token/sound0-96k-ownlevel/stream.m3u8",
+      isFatal: true,
+    });
+    expect(asked).toEqual([]);
+    expect(failures).toEqual(["cannotMake"]);
   });
 });

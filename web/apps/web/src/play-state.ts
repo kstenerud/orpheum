@@ -4,7 +4,9 @@ import {
   framesShownOf,
   linkSpreadOf,
   PlayReporter,
+  ownSoundGivenUpOf,
   playerFoundUnplayableEvent,
+  playerOwnSoundGivenUpEvent,
   ReportRefused,
   reportEveryMs,
   steadinessOf,
@@ -21,6 +23,7 @@ import { leavePlayback, sayInterestOf, sendInterest } from "./interest.ts";
 import { useLatest } from "./latest.ts";
 import { MovingDown, type LadderOffer } from "./moving-down.ts";
 import { ApiProblem, throwIfRefused } from "./problem.ts";
+import type { CopyGivenUpCause } from "./play-start-timing.ts";
 import { isPlaybackGone, mayPass, type ReopenAt } from "./reopen.ts";
 import { useServices, type PathMoves } from "./services.tsx";
 import { hasMedia, positionMs, reportVideoEvents, watchPage } from "./play-state-video-events.ts";
@@ -137,25 +140,38 @@ interface Reporting {
 /**
  * Tells onGivenUp where the video stood when its player gave the film's own picture up as one its
  * device cannot play (D266), for the page to ask for the playback again from there, at the twin
- * (D323 §2), paused only where the person paused it: a video yet to show its first frame reads as
- * paused, and opened again paused it never started (the owner's test, 2026-11-03: Play on
- * a film's page opened the player and did not play). Returns the stopping.
+ * (D323 §2), or its own sound, copied, as one the core cannot make, at the sound the server makes
+ * (D533 §2); and which, as the cause the page asks with. It is paused only where the person paused
+ * it: a video yet to show its first frame reads as paused, and opened again paused it never started
+ * (the owner's test, 2026-11-03: Play on a film's page opened the player and did not play). Returns
+ * the stopping.
  */
-export function whenOwnPictureGivenUp(
+export function whenCopyGivenUp(
   video: HTMLVideoElement,
-  onGivenUp: (at: ReopenAt) => void,
+  onGivenUp: (at: ReopenAt, cause: CopyGivenUpCause) => void,
 ): () => void {
   const pause = watchPersonsPause(video);
-  const listener = (event: Event): void => {
+  const onPicture = (event: Event): void => {
     const unplayable = unplayableOf(event);
     if (unplayable?.isFilmsOwnPicture === true) {
-      onGivenUp({ positionMs: unplayable.positionMs, isPaused: pause.isPaused() });
+      onGivenUp(
+        { positionMs: unplayable.positionMs, isPaused: pause.isPaused() },
+        "ownPictureGivenUp",
+      );
     }
   };
-  video.addEventListener(playerFoundUnplayableEvent, listener);
+  const onSound = (event: Event): void => {
+    const givenUp = ownSoundGivenUpOf(event);
+    if (givenUp !== undefined) {
+      onGivenUp({ positionMs: givenUp.positionMs, isPaused: pause.isPaused() }, "ownSoundGivenUp");
+    }
+  };
+  video.addEventListener(playerFoundUnplayableEvent, onPicture);
+  video.addEventListener(playerOwnSoundGivenUpEvent, onSound);
   return () => {
     pause.stop();
-    video.removeEventListener(playerFoundUnplayableEvent, listener);
+    video.removeEventListener(playerFoundUnplayableEvent, onPicture);
+    video.removeEventListener(playerOwnSoundGivenUpEvent, onSound);
   };
 }
 
@@ -379,10 +395,11 @@ interface PlayStateOf {
    */
   readonly onGone?: ((whereNow: () => ReopenAt) => boolean) | undefined;
   /**
-   * Told where the video stood when its player gave the film's own picture up, for the page to ask
-   * for the playback again from there, at the twin (D323 §2); undefined keeps playing below it.
+   * Told where the video stood when its player gave the film's own picture or sound up, and which,
+   * for the page to ask for the playback again from there, at what the server makes in its place
+   * (D323 §2, D533 §2); undefined keeps playing below the picture.
    */
-  readonly onOwnPictureGivenUp?: ((at: ReopenAt) => void) | undefined;
+  readonly onCopyGivenUp?: ((at: ReopenAt, cause: CopyGivenUpCause) => void) | undefined;
   /**
    * What failed in the player, undefined while nothing has: a failure is reported on at once, so a
    * playback the server lost before the video played, which sends no report, is learned of.
@@ -461,13 +478,13 @@ export function usePlayState(
     };
   }, [api, videoRef, mediaToken, resumePositionMs, pathMoves]);
   useReportsOnFailure(playback.failure, reportNow);
-  const ownPictureHearer = useLatest(playback.onOwnPictureGivenUp);
+  const copyHearer = useLatest(playback.onCopyGivenUp);
   useEffect(() => {
     const video = videoRef.current;
     return video === null
       ? undefined
-      : whenOwnPictureGivenUp(video, (at) => {
-          ownPictureHearer.current?.(at);
+      : whenCopyGivenUp(video, (at, cause) => {
+          copyHearer.current?.(at, cause);
         });
   }, [videoRef, mediaToken]);
   return { refusal, stopMessage, lowerQuality };

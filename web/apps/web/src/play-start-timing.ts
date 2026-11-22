@@ -30,13 +30,20 @@ export function openedAt(decision: PlaybackDecision, at: ReopenAt): Opened {
   };
 }
 
-/** Why a playback is opened again: the server lost it, its player gave the film's own picture up, or
- * its film could not be read and can again. */
-export type ReopenCause = "playbackGone" | "ownPictureGivenUp" | "mediaBack";
+/** Why a playback is opened again: the server lost it, its player gave the film's own picture or
+ * sound up, or its film could not be read and can again. */
+export type ReopenCause = "playbackGone" | "ownPictureGivenUp" | "ownSoundGivenUp" | "mediaBack";
+
+/**
+ * Why a playback is opened again in place of the film's own picture or sound, copied, given up: the
+ * twin is offered in place of the picture (D323 §2), the sound the server makes in place of the
+ * sound (D533 §2).
+ */
+export type CopyGivenUpCause = Extract<ReopenCause, "ownPictureGivenUp" | "ownSoundGivenUp">;
 
 /**
  * A playback opened again from where it was: the server lost it, or its player gave the film's own
- * picture up and is offered the twin in its place (D323 §2).
+ * picture or sound up and is offered what the server makes in its place (CopyGivenUpCause).
  */
 export interface Reopening {
   readonly whereNow: () => ReopenAt;

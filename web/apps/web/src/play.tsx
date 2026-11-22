@@ -76,7 +76,7 @@ import { PlayOrSendOn, type PlayedHereFrom } from "./cast-to.tsx";
 import { WhoseFilm } from "./together-guest-play.tsx";
 import { useIsOpenedOverAFilm, WindowHeldForTheFilm } from "./play-window-held.tsx";
 import { useNotesPlayingHere } from "./playing-here.ts";
-import type { Opened } from "./play-start-timing.ts";
+import type { CopyGivenUpCause, Opened } from "./play-start-timing.ts";
 import {
   shownOf,
   useOpenedPlayback,
@@ -112,10 +112,10 @@ interface PlayViewProps {
   /** Told, with where the video stood, that its film can be read again after it could not. */
   readonly onMediaBack?: ((at: ReopenAt) => void) | undefined;
   /**
-   * Told where the video stood when its player gave the film's own picture up, for the page to ask
-   * for the playback again from there, at the twin (D323 §2).
+   * Told where the video stood when its player gave the film's own picture or sound up, and which,
+   * for the page to ask for it again from there, at what the server makes instead (D323 §2, D533 §2).
    */
-  readonly onOwnPictureGivenUp?: ((at: ReopenAt) => void) | undefined;
+  readonly onCopyGivenUp?: ((at: ReopenAt, cause: CopyGivenUpCause) => void) | undefined;
   /** Whether the film waits to be played, as one the person had paused when it was opened again. */
   readonly isStartPaused?: boolean;
   /** The cast this device receives of the film, while it does (D337; cast-receiver.tsx). */
@@ -197,7 +197,7 @@ function PlayerView(
   // Whether its lowest quality cannot keep up, which a host's session tells everyone (D247 §8).
   const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);
   const { fileId, decision, receiving, onBare } = props;
-  const { onDecideAgain, onPlaybackGone, onOwnPictureGivenUp } = props;
+  const { onDecideAgain, onPlaybackGone, onCopyGivenUp } = props;
   const pressedVideo = useVideoPressedForPlay();
   const offered = useUpNextOffered(fileId, video, { ...decision.preferences, receiving });
   const tracks = useSequenceCommands(offered);
@@ -210,13 +210,13 @@ function PlayerView(
       decision,
       onDecideAgain,
       onPlaybackGone,
-      onOwnPictureGivenUp,
+      onCopyGivenUp,
       onLowerQuality,
       onVideo: setVideo,
       onCannotKeepUp: setCannotKeepUp,
       onBare,
     }),
-    [fileId, decision, onDecideAgain, onPlaybackGone, onOwnPictureGivenUp, onLowerQuality, onBare],
+    [fileId, decision, onDecideAgain, onPlaybackGone, onCopyGivenUp, onLowerQuality, onBare],
   );
   const { titleName, resumePositionMs } = props.decision;
   // A cast's receiver shows the film and nothing else (D337 §3).
@@ -453,7 +453,7 @@ function useReportedPlayState(
     resumePositionMs: props.decision.resumePositionMs,
     readLinkKbps: props.readLinkKbps,
     onGone: props.onPlaybackGone,
-    onOwnPictureGivenUp: props.onOwnPictureGivenUp,
+    onCopyGivenUp: props.onCopyGivenUp,
     failure: props.failure,
   });
   const startPositionMs = props.decision.resumePositionMs;
@@ -742,7 +742,7 @@ function PlayHere(props: { readonly fileId: number; readonly from: PlayedHereFro
   const receiving = useReceiving(props.fileId);
   // Next, Previous and Up next draw the Play page again: the window stays covered meanwhile.
   const isOpenedOverAFilm = useIsOpenedOverAFilm();
-  const { opened, held, decideAgain, reopenPlayback, startAtTheTwin, reopenWhenBack } =
+  const { opened, held, decideAgain, reopenPlayback, startAtTheMade, reopenWhenBack } =
     useOpenedPlayback(props.fileId, firstAskOf(receiving, props.from));
   // The film's one try at the original, across the decisions asked for as it plays (D501 §2).
   const [tries] = useState(() => new OriginalTries());
@@ -754,7 +754,7 @@ function PlayHere(props: { readonly fileId: number; readonly from: PlayedHereFro
       onDecideAgain={decideAgain}
       onPlaybackGone={reopenPlayback}
       onMediaBack={reopenWhenBack}
-      onOwnPictureGivenUp={startAtTheTwin}
+      onCopyGivenUp={startAtTheMade}
       isStartPaused={isStartPaused === true}
       isReconnecting={opened.state !== "loaded"}
       receiving={receiving}

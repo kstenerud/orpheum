@@ -126,6 +126,17 @@ describe("a playback asked for again because its player gave the film's own pict
   });
 });
 
+describe("a playback asked for again because its player was refused the film's own sound (D533 §2)", () => {
+  it("says why, and that no picture was given up: the core offers no new playback a copy given up", async () => {
+    const heard: Heard[] = [];
+    const { watching } = watchingServed(heard);
+    await watching.decide(7, playableFormats, { cause: "ownSoundGivenUp" });
+    const asked = heard.filter((request) => request.methodAndPath === "POST /playback");
+    expect(asked.map((request) => bodyField(request, "cause"))).toEqual(["ownSoundGivenUp"]);
+    expect(asked.map((request) => bodyField(request, "hasGivenUpOwnPicture"))).toEqual([undefined]);
+  });
+});
+
 describe("a playback asked for again because its link now carries the original its person chose", () => {
   it("asks for the film's own file, as the original chosen does (the owner, 2026-11-15)", async () => {
     const heard: Heard[] = [];

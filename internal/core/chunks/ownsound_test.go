@@ -183,6 +183,39 @@ func TestStartOnLadder_ATrackWhoseCopyCannotBeMadePlaysTheSoundTheServerMakes(t 
 	}
 }
 
+// A playback offered a track's own sound copied before the copy was given up keeps it: its chunk given
+// up is refused as one that cannot be made, ErrCannotBeMade, which its player answers by starting the
+// playback again where it was, and not as a stream no longer offered, ErrNoStream, a 404 no player
+// answers; a chunk made before it is the playback's still. The playback started anew is offered the
+// sound the server makes (D533 §2; film 20597 on staging, 2026-11-22).
+func TestStoreFileOf_ASoundWhoseCopyIsGivenUpIsRefusedAsOneThatCannotBeMade(t *testing.T) {
+	t.Parallel()
+	service, _ := chunksFixture(t, newFakeQueue(), fakeNode{})
+	copyDir := testStoreDir(t, service, Stream{Kind: nodeproto.StreamSoundCopied, AudioTrackIndex: 0},
+		mustGrid(t, service).ID())
+	for range runFailuresToGiveUp {
+		service.runs.failed(copyDir, 9, "raw 00000.mp4 holds 0 to 31925 ms of the run, not its chunk 9's")
+	}
+	file, err := service.StoreFileOf(t.Context(), playsOwnSound(), "sound0-own", "000009.m4s")
+	if err != nil {
+		t.Fatalf("the copy's chunk given up is %v; want it the playback's still, to be refused as made", err)
+	}
+	if wantErr := service.Want(t.Context(), file); !errors.Is(wantErr, ErrCannotBeMade) {
+		t.Errorf("wanting the copy's chunk given up is %v; want ErrCannotBeMade", wantErr)
+	}
+	_, err = service.StoreFileOf(t.Context(), playsOwnSound(), "sound0-own", "000003.m4s")
+	if err != nil {
+		t.Errorf("a chunk of the copy before the one given up is %v; want it the playback's still", err)
+	}
+	offer, err := service.StartOnLadder(t.Context(), playsOwnSound(), 95_000, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if offer.StreamName != "picture" || !strings.HasPrefix(offer.SoundStreamName, "sound0-96k") {
+		t.Errorf("the offer started anew = %+v; want the picture with the sound the server makes", offer)
+	}
+}
+
 // A run of a sound copied copies its track, led in from the chunk before, carrying no gain; a run of a
 // mix made as loud as its track's own sound carries the gain that brings it there, the stereo mix's
 // levelling less the track's own, 2.5 dB (D368 §1).

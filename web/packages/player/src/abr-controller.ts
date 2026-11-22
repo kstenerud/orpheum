@@ -61,7 +61,30 @@ export function isNotMade(data: Pick<ErrorData, "details" | "response" | "frag">
 }
 
 /**
- * Keeps hls.js from changing quality at a chunk not made (isNotMade), and nothing else: its error controller has
+ * Whether a sound's playlist address is a track's own sound copied rather than made, as the core's
+ * master playlist names it ("sound0-own/stream.m3u8").
+ */
+export function isOwnSoundAddress(address: string): boolean {
+  return /(?:^|\/)sound\d+-own\/stream\.m3u8(?:[?#]|$)/u.test(address);
+}
+
+/**
+ * Whether hls.js's error is the core's 422 for a chunk of a track's own sound, copied: a copy given
+ * up, which the playback started again where it is plays as the server makes it (D533 §2;
+ * skip-unmade.ts's restartAtTheMadeSound).
+ */
+export function isOwnSoundNotMade(data: Pick<ErrorData, "details" | "response" | "frag">): boolean {
+  return (
+    data.details === ErrorDetails.FRAG_LOAD_ERROR &&
+    data.response?.code === cannotMakeStatus &&
+    data.frag?.type === PlaylistLevelType.AUDIO &&
+    isOwnSoundAddress(data.frag.baseurl)
+  );
+}
+
+/**
+ * Keeps hls.js from changing quality at a chunk not made (isNotMade), or its sound at a chunk of its
+ * own sound not made (isOwnSoundNotMade), and nothing else: its error controller has
  * chosen to try another quality, which it does after every controller has heard the error, this one
  * among the first; the action is made nothing, so the quality stays and the chunk is stepped over in
  * it. A fault of the file is no reason to step down; only the link or the device is (the owner,
@@ -71,7 +94,7 @@ export function isNotMade(data: Pick<ErrorData, "details" | "response" | "frag">
  */
 function keepTheQualityAtNotMade(data: ErrorData): void {
   const { errorAction } = data;
-  if (errorAction !== undefined && isNotMade(data)) {
+  if (errorAction !== undefined && (isNotMade(data) || isOwnSoundNotMade(data))) {
     Object.assign(errorAction, { action: 0, flags: 0, nextAutoLevel: undefined, resolved: true });
   }
 }
