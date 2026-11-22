@@ -1,0 +1,8 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The Sound menu's group heading, Timing: a muted label over its rows, not a choice (D538 §8). */
+.sound-menu__heading {
+  color: var(--color-muted);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-strong);
+}

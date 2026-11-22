@@ -55,7 +55,7 @@ import {
 } from "./for-testers.tsx";
 import { FrameTimingNote } from "./frame-timing-note.tsx";
 import { BoostBox } from "./sound.tsx";
-import { SoundOffsetControl } from "./sound-delay.tsx";
+import { FilmTiming, soundOffsetsOf } from "./sound-delay.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
 import { SubtitleControls } from "./subtitles.tsx";
 import { LevellingControl } from "./levelling.tsx";
@@ -507,7 +507,7 @@ function UnderTheVideo(
           measuring={tracks.measuring}
           state={tracks.levelling}
         />
-        <SoundOffsetControl videoRef={props.videoRef} initialMs={props.decision.soundOffsetMs} />
+        <FilmTiming videoRef={props.videoRef} fileId={props.fileId} decision={props.decision} />
       </OverlayHeld>
     </>
   );
@@ -634,7 +634,7 @@ function menusWaysOf(
 ): PlayerMenusWays {
   return {
     fileId: asked.fileId,
-    soundOffsetMs: asked.decision.soundOffsetMs,
+    ...soundOffsetsOf(asked.decision),
     fileBitRateKbps: asked.decision.fileBitRateKbps,
     onSubtitleFetched: decideAgainFor(asked, "subtitleFetched"),
     onOriginalChosen: isOnLadder ? decideAgainFor(asked, "originalChosen") : undefined,

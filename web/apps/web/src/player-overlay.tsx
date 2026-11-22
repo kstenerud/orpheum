@@ -51,7 +51,6 @@ import {
 } from "./player-overlay-state.ts";
 import { useAnswersPictureTaps, useOpensAtThePointer, type SeekFeedback } from "./player-taps.ts";
 import { OverlayShield } from "./overlay-shield.tsx";
-import { PlayerTracksContext } from "./player-tracks.tsx";
 import { StartRefusedShown, useStartRefused } from "./start-refused-shown.tsx";
 import { StopCastingHere } from "./stop-casting-here.tsx";
 import { Timeline } from "./timeline.tsx";
@@ -444,7 +443,6 @@ export function useControlsShown(
   isTv: boolean,
   moves: SequenceMoves | undefined,
 ): readonly OverlayControl[] {
-  const tracks = use(PlayerTracksContext);
   const upward = use(PlayUpwardContext);
   const isVolumeSettable = useIsVolumeSettable();
   const voice = useSessionVoice();
@@ -453,7 +451,6 @@ export function useControlsShown(
     isTouch: isThisHandheld(),
     isVolumeSettable,
     hasVoicesToMix: voice !== undefined && peopleOf(voice.snapshot).length > 0,
-    audioTrackCount: tracks?.audio.tracks.length ?? 0,
     hasPrevious: moves?.previous !== undefined,
     hasNext: moves?.next !== undefined,
     isReceiver: upward === undefined,

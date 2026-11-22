@@ -345,13 +345,12 @@ describe("which controls show (D407 §2)", () => {
     isTouch: false,
     isVolumeSettable: true,
     hasVoicesToMix: false,
-    audioTrackCount: 1,
     hasPrevious: false,
     hasNext: false,
     isReceiver: false,
   };
 
-  it("shows a computer's every control but previous, next and a lone audio track's Sound track", () => {
+  it("shows a computer's every control but previous and next, the Sound menu for a lone audio track too", () => {
     expect(controlsShown(computer)).toEqual([
       "up",
       "seekBack",
@@ -359,6 +358,7 @@ describe("which controls show (D407 §2)", () => {
       "seekForward",
       "sound",
       "subtitles",
+      "audio",
       "more",
       "fullScreen",
     ]);
@@ -392,16 +392,10 @@ describe("which controls show (D407 §2)", () => {
     expect(controlsShown({ ...receiver, isTouch: true })).not.toContain("sound");
   });
 
-  it("shows previous and next within a sequence, Sound track where there are more than one audio track", () => {
-    const shown = controlsShown({
-      ...computer,
-      hasPrevious: true,
-      hasNext: true,
-      audioTrackCount: 2,
-    });
+  it("shows previous and next within a sequence", () => {
+    const shown = controlsShown({ ...computer, hasPrevious: true, hasNext: true });
     expect(shown).toContain("previous");
     expect(shown).toContain("next");
-    expect(shown).toContain("audio");
   });
 
   it("shows no way up on a cast's receiver", () => {
@@ -409,7 +403,7 @@ describe("which controls show (D407 §2)", () => {
   });
 
   it("shows no menus on a cast's receiver (D407 §12)", () => {
-    const shown = controlsShown({ ...computer, audioTrackCount: 2, isReceiver: true });
+    const shown = controlsShown({ ...computer, isReceiver: true });
     expect(shown).not.toContain("subtitles");
     expect(shown).not.toContain("audio");
     expect(shown).not.toContain("more");

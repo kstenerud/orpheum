@@ -336,6 +336,9 @@ const enOwn = {
     close: "Close",
     sent: "Sent. This household's admin finds it on the System page.",
     tooMany: "You have reported many problems in the last hour. Wait a while, then report again.",
+    suggestsLater: "It suggests this file's sound play {{ms}} ms later for everyone.",
+    suggestsEarlier: "It suggests this file's sound play {{ms}} ms earlier for everyone.",
+    suggestsInStep: "It suggests this file's sound play in step for everyone.",
   },
   filingReport: {
     write: "Report this",

@@ -17,13 +17,11 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useAudioChoices, type AudioChoice } from "./audio-tracks.tsx";
 import { DropDown } from "./drop-down.tsx";
 import { ForTestersContext, ForTestersShown } from "./for-testers.tsx";
 import { DataCapChoices, useIsWithinCap } from "./data-cap-choices.tsx";
 import { HowItPlays } from "./how-it-plays.tsx";
 import { ListEntry, ListNote, ListOption } from "./list-box.tsx";
-import { LevellingControl } from "./levelling.tsx";
 import { DialogClose, ModalDialog } from "./modal-dialog.tsx";
 import { OriginalMovedTo, OriginalWaits, PlayOriginal } from "./play-original.tsx";
 import { keepsOpenAttribute, PopoverButton } from "./popover.tsx";
@@ -31,10 +29,15 @@ import { muteClass, type PlayerSound } from "./player-controls.tsx";
 import { AudioIcon, MutedIcon, SettingsIcon, SoundIcon, SubtitlesIcon } from "./player-icons.tsx";
 import type { OverlayControl } from "./player-overlay-state.ts";
 import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
-import { playbackNow, ProblemReportDialog, type ReportedPlayback } from "./problem-report.tsx";
+import {
+  playbackNow,
+  ProblemReportDialog,
+  type ReportedPlayback,
+  type SuggestedSoundOffset,
+} from "./problem-report.tsx";
 import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
-import { BoostBox } from "./sound.tsx";
-import { SoundOffsetControl } from "./sound-delay.tsx";
+import type { FileSoundOffset } from "./sound-delay.tsx";
+import { SoundMenu } from "./sound-menu.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
 import { OffsetControl, useSubtitleChoices, type SubtitleChoice } from "./subtitles.tsx";
 import { SessionTalk, useSessionVoice } from "./together-voice.tsx";
@@ -49,6 +52,8 @@ import { useVolumeRow, VolumeRow } from "./volume-row.tsx";
 export interface PlayerMenusWays {
   readonly fileId: number;
   readonly soundOffsetMs: number;
+  /** The file's own sound offset as the playback started (D537 §4); undefined where not given. */
+  readonly fileSoundOffset?: FileSoundOffset | undefined;
   /** The film's own file's rate, kbit/s, which a data cap offers its original under (D491); 0 or absent where not known. */
   readonly fileBitRateKbps?: number | undefined;
   readonly playback?: PlaybackReport | undefined;
@@ -100,8 +105,6 @@ export function PlayerMenus(props: {
   const tracks = use(PlayerTracksContext);
   const ways = use(PlayerMenusContext);
   const [open, setOpen] = useState<OpenMenu | undefined>(undefined);
-  // The player's state as Report a problem was chosen, before the person writes (D524 §2).
-  const [reported, setReported] = useState<ReportedPlayback | undefined>(undefined);
   const { onOpenChange, sound } = props;
   const isOpen = open !== undefined;
   useEffect(() => {
@@ -117,13 +120,7 @@ export function PlayerMenus(props: {
   const opens = (menu: OpenMenu) => (): void => {
     setOpen(menu);
   };
-  const reportProblem =
-    ways === undefined
-      ? undefined
-      : (): void => {
-          setReported(playbackNow(ways.fileId, props.videoRef.current, ways.playback));
-          setOpen("report");
-        };
+  const { reportProblem, tellTheAdmin } = useReportOpeners(ways, props.videoRef, setOpen);
   return (
     <>
       {props.shown.includes("sound") && sound !== undefined ? (
@@ -138,13 +135,59 @@ export function PlayerMenus(props: {
           shown={props.shown}
           toldOf={toldOf}
           onFind={ways === undefined ? undefined : opens("find")}
-          onReport={reportProblem}
+          onReport={reportProblem.open}
+          onTellTheAdmin={tellTheAdmin}
           onTesters={hasTesters ? opens("testers") : undefined}
         />
       )}
-      <MenuDialog open={open} ways={ways} reported={reported} onClose={endFinding} />
+      <MenuDialog
+        open={open}
+        ways={ways}
+        reported={reportProblem.reported}
+        suggested={reportProblem.suggested}
+        onClose={endFinding}
+      />
     </>
   );
+}
+
+/**
+ * Report a problem's openers: ⁝'s (open), and the Sound menu's Tell the admin (tellTheAdmin), which
+ * suggests the file's sound offset (D537 §5); each takes the player's state as it is chosen, before
+ * the person writes (D524 §2). None where the page plays no film of its own.
+ */
+function useReportOpeners(
+  ways: PlayerMenusWays | undefined,
+  videoRef: RefObject<HTMLVideoElement | null>,
+  setOpen: (menu: OpenMenu) => void,
+): {
+  readonly reportProblem: {
+    readonly open: (() => void) | undefined;
+    readonly reported: ReportedPlayback | undefined;
+    readonly suggested: SuggestedSoundOffset | undefined;
+  };
+  readonly tellTheAdmin: ((suggested: SuggestedSoundOffset) => void) | undefined;
+} {
+  const [reported, setReported] = useState<ReportedPlayback | undefined>(undefined);
+  const [suggested, setSuggested] = useState<SuggestedSoundOffset | undefined>(undefined);
+  if (ways === undefined) {
+    return { reportProblem: { open: undefined, reported, suggested }, tellTheAdmin: undefined };
+  }
+  const opened = (soundOffset: SuggestedSoundOffset | undefined): void => {
+    setReported(playbackNow(ways.fileId, videoRef.current, ways.playback));
+    setSuggested(soundOffset);
+    setOpen("report");
+  };
+  return {
+    reportProblem: {
+      open: () => {
+        opened(undefined);
+      },
+      reported,
+      suggested,
+    },
+    tellTheAdmin: opened,
+  };
 }
 
 /** The dialog a menu opened, if one did: Find subtitles, For testers or Report a problem. */
@@ -153,6 +196,8 @@ function MenuDialog(props: {
   readonly ways: PlayerMenusWays | undefined;
   /** The player's state as Report a problem was chosen. */
   readonly reported: ReportedPlayback | undefined;
+  /** The file's sound offset the report suggests, from the Sound menu's Tell the admin. */
+  readonly suggested: SuggestedSoundOffset | undefined;
   readonly onClose: () => void;
 }): JSX.Element | null {
   const { open, ways, onClose } = props;
@@ -163,7 +208,11 @@ function MenuDialog(props: {
     return <ForTestersDialog onClose={onClose} />;
   }
   return open === "report" ? (
-    <ProblemReportDialog playback={props.reported} onClose={onClose} />
+    <ProblemReportDialog
+      playback={props.reported}
+      soundOffset={props.suggested}
+      onClose={onClose}
+    />
   ) : null;
 }
 
@@ -177,10 +226,12 @@ function TrackMenus(props: {
   readonly onFind: (() => void) | undefined;
   /** Opens ⁝'s Report a problem, where the page plays a film of its own (D524 §2). */
   readonly onReport: (() => void) | undefined;
+  /** Opens Report a problem suggesting a file's sound offset, from the Sound menu (D537 §5). */
+  readonly onTellTheAdmin: ((suggested: SuggestedSoundOffset) => void) | undefined;
   /** Opens ⁝'s For testers, where the player gives the panel (ForTestersContext). */
   readonly onTesters: (() => void) | undefined;
 }): JSX.Element {
-  const { tracks, shown, toldOf } = props;
+  const { tracks, shown, toldOf, ways, onTellTheAdmin } = props;
   return (
     <>
       {shown.includes("subtitles") ? (
@@ -191,7 +242,23 @@ function TrackMenus(props: {
         />
       ) : null}
       {shown.includes("audio") ? (
-        <AudioMenuOverTheFilm choice={tracks.audio} onOpenChange={toldOf("audio")} />
+        <SoundMenu
+          tracks={tracks}
+          timing={
+            ways === undefined || onTellTheAdmin === undefined
+              ? undefined
+              : {
+                  deviceInitialMs: ways.soundOffsetMs,
+                  file:
+                    ways.fileSoundOffset === undefined
+                      ? undefined
+                      : { fileId: ways.fileId, initial: ways.fileSoundOffset },
+                  onTellTheAdmin,
+                }
+          }
+          videoRef={props.videoRef}
+          onOpenChange={toldOf("audio")}
+        />
       ) : null}
       {shown.includes("more") ? (
         <MoreMenu
@@ -313,21 +380,9 @@ function SubtitlesMenu(props: {
 }
 
 /**
- * Sound track (🎧): the film's audio tracks (D407 §8), named by the one playing, the chosen, else
- * the first: "Sound track: English". Its words are Sound track, as the app says Sound elsewhere
- * (the owner, 2026-11-04: "Use sound track").
- */
-function AudioMenuOverTheFilm(props: {
-  readonly choice: AudioChoice;
-  readonly onOpenChange: (isOpen: boolean) => void;
-}): JSX.Element {
-  const options = useAudioChoices(props.choice);
-  return <SoundTrackMenuOf options={options} onOpenChange={props.onOpenChange} />;
-}
-
-/**
- * Sound track's menu over options, the film's audio tracks: the player's (AudioMenuOverTheFilm), or
- * the receiver's on the cast's remote (D444).
+ * Sound track's menu over options, the receiver's audio tracks on the cast's remote (D444), named by
+ * the one playing: "Sound track: English" (the owner, 2026-11-04: "Use sound track"). The player's
+ * own tracks are the Sound menu's first entry (sound-menu.tsx, D538 §8).
  */
 export function SoundTrackMenuOf(props: {
   readonly options: readonly ActionChoice[];
@@ -370,11 +425,11 @@ export function SubtitlesMenuOf(props: {
 }
 
 /**
- * ⁝ (D407 §8, Q8): Start over, the subtitles' offset, the device's sound timing, levelling, the
- * dialogue boost, the device's data use where the film plays on its ladder (D488), the original (its quality entry, D418 §4) and the bare player where they are
+ * ⁝ (D407 §8, Q8): Start over, the subtitles' timing, the device's data use where the film plays on
+ * its ladder (D488), the original (its quality entry, D418 §4) and the bare player where they are
  * offered, How it plays (D444), and For testers where the player gives it (item 9 of
- * ui-audit-2026-11-04.md). Its
- * steppers' presses keep it open (ListEntry's isKeptOpen); its other buttons close it, as a choice
+ * ui-audit-2026-11-04.md). It keeps no sound setting: those are the Sound menu's (D538 §8). Its
+ * stepper's presses keep it open (ListEntry's isKeptOpen); its other buttons close it, as a choice
  * does.
  */
 function MoreMenu(props: {
@@ -387,7 +442,7 @@ function MoreMenu(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { tracks, ways, videoRef } = props;
-  const { subtitles, boost } = tracks;
+  const { subtitles } = tracks;
   return (
     <MoreMenuOf onOpenChange={props.onOpenChange}>
       <ListOption
@@ -401,25 +456,6 @@ function MoreMenu(props: {
         <KeptOpen>
           <OffsetControl offsetMs={subtitles.offsetMs} onMove={subtitles.shiftOffset} />
         </KeptOpen>
-      )}
-      {ways === undefined ? null : (
-        <KeptOpen>
-          <SoundOffsetControl videoRef={videoRef} initialMs={ways.soundOffsetMs} isInAList />
-        </KeptOpen>
-      )}
-      {ways === undefined ? null : (
-        <ListEntry>
-          <LevellingControl
-            level={tracks.level}
-            measuring={tracks.measuring}
-            state={tracks.levelling}
-          />
-        </ListEntry>
-      )}
-      {boost === undefined ? null : (
-        <ListEntry>
-          <BoostBox state={boost} />
-        </ListEntry>
       )}
       {ways === undefined ? null : <DataCapChoices videoRef={videoRef} />}
       <MoreOfThePage ways={ways} />

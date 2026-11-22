@@ -365,7 +365,6 @@ export interface ControlsContext {
   readonly isVolumeSettable: boolean;
   /** Whether a Watch Together session's voices play here with the film, so there is a mix to set. */
   readonly hasVoicesToMix: boolean;
-  readonly audioTrackCount: number;
   readonly hasPrevious: boolean;
   readonly hasNext: boolean;
   /** Whether the page is a cast's receiver, which has no way up. */
@@ -374,8 +373,8 @@ export interface ControlsContext {
 
 /**
  * Which controls the overlay shows (D407 §2; plans/player-overlay.md §2.6): previous and next only
- * within a sequence; the audio tracks only where there are more than one; Up everywhere but a cast's
- * receiver; the rest always. The sound, 🔈's row of sliders, shows on a computer with no touch
+ * within a sequence; Up everywhere but a cast's receiver; the rest always, the Sound menu with them,
+ * which holds the sound's switches and timing beside its tracks (D538 §8). The sound, 🔈's row of sliders, shows on a computer with no touch
  * screen where the page can set the volume, as before; on a television and a touch screen, whose own
  * buttons set the volume, and where the page cannot set it, only while there is a mix to set, a Watch
  * Together session's voices with the film (the owner, 2026-11-07, on D440 §2); never for that on a
@@ -394,7 +393,7 @@ export function controlsShown(context: ControlsContext): readonly OverlayControl
       (context.hasVoicesToMix && !context.isReceiver),
     // A cast's receiver draws no menus (D407 §12): the remote holds its choices.
     subtitles: !context.isReceiver,
-    audio: context.audioTrackCount > 1 && !context.isReceiver,
+    audio: !context.isReceiver,
     more: !context.isReceiver,
     fullScreen: true,
   };

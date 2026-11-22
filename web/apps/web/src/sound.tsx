@@ -99,12 +99,14 @@ export function useOwnChoice(
  */
 export function OwnChoiceBox(props: {
   readonly label: string;
+  /** What the switch says in brackets after its label: the Sound menu's levelling, the gain it adds. */
+  readonly status?: string | undefined;
   readonly state: OwnChoiceState;
 }): JSX.Element {
   const { isOn, switchTo, problem } = props.state;
   return (
     <>
-      <Switch label={props.label} isOn={isOn} onSwitch={switchTo} />
+      <Switch label={props.label} status={props.status} isOn={isOn} onSwitch={switchTo} />
       {problem === undefined ? null : <p role="alert">{problem}</p>}
     </>
   );

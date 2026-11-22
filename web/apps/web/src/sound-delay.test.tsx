@@ -260,7 +260,7 @@ describe("this device's sound timing (the owner's TCL TV, 2026-10-24)", () => {
     const shown = [...mounted.container.querySelectorAll("output")].map((each) => each.textContent);
     expect(shown).toEqual([
       "Sound on this device: 200 ms earlier",
-      "Sound on this device: 200 ms earlier",
+      "Sound plays 200 ms earlier on this device",
     ]);
     await letPass(soundOffsetKeptAfterMs);
     expect(heard).toEqual([{ methodAndPath: "PUT /me/devices/5", body: { soundOffsetMs: -200 } }]);

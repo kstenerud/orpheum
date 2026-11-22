@@ -133,6 +133,17 @@ function places(on: Mounted): string[] {
     .map((place) => place.textContent);
 }
 
+/** Opens the open list's submenu whose entry's text starts with name. */
+async function openedSubmenu(on: Mounted, name: string): Promise<void> {
+  const entry = [...on.container.querySelectorAll("dialog .list-box li")].find(
+    (place) => place.textContent.startsWith(name) && place.querySelector("li") === null,
+  );
+  await fire(
+    entry?.querySelector('[role="button"], button') ?? entry,
+    new MouseEvent("click", { bubbles: true }),
+  );
+}
+
 /** Presses the open list's place whose text is text. */
 async function choosing(on: Mounted, text: string): Promise<void> {
   const place = [...on.container.querySelectorAll('dialog .list-box [role="button"]')].find(
@@ -182,22 +193,44 @@ describe("the overlay's menus (D407 §8)", () => {
     expect(on.container.querySelector("dialog")).toBeNull();
   });
 
-  it("lists the audio tracks alone in Sound track, and chooses one", async () => {
+  it("lists the audio tracks in the Sound menu's Sound track, and chooses one (D538 §8)", async () => {
     const chosen: Chosen = { subtitles: [], audio: [] };
     const on = await drawn(tracksNoting(chosen));
-    await opened(on, "Sound track");
-    expect(places(on)).toEqual(["English", "French"]);
+    await opened(on, "Sound");
+    await openedSubmenu(on, "Sound track");
+    expect(places(on)).toEqual(["‹Sound track", "English", "French"]);
     await choosing(on, "French");
     expect(chosen.audio).toEqual([81]);
   });
 
-  it("holds the rest under ⁝: Start over, the subtitles' offset, levelling", async () => {
+  it("holds the sound in the Sound menu: its track, levelling with the gain it adds, the boost and the timing (D538 §8)", async () => {
+    const tracks = tracksNoting({ subtitles: [], audio: [] });
+    const boost = { isOn: false, switchTo: () => undefined, problem: undefined };
+    const on = await drawn({ ...tracks, boost });
+    await opened(on, "Sound");
+    const shown = places(on);
+    expect(shown[0]).toContain("Sound track");
+    expect(shown[0]).toContain("English");
+    expect(shown.slice(1, 4)).toEqual(["Level loudness (-2.0 dB)", "Dialogue boost", "Timing"]);
+    expect(shown[4]).toContain("This device");
+  });
+
+  it("says nothing in Level loudness's brackets while the sound is unmeasured", async () => {
+    const tracks = tracksNoting({ subtitles: [], audio: [] });
+    const level = { levelling: { isMeasured: false, gainDb: 0 }, carriedGainDb: 0 };
+    const on = await drawn({ ...tracks, level });
+    await opened(on, "Sound");
+    expect(places(on)).toContain("Level loudness");
+  });
+
+  it("holds the rest under ⁝: Start over and the subtitles' timing, and no sound setting (D538 §8)", async () => {
     const on = await drawn(tracksNoting({ subtitles: [], audio: [] }));
     await opened(on, "Settings");
     const shown = places(on).join(" | ");
     expect(shown).toContain("Start over");
     expect(shown).toContain("Subtitle timing");
-    expect(shown).toContain("Level");
+    expect(shown).not.toContain("Level");
+    expect(shown).not.toContain("This device");
   });
 
   it("says under ⁝ how the film plays here, read-only: as it is or converted, quality and link (D444)", async () => {
@@ -232,22 +265,23 @@ describe("the overlay's menus (D407 §8)", () => {
 
   it("names Sound track by the first audio track where none is chosen, as the playback plays it", async () => {
     const tracks = tracksNoting({ subtitles: [], audio: [] });
-    await drawn({ ...tracks, audio: { ...tracks.audio, chosenStreamId: undefined } });
-    expect(openerNamed("Sound track")?.getAttribute("aria-label")).toBe("Sound track: English");
+    const on = await drawn({ ...tracks, audio: { ...tracks.audio, chosenStreamId: undefined } });
+    await opened(on, "Sound");
+    expect(places(on)[0]).toBe("Sound track: English›");
   });
 
   // The owner, 2026-11-04: Sound track and Subtitles are two menus, not one panel.
-  it("names Subtitles by its choice alone, a button apart from Sound track's", async () => {
+  it("names Subtitles by its choice alone, a button apart from the Sound menu's", async () => {
     await drawn(tracksNoting({ subtitles: [], audio: [] }));
     const names = [...document.querySelectorAll("[aria-haspopup]")].map((button) =>
       button.getAttribute("aria-label"),
     );
-    expect(names).toEqual(["Subtitles: Off", "Sound track: English", "Settings"]);
+    expect(names).toEqual(["Subtitles: Off", "Sound", "Settings"]);
     expect(openerNamed("Subtitles")?.getAttribute("aria-label")).toBe("Subtitles: Off");
   });
 
   // The owner, 2026-11-04: each opens on its current value.
-  it("opens Subtitles and Sound track each on its current choice", async () => {
+  it("opens Subtitles and the Sound menu's Sound track each on its current choice", async () => {
     const tracks = tracksNoting({ subtitles: [], audio: [] });
     const chosen = {
       ...tracks,
@@ -260,7 +294,8 @@ describe("the overlay's menus (D407 §8)", () => {
     expect(document.activeElement?.getAttribute("aria-current")).toBe("true");
     subtitles.unmount();
     const audio = await drawn(chosen);
-    await opened(audio, "Sound track");
+    await opened(audio, "Sound");
+    await openedSubmenu(audio, "Sound track");
     expect(document.activeElement?.textContent).toBe("French");
     expect(document.activeElement?.getAttribute("aria-current")).toBe("true");
   });

@@ -54,11 +54,9 @@ it("shows the player's real overlay rows over a film, each of whose menus opens 
   const names = [...overlay.querySelectorAll('button, [role="button"]')].map((button) =>
     button.getAttribute("aria-label"),
   );
-  expect(names).toEqual(
-    expect.arrayContaining(["Subtitles: Off", "Sound track: English", "Settings"]),
-  );
+  expect(names).toEqual(expect.arrayContaining(["Subtitles: Off", "Sound", "Settings"]));
   expect(await popUpOf("Subtitles: Off")).toEqual(["Off", "English", "French"]);
-  expect(await popUpOf("Sound track: English")).toEqual(["English", "English · commentary"]);
+  expect((await popUpOf("Sound")).join(" | ")).toContain("Sound track: English");
 });
 
 it("opens 🔈's row of sliders in its session: the film's, then each person's letters (D440 §2)", async () => {

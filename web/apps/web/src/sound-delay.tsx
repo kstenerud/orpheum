@@ -10,7 +10,7 @@ import {
   newAudioContext,
   soundOffset,
 } from "@orpheum/player";
-import { reportFailure } from "@orpheum/sdk";
+import { reportFailure, type components } from "@orpheum/sdk";
 import {
   useEffect,
   useState,
@@ -42,40 +42,109 @@ export const soundOffsetStepMs = 50;
 export const soundOffsetKeptAfterMs = 500;
 
 /**
- * The offset this tab last set, which a playback asked for before it, as a film page's warm-up is,
- * did not hear of: the owner set 0 during one film and the next started at the 50 before it
- * (2026-10-24). Undefined until the tab sets one.
+ * A value this tab last set, which every control drawn hears (useSyncExternalStore): the hidden one
+ * under the film and the player's menu alike (D407 §8), so neither moves from a stale one, and a
+ * playback asked for before it was set, as a film page's warm-up is, takes it: the owner set 0
+ * during one film and the next started at the 50 before it (2026-10-24).
  */
-const setInThisTab: { ms: number | undefined } = { ms: undefined };
-
-/**
- * What hears the offset this tab sets: every control drawn shows and applies the one value, the
- * hidden one under the film and the player's ⁝ alike (D407 §8), so neither moves from a stale one.
- */
-const tabListeners = new Set<() => void>();
-
-/** Sets the offset this tab last set, telling every control. */
-function setTabMs(ms: number | undefined): void {
-  setInThisTab.ms = ms;
-  for (const listener of tabListeners) {
-    listener();
-  }
+export interface TabValue<T> {
+  readonly get: () => T;
+  readonly set: (value: T) => void;
+  readonly hear: (listener: () => void) => () => void;
 }
 
-function hearTab(listener: () => void): () => void {
-  tabListeners.add(listener);
-  return () => {
-    tabListeners.delete(listener);
+/** A value this tab sets, starting at initial (TabValue). */
+export function tabValue<T>(initial: T): TabValue<T> {
+  let value = initial;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => value,
+    set: (next) => {
+      value = next;
+      for (const listener of listeners) {
+        listener();
+      }
+    },
+    hear: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
   };
 }
 
-function tabMs(): number | undefined {
-  return setInThisTab.ms;
+/** The device's offset this tab last set; undefined until it sets one. */
+const deviceInThisTab = tabValue<number | undefined>(undefined);
+
+/** The device's offset as this tab last set it, else as the playback started (initialMs). */
+export function useDeviceSoundOffsetMs(initialMs: number): number {
+  return (
+    useSyncExternalStore(deviceInThisTab.hear, deviceInThisTab.get, deviceInThisTab.get) ??
+    initialMs
+  );
 }
 
-/** Forgets the offset this tab set, for a test. */
+/** Forgets the offsets this tab set, the device's and a file's, for a test. */
 export function forgetSoundOffsetSetInThisTab(): void {
-  setTabMs(undefined);
+  deviceInThisTab.set(undefined);
+  forgetFileSoundOffsetSetInThisTab();
+}
+
+/** A sound offset held to the furthest the player moves the sound either way. */
+export function heldToLongest(ms: number): number {
+  return Math.min(Math.max(ms, -longestSoundOffsetMs), longestSoundOffsetMs);
+}
+
+/** A file's sound offset as a playback's start says it (D537 §4). */
+export type FileSoundOffset = components["schemas"]["FileSoundOffsetBody"];
+
+/** The file playing, and its sound offset as its playback started. */
+export interface FileOffsetOf {
+  readonly fileId: number;
+  readonly initial: FileSoundOffset;
+}
+
+/**
+ * A file's sound offset as it stands for the person (D537): every person's, an admin's, and their own,
+ * undefined while they keep none, which overrides it for them.
+ */
+export interface FileOffsetNow {
+  readonly fileId: number;
+  readonly everyonesMs: number;
+  readonly ownMs: number | undefined;
+}
+
+/** The file's offset this tab last set, for the file it was set for; undefined until it sets one. */
+const fileInThisTab = tabValue<FileOffsetNow | undefined>(undefined);
+
+/** Sets a file's offset as it now stands for the person, telling every control. */
+export function setFileSoundOffsetInThisTab(now: FileOffsetNow): void {
+  fileInThisTab.set(now);
+}
+
+/** Forgets the file's offset this tab set, for a test. */
+export function forgetFileSoundOffsetSetInThisTab(): void {
+  fileInThisTab.set(undefined);
+}
+
+/**
+ * The file's sound offset as it stands now (FileOffsetNow), as this tab last set it for the file or
+ * else as its playback started, and ms, the one it plays with: the person's own, else every
+ * person's; 0 for no file.
+ */
+export function useFileSoundOffset(
+  file: FileOffsetOf | undefined,
+): FileOffsetNow & { readonly ms: number } {
+  const set = useSyncExternalStore(fileInThisTab.hear, fileInThisTab.get, fileInThisTab.get);
+  if (file === undefined) {
+    return { fileId: 0, everyonesMs: 0, ownMs: undefined, ms: 0 };
+  }
+  const now: FileOffsetNow =
+    set?.fileId === file.fileId
+      ? set
+      : { fileId: file.fileId, everyonesMs: file.initial.everyonesMs, ownMs: file.initial.ownMs };
+  return { ...now, ms: now.ownMs ?? now.everyonesMs };
 }
 
 /**
@@ -94,44 +163,110 @@ export function forgetSoundOffsetSetInThisTab(): void {
 export function SoundOffsetControl(props: {
   readonly videoRef: RefObject<HTMLVideoElement | null>;
   readonly initialMs: number;
+  /** The file playing and its own offset as its playback started (D537), which plays with this. */
+  readonly file?: FileOffsetOf | undefined;
   readonly isInAList?: boolean;
 }): JSX.Element | null {
   const { t } = useTranslation();
   const { session } = useServices();
-  const offsetMs = useSyncExternalStore(hearTab, tabMs, tabMs) ?? props.initialMs;
+  const offsetMs = useDeviceSoundOffsetMs(props.initialMs);
+  const fileMs = useFileSoundOffset(props.file).ms;
   const { keep, failure } = useKeptOnDevice();
   // Whether the sound is wanted earlier than this film can play it: it plays as its own file.
   const [isEarlierRefused, setIsEarlierRefused] = useState(false);
-  useEffect(() => {
-    const video = props.videoRef.current;
-    if (video !== null) {
-      soundOffset(video, newAudioContext, soundLatencyMemory()).setMs(offsetMs);
-    }
-  }, [offsetMs, props.videoRef]);
+  useSoundOffsetApplied(props.videoRef, offsetMs + fileMs);
   const deviceId = session.deviceId();
   const setTo = (wanted: number): void => {
-    const next = Math.min(Math.max(wanted, -longestSoundOffsetMs), longestSoundOffsetMs);
-    setTabMs(next);
-    const video = props.videoRef.current;
-    setIsEarlierRefused(next < 0 && video !== null && !canMoveSoundEarlier(video));
+    const next = heldToLongest(wanted);
+    deviceInThisTab.set(next);
+    setIsEarlierRefused(isEarlierRefusedFor(props.videoRef, next + fileMs));
     if (deviceId !== undefined) {
       keep({ deviceId, ms: next });
     }
   };
-  useMovedByTheRemote(props.isInAList === true ? undefined : offsetMs, setTo);
+  const isInAList = props.isInAList === true;
+  useMovedByTheRemote(isInAList ? undefined : offsetMs, setTo);
   return (
     <TimingRow
-      isInAList={props.isInAList === true}
+      isInAList={isInAList}
       notes={<TimingNotes isEarlierRefused={isEarlierRefused} failure={failure} />}
     >
-      <SoundOffsetInput
-        label={t("play.soundOffset.row")}
-        fieldLabel={t("play.soundOffset.field")}
-        valueText={timingText(t, offsetMs)}
-        ms={offsetMs}
-        onChange={setTo}
-      />
+      {isInAList ? (
+        <SoundOffsetInput
+          label={t("play.soundOffset.thisDevice")}
+          fieldLabel={t("play.soundOffset.field")}
+          valueText={deviceTimingText(t, offsetMs)}
+          ms={offsetMs}
+          stepLabels={{
+            earlier: t("play.soundOffset.thisDeviceEarlier"),
+            later: t("play.soundOffset.thisDeviceLater"),
+          }}
+          onChange={setTo}
+        />
+      ) : (
+        <SoundOffsetInput
+          label={t("play.soundOffset.row")}
+          fieldLabel={t("play.soundOffset.field")}
+          valueText={timingText(t, offsetMs)}
+          ms={offsetMs}
+          onChange={setTo}
+        />
+      )}
     </TimingRow>
+  );
+}
+
+/**
+ * Plays the sound of the video in videoRef ms from its picture, the device's and the file's added
+ * (D537 §1), held to the furthest the player plays either way: whichever control is drawn applies
+ * the one sum, as each hears the same values.
+ */
+function useSoundOffsetApplied(videoRef: RefObject<HTMLVideoElement | null>, ms: number): void {
+  const heldMs = heldToLongest(ms);
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video !== null) {
+      soundOffset(video, newAudioContext, soundLatencyMemory()).setMs(heldMs);
+    }
+  }, [heldMs, videoRef]);
+}
+
+/** Whether a sound wanted ms from its picture is earlier than the film can play it: its own file's. */
+export function isEarlierRefusedFor(
+  videoRef: RefObject<HTMLVideoElement | null>,
+  ms: number,
+): boolean {
+  const video = videoRef.current;
+  return ms < 0 && video !== null && !canMoveSoundEarlier(video);
+}
+
+/** What a playback's start says of the sound's timing (D537 §4): the device's and the file's own. */
+interface PlaybackSoundOffsets {
+  readonly soundOffsetMs: number;
+  readonly fileSoundOffset: FileSoundOffset;
+}
+
+/** The sound's timings a playback started with, as the overlay's menus are given them. */
+export function soundOffsetsOf(decision: PlaybackSoundOffsets): PlaybackSoundOffsets {
+  return { soundOffsetMs: decision.soundOffsetMs, fileSoundOffset: decision.fileSoundOffset };
+}
+
+/**
+ * The sound's timing under a film playing a file of its own: the device's, starting where the
+ * playback did, played with the file's (D537 §1), which the Sound menu sets.
+ */
+export function FilmTiming(props: {
+  readonly videoRef: RefObject<HTMLVideoElement | null>;
+  readonly fileId: number;
+  readonly decision: PlaybackSoundOffsets;
+}): JSX.Element | null {
+  const { decision } = props;
+  return (
+    <SoundOffsetControl
+      videoRef={props.videoRef}
+      initialMs={decision.soundOffsetMs}
+      file={{ fileId: props.fileId, initial: decision.fileSoundOffset }}
+    />
   );
 }
 
@@ -146,9 +281,12 @@ export function SoundOffsetInput(props: {
   readonly fieldLabel: string;
   readonly valueText: string;
   readonly ms: number;
+  /** What − and + are named where its row names them: the Sound menu's "This file earlier". */
+  readonly stepLabels?: { readonly earlier: string; readonly later: string } | undefined;
   readonly onChange: (ms: number) => void;
 }): JSX.Element {
   const { t } = useTranslation();
+  const { stepLabels } = props;
   return (
     <Stepper
       label={props.label}
@@ -159,8 +297,10 @@ export function SoundOffsetInput(props: {
       max={longestSoundOffsetMs}
       step={soundOffsetStepMs}
       unit={t("play.soundOffset.unit")}
-      stepDownLabel={t("play.soundOffset.earlier", { ms: soundOffsetStepMs })}
-      stepUpLabel={t("play.soundOffset.later", { ms: soundOffsetStepMs })}
+      stepDownLabel={
+        stepLabels?.earlier ?? t("play.soundOffset.earlier", { ms: soundOffsetStepMs })
+      }
+      stepUpLabel={stepLabels?.later ?? t("play.soundOffset.later", { ms: soundOffsetStepMs })}
       onChange={props.onChange}
     />
   );
@@ -264,10 +404,14 @@ function useKeptOnDevice(): {
   return { keep: writes.write, failure };
 }
 
-/** What the timing says beneath it: that the film cannot play its sound earlier, or a timing not kept. */
-function TimingNotes(props: {
+/**
+ * What a timing says beneath it: that the film cannot play its sound earlier, or a timing not kept,
+ * the device's, or a file's (notKeptKey).
+ */
+export function TimingNotes(props: {
   readonly isEarlierRefused: boolean;
   readonly failure: { readonly cause: unknown } | undefined;
+  readonly notKeptKey?: string | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const { isEarlierRefused, failure } = props;
@@ -278,11 +422,20 @@ function TimingNotes(props: {
       ) : null}
       {failure === undefined ? null : (
         <p className="play__reason">
-          {t("thisDevice.soundOffsetNotKept", { problem: problemText(t, failure.cause) })}
+          {t(props.notKeptKey ?? "thisDevice.soundOffsetNotKept", {
+            problem: problemText(t, failure.cause),
+          })}
         </p>
       )}
     </>
   );
+}
+
+/** What the Sound menu's "This device" says while not 0: how much later or earlier the sound plays. */
+function deviceTimingText(t: TFunction, offsetMs: number): string {
+  return offsetMs > 0
+    ? t("play.soundOffset.deviceLater", { ms: offsetMs })
+    : t("play.soundOffset.deviceEarlier", { ms: -offsetMs });
 }
 
 /** What the timing says: in step, or how much later or earlier the sound plays. */

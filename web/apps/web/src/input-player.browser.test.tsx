@@ -428,7 +428,7 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
       "Play",
       "Forward 10 s",
       "Subtitles: Off",
-      "Sound track: English",
+      "Sound",
       "Settings",
       "Full screen",
     ]);

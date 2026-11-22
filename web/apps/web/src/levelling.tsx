@@ -16,7 +16,7 @@ import { useTranslation } from "react-i18next";
 
 import { useFileWaits, waitText, type FileWait } from "./file-waits.ts";
 import { useIsGuest } from "./guest-page.ts";
-import { tenthsText } from "./number-text.ts";
+import { signedTenthsText, tenthsText } from "./number-text.ts";
 import { soundLatencyMemory } from "./sound-latency.ts";
 import { OwnChoiceBox, useOwnChoice, type OwnChoiceState } from "./sound.tsx";
 
@@ -236,6 +236,46 @@ export function LevellingControl(props: {
     <>
       <OwnChoiceBox label={t("play.level.switch")} state={props.state} />
       <p className="levelling__note">{t(`play.level.${note.key}`, { db: dbText, wait })}</p>
+    </>
+  );
+}
+
+/**
+ * The notes the Sound menu's Level loudness says beneath it: only what the switch's brackets cannot,
+ * that the sound waits to be measured, or that the device sets its own volume (D538 §8).
+ */
+const notesUnderTheSoundMenusSwitch: ReadonlySet<string> = new Set([
+  "measuring",
+  "waitingToMeasure",
+  "deviceVolume",
+]);
+
+/**
+ * The Sound menu's Level loudness (D538 §8): the person's switch, saying in brackets the gain it adds
+ * where it is on, levelling.gainDb less what the sound already carries, "Level loudness (+4.1 dB)";
+ * nothing in them while the sound is unmeasured, or where the device sets its own volume, which a
+ * note beneath says, as it says how long measuring takes.
+ */
+export function LevelLoudnessEntry(props: {
+  readonly level: SoundLevel;
+  readonly measuring: FileWait | undefined;
+  readonly state: OwnChoiceState;
+}): JSX.Element {
+  const { t, i18n } = useTranslation();
+  const [canApplyGain] = useState(pageCanSetVolume);
+  const { level } = props;
+  const status =
+    canApplyGain && level.levelling.isMeasured
+      ? t("play.level.added", { db: signedTenthsText(addedGainDb(level, true), i18n.language) })
+      : undefined;
+  const note = measuringNote(levelNote(level, props.state.isOn, canApplyGain), props.measuring);
+  const wait = note.seconds === undefined ? "" : waitText(t, note.seconds);
+  return (
+    <>
+      <OwnChoiceBox label={t("play.level.switch")} status={status} state={props.state} />
+      {notesUnderTheSoundMenusSwitch.has(note.key) ? (
+        <p className="levelling__note">{t(`play.level.${note.key}`, { wait })}</p>
+      ) : null}
     </>
   );
 }

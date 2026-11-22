@@ -249,9 +249,7 @@ describe("Subtitles and Sound track, opened by a remote's OK", () => {
         </div>,
       ),
     );
-    const button = document.querySelector<HTMLElement>(
-      `[aria-haspopup][aria-label^="${opener}: "]`,
-    );
+    const button = document.querySelector<HTMLElement>(`[aria-haspopup][aria-label^="${opener}"]`);
     button?.focus();
     expect(document.activeElement).toBe(button);
     // A remote's OK is Enter on the focused opener, whose click Firefox under load can drop
@@ -270,8 +268,13 @@ describe("Subtitles and Sound track, opened by a remote's OK", () => {
     expect(shown.showsNeighbours).toBe(true);
   });
 
-  it("opens Sound track on its current choice, a choice above and below it in view", async () => {
-    await openedByOk("Sound track", manyTracks({ subtitleKey: undefined, audioStreamId: 89 }));
+  it("opens the Sound menu's Sound track on its current choice, a choice above and below it in view", async () => {
+    await openedByOk("Sound", manyTracks({ subtitleKey: undefined, audioStreamId: 89 }));
+    const soundTrack = [...document.querySelectorAll<HTMLElement>("dialog .list-box li")].find(
+      (place) => place.textContent.startsWith("Sound track") && place.querySelector("li") === null,
+    );
+    (soundTrack?.querySelector<HTMLElement>('[role="button"], button') ?? soundTrack)?.click();
+    await expect.poll(() => document.activeElement?.textContent).toBe("English · Track 9");
     const shown = focusedAndNeighbours();
     expect(shown.text).toBe("English · Track 9");
     expect(shown.isCurrent).toBe(true);

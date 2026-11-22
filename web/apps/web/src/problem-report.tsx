@@ -2,6 +2,7 @@
 
 import "./problem-report.css";
 
+import type { TFunction } from "i18next";
 import type { components, PlaybackReport } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
@@ -20,6 +21,9 @@ type Fact = components["schemas"]["ProblemReportFactBody"];
 
 /** The player's state as a report from ⁝ carries it (D524 §2). */
 export type ReportedPlayback = components["schemas"]["ProblemReportPlaybackBody"];
+
+/** A file's sound offset a report suggests for every person (D537 §5). */
+export type SuggestedSoundOffset = components["schemas"]["ProblemReportSoundOffsetBody"];
 
 /** The longest a person's words may be, as the server takes them. */
 const wordsLimit = 2000;
@@ -70,6 +74,8 @@ function networkOf(connection: EventTarget | undefined): string {
 export function ProblemReportDialog(props: {
   /** The player's state, taken as ⁝'s Report a problem was chosen; undefined from anywhere else. */
   readonly playback?: ReportedPlayback | undefined;
+  /** The file's sound offset it suggests, from the Sound menu's Tell the admin; undefined for none. */
+  readonly soundOffset?: SuggestedSoundOffset | undefined;
   readonly onClose: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -86,6 +92,7 @@ export function ProblemReportDialog(props: {
       ) : (
         <ReportForm
           playback={props.playback}
+          soundOffset={props.soundOffset}
           onSent={() => {
             setIsSent(true);
           }}
@@ -102,6 +109,7 @@ export function ProblemReportDialog(props: {
  */
 function ReportForm(props: {
   readonly playback: ReportedPlayback | undefined;
+  readonly soundOffset: SuggestedSoundOffset | undefined;
   readonly onSent: () => void;
   readonly onCancel: () => void;
 }): JSX.Element {
@@ -120,6 +128,7 @@ function ReportForm(props: {
             page: routeHref(navigation.route()),
             device: deviceFacts(),
             ...(props.playback === undefined ? {} : { playback: props.playback }),
+            ...(props.soundOffset === undefined ? {} : { soundOffset: props.soundOffset }),
           },
           ...idempotent(idempotencyKey),
         }),
@@ -131,6 +140,9 @@ function ReportForm(props: {
     <form className="problem-report" onSubmit={send}>
       <h2>{t("problemReport.heading")}</h2>
       <p>{t("problemReport.what")}</p>
+      {props.soundOffset === undefined ? null : (
+        <p>{suggestionText(t, props.soundOffset.soundOffsetMs)}</p>
+      )}
       <label className="problem-report__words">
         {t("problemReport.words")}
         <textarea
@@ -154,6 +166,16 @@ function ReportForm(props: {
       </div>
     </form>
   );
+}
+
+/** What a report says it suggests: the file's sound, so much later or earlier, for every person. */
+export function suggestionText(t: TFunction, soundOffsetMs: number): string {
+  if (soundOffsetMs === 0) {
+    return t("problemReport.suggestsInStep");
+  }
+  return soundOffsetMs > 0
+    ? t("problemReport.suggestsLater", { ms: soundOffsetMs })
+    : t("problemReport.suggestsEarlier", { ms: -soundOffsetMs });
 }
 
 /**
