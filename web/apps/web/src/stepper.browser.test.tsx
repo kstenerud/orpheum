@@ -181,7 +181,9 @@ describe("a stepper, by a keyboard, a mouse and a finger", () => {
   });
 
   it("takes a number typed, applied on Enter, and a click and a tap on its signs", async () => {
-    await userEvent.tripleClick(field());
+    // Its text is selected outright: a triple click a loaded machine draws out is three clicks.
+    await userEvent.click(field());
+    field().select();
     await userEvent.keyboard("−150{Enter}");
     expect(field().value).toBe("−150");
     expect(caption().textContent).toBe("Delay: -150 ms");
