@@ -30592,3 +30592,29 @@ player foresees" (`apps/web/src/interest.test.ts`); §2,
 `TestInterestsIn_APictureLeftIsWantedFromWhereThePictureIsForFiveMinutes` and
 `TestInterest_ARunOfAQualityThePlayerLeftStops`. Only a device shows the stalls gone: VQ376.
 
+
+## D533 — The sound the server makes fills a gap in the film's own with silence, a player whose copied sound is given up mid-film starts again at the made one, and a page that failed reports no stalls
+
+**Decided** (2026-11-22), by the project owner ("all 3, fold into v0.8.11"), of the agent's three
+proposals after film 20597 failed on staging in a Mac's Firefox with "it could not be fetched
+from the server". The film's file (file 18306) has a first AAC packet that lasts 31.9 s, every
+other one 23 ms, so its sound starts 32 s late. Its copied sound's chunk 0 came out holding 0 to
+31.9 s and was refused at its bounds twice, so the server gave the copy up (D500 §2); the running
+player's playlist still named it, and its next chunk was a 404 no player answers. The sound the
+server makes, tried on the node, broke on the same packet: its chunk 1 started at 31.9 s. The page
+then reported a stall at position 0 every 8 s, each a drop of the link, raising the device's
+unsteadiness. Amends D500 §2.
+
+**Status:** decided.
+
+1. **The sound the server makes fills a gap in the film's own with silence**, FFmpeg's
+   `aresample=async=1:first_pts=0` before its trim, so its chunks are cut on their grid however
+   the film's packets are timed. Tried on the node against file 18306: about 2 s chunks, silence
+   over the first 32 s.
+2. **A player whose copied sound is given up mid-film starts again at the made one** (amends D500
+   §2, which did so only for the picture): the playback that was offered the copy keeps it, and
+   its chunks are refused as ones that cannot be made, as the picture's are; the player, refused a
+   chunk of its sound so, asks the page to start the playback again where it was, and the new
+   playback is offered the sound the server makes.
+3. **A page that failed reports no stalls**: once it shows that the film could not play, its
+   player's standing still is no stall of the link, and counts toward nothing.

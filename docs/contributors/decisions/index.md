@@ -505,7 +505,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D497](working-notes.md#d497--a-pictures-place-shows-a-poster-else-a-screenshot-else-no-poster-by-the-place-continue-watching-and-an-other-video-with-nothing-keep-it) A picture's place shows a poster, else a screenshot, else No poster, by the place; Continue Watching and an other video with nothing keep it — *revisited by D498*
 - [D498](working-notes.md#d498--each-places-picture-as-the-owners-table-has-it-a-mixed-row-and-the-season-list-keep-a-posters-shape) Each place's picture as the owner's table has it: a mixed row and the season list keep a poster's shape
 - [D499](working-notes.md#d499--an-other-library-lists-by-name-by-default-as-films-and-series-do) An other library lists by name by default, as films and series do
-- [D500](working-notes.md#d500--a-copied-picture-is-cut-at-its-keyframes-however-its-file-seeks-and-is-encoded-where-it-cannot-be) A copied picture is cut at its keyframes however its file seeks, and is encoded where it cannot be
+- [D500](working-notes.md#d500--a-copied-picture-is-cut-at-its-keyframes-however-its-file-seeks-and-is-encoded-where-it-cannot-be) A copied picture is cut at its keyframes however its file seeks, and is encoded where it cannot be — *revisited by D533*
 - [D501](working-notes.md#d501--a-film-started-below-the-original-its-person-chose-moves-up-once-after-a-minute-of-the-link-at-13-times-the-file-and-says-so-in-) A film started below the original its person chose moves up once, after a minute of the link at 1.3 times the file, and says so in ⋯ — *revisited by D505*
 - [D502](working-notes.md#d502--a-films-start-asks-its-requests-together-where-they-wait-on-one-another-today) A film's start asks its requests together where they wait on one another today
 - [D503](working-notes.md#d503--a-quality-switch-never-loads-again-a-chunk-it-already-holds-and-a-step-down-is-not-caught-by-a-chunk-not-made-yet) A quality switch never loads again a chunk it already holds, and a step-down is not caught by a chunk not made yet
@@ -538,6 +538,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D530](working-notes.md#d530--the-cache-evicts-by-what-each-entry-is-worth-keeping-what-remaking-it-costs-the-space-it-frees-and-how-lately-it-was-served) The cache evicts by what each entry is worth keeping: what remaking it costs, the space it frees, and how lately it was served
 - [D531](working-notes.md#d531--a-failed-probe-hands-the-next-to-another-job-and-a-job-that-fails-every-probe-alone-fails-on-its-own) A failed probe hands the next to another job, and a job that fails every probe alone fails on its own
 - [D532](working-notes.md#d532--a-player-says-ahead-of-time-that-it-will-step-down-and-a-picture-quality-just-left-keeps-being-made-for-five-minutes) A player says ahead of time that it will step down, and a picture quality just left keeps being made for five minutes
+- [D533](working-notes.md#d533--the-sound-the-server-makes-fills-a-gap-in-the-films-own-with-silence-a-player-whose-copied-sound-is-given-up-mid-film-starts-again-at-the-made-one-and-a-page-that-failed-reports-no-stalls) The sound the server makes fills a gap in the film's own with silence, a player whose copied sound is given up mid-film starts again at the made one, and a page that failed reports no stalls
 
 ## Archived
 
