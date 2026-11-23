@@ -13,7 +13,7 @@ export const castFrameEveryMs = 3000;
  * Under `/bytes/`, so the image's request carries the media cookie, as artwork's does.
  */
 export function castFrameUrl(fileId: number, atMs: number): string {
-  return `${apiPrefix}/bytes/files/${fileId}/frame?atMs=${Math.max(0, Math.round(atMs))}`;
+  return `${apiPrefix}/bytes/files/${String(fileId)}/frame?atMs=${String(Math.max(0, Math.round(atMs)))}`;
 }
 
 /** What a cast's remote shows where the video would be. */
@@ -43,15 +43,21 @@ export function CastFrame({ fileId, atMs, className, fallback }: CastFrameProps)
     let askedAt: number | null = null;
     let loading: HTMLImageElement | null = null;
     const ask = (): void => {
-      if (document.visibilityState === "hidden") return;
+      if (document.visibilityState === "hidden") {
+        return;
+      }
       const at = Math.max(0, Math.round(placeRef.current));
-      if (at === askedAt) return;
+      if (at === askedAt) {
+        return;
+      }
       askedAt = at;
       const url = castFrameUrl(fileId, at);
       const image = new Image();
       loading = image;
       image.onload = () => {
-        if (loading === image) setShown({ fileId, url });
+        if (loading === image) {
+          setShown({ fileId, url });
+        }
       };
       image.src = url;
     };
@@ -65,7 +71,7 @@ export function CastFrame({ fileId, atMs, className, fallback }: CastFrameProps)
   const frame = shown?.fileId === fileId ? shown.url : null;
   return (
     <div className={["cast-frame", className].filter(Boolean).join(" ")}>
-      {frame === null ? fallback : <img className="cast-frame-image" src={frame} alt="" />}
+      {frame === null ? fallback : <img className="cast-frame-image" src={frame} alt={""} />}
     </div>
   );
 }

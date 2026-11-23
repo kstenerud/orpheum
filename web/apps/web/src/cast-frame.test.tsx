@@ -31,8 +31,25 @@ function render(tree: ReactNode): { rerender: (next: ReactNode) => void } {
   document.body.append(container);
   const mounted = createRoot(container);
   root = mounted;
-  act(() => mounted.render(tree));
-  return { rerender: (next) => act(() => mounted.render(next)) };
+  act(() => {
+    mounted.render(tree);
+  });
+  return {
+    rerender: (next) => {
+      act(() => {
+        mounted.render(next);
+      });
+    },
+  };
+}
+
+/** Loads the index'th image the component asked for. */
+function loadedAt(index: number): void {
+  const image = loading[index];
+  if (image === undefined) {
+    throw new Error(`no image ${String(index)} was asked for`);
+  }
+  image.load();
 }
 
 const shows = (text: string): boolean => document.body.textContent.includes(text);
@@ -68,7 +85,7 @@ describe("CastFrame (D545)", () => {
     expect(asked()).toEqual([castFrameUrl(7, 60_000)]);
     expect(shows("the still")).toBe(true);
     expect(document.querySelector("img")).toBeNull();
-    loading[0].load();
+    loadedAt(0);
     expect(shows("the still")).toBe(false);
     expect(document.querySelector("img")?.getAttribute("src")).toBe(castFrameUrl(7, 60_000));
     rerender(<CastFrame fileId={7} atMs={63_000} fallback={<p>the still</p>} />);
@@ -76,7 +93,7 @@ describe("CastFrame (D545)", () => {
     expect(asked()).toEqual([castFrameUrl(7, 60_000), castFrameUrl(7, 63_000)]);
     // Not loaded yet: the frame before stays.
     expect(document.querySelector("img")?.getAttribute("src")).toBe(castFrameUrl(7, 60_000));
-    loading[1].load();
+    loadedAt(1);
     expect(document.querySelector("img")?.getAttribute("src")).toBe(castFrameUrl(7, 63_000));
   });
 
