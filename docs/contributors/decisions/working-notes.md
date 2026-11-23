@@ -31289,3 +31289,25 @@ the node's status says of its prepared directory).
    `TestUsage_ADiskWithNoRoomIsMeasuredAgainUntilItHasRoom`,
    `TestNeedsAttention_PagesSayAMachinesDiskIsTooFullUntilItHasRoom`, and the web's
    `attention-lines.test.ts`, `play.test.tsx` and the player's `failure.test.ts`.
+
+## D544 — A result the core refuses for what it is fails its attempt, and the node stops sending it
+
+**Decided** (2026-11-23), by the project owner: "go" on the queue audit's fixes, among them D8: a
+result the core always refuses is resolved as the job's failure, not resent until the 24-hour
+limit. **Amends** D234 §5 (an outcome is kept and resent until acknowledged).
+
+**Status:** decided. Its code is `internal/nodeproto/result.go`, `internal/core/nodes/exchange.go`
+and `internal/node/agent`.
+
+1. **The answer.** A result the core refuses for what it is, not for its own trouble (it names no
+   work, or work its kind cannot take, or a held result whose bytes are not the ones its post
+   named), is answered `nodeproto.StatusResultRejected`
+   (422). Before answering, the core fails the attempt (`Exchanges.Reject`, through
+   `Assignee.Unanswered`), so the job is retried or failed by its own rules at once. If it cannot
+   fail the attempt, it answers 500, and the node sends the result again, as before.
+2. **The node.** A node answered 422 ends the attempt and drops the result: it is not sent again.
+   Any other answer but 200 is the core's trouble, and the result is resent, as D234 §5 says.
+3. **No new protocol.** An older node takes 422 as any other refusal and resends until the 24-hour
+   limit, as it did; the protocol's version is unchanged.
+4. **Tests.** `TestReject_FailsTheAttemptOfAResultRefusedForWhatItIs` (`internal/core/nodes`) and
+   `TestAgent_AResultTheCoreRejectsIsNotSentAgain` (`internal/node/agent`).

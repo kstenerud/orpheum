@@ -265,8 +265,8 @@ func (all *Exchanges) Deliver(ctx context.Context, nodeID int64, result nodeprot
 // Reject resolves the attempt a result the core refused for what it is answers (why), as its kind
 // takes a node's silence (Assignee.Unanswered): an attempt's failure, tried again. Sent
 // again, the result would be refused again, so the node is answered StatusResultRejected and
-// stops: before, it sent it for good and the attempt was never resolved (the queue audit,
-// 2026-11-23). A result for no attempt given to the node fails nothing.
+// stops: before, it sent it for good and the attempt was never resolved
+// (D544). A result for no attempt given to the node fails nothing.
 func (all *Exchanges) Reject(ctx context.Context, nodeID int64, result nodeproto.Result, why error) error {
 	held, isHeld, err := all.attemptOf(nodeID, result.AttemptToken)
 	if err != nil {

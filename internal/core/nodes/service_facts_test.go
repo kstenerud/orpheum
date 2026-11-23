@@ -97,7 +97,7 @@ func TestResult_IsAcknowledgedOnlyOnceTheSinkRecordedIt(t *testing.T) {
 	}
 	sink.rejectErr = nil
 	// Refused for what it is, it would be refused at every send: its attempt is failed, and the node
-	// told to stop sending it (the queue audit, 2026-11-23).
+	// told to stop sending it (D544).
 	if status := post(); status != nodeproto.StatusResultRejected || len(sink.rejected) != 2 ||
 		!errors.Is(sink.rejected[1].why, ErrMalformedResult) {
 		t.Errorf("a result the sink cannot take as it is: %d, rejected %+v; want %d and its attempt failed",

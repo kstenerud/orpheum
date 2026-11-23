@@ -10,7 +10,7 @@ const PathResult = "/node/v1/result"
 // StatusResultRejected is the core's answer to a result it refuses for what it is, not for its own
 // trouble: it names no work, or work its kind cannot take, or a held result whose bytes are not the
 // ones its post named. Sent again it would be refused again, so the core resolves the attempt as
-// failed, and the node stops sending it and ends the attempt (the queue audit, 2026-11-23). Any
+// failed, and the node stops sending it and ends the attempt (D544). Any
 // other answer but 200 is the core's trouble, and the node sends the result again (D234 §5). A new
 // answer, not a new field: a node that does not know it sends the result again, as before.
 const StatusResultRejected = http.StatusUnprocessableEntity

@@ -54,8 +54,8 @@ func TestAgent_AResultIsSentUntilTheCoreAcknowledgesIt(t *testing.T) {
 }
 
 // A result the core refuses for what it is, answered nodeproto.StatusResultRejected, is not sent
-// again: the core failed its attempt, and it would be refused at every send, as it was before (the
-// queue audit, 2026-11-23). It ends as one acknowledged, so the node's status no longer holds it.
+// again: the core failed its attempt, and it would be refused at every send, as it was before
+// (D544). It ends as one acknowledged, so the node's status no longer holds it.
 func TestAgent_AResultTheCoreRejectsIsNotSentAgain(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
