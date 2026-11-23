@@ -66,7 +66,9 @@ func TestPark_RoomMadeBetweenTheLookAndTheParkIsNotLost(t *testing.T) {
 		JobID: 1, AttemptToken: sent.AttemptToken,
 		MakeChunks: &nodeproto.MakeChunksReport{State: nodeproto.RunDone}, Work: &encode.Work,
 	})
-	<-resolved
+	if err := testutil.Receive(t, resolved, "the played encode's result resolved"); err != nil {
+		t.Fatalf("the played encode's result was resolved with %v; want it done", err)
+	}
 	// The runner now records the parking its handler answered.
 	queue.Park(t.Context(), parking)
 	if state, isStillParked := queue.DestinationState(parking.Destination); isStillParked {
