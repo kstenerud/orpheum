@@ -392,3 +392,63 @@ func TestServed_AChunkOfARunMadeAheadStartsTheNextRunAMinuteBeforeThePlayerReach
 		t.Errorf("after a restart, serving chunk 40 queued %+v; want nothing: the node may have what follows", runs)
 	}
 }
+
+// an ask whose own run no interest wants cuts the queued run ahead of it all the same (ask cuts
+// before plan decides), so the queue is left with nothing for the player waiting at chunk 10.
+func TestEnsure_AnAskThatPlansNothingLeavesTheQueuedRunAhead(t *testing.T) {
+	t.Parallel()
+	queue, cache := jobsQueue(t)
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	wanted := wantedBy(service)
+	picture := Stream{Kind: nodeproto.StreamPicture}
+	dir := testStoreDir(t, service, picture, mustGrid(t, service).ID())
+	wanted.say(playingAt(picture, 10))
+	askedFor(t, service, picture, 10)
+	if runs := openRuns(t, cache); len(runs) != 1 {
+		t.Fatalf("the runs open = %+v; want the one from 10", runs)
+	}
+	// An ask for chunk 5, 50 s behind the only interest (a request ahead of its playback's report):
+	// within the lookahead of the queued run, too far behind the player for a run from 5 to be wanted.
+	if err := service.askedFor(t.Context(), 1, OnKeyframes, picture, 5); err != nil {
+		t.Fatal(err)
+	}
+	if runs := openRuns(t, cache); len(runs) != 1 {
+		t.Errorf("after an ask that planned no run, the runs open = %+v; want the queued run from 10 still", runs)
+	}
+	if !service.runs.isCovered(dir, 10) {
+		t.Error("chunk 10, which the player at 10 waits for, is no longer on its way")
+	}
+}
+
+// a run whose job is cancelled other than by the chunks themselves (an admin's cancel on the
+// jobs page, jobs.Queue.Cancel, or CancelRetired) while it waits queued, parked or in a retry holds
+// no attempt, so the cancel hook (Exchanges.Cancelled) tells the tracker nothing: the run stands as
+// on its way, and every ask for its chunks plans nothing and is told to ask again.
+func TestEnsure_ARunWhoseQueuedJobAnAdminCancelsIsAskedForAgain(t *testing.T) {
+	t.Parallel()
+	queue, cache := jobsQueue(t)
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	queue.OnCancel(service.exchanges.Cancelled) // as assembly wires it
+	wanted := wantedBy(service)
+	picture := Stream{Kind: nodeproto.StreamPicture}
+	wanted.say(playingAt(picture, 10))
+	askedFor(t, service, picture, 10)
+	open, err := cache.Read().ListEveryOpenJob(t.Context())
+	if err != nil || len(open) != 1 {
+		t.Fatalf("the jobs open = %+v, %v; want the run from 10", open, err)
+	}
+	if err := queue.Cancel(t.Context(), open[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	// The player's next ask, as Want makes it.
+	if err := service.StopUnwanted(t.Context(), 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.askedFor(t.Context(), 1, OnKeyframes, picture, 10); err != nil {
+		t.Fatal(err)
+	}
+	if runs := openRuns(t, cache); len(runs) != 1 {
+		t.Errorf("after the run's job was cancelled, the player's ask for chunk 10 left the runs open = %+v; "+
+			"want one queued again", runs)
+	}
+}

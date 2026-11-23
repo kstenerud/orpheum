@@ -29,8 +29,11 @@ import (
 // fakeQueue keeps what the chunks ask of the job queue.
 type fakeQueue struct {
 	mutex sync.Mutex
-	// requests are the runs asked for, in order; guarded by mutex.
+	// requests are the runs asked for, in order, and held those taken and not cancelled since, by
+	// heldKey: a run asked again (askedAgainReason) that repeats one held is folded into it, as the
+	// queue folds a request into the open job it repeats, and not recorded. Guarded by mutex.
 	requests []jobs.Request
+	held     map[string]bool
 	// isTaken says whether a request is queued, as the queue would: false is one folded into another
 	// of the film's jobs already queued. Nil queues every one. Guarded by mutex.
 	isTaken func(request jobs.Request) bool
@@ -60,13 +63,26 @@ func (queue *fakeQueue) Cancel(_ context.Context, id int64) error {
 	return nil
 }
 
-func newFakeQueue() *fakeQueue { return &fakeQueue{progress: map[int64]float64{}} }
+func newFakeQueue() *fakeQueue {
+	return &fakeQueue{progress: map[int64]float64{}, held: map[string]bool{}}
+}
+
+// heldKey is what a request repeats of another: its kind, target and arguments.
+func heldKey(kind jobs.Kind, target jobs.Target, argsJSON string) string {
+	return fmt.Sprintf("%s %+v %s", kind, target, argsJSON)
+}
 
 func (queue *fakeQueue) Enqueue(_ context.Context, request jobs.Request) (bool, error) {
 	queue.mutex.Lock()
 	defer queue.mutex.Unlock()
+	key := heldKey(request.Kind, request.Target, request.ArgsJSON)
+	if queue.held[key] && request.Reason == askedAgainReason {
+		return false, nil
+	}
 	queue.requests = append(queue.requests, request)
-	return queue.isTaken == nil || queue.isTaken(request), nil
+	isTaken := queue.isTaken == nil || queue.isTaken(request)
+	queue.held[key] = isTaken
+	return isTaken, nil
 }
 
 func (queue *fakeQueue) SetProgress(_ context.Context, id int64, fraction float64) error {
@@ -100,6 +116,7 @@ func (queue *fakeQueue) CancelMatching(
 			return cancelled, err
 		}
 		queue.cancelledFirsts = append(queue.cancelledFirsts, args.FirstChunk)
+		delete(queue.held, heldKey(request.Kind, request.Target, request.ArgsJSON))
 		cancelled++
 	}
 	return cancelled, nil

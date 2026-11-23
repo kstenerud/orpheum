@@ -79,12 +79,13 @@ func (service *Service) ensure(ctx context.Context, asked ensuring) error {
 	if askErr != nil {
 		return askErr
 	}
-	first, last, isPlanned := service.runs.plan(dir, film.grid, wanted, wants)
+	planned, isPlanned := service.runs.planCuttingAhead(dir, film.grid, wanted, wants)
 	if !isPlanned {
-		return service.plannedNone(ctx, asked, dir)
+		return service.plannedNone(ctx, asked, film, dir)
 	}
-	if refused := service.refuseGivenUp(dir, first); refused != nil {
-		return refused
+	first, last := planned.first, planned.last
+	if startErr := service.startInPlaceOf(ctx, dir, first, planned.ahead, planned.isCut); startErr != nil {
+		return startErr
 	}
 	storeID, err := service.storeIDOf(ctx, fileID, stream, storeKey)
 	if err != nil {
@@ -122,13 +123,60 @@ func (service *Service) ensure(ctx context.Context, asked ensuring) error {
 
 // plannedNone ends an ensure that planned no run of the store at dir: one of its runs on its way is
 // kept wanted (D234 §3), and a player's ask for a chunk neither made nor on its way, which no player
-// wants a run for, is logged (logUnwantedAsk).
-func (service *Service) plannedNone(ctx context.Context, asked ensuring, dir string) error {
+// wants a run for, is logged (logUnwantedAsk). The run that will make what the ask waits for, when it
+// waits in the queue rather than runs on a node (runTracker.waitingFor), is asked of the queue again
+// (requeue).
+func (service *Service) plannedNone(ctx context.Context, asked ensuring, film cutFilm, dir string) error {
 	if asked.isAsked && !service.runs.isEvicted(dir) && !service.runs.isCovered(dir, asked.wanted) {
 		service.logUnwantedAsk(ctx, dir, asked.stream, asked.wanted)
 	}
+	if waiting, isWaiting := service.runs.waitingFor(dir, film.grid, asked.wanted); isWaiting {
+		if err := service.requeue(ctx, film, asked.stream, dir, waiting); err != nil {
+			return err
+		}
+	}
 	if storeID, isMaking := service.runs.making(dir); isMaking && storeID != 0 {
 		return service.queue.KeepWanted(ctx, jobs.KindMakeChunks, jobs.Target{ChunkStoreID: storeID})
+	}
+	return nil
+}
+
+// askedAgainReason is the reason of a run asked of the queue again (requeue), most often folded into
+// its open job.
+const askedAgainReason = "a player is waiting for its chunks, asked again"
+
+// requeue asks the queue again for a run the tracker holds as waiting in it: the ask folds into its
+// open job, which it keeps wanted and wakes from a retry's wait (jobqueue), or queues it again when its
+// job is gone, cancelled by an admin or by retirement, which tells the tracker nothing. A run so held
+// stood as on its way, and every ask for its chunks only kept wanted a job that was waiting out its
+// retry, or no job at all: the player was told to ask again for as long (the queue audit, 2026-11-23).
+func (service *Service) requeue(ctx context.Context, film cutFilm, stream Stream, dir string, waiting RunSpan) error {
+	storeID, _ := service.runs.making(dir)
+	if storeID == 0 {
+		known, err := service.storeIDOf(ctx, film.file.ID, stream, film.storeKey(stream))
+		if err != nil {
+			return err
+		}
+		storeID = known
+		service.runs.knowStoreID(dir, storeID)
+	}
+	args, err := json.Marshal(runArgs{FirstChunk: waiting.First, LastChunk: waiting.Last})
+	if err != nil {
+		return fmt.Errorf("encode a run's arguments: %w", err)
+	}
+	isQueued, err := service.queue.Enqueue(ctx, jobs.Request{
+		Kind: jobs.KindMakeChunks, Target: jobs.Target{ChunkStoreID: storeID}, ArgsJSON: string(args),
+		Priority: jobs.PriorityPlayNow, Reason: askedAgainReason,
+		Destination: jobs.NodeDestination(film.file.NodeID),
+	})
+	if err != nil {
+		return fmt.Errorf("queue chunks %d to %d of %s again: %w", waiting.First, waiting.Last, dir, err)
+	}
+	if isQueued {
+		service.logger.InfoContext(ctx, "queued a run of chunks again: its job was gone",
+			slogx.EventKey, "chunkRunQueuedAgain",
+			"storeDir", dir, "firstChunk", waiting.First, "lastChunk", waiting.Last,
+			"madeThrough", waiting.MadeThrough)
 	}
 	return nil
 }
@@ -165,21 +213,32 @@ func (service *Service) ask(
 	if service.runs.isEvicted(dir) && !service.runs.isCovered(dir, wanted) {
 		return nil, fmt.Errorf("%s: %w", dir, ErrNoRoomToMake)
 	}
-	wants, err := service.wantednessOf(ctx, film.file.ID, stream, isAsked)
-	if err != nil {
-		return nil, err
+	return service.wantednessOf(ctx, film.file.ID, stream, isAsked)
+}
+
+// startInPlaceOf readies the run planned from first to be queued: refused when FFmpeg gave up on its
+// first chunk (refuseGivenUp), and, when its plan cut the run waiting in the queue just ahead of it
+// (planCuttingAhead), that run's job cancelled first, or the queue folds the new run into it. A run
+// refused puts back the one it cut.
+func (service *Service) startInPlaceOf(ctx context.Context, dir string, first int, ahead stoppedRun, isCut bool) error {
+	if refused := service.refuseGivenUp(dir, first); refused != nil {
+		if isCut {
+			service.runs.uncut(ahead)
+		}
+		return refused
 	}
-	queued, isCut := service.runs.cutQueuedAhead(dir, film.grid, wanted)
 	if !isCut {
-		return wants, nil
+		return nil
 	}
-	cancelled, err := service.cancelRun(ctx, queued)
+	cancelled, err := service.cancelRun(ctx, ahead)
 	if err != nil {
-		return nil, err
+		service.runs.forget(dir, first)
+		service.runs.uncut(ahead)
+		return err
 	}
 	service.logger.InfoContext(ctx, "cancelled a queued run of chunks to start it where the player is",
-		queued.attributes(cancelled)...)
-	return wants, nil
+		ahead.attributes(cancelled)...)
+	return nil
 }
 
 // storeIDOf is the chunk_store row of a stream of a film by its store's key (cutFilm.storeKey), made

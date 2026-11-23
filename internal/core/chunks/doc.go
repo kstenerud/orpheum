@@ -188,6 +188,21 @@
 //     TestEnsure_AFilmWithNoGridYetIsSaidSo; through the API by
 //     TestChunks_AChunkTheNodeHasNotMadeIsAskedForAndRelayedOnceItIs (internal/core/api).
 //
+//   - A run stands as on a node only while its job is given to one: one its node ended to be tried
+//     again, parked, or not given waits as one queued (runTracker.requeued), and an ask for its chunks
+//     asks the queue for it again, which wakes it from a retry's wait, or queues it again when its job
+//     is gone, an admin's cancel telling the tracker nothing. Enforced by
+//     TestEnsure_AnAskForARunWaitingOutItsRetryReachesTheQueue and
+//     TestEnsure_ARunWhoseQueuedJobAnAdminCancelsIsAskedForAgain. A run cancelled while given holds its
+//     job as cancelled for cancelledMarkKeptFor, past its end, so no progress of it, one already past its
+//     attempt as the cancel came included, takes it as on its way again; one cancelled holding no
+//     attempt leaves no mark. Enforced by
+//     TestTakeProgress_AProgressInFlightAcrossACancelLeavesNoRunOnItsWay,
+//     TestTakeProgress_ARunEvictedIsNotTakenAsRunningAgainAndItsMarkIsPrunedInTime and
+//     TestStopUnwanted_ACancelOfARunHoldingNoAttemptLeavesNoMark. A run learned from its progress
+//     alone, after the core starts again, is cancelled by its store's row:
+//     TestTakeProgress_ARunLearnedFromProgressAloneIsCancelledByItsStore.
+//
 //   - A chunk known made that its node answers it does not have, dropped as missing or damaged against
 //     its record (D392 §4) or evicted, is made again as one never made, a run of it alone between made
 //     ones; an init so answered with the chunk it is asked from; one a run on its way has made since is
@@ -220,9 +235,12 @@
 //     unwanted runs before its own is planned (Want), as does
 //     each step of a run, for an interest that lapsed (§3); a run the server starts for a player, as
 //     it starts or stalls, stops nothing. A queued run that begins just past an ask's chunk, with
-//     nothing between, is cancelled for one run from the ask's. A stop says what the players of its
-//     stream want and where every player of its film wants each stream from, as does an ask that
-//     planned no run. Enforced by
+//     nothing between, is cancelled for one run from the ask's, only when the ask plans that run
+//     (TestEnsure_AnAskThatPlansNothingLeavesTheQueuedRunAhead). A cancel that fails stops none of the
+//     others (TestStopUnwanted_ACancelThatFailsStopsTheOthersAllTheSame), and one a run's step makes
+//     is said, never that run's refusal (TestTakeProgress_AnotherRunsStopFailingRefusesNothing). A
+//     stop says what the players of its stream want and where every player of its film wants each
+//     stream from, as does an ask that planned no run. Enforced by
 //     TestStopUnwanted_AJumpAheadOfAMeasuredRunWaitsWhileWaitingCostsLessThanRestarting,
 //     TestStopUnwanted_AJumpIsJudgedByTheStartOfItsStoresLastRun,
 //     TestStopUnwanted_ARunLearnedFromItsProgressIsJudgedByJellyfinsGap,
@@ -254,7 +272,9 @@
 //     the lowest, evicted, its store refusing its players with ErrNoRoomToMake until a stall asks for
 //     it again: the chunks it was to make, not those made or another of its runs is making, and it
 //     starts no run, by TestEnsure_AnEvictedStoreGivesWhatIsMadeOrOnItsWayAndStartsNoRun. The node is
-//     then left chunkRunSpeedWindowSeconds to settle. Enforced by
+//     then left chunkRunSpeedWindowSeconds to settle. A run cut whose job is no longer open fails
+//     nothing, and what the watch fails at is said, never the refusal of the progress that asked.
+//     Enforced by TestKeepRunsFast_CuttingARunWhoseJobEndedFailsNothing,
 //     TestKeepRunsFast_EvictsTheNewestWhenEveryRunIsInUse,
 //     TestKeepRunsFast_CancelsTheOldestRunNoOneIsPlayingFromRefusingNoOne,
 //     TestKeepRunsFast_EvictsARunASeekLeftThoughItsQualityIsStillPlayed and

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 )
@@ -298,5 +299,54 @@ func TestNewService_HoldsANodeBackThroughItsExchanges(t *testing.T) {
 	}
 	if bare := NewService(Parts{}); bare.holdBack != nil {
 		t.Errorf("with no exchanges, the service holds back through %v; want nothing", bare.holdBack)
+	}
+}
+
+// closedJobQueue is the fake queue, but for the real queue's answer to a cancel of a job no longer
+// open: jobs.ErrNotOpen (jobqueue.Queue.Cancel).
+type closedJobQueue struct {
+	*fakeQueue
+	closed int64
+}
+
+func (queue closedJobQueue) Cancel(ctx context.Context, id int64) error {
+	if id == queue.closed {
+		return jobs.ErrNotOpen
+	}
+	return queue.fakeQueue.Cancel(ctx, id)
+}
+
+// the capacity watch cancels a run the tracker holds whose job is no longer open (a run F2 or
+// F5 left, or one whose end is being taken as it looks): the queue answers ErrNotOpen, keepRunsFast
+// returns it, and takeProgress hands it to the exchanges as the reporting run's refusal, which
+// stops that healthy run on its node and fails its job (nodes/assign.go, Exchanges.takeProgress).
+func TestKeepRunsFast_CuttingARunWhoseJobEndedFailsNothing(t *testing.T) {
+	t.Parallel()
+	queue := closedJobQueue{fakeQueue: newFakeQueue(), closed: 11}
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	fakeClock, isFake := service.clock.(*clocktest.Fake)
+	if !isFake {
+		t.Fatal("the fixture's clock is not a fake")
+	}
+	grid := mustGrid(t, service)
+	left := testStoreDir(t, service, quality(1200, 480), grid.ID())
+	played := testStoreDir(t, service, quality(700, 432), grid.ID())
+	service.runs.begin(left, 0, 29, 11, 1, fakeClock.Now()) // job 11 has ended; the tracker kept its run
+	fakeClock.Advance(time.Second)
+	service.runs.begin(played, 0, 29, 12, 1, fakeClock.Now())
+	service.runs.knowGrid(left, grid)
+	service.runs.knowGrid(played, grid)
+	wantedBy(service).say(playingAt(quality(700, 432), 0))
+	start := fakeClock.Now()
+	for step := range 4 {
+		now := fakeClock.Now()
+		service.runs.sample(played, 0, now, int64(0.5*float64(now.Sub(start).Milliseconds())))
+		if step < 3 {
+			fakeClock.Advance(5 * time.Second)
+		}
+	}
+	if err := service.keepRunsFast(t.Context(), 1); err != nil {
+		t.Errorf("keeping node 1's runs fast = %v; want nil: the run it cut had no job left to cancel, and "+
+			"this error stops and fails the run whose progress asked", err)
 	}
 }

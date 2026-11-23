@@ -5,12 +5,16 @@ package chunks
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"log/slog"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -457,5 +461,84 @@ func TestForesee_PlansThePicturesRunFromWhereThePlayerWillStepDown(t *testing.T)
 	}
 	if runs := queue.runs(t, service); len(runs) != 1 || runs[0].stream != quality.Name() || runs[0].firstChunk != 3 {
 		t.Errorf("the runs asked for = %+v; want one of %s from chunk 3", runs, quality.Name())
+	}
+}
+
+// cancelFailingQueue is the fake queue, but for a cancel of the runs of one store's row, which fails.
+type cancelFailingQueue struct {
+	*fakeQueue
+	failing int64
+}
+
+func (queue cancelFailingQueue) CancelMatching(
+	ctx context.Context, kind jobs.Kind, target jobs.Target, match func(argsJSON string) bool,
+) (int, error) {
+	if target.ChunkStoreID == queue.failing {
+		return 0, errors.New("the cache is gone")
+	}
+	return queue.fakeQueue.CancelMatching(ctx, kind, target, match)
+}
+
+// unwantedRunsOfTwoStores gives the service a run of each of two qualities of film 1, from chunk 3
+// of store row 1 and from chunk 6 of row 2, queued as the queue holds them.
+func unwantedRunsOfTwoStores(t *testing.T, service *Service, queue *fakeQueue) {
+	t.Helper()
+	grid := mustGrid(t, service)
+	for row, each := range []struct {
+		stream Stream
+		first  int
+	}{{quality(1200, 480), 3}, {quality(700, 432), 6}} {
+		dir := testStoreDir(t, service, each.stream, grid.ID())
+		service.runs.knowGrid(dir, grid)
+		service.runs.knowStoreID(dir, int64(row+1))
+		service.runs.begin(dir, each.first, each.first+2, int64(10+row), 1, service.clock.Now())
+		args, err := json.Marshal(runArgs{FirstChunk: each.first, LastChunk: each.first + 2})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := queue.Enqueue(t.Context(), jobs.Request{
+			Kind: jobs.KindMakeChunks, Target: jobs.Target{ChunkStoreID: int64(row + 1)}, ArgsJSON: string(args),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// A cancel that fails stops none of the other runs no player wants: each is cancelled, and the
+// failure returned. Returned at the first, it left the runs after it making what no one wanted, the
+// tracker having forgotten them (the queue audit, 2026-11-23).
+func TestStopUnwanted_ACancelThatFailsStopsTheOthersAllTheSame(t *testing.T) {
+	t.Parallel()
+	queue := cancelFailingQueue{fakeQueue: newFakeQueue(), failing: 1}
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	unwantedRunsOfTwoStores(t, service, queue.fakeQueue)
+	wantedBy(service)
+	if err := service.StopUnwanted(t.Context(), 1); err == nil {
+		t.Error("a stop whose cancel failed answered nil; want its failure")
+	}
+	if !slices.Equal(queue.cancelledFirsts, []int{6}) {
+		t.Errorf("the runs cancelled = %v; want the run from chunk 6, whose cancel did not fail", queue.cancelledFirsts)
+	}
+}
+
+// A run's progress is taken though another run's stop fails: the failure is said, not returned as
+// this run's refusal, which stopped a run its player wanted on its node and failed its job (the queue
+// audit, 2026-11-23).
+func TestTakeProgress_AnotherRunsStopFailingRefusesNothing(t *testing.T) {
+	t.Parallel()
+	queue := cancelFailingQueue{fakeQueue: newFakeQueue(), failing: 2}
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	unwantedRunsOfTwoStores(t, service, queue.fakeQueue)
+	wanted := quality(1200, 480)
+	wantedBy(service).say(playingAt(wanted, 3))
+	grid := mustGrid(t, service)
+	command := nodeproto.MakeChunks{
+		StoreDir: testStoreDir(t, service, wanted, grid.ID()), FirstChunk: 3, BoundsMs: grid.StartsMs[3:7],
+	}
+	madeThrough := 3
+	if err := service.takeProgress(t.Context(), nodes.Attempt{
+		JobID: 10, Kind: jobs.KindMakeChunks, NodeID: 1, Work: nodeproto.Work{MakeChunks: &command},
+	}, nodeproto.Progress{JobID: 10, State: nodeproto.ProgressRunning, ChunksMadeThrough: &madeThrough}); err != nil {
+		t.Errorf("the wanted run's progress, as another run's stop failed = %v; want nil", err)
 	}
 }

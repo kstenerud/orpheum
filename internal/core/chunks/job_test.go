@@ -13,13 +13,16 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/nodes/nodestest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -472,9 +475,10 @@ func TestTakeProgress_ARunCancelledIsNotTakenAsRunningAgainByItsProgress(t *test
 }
 
 // A run the node evicted, still running there, is not taken as running again by a progress it said
-// before it stopped, and once its end comes it is no longer held as cancelled: the eviction forgot the
-// run as a cancel does (staging, 2026-10-18).
-func TestTakeProgress_ARunEvictedIsNotTakenAsRunningAgainAndItsEndIsForgotten(t *testing.T) {
+// before it stopped, nor by one after its end, which a progress already past its attempt may be: the
+// eviction forgot the run as a cancel does (staging, 2026-10-18). Its job is held as cancelled for
+// cancelledMarkKeptFor, then forgotten at the next cancel (the queue audit, 2026-11-23).
+func TestTakeProgress_ARunEvictedIsNotTakenAsRunningAgainAndItsMarkIsPrunedInTime(t *testing.T) {
 	t.Parallel()
 	fixture := runsOnAFakeNode(t)
 	service := fixture.service
@@ -493,10 +497,22 @@ func TestTakeProgress_ARunEvictedIsNotTakenAsRunningAgainAndItsEndIsForgotten(t 
 		t.Fatal("the evicted run's progress took it as running again")
 	}
 	service.reported(t, command, nodeproto.MakeChunksReport{State: nodeproto.RunDone, LastChunk: 3})
+	service.runs.begin(dir, 3, 5, 7, 1, service.clock.Now())
+	if service.runs.hasRun(dir) {
+		t.Fatal("a progress after the evicted run's end took it as running again")
+	}
+	fakeClock, isFake := service.clock.(*clocktest.Fake)
+	if !isFake {
+		t.Fatal("the fixture's clock is not a fake")
+	}
+	fakeClock.Advance(cancelledMarkKeptFor + time.Second)
+	service.runs.begin(dir, 10, 12, 8, 1, fakeClock.Now())
+	service.runs.evict(dir, 10, 1, fakeClock.Now())
 	service.runs.mutex.Lock()
 	defer service.runs.mutex.Unlock()
-	if len(service.runs.cancelledJobs) != 0 {
-		t.Errorf("after its end, the jobs held as cancelled = %v; want none", service.runs.cancelledJobs)
+	if _, isHeld := service.runs.cancelledAtByJob[7]; isHeld || len(service.runs.cancelledAtByJob) != 1 {
+		t.Errorf("%v after job 7's mark was kept for %v, the jobs held as cancelled = %v; want job 8 alone",
+			cancelledMarkKeptFor+time.Second, cancelledMarkKeptFor, service.runs.cancelledAtByJob)
 	}
 }
 
@@ -536,5 +552,151 @@ func TestStoreFileOf_ATrackWhoseFirstPacketIsStretchedIsNeverCopied(t *testing.T
 		if sent == nil || sent.SoundFirstPacketStretchMs != want {
 			t.Errorf("the node was sent %+v for %s; want its first packet's stretch, %d ms", sent, stream, want)
 		}
+	}
+}
+
+// A run the core learns from its node's progress alone, as it does after it starts again, is
+// cancelled by its store's row when no player wants it: learned with no row (0), its cancel matched
+// no job, and its job made what no one wanted to its end (the queue audit, 2026-11-23).
+func TestTakeProgress_ARunLearnedFromProgressAloneIsCancelledByItsStore(t *testing.T) {
+	t.Parallel()
+	queue := newFakeQueue()
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	grid := mustGrid(t, service)
+	stream := quality(1200, 480)
+	storeKey := testStoreKey(t, service, stream, grid.ID())
+	dir := StoreDir(1, stream, storeKey)
+	storeID, err := service.storeIDOf(t.Context(), 1, stream, storeKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	args, err := json.Marshal(runArgs{FirstChunk: 3, LastChunk: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The run its job was queued for before the core started again.
+	if _, err := queue.Enqueue(t.Context(), jobs.Request{
+		Kind: jobs.KindMakeChunks, Target: jobs.Target{ChunkStoreID: storeID}, ArgsJSON: string(args),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	wantedBy(service) // no player wants it
+	service.runs.knowGrid(dir, grid)
+	madeThrough := 3
+	command := nodeproto.MakeChunks{StoreDir: dir, FirstChunk: 3, BoundsMs: grid.StartsMs[3:7]}
+	if err := service.takeProgress(t.Context(), nodes.Attempt{
+		JobID: 7, Kind: jobs.KindMakeChunks, NodeID: 1, Work: nodeproto.Work{MakeChunks: &command},
+	}, nodeproto.Progress{JobID: 7, State: nodeproto.ProgressRunning, ChunksMadeThrough: &madeThrough}); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(queue.cancelledFirsts, []int{3}) {
+		t.Errorf("the runs cancelled = %v; want the run from chunk 3, by its store's row %d",
+			queue.cancelledFirsts, storeID)
+	}
+}
+
+// a progress post that found its attempt held just before a cancel ended it re-creates the run
+// once the cancel's forgetRun has cleared the job's cancelled mark (ended). Nothing ever forgets it:
+// its attempt is gone and its job cancelled.
+func TestTakeProgress_AProgressInFlightAcrossACancelLeavesNoRunOnItsWay(t *testing.T) {
+	t.Parallel()
+	fixture := runsOnAFakeNode(t)
+	service := fixture.service
+	grid := mustGrid(t, service)
+	quality := Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 1200, Height: 480}}
+	dir := testStoreDir(t, service, quality, grid.ID())
+	wanted := wantedBy(service)
+	fixture.start(t, 7, testRun{"q1200k480p", grid.ID(), runArgs{FirstChunk: 3, LastChunk: 5}})
+	command := testutil.Receive(t, fixture.node.sent, "the run's command")
+	service.runs.knowGrid(dir, grid)
+	// The node's progress post has found the attempt held (Exchanges.takeProgress's attemptOf)...
+	inFlight := nodes.Attempt{
+		Token: command.AttemptToken, JobID: 7, Kind: jobs.KindMakeChunks, NodeID: 1, Work: command.Work,
+	}
+	// ...when a seek away cuts the run, and the real queue's cancel hook (OnCancel) tells the exchanges,
+	// which forget the attempt and the run (forgetRun: ended, then forget).
+	if err := service.StopUnwanted(t.Context(), 1); err != nil {
+		t.Fatal(err)
+	}
+	service.exchanges.Cancelled(t.Context(), 7)
+	// The player seeks back before the progress handler goes on.
+	wanted.say(Interest{StreamName: "q1200k480p", PositionMs: 40_000})
+	madeThrough := 3
+	if err := service.takeProgress(t.Context(), inFlight, nodeproto.Progress{
+		JobID: 7, AttemptToken: command.AttemptToken, State: nodeproto.ProgressRunning,
+		ChunksMadeThrough: &madeThrough,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if service.runs.hasRun(dir) {
+		t.Error("the cancelled run's in-flight progress took it as on its way again; nothing will ever forget it")
+	}
+	if err := service.askedFor(t.Context(), 1, OnKeyframes, quality, 4); err != nil {
+		t.Fatal(err)
+	}
+	if runs := fixture.queue.runs(t, service); len(runs) != 1 || runs[0].firstChunk != 4 {
+		t.Errorf("the runs asked for chunk 4 = %+v; want one from chunk 4", runs)
+	}
+}
+
+// a run whose job waits out a retry (here a first FFmpeg stall) stays on its way in the tracker,
+// so a player's ask for its chunks only keeps it wanted: the queue is never asked, so its back-off is
+// never woken, and the player is told to ask again for the whole first retry delay (30 s) or longer.
+func TestEnsure_AnAskForARunWaitingOutItsRetryReachesTheQueue(t *testing.T) {
+	t.Parallel()
+	fixture := runsOnAFakeNode(t)
+	service := fixture.service
+	grid := mustGrid(t, service)
+	quality := Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 1200, Height: 480}}
+	dir := testStoreDir(t, service, quality, grid.ID())
+	wantedBy(service).say(Interest{StreamName: "q1200k480p", PositionMs: 30_000})
+	// A run of five minutes, as a player's ask queues one: the lookahead from chunk 3 is all on its way.
+	answer := fixture.start(t, 7, testRun{"q1200k480p", grid.ID(), runArgs{FirstChunk: 3, LastChunk: 32}})
+	command := testutil.Receive(t, fixture.node.sent, "the run's command")
+	service.runs.knowGrid(dir, grid)
+	service.reported(t, command, nodeproto.MakeChunksReport{
+		State: nodeproto.RunStalled, LastChunk: -1, Stall: &nodeproto.Stall{},
+	})
+	if err := testutil.Receive(t, answer, "the job's answer"); err == nil {
+		t.Fatal("a first stall answered nil; want it tried again")
+	}
+	if err := service.askedFor(t.Context(), 1, OnKeyframes, quality, 3); err != nil {
+		t.Fatal(err)
+	}
+	if service.runs.isCovered(dir, 3) && len(fixture.queue.runs(t, service)) == 0 {
+		t.Error("chunk 3 stands as on its way while its job waits out a retry, and the player's ask never " +
+			"reached the queue to wake it")
+	}
+}
+
+// a run cut while its job holds no attempt (waiting out a retry, or parked with its node away)
+// leaves its job marked cancelled for good: Exchanges.Cancelled finds no attempt, so nothing calls
+// ended.
+func TestStopUnwanted_ACancelOfARunHoldingNoAttemptLeavesNoMark(t *testing.T) {
+	t.Parallel()
+	fixture := runsOnAFakeNode(t)
+	service := fixture.service
+	grid := mustGrid(t, service)
+	dir := testStoreDir(t, service,
+		Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 1200, Height: 480}}, grid.ID())
+	wantedBy(service)
+	answer := fixture.start(t, 7, testRun{"q1200k480p", grid.ID(), runArgs{FirstChunk: 3, LastChunk: 5}})
+	command := testutil.Receive(t, fixture.node.sent, "the run's command")
+	service.runs.knowGrid(dir, grid)
+	service.reported(t, command, nodeproto.MakeChunksReport{
+		State: nodeproto.RunStalled, LastChunk: -1, Stall: &nodeproto.Stall{},
+	})
+	if err := testutil.Receive(t, answer, "the job's answer"); err == nil {
+		t.Fatal("a first stall answered nil; want it tried again")
+	}
+	if err := service.StopUnwanted(t.Context(), 1); err != nil {
+		t.Fatal(err)
+	}
+	service.exchanges.Cancelled(t.Context(), 7) // the real queue's hook: no attempt is held
+	service.runs.mutex.Lock()
+	defer service.runs.mutex.Unlock()
+	if len(service.runs.cancelledAtByJob) != 0 {
+		t.Errorf("the jobs held as cancelled = %v; want none: job 7 will never end on a node",
+			service.runs.cancelledAtByJob)
 	}
 }

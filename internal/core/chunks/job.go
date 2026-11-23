@@ -109,8 +109,12 @@ func (service *Service) HandleMakeChunks(ctx context.Context, job jobs.Job) erro
 	// cancel to forget, and its node is never sent it: the run given is forgotten here. Kept, it
 	// stood as on its way with nothing making it, and every ask for its chunks was told to ask again
 	// (staging, 2026-11-23: a second seek cut the first's run just as it was given).
-	if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
+	// One not given, its node away or full, waits in the queue again.
+	switch {
+	case errors.Is(context.Cause(ctx), jobs.ErrCancelled):
 		service.runs.forget(command.StoreDir, run.FirstChunk)
+	case !jobs.IsAssigned(assigned):
+		service.runs.requeued(command.StoreDir, run.FirstChunk)
 	}
 	return assigned
 }
@@ -289,13 +293,18 @@ func (service *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
 				return fmt.Errorf("node %d answered the run of %s with something other than a run's report",
 					attempt.NodeID, command.StoreDir)
 			}
-			return service.takeEnd(ctx, job, attempt.NodeID, *command, *result.MakeChunks)
+			return service.requeuedUnlessDone(*command,
+				service.takeEnd(ctx, job, attempt.NodeID, *command, *result.MakeChunks))
 		},
 		Unanswered: func(_ context.Context, job jobs.Job, attempt nodes.Attempt, err error) error {
-			return nodes.UnansweredOutcome(job, err, func(string) error {
+			outcome := nodes.UnansweredOutcome(job, err, func(string) error {
 				service.forgetRun(attempt)
 				return nil
 			})
+			if command := attempt.Work.MakeChunks; command != nil {
+				return service.requeuedUnlessDone(*command, outcome)
+			}
+			return outcome
 		},
 		Progress: service.takeProgress,
 		Cancelled: func(_ context.Context, attempt nodes.Attempt) error {
@@ -305,10 +314,20 @@ func (service *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
 	}
 }
 
-// forgetRun forgets the run an attempt was, which will make nothing more, and that its job was
-// cancelled, which its node will say nothing more of.
+// requeuedUnlessDone is a run's outcome, its run waiting in the queue again (runTracker.requeued)
+// when its job did not end done: tried again, parked, or failed for good, which forgets it after
+// (RecordMakeChunksFailure). Left as given, the run stood as on a node while its job waited out its
+// retry, and an ask for its chunks never woke it (the queue audit, 2026-11-23).
+func (service *Service) requeuedUnlessDone(command nodeproto.MakeChunks, outcome error) error {
+	if outcome != nil {
+		service.runs.requeued(command.StoreDir, command.FirstChunk)
+	}
+	return outcome
+}
+
+// forgetRun forgets the run an attempt was, which will make nothing more. Its job, if a cancel cut
+// it, stays held as cancelled (cancelLocked): a progress already past its attempt may still come.
 func (service *Service) forgetRun(attempt nodes.Attempt) {
-	service.runs.ended(attempt.JobID)
 	if command := attempt.Work.MakeChunks; command != nil {
 		service.runs.forget(command.StoreDir, command.FirstChunk)
 	}
@@ -324,6 +343,7 @@ func (service *Service) takeProgress(ctx context.Context, attempt nodes.Attempt,
 	last := command.FirstChunk + len(command.BoundsMs) - 2
 	madeThrough := min(*progress.ChunksMadeThrough, last)
 	now := service.clock.Now()
+	service.knowStoreOf(ctx, command.StoreDir)
 	service.runs.begin(command.StoreDir, command.FirstChunk, last, attempt.JobID, attempt.NodeID, now)
 	service.runs.madeThrough(command.StoreDir, command.FirstChunk, madeThrough)
 	if madeThrough >= command.FirstChunk {
@@ -334,11 +354,40 @@ func (service *Service) takeProgress(ctx context.Context, attempt nodes.Attempt,
 	if err := service.queue.SetProgress(ctx, attempt.JobID, max(share, 0)); err != nil {
 		return err
 	}
-	// Each step of a run looks again at who wants its film's runs: an interest lapses unsaid (D309 §3).
+	// Each step of a run looks again at who wants its film's runs: an interest lapses unsaid (D309 §3),
+	// and whether its node keeps them faster than playback. What either fails at is another run's, said
+	// here: returned, it was this run's progress refused, which stops the run on its node and fails its
+	// job (the queue audit, 2026-11-23).
 	if err := service.StopUnwanted(ctx, fileOfStore(command.StoreDir)); err != nil {
-		return err
+		service.logger.WarnContext(ctx, "could not stop a run of chunks no player wants", "storeDir", command.StoreDir,
+			"jobId", attempt.JobID, "err", err)
 	}
-	return service.keepRunsFast(ctx, attempt.NodeID)
+	if err := service.keepRunsFast(ctx, attempt.NodeID); err != nil {
+		service.logger.WarnContext(ctx, "could not keep a node's runs of chunks faster than playback",
+			"nodeId", attempt.NodeID, "jobId", attempt.JobID, "err", err)
+	}
+	return nil
+}
+
+// knowStoreOf records the chunk_store row of the store at dir when the tracker has none: a run it
+// learns from its node's progress alone, as it does after the core starts again, had no row, and a
+// cancel of it matched no job (cancelRun), which made what no one wanted to its end (the queue audit,
+// 2026-11-23). A row it cannot record is said, and the run's progress taken all the same.
+func (service *Service) knowStoreOf(ctx context.Context, dir string) {
+	if storeID, _ := service.runs.making(dir); storeID != 0 {
+		return
+	}
+	named, isStore := storeOf(dir)
+	if !isStore {
+		service.logger.WarnContext(ctx, "a run's progress names no store of chunks", "storeDir", dir)
+		return
+	}
+	storeID, err := service.storeIDOf(ctx, named.fileID, named.stream, named.key)
+	if err != nil {
+		service.logger.WarnContext(ctx, "could not record the store of a run's progress", "storeDir", dir, "err", err)
+		return
+	}
+	service.runs.knowStoreID(dir, storeID)
 }
 
 // takeEnd takes the node's word on how a run ended, and says how the job ended: done; FFmpeg
@@ -349,7 +398,6 @@ func (service *Service) takeProgress(ctx context.Context, attempt nodes.Attempt,
 func (service *Service) takeEnd(
 	ctx context.Context, job jobs.Job, nodeID int64, command nodeproto.MakeChunks, report nodeproto.MakeChunksReport,
 ) error {
-	service.runs.ended(job.ID)
 	if report.LastChunk >= command.FirstChunk {
 		service.runs.madeThrough(command.StoreDir, command.FirstChunk, report.LastChunk)
 	}

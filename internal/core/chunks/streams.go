@@ -134,6 +134,28 @@ func StoreDir(fileID int64, stream Stream, storeKey string) string {
 	return fmt.Sprintf("%d/chunks-%s/%s", fileID, stream.Name(), storeKey)
 }
 
+// namedStore is what a store's directory (StoreDir) names: its film, its stream and its key.
+type namedStore struct {
+	fileID int64
+	stream Stream
+	key    string
+}
+
+// storeOf is the store a store's directory names, and whether it names one.
+func storeOf(dir string) (namedStore, bool) {
+	parts := strings.Split(dir, "/")
+	if len(parts) != 3 {
+		return namedStore{}, false
+	}
+	streamName, isStreamDir := strings.CutPrefix(parts[1], "chunks-")
+	stream, isStream := StreamNamed(streamName)
+	fileID := fileOfStore(dir)
+	if !isStreamDir || !isStream || fileID == 0 || parts[2] == "" {
+		return namedStore{}, false
+	}
+	return namedStore{fileID: fileID, stream: stream, key: parts[2]}, true
+}
+
 // StoreKey names a stream's store of a film: its grid's id, then the key of the facts of the film's
 // probe the stream is made from (library.PictureChunksFactsKey, library.SoundChunksFactsKey), so a
 // film whose grid changes, or whose facts a stream is made from change when its file is read again,

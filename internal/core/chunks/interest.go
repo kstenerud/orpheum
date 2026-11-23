@@ -4,6 +4,7 @@ package chunks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -63,7 +64,8 @@ type stoppedRun struct {
 // moved off, a place they sought away from, what a stopped player keeps ahead already made, an
 // interest lapsed. Each is cancelled, queued or running; what it made is kept (§5). It goes on when
 // the request that asked ends, as a paused player's does at once: the tracker forgets a run before
-// its job is cancelled, and a stop cut short between left the job making what no one wanted.
+// its job is cancelled, and a stop cut short between left the job making what no one wanted. For
+// the same reason a cancel that fails stops none of the others: the errors are returned together.
 func (service *Service) StopUnwanted(ctx context.Context, fileID int64) error {
 	ctx = context.WithoutCancel(ctx)
 	interests, isKnown := service.interestsOf(fileID)
@@ -75,10 +77,12 @@ func (service *Service) StopUnwanted(ctx context.Context, fileID int64) error {
 		return fmt.Errorf("read %s: %w", settings.ChunkKeptAheadSeconds, err)
 	}
 	now := service.clock.Now()
+	var failed []error
 	for _, stopped := range service.runs.cutUnwanted(fileID, interests, keptAhead.Milliseconds(), now) {
 		cancelled, err := service.cancelRun(ctx, stopped)
 		if err != nil {
-			return err
+			failed = append(failed, err)
+			continue
 		}
 		service.logger.InfoContext(ctx, "stopped a run of chunks no player wants",
 			append(stopped.attributes(cancelled), slogx.EventKey, "unwantedChunkRunStopped")...)
@@ -89,7 +93,7 @@ func (service *Service) StopUnwanted(ctx context.Context, fileID int64) error {
 				}, jump.attributes()...)...)
 		}
 	}
-	return nil
+	return errors.Join(failed...)
 }
 
 // cancelRun cancels a run the tracker forgot, queued or running, and says how many jobs it was: to
@@ -152,17 +156,15 @@ func (interest Interest) describe(keptAheadMs int64) string {
 	return fmt.Sprintf("playing from %d ms", interest.PositionMs)
 }
 
-// cutQueuedAhead forgets a run of the store still waiting in the queue that begins within
+// cutQueuedAheadLocked forgets a run of the store still waiting in the queue that begins within
 // the timing's lookaheadMs of film after chunk wanted, which is not made and no run will make, with nothing made
 // or on its way between: the run planned from wanted then makes its chunks too, as one run from where
 // the player is. Left, the queue folded wanted's run into it, which keeps one job of a store queued,
 // and a jump that landed just before it waited for it to make chunks after the jump's (D286 §1).
-func (tracker *runTracker) cutQueuedAhead(dir string, grid Grid, wanted int) (stoppedRun, bool) {
-	tracker.mutex.Lock()
-	defer tracker.mutex.Unlock()
-	known := tracker.storeLocked(dir)
+// It returns the run it forgot. Locked by its caller (planCuttingAhead).
+func (tracker *runTracker) cutQueuedAheadLocked(known *storeRuns, grid Grid, wanted int) (*run, bool) {
 	if known.isCoveredLocked(wanted) {
-		return stoppedRun{}, false
+		return nil, false
 	}
 	next := wanted + 1
 	for next <= grid.lastChunk() && grid.StartsMs[next]-grid.StartsMs[wanted] <= tracker.timing.lookaheadMs &&
@@ -171,13 +173,10 @@ func (tracker *runTracker) cutQueuedAhead(dir string, grid Grid, wanted int) (st
 	}
 	queued, found := known.runByFirst[next]
 	if !found || queued.jobID != 0 {
-		return stoppedRun{}, false
+		return nil, false
 	}
 	delete(known.runByFirst, next)
-	return stoppedRun{
-		RunSpan: RunSpan{First: queued.first, Last: queued.last, MadeThrough: queued.madeThrough},
-		dir:     dir, storeID: known.storeID,
-	}, true
+	return queued, true
 }
 
 // cutUnwanted forgets every run of fileID's stores that no interest wants (isWantedLocked), and
@@ -204,7 +203,7 @@ func (tracker *runTracker) cutUnwanted(
 				dir:     dir, storeID: known.storeID, interests: describeInterests(stream, interests, keptAheadMs),
 				filmInterests: describeFilmInterests(interests, keptAheadMs), jumps: jumps,
 			})
-			tracker.cancelLocked(known, first)
+			tracker.cancelLocked(known, first, now)
 		}
 	}
 	return stopped

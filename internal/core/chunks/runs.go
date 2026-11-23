@@ -7,6 +7,12 @@ import (
 	"time"
 )
 
+// cancelledMarkKeptFor is how long a cancelled run's job is held as cancelled (cancelledAtByJob): far
+// longer than a progress takes between finding its attempt held and being taken, a write waiting its
+// turn at most seconds. A job's id is never used again, so a mark kept past its use costs only its
+// entry, and the marks pruned as each is made grow with the cancels of the last hour alone.
+const cancelledMarkKeptFor = time.Hour
+
 // runTracker knows, for each store, the chunks known made and the runs making more: in memory,
 // as a player's requests and the nodes' words arrive. It is what keeps a second run from being
 // queued over chunks a run will make (D247 §10). A restart forgets it, and the node's answer for a
@@ -18,10 +24,12 @@ type runTracker struct {
 	// evictedOnAt is when a run was last evicted from each node, by its id (capacity.go); guarded by
 	// mutex.
 	evictedOnAt map[int64]time.Time
-	// cancelledJobs are the jobs of runs cancelled and forgotten whose end the node has not said yet:
-	// a progress of one after its cancel would take it as running again (begin), and the chunks it
-	// was to make as on their way, which no run then makes (staging, 2026-10-18). Guarded by mutex.
-	cancelledJobs map[int64]bool
+	// cancelledAtByJob are the jobs of runs cancelled and forgotten, each with when it was cancelled,
+	// kept for cancelledMarkKeptFor: a progress of one after its cancel would take it as running again
+	// (begin), and the chunks it was to make as on their way, which no run then makes (staging,
+	// 2026-10-18). A mark is never dropped at the run's end: a progress that found its attempt held
+	// before the cancel forgot it comes after (the queue audit, 2026-11-23). Guarded by mutex.
+	cancelledAtByJob map[int64]time.Time
 	// timing is how far ahead and how long runs are made, and their speed measured, as last read
 	// (chunkTiming); guarded by mutex.
 	timing chunkTiming
@@ -50,7 +58,8 @@ type storeRuns struct {
 
 // run is one run of a store's chunks, first through last, made in order.
 type run struct {
-	// jobID is its job, once a handler gave it to its node; 0 while it waits in the queue.
+	// jobID is its job, once a handler gave it to its node; 0 while it waits in the queue, first or
+	// again after its node ended it to be tried again (requeued).
 	jobID       int64
 	first, last int
 	// madeThrough is the last chunk it has made, first-1 before it made any.
@@ -71,8 +80,9 @@ func (each *run) willMake(n int) bool { return n > each.madeThrough && n <= each
 
 func newRunTracker() *runTracker {
 	return &runTracker{
-		storeByDir: map[string]*storeRuns{}, evictedOnAt: map[int64]time.Time{}, cancelledJobs: map[int64]bool{},
-		timing: startingChunkTiming(),
+		storeByDir: map[string]*storeRuns{}, evictedOnAt: map[int64]time.Time{},
+		cancelledAtByJob: map[int64]time.Time{},
+		timing:           startingChunkTiming(),
 	}
 }
 
@@ -129,11 +139,63 @@ func (tracker *runTracker) isMadeFromThrough(dir string, first, last int) bool {
 func (tracker *runTracker) plan(dir string, grid Grid, wanted int, wants wantedness) (first, last int, isPlanned bool) {
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
+	return tracker.storeLocked(dir).planLocked(tracker.timing, grid, wanted, wants)
+}
+
+// plannedRun is a run planCuttingAhead planned, from first through last, and the run waiting in the
+// queue it cut, ahead, when isCut.
+type plannedRun struct {
+	first, last int
+	ahead       stoppedRun
+	isCut       bool
+}
+
+// planCuttingAhead is plan, and cuts the run of the store waiting in the queue just ahead of wanted
+// (cutQueuedAheadLocked) only when it plans a run, which then makes that run's chunks: decided under
+// one hold of the lock, and the caller cancels the run cut. Cut before the plan was decided, an ask
+// whose own run no player wanted cut the run ahead all the same, and left nothing on its way for the
+// player waiting on it (the queue audit, 2026-11-23).
+func (tracker *runTracker) planCuttingAhead(
+	dir string, grid Grid, wanted int, wants wantedness,
+) (plannedRun, bool) {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
 	known := tracker.storeLocked(dir)
+	queued, isCut := tracker.cutQueuedAheadLocked(known, grid, wanted)
+	first, last, isPlanned := known.planLocked(tracker.timing, grid, wanted, wants)
+	if isCut && !isPlanned {
+		known.runByFirst[queued.first] = queued
+	}
+	planned := plannedRun{first: first, last: last}
+	if isCut && isPlanned {
+		planned.ahead = stoppedRun{
+			RunSpan: RunSpan{First: queued.first, Last: queued.last, MadeThrough: queued.madeThrough},
+			dir:     dir, storeID: known.storeID,
+		}
+		planned.isCut = true
+	}
+	return planned, isPlanned
+}
+
+// uncut puts back, waiting in the queue, the run of the store planCuttingAhead cut, when the run
+// planned in its place is refused before it is queued.
+func (tracker *runTracker) uncut(ahead stoppedRun) {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	known := tracker.storeLocked(ahead.dir)
+	if _, found := known.runByFirst[ahead.First]; !found {
+		known.runByFirst[ahead.First] = &run{first: ahead.First, last: ahead.Last, madeThrough: ahead.MadeThrough}
+	}
+}
+
+// planLocked is plan, its tracker locked.
+func (known *storeRuns) planLocked(
+	timing chunkTiming, grid Grid, wanted int, wants wantedness,
+) (first, last int, isPlanned bool) {
 	if !known.evictedAt.IsZero() {
 		return 0, 0, false
 	}
-	lookUntilMs := grid.StartsMs[wanted] + tracker.timing.lookaheadMs
+	lookUntilMs := grid.StartsMs[wanted] + timing.lookaheadMs
 	first = -1
 	for n := wanted; n <= grid.lastChunk() && grid.StartsMs[n] < lookUntilMs; n++ {
 		if !known.isCoveredLocked(n) {
@@ -144,7 +206,7 @@ func (tracker *runTracker) plan(dir string, grid Grid, wanted int, wants wantedn
 	if first < 0 {
 		return 0, 0, false
 	}
-	spanUntilMs := grid.StartsMs[first] + tracker.timing.runSpanMs
+	spanUntilMs := grid.StartsMs[first] + timing.runSpanMs
 	last = first
 	for last < grid.lastChunk() && grid.StartsMs[last+1] < spanUntilMs && !known.isCoveredLocked(last+1) {
 		last++
@@ -223,7 +285,7 @@ func (tracker *runTracker) given(dir string, first, last int, jobID, nodeID int6
 func (tracker *runTracker) beginLocked(
 	dir string, first, last int, jobID, nodeID int64, now time.Time,
 ) (each *run, isStarted bool) {
-	if tracker.cancelledJobs[jobID] {
+	if _, isCancelled := tracker.cancelledAtByJob[jobID]; isCancelled {
 		return nil, false
 	}
 	known := tracker.storeLocked(dir)
@@ -260,20 +322,30 @@ func (tracker *runTracker) forget(dir string, first int) {
 	delete(tracker.storeLocked(dir).runByFirst, first)
 }
 
-// cancelLocked forgets the run of known from first, being cancelled: its job's progress, if it is
-// running, is not taken as running again (begin). Locked by its caller.
-func (tracker *runTracker) cancelLocked(known *storeRuns, first int) {
+// cancelLocked forgets the run of known from first, being cancelled at now: its job's progress, if
+// it was given to its node, is not taken as running again (begin) for cancelledMarkKeptFor. The marks
+// made longer ago are pruned. Locked by its caller.
+func (tracker *runTracker) cancelLocked(known *storeRuns, first int, now time.Time) {
+	for jobID, cancelledAt := range tracker.cancelledAtByJob {
+		if now.Sub(cancelledAt) > cancelledMarkKeptFor {
+			delete(tracker.cancelledAtByJob, jobID)
+		}
+	}
 	if each, found := known.runByFirst[first]; found && each.jobID != 0 {
-		tracker.cancelledJobs[each.jobID] = true
+		tracker.cancelledAtByJob[each.jobID] = now
 	}
 	delete(known.runByFirst, first)
 }
 
-// ended forgets that jobID was cancelled: its node said it ended, and says nothing more of it.
-func (tracker *runTracker) ended(jobID int64) {
+// requeued records that the run of the store from first went back to the queue: its node ended it,
+// to be tried again, or it was never given to one. It waits as a run first queued does, no job on a
+// node, so an ask for its chunks asks the queue again (plannedNone) and no cancel marks its job.
+func (tracker *runTracker) requeued(dir string, first int) {
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
-	delete(tracker.cancelledJobs, jobID)
+	if each, found := tracker.storeLocked(dir).runByFirst[first]; found {
+		each.jobID, each.nodeID = 0, 0
+	}
 }
 
 // served records chunk n of the store made: its node served it.
@@ -296,6 +368,28 @@ func (tracker *runTracker) unmade(dir string, chunk int) {
 		}
 	}
 	delete(known.isMade, chunk)
+}
+
+// waitingFor is the run of the store that will make chunk wanted, or the first chunk after it within
+// the timing's lookaheadMs that is not made, while that run waits in the queue (no job given to a
+// node, jobID 0); false when the chunk is made, or the run making it is on a node.
+func (tracker *runTracker) waitingFor(dir string, grid Grid, wanted int) (RunSpan, bool) {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	known := tracker.storeLocked(dir)
+	lookUntilMs := grid.StartsMs[wanted] + tracker.timing.lookaheadMs
+	for n := wanted; n <= grid.lastChunk() && grid.StartsMs[n] < lookUntilMs; n++ {
+		if known.isMade[n] {
+			continue
+		}
+		for _, each := range known.runByFirst {
+			if each.willMake(n) {
+				return RunSpan{First: each.first, Last: each.last, MadeThrough: each.madeThrough}, each.jobID == 0
+			}
+		}
+		return RunSpan{}, false
+	}
+	return RunSpan{}, false
 }
 
 // making is the chunk_store row of the store, and whether a run of it is on its way.

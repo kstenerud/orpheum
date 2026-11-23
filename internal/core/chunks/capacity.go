@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 )
 
@@ -116,7 +117,7 @@ func (tracker *runTracker) evict(dir string, first int, nodeID int64, now time.T
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
 	known := tracker.storeLocked(dir)
-	tracker.cancelLocked(known, first)
+	tracker.cancelLocked(known, first, now)
 	known.evictedAt = now
 	tracker.evictedOnAt[nodeID] = now
 }
@@ -127,7 +128,7 @@ func (tracker *runTracker) evict(dir string, first int, nodeID int64, now time.T
 func (tracker *runTracker) drop(dir string, first int, nodeID int64, now time.Time) {
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
-	tracker.cancelLocked(tracker.storeLocked(dir), first)
+	tracker.cancelLocked(tracker.storeLocked(dir), first, now)
 	tracker.evictedOnAt[nodeID] = now
 }
 
@@ -202,7 +203,7 @@ func (service *Service) keepRunsFast(ctx context.Context, nodeID int64) error {
 			"keep every run faster than playback", "nodeId", nodeID, "storeDir", victim.dir,
 			"firstChunk", victim.first, "lastChunk", victim.last, "slowestPercent", slowestPercent,
 			"runSpeeds", speeds)
-		return service.queue.Cancel(ctx, victim.jobID)
+		return service.cancelSlowed(ctx, victim.jobID)
 	}
 	if service.isMovedOff(victim) {
 		service.runs.drop(victim.dir, victim.first, nodeID, now)
@@ -210,13 +211,23 @@ func (service *Service) keepRunsFast(ctx context.Context, nodeID int64) error {
 			"keep every run faster than playback", "nodeId", nodeID, "storeDir", victim.dir,
 			"firstChunk", victim.first, "lastChunk", victim.last, "slowestPercent", slowestPercent,
 			"runSpeeds", speeds)
-		return service.queue.Cancel(ctx, victim.jobID)
+		return service.cancelSlowed(ctx, victim.jobID)
 	}
 	service.runs.evict(victim.dir, victim.first, nodeID, now)
 	service.logger.WarnContext(ctx, "evicted a run of chunks: its node could not keep every run faster than playback",
 		"nodeId", nodeID, "storeDir", victim.dir, "firstChunk", victim.first, "lastChunk", victim.last,
 		"wasInUse", victim.isInUse, "slowestPercent", slowestPercent, "runSpeeds", speeds)
-	return service.queue.Cancel(ctx, victim.jobID)
+	return service.cancelSlowed(ctx, victim.jobID)
+}
+
+// cancelSlowed cancels the job of the run keepRunsFast cut. One no longer open, ended as the watch
+// looked or lost to the tracker, has nothing left to cancel: its run is cut all the same (the queue
+// audit, 2026-11-23).
+func (service *Service) cancelSlowed(ctx context.Context, jobID int64) error {
+	if err := service.queue.Cancel(ctx, jobID); err != nil && !errors.Is(err, jobs.ErrNotOpen) {
+		return fmt.Errorf("cancel job %d: %w", jobID, err)
+	}
+	return nil
 }
 
 // holdBackFor holds back the node's other work, to the time until, when a run players want of a
