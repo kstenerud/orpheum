@@ -296,7 +296,21 @@ describe("App", () => {
         "GET /items": [200, { items: [], nextCursor: "" }],
         "GET /needs-attention": [
           200,
-          { rootCount: 0, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 97 },
+          {
+            rootCount: 0,
+            diskCount: 0,
+            waitingRootCount: 0,
+            unreadCount: 0,
+            matchCount: 97,
+            // The page lists what the server names, by page (D538 §12).
+            pages: {
+              titlesToCheck: {
+                isProblem: false,
+                itemCount: 1,
+                items: [{ kind: "needsMatch", isProblem: false, count: 97 }],
+              },
+            },
+          },
         ],
       },
       [],
@@ -312,7 +326,7 @@ describe("App", () => {
       "97 films and series need you to choose their match.",
     );
     const toMatches = [...mounted.container.querySelectorAll("a")].find(
-      (link) => link.textContent === "Needs a match" && link.closest("main") !== null,
+      (link) => link.textContent === "Go to Needs a match" && link.closest("main") !== null,
     );
     expect(toMatches?.getAttribute("href")).toBe("/identify");
     mounted.unmount();
