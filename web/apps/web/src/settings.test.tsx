@@ -491,6 +491,41 @@ describe("Settings' index (pages-spec-3)", () => {
     expect(shown.container.querySelector('a[href="/update"]')).toBeNull();
   });
 
+  it("leads each key's Needs you line to Keys and passwords, at the key a line names (D538 §11)", async () => {
+    const services = servedBy({
+      "GET /config": [200, { settings: [] }],
+      "GET /secrets": [200, { secrets: [] }],
+      "GET /needs-attention": [
+        200,
+        {
+          pages: {
+            settings: {
+              isProblem: true,
+              itemCount: 3,
+              items: [
+                { kind: "keyRefused", isProblem: true, name: "TMDB" },
+                { kind: "secretNeedsReentry", isProblem: true, name: "tmdbApiKey" },
+                { kind: "keyMissing", isProblem: false, name: "OpenSubtitles" },
+              ],
+            },
+          },
+        },
+      ],
+    });
+    mounted = await mount(withServices(<Settings />, services));
+    const shown = mounted;
+    await settleUntil(() => shown.container.querySelector(".attention-list a") !== null);
+    const lines = [...shown.container.querySelectorAll(".attention-list a")].map((link) => [
+      link.textContent,
+      link.getAttribute("href"),
+    ]);
+    expect(lines).toEqual([
+      ["TMDB refused its key or login.", "/settings/keys"],
+      ["TMDB API key must be entered again.", "/settings/keys?setting=tmdbApiKey"],
+      ["OpenSubtitles has no key or login set, so the server can't use it.", "/settings/keys"],
+    ]);
+  });
+
   it("finds settings and keys by every word, advanced ones too, each leading to its row, the address in the home to Network", () => {
     const t = wordsOf();
     const settings = [
