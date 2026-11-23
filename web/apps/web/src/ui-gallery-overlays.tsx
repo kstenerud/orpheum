@@ -2,6 +2,7 @@
 
 import "./gallery-words.ts";
 
+import type { TFunction } from "i18next";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -171,38 +172,9 @@ function GalleryConfirm(): JSX.Element {
   );
 }
 
-/** Three notices, two shown, the warning first; dismissing the information shows the third. */
-function GalleryBanners(): JSX.Element {
-  const { t } = useTranslation();
-  const [isDismissed, setIsDismissed] = useState(false);
-  const notices: BannerNotice[] = [
-    {
-      key: "information",
-      tone: "information",
-      text: t("gallery.bannerInformation"),
-      actions: <a href="#gallery-overlays">{t("gallery.bannerLink")}</a>,
-      putAway: {
-        kind: "dismiss",
-        onDismiss: () => {
-          setIsDismissed(true);
-        },
-      },
-    },
-    {
-      key: "warning",
-      tone: "warning",
-      text: t("gallery.bannerWarning"),
-      putAway: { kind: "none" },
-    },
-    {
-      key: "waiting",
-      tone: "information",
-      text: t("gallery.bannerWaiting"),
-      putAway: { kind: "remind tomorrow", onRemind: () => undefined },
-    },
-  ];
-  // Each of the shell's banners as it shows (D538 §1), one at a time so each is seen.
-  const each: BannerNotice[] = [
+/** Each of the shell's banners as it shows (D538 §1), drawn one at a time so each is seen. */
+function shellBannersOf(t: TFunction): readonly BannerNotice[] {
+  return [
     {
       key: "lost",
       tone: "warning",
@@ -235,6 +207,39 @@ function GalleryBanners(): JSX.Element {
       putAway: { kind: "dismiss", onDismiss: () => undefined },
     },
   ];
+}
+
+/** Three notices, two shown, the warning first; dismissing the information shows the third. */
+function GalleryBanners(): JSX.Element {
+  const { t } = useTranslation();
+  const [isDismissed, setIsDismissed] = useState(false);
+  const notices: BannerNotice[] = [
+    {
+      key: "information",
+      tone: "information",
+      text: t("gallery.bannerInformation"),
+      actions: <a href="#gallery-overlays">{t("gallery.bannerLink")}</a>,
+      putAway: {
+        kind: "dismiss",
+        onDismiss: () => {
+          setIsDismissed(true);
+        },
+      },
+    },
+    {
+      key: "warning",
+      tone: "warning",
+      text: t("gallery.bannerWarning"),
+      putAway: { kind: "none" },
+    },
+    {
+      key: "waiting",
+      tone: "information",
+      text: t("gallery.bannerWaiting"),
+      putAway: { kind: "remind tomorrow", onRemind: () => undefined },
+    },
+  ];
+  const each = shellBannersOf(t);
   return (
     <>
       <h3>{t("gallery.banners")}</h3>

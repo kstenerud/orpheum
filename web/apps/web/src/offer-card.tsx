@@ -40,7 +40,7 @@ export function OfferCard(props: {
   readonly buttons?: ReactNode;
   readonly dismissal?: OfferDismissal | undefined;
 }): JSX.Element {
-  const { onTake, dismissal } = props;
+  const { onTake, dismissal, takeRef, buttons } = props;
   const content = (
     <>
       {props.still === undefined ? null : <span className="offer-card__still">{props.still}</span>}
@@ -62,7 +62,7 @@ export function OfferCard(props: {
           <div className="offer-card__content">{content}</div>
         ) : (
           <button
-            ref={props.takeRef}
+            ref={takeRef}
             type="button"
             className="offer-card__content offer-card__take"
             onClick={onTake}
@@ -70,9 +70,7 @@ export function OfferCard(props: {
             {content}
           </button>
         )}
-        {props.buttons === undefined ? null : (
-          <div className="offer-card__buttons">{props.buttons}</div>
-        )}
+        {buttons === undefined ? null : <div className="offer-card__buttons">{buttons}</div>}
       </div>
       {dismissal === undefined ? null : (
         <IconButton

@@ -115,6 +115,19 @@ const sending = {
   isAccepted: true,
 };
 
+/** File 4's Up next: the second episode, Cat, file 5. */
+const catEpisode = { itemId: 3, name: "Cat", groupNumber: 1, numberInGroup: 2, fileId: 5 };
+const catNext = { upNext: { episode: { ...catEpisode, isPartway: false }, ordering: "aired" } };
+
+/** The receiver's file 4 paused at positionMs, as a seek leaves it. */
+const pausedAt = (positionMs: number) => ({
+  state: "paused",
+  positionMs,
+  rate: 1,
+  fileId: 4,
+  event: "seeked",
+});
+
 describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
@@ -636,13 +649,9 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     // The plan file's "A film played to its end with nothing next goes back to its page", the
     // case it left open: the cast moved on by Up next, the page above is the episode that ended.
     const heard: Heard[] = [];
-    const cat = { itemId: 3, name: "Cat", groupNumber: 1, numberInGroup: 2, fileId: 5 };
     const { services, sockets } = await casting(
       {
-        "GET /files/4/up-next": [
-          200,
-          { upNext: { episode: { ...cat, isPartway: false }, ordering: "aired" } },
-        ],
+        "GET /files/4/up-next": [200, catNext],
         "GET /files/5/up-next": [200, {}],
       },
       heard,
@@ -731,30 +740,14 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     const cat = { ...cast, fileId: 5, itemId: 3, itemName: "Cat", durationMs: 1_200_000 };
     const { sockets } = await casting(
       {
-        "GET /files/4/up-next": [
-          200,
-          {
-            upNext: {
-              episode: {
-                itemId: 3,
-                name: "Cat",
-                groupNumber: 1,
-                numberInGroup: 2,
-                fileId: 5,
-                isPartway: false,
-              },
-              ordering: "aired",
-            },
-          },
-        ],
+        "GET /files/4/up-next": [200, catNext],
         "GET /files/5/up-next": [200, {}],
         "POST /me/casts/9/next": [200, cat],
       },
       heard,
     );
     expect(upNextCard(mounted!.container, "Up next: S1E2 · Cat")).toBeUndefined(); // at 1:01
-    const atTheEnd = { state: "paused", positionMs: 575_000, rate: 1, fileId: 4, event: "seeked" };
-    await sockets.session.say({ type: "group", seq: 4, group: atTheEnd });
+    await sockets.session.say({ type: "group", seq: 4, group: pausedAt(575_000) });
     await click(upNextCard(mounted!.container, "Up next: S1E2 · Cat"));
     expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/next")).toBe(true);
     await sockets.live.say({
@@ -767,54 +760,27 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
 
   it("puts its Up next away at the card's ✕, offering it again once the film nears its end anew (D538 §1)", async () => {
     const { sockets } = await casting({
-      "GET /files/4/up-next": [
-        200,
-        {
-          upNext: {
-            episode: {
-              itemId: 3,
-              name: "Cat",
-              groupNumber: 1,
-              numberInGroup: 2,
-              fileId: 5,
-              isPartway: false,
-            },
-            ordering: "aired",
-          },
-        },
-      ],
+      "GET /files/4/up-next": [200, catNext],
     });
-    const at = (positionMs: number) => ({
-      state: "paused",
-      positionMs,
-      rate: 1,
-      fileId: 4,
-      event: "seeked",
-    });
-    await sockets.session.say({ type: "group", seq: 4, group: at(575_000) });
+    await sockets.session.say({ type: "group", seq: 4, group: pausedAt(575_000) });
     expect(mounted!.container.textContent).toContain("Play now"); // no count on a remote
     await click(buttonNamed(mounted!.container, "Dismiss Up next"));
     expect(upNextCard(mounted!.container, "Up next: S1E2 · Cat")).toBeUndefined();
-    await sockets.session.say({ type: "group", seq: 5, group: at(100_000) });
-    await sockets.session.say({ type: "group", seq: 6, group: at(575_000) });
+    await sockets.session.say({ type: "group", seq: 5, group: pausedAt(100_000) });
+    await sockets.session.say({ type: "group", seq: 6, group: pausedAt(575_000) });
     expect(upNextCard(mounted!.container, "Up next: S1E2 · Cat")).toBeDefined();
   });
 
   it("reads what plays around the cast's film once, for its ⏮ and its Up next both (D477 §2)", async () => {
     const heard: Heard[] = [];
     const pilot = { itemId: 2, groupNumber: 1, numberInGroup: 1, fileId: 3, isPartway: false };
-    const cat = { itemId: 3, name: "Cat", groupNumber: 1, numberInGroup: 2, fileId: 5 };
     const { sockets } = await casting(
       {
-        "GET /files/4/up-next": [
-          200,
-          { upNext: { episode: { ...cat, isPartway: false }, ordering: "aired" }, previous: pilot },
-        ],
+        "GET /files/4/up-next": [200, { ...catNext, previous: pilot }],
       },
       heard,
     );
-    const atTheEnd = { state: "paused", positionMs: 575_000, rate: 1, fileId: 4, event: "seeked" };
-    await sockets.session.say({ type: "group", seq: 4, group: atTheEnd });
+    await sockets.session.say({ type: "group", seq: 4, group: pausedAt(575_000) });
     await settleUntil(() => upNextCard(mounted!.container, "Up next: S1E2 · Cat") !== undefined);
     expect(buttonNamed(mounted!.container, "Previous episode")).toBeDefined();
     const reads = heard.filter((each) => each.methodAndPath === "GET /files/4/up-next");

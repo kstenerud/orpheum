@@ -80,6 +80,35 @@ function GalleryPage(props: { readonly press: Press }): JSX.Element {
   );
 }
 
+/** The offer cards over a film: Up next, put away by its ✕, and Still watching with its buttons. */
+function GalleryOffers(props: { readonly press: Press }): JSX.Element {
+  const { t } = useTranslation();
+  const { press } = props;
+  return (
+    <div className="ui-gallery__offers">
+      <OfferCard
+        words={t("gallery.layoutParts.upNext")}
+        detail={t("gallery.layoutParts.upNextDetail")}
+        still={<span className="ui-gallery__poster--medium ui-gallery__still" />}
+        onTake={press("gallery.layoutParts.upNext")}
+        dismissal={{
+          label: t("gallery.layoutParts.dismissUpNext"),
+          onDismiss: press("gallery.layoutParts.dismissUpNext"),
+        }}
+      />
+      <OfferCard
+        words={t("gallery.layoutParts.stillWatching")}
+        buttons={
+          <>
+            <Pressable words="gallery.layoutParts.continue" press={press} />
+            <Pressable words="gallery.layoutParts.stop" press={press} />
+          </>
+        }
+      />
+    </div>
+  );
+}
+
 /** The pills and the offer cards, on a film's ground. */
 function GalleryOverFilm(props: { readonly press: Press }): JSX.Element {
   const { t } = useTranslation();
@@ -123,27 +152,7 @@ function GalleryOverFilm(props: { readonly press: Press }): JSX.Element {
           onGone={() => undefined}
         />
       </div>
-      <div className="ui-gallery__offers">
-        <OfferCard
-          words={t("gallery.layoutParts.upNext")}
-          detail={t("gallery.layoutParts.upNextDetail")}
-          still={<span className="ui-gallery__poster--medium ui-gallery__still" />}
-          onTake={press("gallery.layoutParts.upNext")}
-          dismissal={{
-            label: t("gallery.layoutParts.dismissUpNext"),
-            onDismiss: press("gallery.layoutParts.dismissUpNext"),
-          }}
-        />
-        <OfferCard
-          words={t("gallery.layoutParts.stillWatching")}
-          buttons={
-            <>
-              <Pressable words="gallery.layoutParts.continue" press={press} />
-              <Pressable words="gallery.layoutParts.stop" press={press} />
-            </>
-          }
-        />
-      </div>
+      <GalleryOffers press={press} />
     </div>
   );
 }

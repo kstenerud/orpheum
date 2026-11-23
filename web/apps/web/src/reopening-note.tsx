@@ -3,7 +3,7 @@
 import "./play.css";
 import "./play-words.ts";
 
-import { useLayoutEffect, useState, type JSX } from "react";
+import { useSyncExternalStore, type JSX } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
@@ -17,14 +17,25 @@ import { Pill } from "./pill.tsx";
  */
 export function ReopeningNote(): JSX.Element {
   const { t } = useTranslation();
-  const [stage, setStage] = useState<HTMLElement | null>(null);
-  useLayoutEffect(() => {
-    setStage(document.querySelector<HTMLElement>(".film-player__stage"));
-  }, []);
+  const stage = useSyncExternalStore(watchThePage, drawnStage);
   const note = (
     <div className="play__reopening">
       <Pill>{t("play.reopening")}</Pill>
     </div>
   );
   return stage === null ? note : createPortal(note, stage);
+}
+
+/** The film's stage the page draws, or null while it draws none. */
+function drawnStage(): HTMLElement | null {
+  return document.querySelector<HTMLElement>(".film-player__stage");
+}
+
+/** Calls changed whenever the page's elements change, so a stage drawn later is found. */
+function watchThePage(changed: () => void): () => void {
+  const watcher = new MutationObserver(changed);
+  watcher.observe(document.body, { childList: true, subtree: true });
+  return () => {
+    watcher.disconnect();
+  };
 }
