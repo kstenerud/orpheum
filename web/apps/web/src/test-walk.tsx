@@ -387,6 +387,28 @@ export const anAdmin: WalkAnswers = {
     state: "readable",
     folders: ["Movies", "TV", "Holiday videos"],
   },
+  // General's settings, one of each control a section's page draws: a Switch, a Stepper, a field.
+  "GET /config": {
+    settings: [
+      { key: "shouldCheckForUpdates", kind: "bool", value: true, startingValue: true },
+      {
+        key: "continueWatchingMaxWorks",
+        kind: "integer",
+        value: 20,
+        startingValue: 20,
+        minimum: 1,
+        maximum: 50,
+      },
+      { key: "timeZone", kind: "string", value: "UTC", startingValue: "UTC" },
+    ].map((setting) => ({
+      ...setting,
+      description: "",
+      isModified: false,
+      isImportant: true,
+      section: "general",
+      setAt: 0,
+    })),
+  },
   // Settings' posters key: none of a person's own, Orpheum's in its place (D527 §1.3).
   "GET /secrets": { secrets: [{ name: "tmdb_api_key", isSet: false }] },
   // Two films partway, so Home's walk reaches each card and its "…".
@@ -475,6 +497,8 @@ export const managePages: readonly string[] = [
   "/libraries/1/files",
   "/about",
   "/settings",
+  "/settings/keys",
+  "/settings/general",
   "/jobs",
   "/system",
   "/update",
