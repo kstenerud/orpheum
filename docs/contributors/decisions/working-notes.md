@@ -31011,7 +31011,16 @@ casting here, "Getting ready to play" and reopening notes are Pills
 (`web/apps/web/src/over-the-film-pills.test.tsx`); and every notice above a page is a Banner, two
 at most in the player spec's order, Lost the connection alone showing over a film that fills the
 window (`web/apps/web/src/shell-banners.test.tsx`,
-`web/apps/web/src/overlay-parts.browser.test.tsx`). "Orpheum was updated" has no notice yet. §11 is built: Network at `/network`, the old address
+`web/apps/web/src/overlay-parts.browser.test.tsx`). At 360, 1280 and 1920 wide, the corner's notes
+stack covering no control and no other note, with the overlay's rows shown and hidden, on a cast's
+receiver as its film plays and on its ready screen, where the note now wraps short of Full screen;
+the sound-on Pill stands at the film's top centre and takes a mouse, a finger, Enter and a remote's
+OK; and Skip, Up next counting, the remote's Up next and Still watching stand in the top-right
+corner, each button and ✕ taken by mouse, finger, keyboard and remote
+(`web/apps/web/src/over-the-film.browser.test.tsx`). The remote's way from Full screen, the buttons
+row's end, up to the top row and back is by the arrows alone
+(`web/apps/web/src/input-player.browser.test.tsx`). The UI gallery draws each part in its place over
+a film, and each offer in its states (`web/apps/web/src/ui-gallery-layout.tsx`). "Orpheum was updated" has no notice yet. §11 is built: Network at `/network`, the old address
 leading there. With it, Settings is as pages-spec-3 lays it out: an index at `/settings` whose
 Needs you leads each key's line to Keys and passwords and the settings this release does not read
 to their fold on the index, whose one search finds every setting and key, advanced ones too, each

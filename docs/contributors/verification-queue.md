@@ -3829,7 +3829,13 @@ An item is ticked only by the person who did it, and only with what they saw.
       five seconds, and whether the pills rise above the bottom rows while the controls show.
   12. Cast a film to the Fire TV. Report whether "Controlled from" shows as a pill at the bottom
       left for about five seconds, and whether Stop casting here, pressed with OK, ends the cast.
-  13. Open the menu that says who is signed in, choose Report a problem, and send one saying
+  13. On the Fire TV, show the controls, press Right along the bottom row to full screen, then press
+      Up twice and Down twice. Report whether focus goes to the scrub bar, then to the top row's
+      back link, then back down to the scrub bar and the bottom row, its ring showing each time.
+  14. On the Fire TV, let an episode play into its end so Up next shows in the top-right corner.
+      Press Up or Right until the card is ringed, then Right to its ✕, and press OK. Report whether
+      the card and the ✕ each carry the ring, and whether OK on the ✕ puts the card away.
+  15. Open the menu that says who is signed in, choose Report a problem, and send one saying
       "VQ380". Report that you sent it.
 - [ ] **VQ381** — Settings as D538 §11 and pages-spec-3 lay it out: an index whose search finds any
   setting, a page to each section and Keys and passwords, each change saved as it is made, walked
