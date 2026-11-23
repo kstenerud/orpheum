@@ -9,23 +9,24 @@ import { memo, useCallback, useEffect, useRef, useState, type JSX } from "react"
 import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
-import { ConfirmDialog } from "./confirm-button.tsx";
-import { ResetIcon } from "./icons.tsx";
+import { Field } from "./field.tsx";
+import { arrivalMark } from "./focus-navigation.ts";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { dataOrThrow, fieldProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { sectionOrder, type SettingsSection } from "./settings-pages.ts";
-import { Loaded } from "./title.tsx";
-import { useResource } from "./use-resource.ts";
+import type { SettingsSection } from "./settings-pages.ts";
+import { SettingInfo } from "./setting-info.tsx";
 import { shownSaveTold, StatusNote } from "./status-note.tsx";
-import { HelpButton } from "./help-button.tsx";
+import { Stepper } from "./stepper.tsx";
+import { Switch } from "./switch.tsx";
+import { useResource, type Resource } from "./use-resource.ts";
 
 /** A server setting, with its value and its starting value. */
 export type Setting = components["schemas"]["SettingBody"];
 /** The part of Settings a setting is listed in. */
 type Section = SettingsSection;
 /** A setting's value, by its kind. */
-type SettingValue = string | number | boolean;
+export type SettingValue = string | number | boolean;
 
 /** A setting's value as a person reads it. */
 export function settingText(value: unknown): string {
@@ -47,8 +48,8 @@ export function parseSettingText(kind: Setting["kind"], text: string): SettingVa
 }
 
 /**
- * A setting's or a key's name in the person's words, shown above its field: the catalogue's, or its
- * key where the catalogue has none (ui-audit-2026-11-04.md §3, Settings).
+ * A setting's or a key's name in the person's words, the label of its control: the catalogue's, or
+ * its key where the catalogue has none (ui-audit-2026-11-04.md §3, Settings).
  */
 export function settingLabel(
   t: TFunction,
@@ -58,72 +59,22 @@ export function settingLabel(
   return t(`settings.${catalogue}.${camelKey(key)}`, { defaultValue: key });
 }
 
-/**
- * The top of a setting's row, in one column (ui-audit-2026-11-04.md §3): its name in the person's
- * words, which names its field and its row, and its key in small type under it.
- */
-export function RowName(props: {
-  /** The id its row and field are named by. */
-  readonly id: string;
-  readonly fieldId: string;
-  readonly label: string;
-  readonly settingKey: string;
-}): JSX.Element {
-  return (
-    <>
-      <label className="settings__label" id={props.id} htmlFor={props.fieldId}>
-        {props.label}
-      </label>
-      <code className="settings__key">{props.settingKey}</code>
-    </>
-  );
-}
-
 /** What a setting is for, in the person's words: the catalogue's, or the server's for one it lacks. */
 export function settingDescription(t: TFunction, setting: Setting): string {
   return t(`settings.descriptions.${camelKey(setting.key)}`, { defaultValue: setting.description });
 }
 
 /**
- * What a setting or key is for, behind its ⓘ (help-button.tsx, D538 interface rule 3): the short
- * words, and, as a second paragraph, more, for one the short words cannot explain.
+ * Whether a setting or key is found by every word of a search, in any of its texts: its label, its
+ * key or its description.
  */
-export function SettingHelp(props: {
-  readonly name: string;
-  readonly description: string;
-}): JSX.Element {
-  const { t, i18n } = useTranslation();
-  const detailsKey = `settings.details.${camelKey(props.name)}`;
-  const details = i18n.exists(detailsKey) ? t(detailsKey) : "";
-  return (
-    <HelpButton
-      label={t("settings.about", { key: props.name })}
-      help={details === "" ? [props.description] : [props.description, details]}
-    />
-  );
-}
-
-/** Whether a setting is found by every word of a search, in its key or its description. */
-export function isFound(search: string, key: string, description: string): boolean {
+export function isFound(search: string, texts: readonly string[]): boolean {
   const words = search
     .toLowerCase()
     .split(/\s+/u)
     .filter((word) => word !== "");
-  const haystack = `${key} ${description}`.toLowerCase();
+  const haystack = texts.join(" ").toLowerCase();
   return words.every((word) => haystack.includes(word));
-}
-
-/** The settings by their section, in the sections' order, each section's in its keys' order. */
-export function bySection(settings: readonly Setting[]): [Section, Setting[]][] {
-  const sections = new Map<Section, Setting[]>();
-  for (const setting of [...settings].sort((first, second) =>
-    first.key.localeCompare(second.key),
-  )) {
-    sections.set(setting.section, [...(sections.get(setting.section) ?? []), setting]);
-  }
-  return [...sections.entries()].sort(
-    ([first], [second]) => sectionOrder.indexOf(first) - sectionOrder.indexOf(second),
-  );
 }
 
 /**
@@ -172,53 +123,149 @@ function useSavedField(
   return { text: fieldText, setText, commit };
 }
 
-/** The field a setting's value is typed or chosen in, by its kind. */
-function ValueField(props: {
-  readonly id: string;
-  readonly setting: Setting;
-  readonly text: string;
-  readonly onText: (text: string) => void;
-  readonly onCommit: (text?: string) => void;
-}): JSX.Element {
-  const { setting } = props;
-  if (setting.kind === "bool") {
-    return (
-      <input
-        id={props.id}
-        type="checkbox"
-        aria-labelledby={`setting-${setting.key}`}
-        checked={props.text === "true"}
-        onChange={(event) => {
-          // A choice is the change itself: it is saved at once.
-          const text = String(event.target.checked);
-          props.onText(text);
-          props.onCommit(text);
-        }}
-      />
-    );
-  }
+/**
+ * The most steps of one a whole number is a Stepper over: past it, typing the number is quicker than
+ * stepping to it, and it is a number field (the owner, 2026-11-22: "a Stepper only where stepping it
+ * makes sense"). A week in hours, 168, is stepped, as a library's hours between checks are.
+ */
+const mostSteps = 200;
+
+/** A whole-number setting with both its bounds, which the server sends where it has them. */
+type RangedSetting = Setting & { readonly minimum: number; readonly maximum: number };
+
+/**
+ * Whether a setting is a Stepper: a whole number whose bounds the server sends, no more than
+ * mostSteps apart, its step one (the server sends none).
+ */
+export function isStepped(setting: Setting): setting is RangedSetting {
   return (
-    <input
-      id={props.id}
-      className="settings__value"
-      type={setting.kind === "integer" ? "number" : "text"}
-      aria-labelledby={`setting-${setting.key}`}
-      min={setting.minimum}
-      max={setting.maximum}
-      value={props.text}
-      onChange={(event) => {
-        props.onText(event.target.value);
-      }}
-      // Typing is saved on Enter (the row's submit) or on leaving the field; a number's arrows,
-      // which no one types, as they are let go.
-      onBlur={() => {
-        props.onCommit();
-      }}
-      onPointerUp={() => {
-        props.onCommit();
+    setting.kind === "integer" &&
+    setting.minimum !== undefined &&
+    setting.maximum !== undefined &&
+    setting.maximum - setting.minimum <= mostSteps
+  );
+}
+
+/** An on-or-off setting's Switch, saving at once; a question not yet answered says so (D184). */
+function SettingSwitch(props: {
+  readonly setting: Setting;
+  readonly label: string;
+  readonly onSave: (key: string, value: SettingValue) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { setting } = props;
+  return (
+    <Switch
+      label={props.label}
+      status={setting.value === null ? t("settings.unanswered") : undefined}
+      isOn={setting.value === true}
+      onSwitch={(isOn) => {
+        props.onSave(setting.key, isOn);
       }}
     />
   );
+}
+
+/** A narrow whole number's Stepper (isStepped), saving at each step and at a number typed. */
+function SettingStepper(props: {
+  readonly setting: RangedSetting;
+  readonly value: number;
+  readonly label: string;
+  readonly onSave: (key: string, value: SettingValue) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { setting, label } = props;
+  return (
+    <Stepper
+      label={label}
+      fieldLabel={t("settings.stepperField", {
+        label,
+        min: setting.minimum,
+        max: setting.maximum,
+      })}
+      valueText={t("settings.stepperValue", { label, value: props.value })}
+      value={props.value}
+      min={setting.minimum}
+      max={setting.maximum}
+      step={1}
+      // The label carries the unit, "(hours)", in the catalogue's words.
+      unit=""
+      stepDownLabel={t("settings.stepperLess", { label })}
+      stepUpLabel={t("settings.stepperMore", { label })}
+      onChange={(value) => {
+        props.onSave(setting.key, value);
+      }}
+    />
+  );
+}
+
+/**
+ * A text or wide whole number's Field: typing is saved on Enter or on leaving the field; a number's
+ * arrows, which no one types, as they are let go. Its bounds, where the server sends them, are its
+ * hint. Nothing is saved as the page closes (D538 §9).
+ */
+function SettingTextField(props: {
+  readonly setting: Setting;
+  readonly label: string;
+  readonly onSave: (key: string, value: SettingValue) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { setting } = props;
+  const { text, setText, commit } = useSavedField(setting, props.onSave);
+  const isNumber = setting.kind === "integer";
+  const hint =
+    isNumber && setting.minimum !== undefined && setting.maximum !== undefined
+      ? t("settings.range", { min: setting.minimum, max: setting.maximum })
+      : undefined;
+  return (
+    <form
+      className="settings__text"
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        commit();
+      }}
+    >
+      <Field label={props.label} hint={hint}>
+        {(control) => (
+          <input
+            {...control}
+            className="settings__value"
+            type={isNumber ? "number" : "text"}
+            inputMode={isNumber ? "numeric" : undefined}
+            min={setting.minimum}
+            max={setting.maximum}
+            value={text}
+            onChange={(event) => {
+              setText(event.target.value);
+            }}
+            onBlur={() => {
+              commit();
+            }}
+            onPointerUp={() => {
+              commit();
+            }}
+          />
+        )}
+      </Field>
+    </form>
+  );
+}
+
+/** A setting's control, by its kind: a Switch, a Stepper, or a Field. */
+function SettingControl(props: {
+  readonly setting: Setting;
+  readonly label: string;
+  readonly onSave: (key: string, value: SettingValue) => void;
+}): JSX.Element {
+  const { setting } = props;
+  if (setting.kind === "bool") {
+    return <SettingSwitch {...props} />;
+  }
+  if (isStepped(setting) && typeof setting.value === "number") {
+    return <SettingStepper {...props} setting={setting} value={setting.value} />;
+  }
+  return <SettingTextField {...props} />;
 }
 
 /**
@@ -236,80 +283,11 @@ export function startText(t: TFunction, value: unknown): string {
 }
 
 /**
- * The bin's tooltip: what pressing it does, or why it cannot be pressed. The row says which setting
- * it is, so the tooltip does not (the owner, 2026-10-21); its label, for a screen reader, does.
- */
-function resetTip(
-  t: TFunction,
-  bin: { readonly isModified: boolean; readonly isResetting: boolean; readonly start: string },
-): string {
-  if (bin.isResetting) {
-    return t("settings.tipResetting");
-  }
-  return bin.isModified ? t("settings.tipReset", { start: bin.start }) : t("settings.tipAtDefault");
-}
-
-/**
- * A row's buttons: what the setting is for, and its starting value back while it differs, which asks
- * first in the confirm (ui.md rule 8): the value it replaces is lost.
- */
-function RowControls(props: {
-  readonly setting: Setting;
-  readonly isResetting: boolean;
-  readonly onReset: (key: string) => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const [isAsking, setIsAsking] = useState(false);
-  const { setting } = props;
-  const start = startText(t, setting.startingValue);
-  const reset = setting.isModified
-    ? t("settings.reset", { key: setting.key, start })
-    : t("settings.isStart", { key: setting.key });
-  return (
-    <span className="settings__controls">
-      <SettingHelp
-        name={setting.key}
-        description={setting.question ?? settingDescription(t, setting)}
-      />
-      <button
-        type="button"
-        className="settings__control"
-        disabled={!setting.isModified || props.isResetting}
-        aria-label={reset}
-        data-tip={resetTip(t, {
-          isModified: setting.isModified,
-          isResetting: props.isResetting,
-          start,
-        })}
-        aria-haspopup="dialog"
-        onClick={() => {
-          setIsAsking(true);
-        }}
-      >
-        <ResetIcon />
-      </button>
-      {isAsking ? (
-        <ConfirmDialog
-          question={t("settings.resetQuestion", { key: setting.key, start })}
-          consequence={t("settings.resetConsequence")}
-          confirmLabel={t("settings.resetConfirm")}
-          onConfirm={() => {
-            props.onReset(setting.key);
-          }}
-          onClose={() => {
-            setIsAsking(false);
-          }}
-        />
-      ) : null}
-    </span>
-  );
-}
-
-/**
- * One setting's row, in one column: its name, its key in small type under it, then its value with
- * what it is for and a way back to its starting value, then how its last change went. A change is
- * saved without a button (the owner, 2026-11-04, Q5): a choice at once, typing on Enter or on
- * leaving the field, the page included; "Saved" says it was, or the refusal shows in its place.
+ * One setting's row (D538 §1, pages-spec-3): its control, labelled in plain words, the raw key left
+ * to What it is for; its info button; then how its last change went, "Saved" or the refusal. A
+ * change is saved without a button (the owner, 2026-11-04, Q5; 2026-11-22): a switch and a stepper
+ * as they change, typing on Enter or on leaving the field. The row the page's address names is where
+ * focus arrives.
  */
 const SettingRow = memo(function SettingRow(props: {
   readonly setting: Setting;
@@ -317,121 +295,97 @@ const SettingRow = memo(function SettingRow(props: {
   readonly problem: string;
   /** Whether its last change was saved, so it says so. */
   readonly isSaved: boolean;
-  readonly isResetting: boolean;
+  readonly isArrival: boolean;
   readonly onSave: (key: string, value: SettingValue) => void;
   readonly onReset: (key: string) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { setting } = props;
-  const { text, setText, commit } = useSavedField(setting, props.onSave);
-  const fieldId = `setting-field-${setting.key}`;
+  const { setting, onReset } = props;
+  const label = settingLabel(t, "labels", setting.key);
   return (
-    <form
+    <div
       className="settings__row"
-      aria-labelledby={`setting-${setting.key}`}
-      onSubmit={(event) => {
-        event.preventDefault();
-        commit();
-      }}
+      id={`setting-${setting.key}`}
+      {...(props.isArrival ? arrivalMark : {})}
     >
-      <RowName
-        id={`setting-${setting.key}`}
-        fieldId={fieldId}
-        label={settingLabel(t, "labels", setting.key)}
-        settingKey={setting.key}
-      />
-      <span className="settings__field">
-        <ValueField id={fieldId} setting={setting} text={text} onText={setText} onCommit={commit} />
-        <RowControls setting={setting} isResetting={props.isResetting} onReset={props.onReset} />
-      </span>
+      <div className="settings__field">
+        <SettingControl setting={setting} label={label} onSave={props.onSave} />
+        <SettingInfo
+          label={label}
+          configName={setting.key}
+          description={setting.question ?? settingDescription(t, setting)}
+          default={{
+            text: startText(t, setting.startingValue),
+            isModified: setting.isModified,
+            onUse: () => {
+              onReset(setting.key);
+            },
+          }}
+        />
+      </div>
       <StatusNote told={shownSaveTold(t, props.problem, props.isSaved)} />
-    </form>
+    </div>
   );
 });
 
 /**
- * The search, and Advanced, which shows every setting rather than the important ones: a search
- * landmark (`<search>`), which a screen reader goes to by its list of landmarks.
+ * The keys of the remote access settings whose home is Network, which sets the address in the home
+ * by its own request (pages-spec-3): the section's page leads there in their place.
  */
-export function SettingsFilters(props: {
-  readonly isAdvanced: boolean;
-  readonly onAdvanced: (isAdvanced: boolean) => void;
-  readonly search: string;
-  readonly onSearch: (search: string) => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <search className="settings__filters">
-      <label>
-        {t("settings.search")}{" "}
-        <input
-          type="search"
-          placeholder={t("settings.searchHint")}
-          value={props.search}
-          onChange={(event) => {
-            props.onSearch(event.target.value);
-          }}
-        />
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          checked={props.isAdvanced}
-          onChange={(event) => {
-            props.onAdvanced(event.target.checked);
-          }}
-        />{" "}
-        {t("settings.advanced")}
-      </label>
-    </search>
-  );
+export const networkSettingKeys: ReadonlySet<string> = new Set([
+  "addressAtHome",
+  "addressAtHomeLearnedFrom",
+]);
+
+/** The settings a section's page shows: its own, the important ones or with advanced every one. */
+export function sectionSettings(
+  settings: readonly Setting[],
+  section: Section,
+  isAdvanced: boolean,
+): readonly Setting[] {
+  return [...settings]
+    .filter(
+      (setting) =>
+        setting.section === section &&
+        (isAdvanced || setting.isImportant) &&
+        !networkSettingKeys.has(setting.key),
+    )
+    .sort((first, second) => first.key.localeCompare(second.key));
 }
 
 /**
- * The server settings, one to a row by section (D200): the important ones, or with Advanced every
- * one, found by a search of their keys and descriptions.
+ * One section's settings, one to a row (D200, D538 §11): the important ones, or with advanced every
+ * one; with none to show, that every one here is advanced.
  */
-export function SettingsView(props: {
+export function SectionSettingsView(props: {
   readonly settings: readonly Setting[];
-  /** Whether every setting shows, not only the important ones (Advanced). */
+  readonly section: Section;
+  /** Whether every setting shows, not only the important ones ("Show advanced settings"). */
   readonly isAdvanced: boolean;
-  /** What the person searched for: a setting shows when it has every word. */
-  readonly search: string;
+  /** The setting the page's address names, where focus arrives. */
+  readonly arrival?: string | undefined;
   /** Why the server refused a setting's last change, by key. */
   readonly problems: ReadonlyMap<string, string>;
   /** The settings whose last change was saved, which say so. */
   readonly saved?: ReadonlySet<string>;
-  /** The settings a reset of is running, whose bins wait. */
-  readonly resetting: ReadonlySet<string>;
   readonly onSave: (key: string, value: SettingValue) => void;
   readonly onReset: (key: string) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const shown = props.settings.filter(
-    (setting) =>
-      (props.isAdvanced || setting.isImportant) &&
-      isFound(props.search, setting.key, settingDescription(t, setting)),
-  );
+  const shown = sectionSettings(props.settings, props.section, props.isAdvanced);
   return (
     <>
-      {shown.length === 0 ? <p>{t("settings.noneFound")}</p> : null}
-      {bySection(shown).map(([section, settings]) => (
-        <section key={section} aria-labelledby={`settings-section-${section}`}>
-          <h2 className="settings__section" id={`settings-section-${section}`}>
-            {t(`settings.sections.${camelKey(section)}`)}
-          </h2>
-          {settings.map((setting) => (
-            <SettingRow
-              key={setting.key}
-              setting={setting}
-              problem={props.problems.get(setting.key) ?? ""}
-              isSaved={props.saved?.has(setting.key) ?? false}
-              isResetting={props.resetting.has(setting.key)}
-              onSave={props.onSave}
-              onReset={props.onReset}
-            />
-          ))}
-        </section>
+      {shown.length === 0 ? <p>{t("settings.allAdvanced")}</p> : null}
+      {shown.map((setting) => (
+        <SettingRow
+          key={setting.key}
+          setting={setting}
+          problem={props.problems.get(setting.key) ?? ""}
+          isSaved={props.saved?.has(setting.key) ?? false}
+          isArrival={setting.key === props.arrival}
+          onSave={props.onSave}
+          onReset={props.onReset}
+        />
       ))}
     </>
   );
@@ -456,7 +410,7 @@ export function withMember(
  * The settings as loaded, with what saves and resets each on its own: only the setting a change is
  * about takes the server's answer, so no other row is drawn again, nor a field anyone types in.
  */
-function useSettingChanges(loaded: readonly Setting[]): {
+export function useSettingChanges(loaded: readonly Setting[]): {
   readonly settings: readonly Setting[];
   readonly problems: ReadonlyMap<string, string>;
   readonly saved: ReadonlySet<string>;
@@ -518,43 +472,12 @@ function useSettingChanges(loaded: readonly Setting[]): {
   return { settings, problems, saved, resetting, save, reset };
 }
 
-/** The settings as loaded, each saved or reset on its own. */
-function ChangingSettings(props: {
-  readonly loaded: readonly Setting[];
-  readonly isAdvanced: boolean;
-  readonly search: string;
-}): JSX.Element {
-  const changes = useSettingChanges(props.loaded);
-  return (
-    <SettingsView
-      isAdvanced={props.isAdvanced}
-      search={props.search}
-      settings={changes.settings}
-      problems={changes.problems}
-      saved={changes.saved}
-      resetting={changes.resetting}
-      onSave={changes.save}
-      onReset={changes.reset}
-    />
-  );
-}
-
-/** The server's settings, loaded, with saving and resetting; a refusal is shown beside its setting. */
-export function ServerSettings(props: {
-  readonly isAdvanced: boolean;
-  readonly search: string;
-}): JSX.Element {
+/** The server's settings, as the tab last read them. */
+export function useServerSettings(): Resource<readonly Setting[]> {
   const { api } = useServices();
   const [loaded] = useResource("config", async () => {
     const configBody = dataOrThrow(await api.GET("/config"));
     return configBody.settings ?? [];
   });
-  return (
-    <Loaded
-      resource={loaded}
-      render={(settings) => (
-        <ChangingSettings loaded={settings} isAdvanced={props.isAdvanced} search={props.search} />
-      )}
-    />
-  );
+  return loaded;
 }

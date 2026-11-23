@@ -55,7 +55,11 @@ describe("Check now", () => {
       withServices(
         <HowToUpdate />,
         servedBy(
-          { "GET /system/update": [200, latest], "POST /system/update/check": [200, newer] },
+          {
+            "GET /config": [200, { settings: [] }],
+            "GET /system/update": [200, latest],
+            "POST /system/update/check": [200, newer],
+          },
           heard,
         ),
       ),
@@ -83,7 +87,11 @@ describe("Check now", () => {
       mounted = await mount(
         withServices(
           <HowToUpdate />,
-          servedBy({ "GET /system/update": [200, latest], "POST /system/update/check": answer }),
+          servedBy({
+            "GET /config": [200, { settings: [] }],
+            "GET /system/update": [200, latest],
+            "POST /system/update/check": answer,
+          }),
         ),
       );
       const shown = mounted;
@@ -114,7 +122,10 @@ describe("Check now", () => {
     mounted = await mount(
       withServices(
         <HowToUpdate />,
-        servedBy({ "GET /system/update": [200, { version: "dev", checkedAt: 0 }] }),
+        servedBy({
+          "GET /config": [200, { settings: [] }],
+          "GET /system/update": [200, { version: "dev", checkedAt: 0 }],
+        }),
       ),
     );
     const shown = mounted;

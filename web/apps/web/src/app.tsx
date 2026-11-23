@@ -540,7 +540,7 @@ function adminScreen(route: Route): JSX.Element | undefined {
     return <Identify />;
   }
   if (route.screen === "settings") {
-    return <Settings />;
+    return <Settings page={route.page} setting={route.setting} />;
   }
   if (route.screen === "jobs") {
     return <Jobs />;

@@ -3,367 +3,356 @@
 import "./settings.css";
 import "./settings-words.ts";
 
-import type { components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
-import { memo, useCallback, useRef, useState, type JSX } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { pageNeedsYou, usePageAttention } from "./attention-list.tsx";
+import { browserStorage } from "./browser-storage.ts";
 import { camelKey } from "./catalogue-key.ts";
-import { ConfirmDialog } from "./confirm-button.tsx";
-import { ResetIcon } from "./icons.tsx";
-import { fieldProblemText, dataOrThrow, throwIfRefused } from "./problem.ts";
+import { Field } from "./field.tsx";
+import { WarningIcon } from "./icons.tsx";
 import { Link } from "./link.tsx";
+import { Loaded } from "./loaded.tsx";
+import { Page } from "./page.tsx";
+import type { Route } from "./router.ts";
 import {
   isFound,
-  RowName,
-  SettingHelp,
-  ServerSettings,
+  networkSettingKeys,
+  SectionSettingsView,
+  settingDescription,
   settingLabel,
-  SettingsFilters,
-  withMember,
+  useServerSettings,
+  useSettingChanges,
+  type Setting,
 } from "./server-settings.tsx";
-import { useServices } from "./services.tsx";
-import { Loaded } from "./title.tsx";
-import { UpdateSettings } from "./update-page.tsx";
-import { useResource } from "./use-resource.ts";
-import { shownSaveTold, StatusNote } from "./status-note.tsx";
+import {
+  KeysView,
+  secretDescription,
+  useKeyChanges,
+  useSecrets,
+  type Secret,
+} from "./settings-keys.tsx";
+import { sectionOrder, type SettingsPage, type SettingsSection } from "./settings-pages.ts";
+import { Switch } from "./switch.tsx";
+import type { Upward } from "./upward.ts";
 
-/** A key or password, as the server shows it: never its value (D194). */
-export type Secret = components["schemas"]["SecretBody"];
+/** Where this browser keeps whether "Show advanced settings" is on, for every section's page. */
+export const advancedShownKey = "orpheum.settings.advancedShown";
 
-/** What a secret is for, in the person's words: the catalogue's, or the server's for one it lacks. */
-function secretDescription(t: TFunction, secret: Secret): string {
-  return t(`settings.secretDescriptions.${camelKey(secret.name)}`, {
-    defaultValue: secret.description,
-  });
+/** A section's name in the person's words. */
+function sectionName(t: TFunction, section: SettingsSection): string {
+  return t(`settings.sections.${camelKey(section)}`);
 }
 
-/** Whether a secret is set, in words: with its last characters where it has them. */
-export function secretState(t: TFunction, secret: Secret): string {
-  if (!secret.isSet) {
-    return t("settings.secretUnset");
+/** A page of Settings' place: beneath the index, which its trail leads up to. */
+function settingsUpward(t: TFunction, here: string): Upward {
+  return {
+    crumbs: [
+      {
+        label: t("settings.heading"),
+        to: { screen: "settings" },
+        isIt: (route: Route) => route.screen === "settings" && route.page === undefined,
+      },
+    ],
+    here,
+  };
+}
+
+/**
+ * Settings, for an admin (D538 §11, pages-spec-3): the index at /settings, a page to each section,
+ * and Keys and passwords; a page's address may name the setting focus arrives at.
+ */
+export function Settings(props: {
+  readonly page?: SettingsPage | undefined;
+  readonly setting?: string | undefined;
+}): JSX.Element {
+  if (props.page === "keys") {
+    return <KeysPage arrival={props.setting} />;
   }
-  return secret.lastChars === undefined
-    ? t("settings.secretSetNoLastChars")
-    : t("settings.secretSet", { lastChars: secret.lastChars });
+  if (props.page !== undefined) {
+    return <SectionPage section={props.page} arrival={props.setting} />;
+  }
+  return <SettingsIndex />;
 }
 
-/**
- * A secret's field and what saves it: what is typed is sent on Enter or on leaving the field, and the
- * field is emptied, never showing it again. Nothing is sent as the page closes or the person moves
- * to another (D538 §9).
- */
-function useSecretField(
-  name: string,
-  onSave: (name: string, value: string) => void,
-): {
-  readonly text: string;
-  readonly setText: (text: string) => void;
-  readonly commit: () => void;
-} {
-  const [fieldText, setFieldText] = useState("");
-  const typedRef = useRef("");
-  const setText = useCallback((next: string): void => {
-    typedRef.current = next;
-    setFieldText(next);
-  }, []);
-  const commit = useCallback((): void => {
-    if (typedRef.current === "") {
-      return;
-    }
-    onSave(name, typedRef.current);
-    typedRef.current = "";
-    setFieldText("");
-  }, [name, onSave]);
-  return { text: fieldText, setText, commit };
+/** One setting or key a search found: its label, its page's name, and where it leads. */
+interface Found {
+  readonly key: string;
+  readonly label: string;
+  readonly pageName: string;
+  readonly to: Route;
 }
 
-/**
- * The bin's question before a secret is removed, which cannot be undone: the confirm (ui.md rule 8),
- * its focus on Cancel, given back to the bin as it closes.
- */
-function RemoveQuestion(props: {
-  readonly name: string;
-  readonly onRemove: () => void;
-  readonly onKeep: () => void;
-}): JSX.Element {
+/** Every setting and key the search finds, advanced ones included, keys first. */
+export function foundBySearch(
+  t: TFunction,
+  search: string,
+  loaded: { readonly settings: readonly Setting[]; readonly secrets: readonly Secret[] },
+): readonly Found[] {
+  const { settings, secrets } = loaded;
+  const keys = secrets
+    .map((secret) => ({ secret, label: settingLabel(t, "secretLabels", secret.name) }))
+    .filter(({ secret, label }) =>
+      isFound(search, [label, secret.name, secretDescription(t, secret)]),
+    )
+    .map(({ secret, label }) => ({
+      key: secret.name,
+      label,
+      pageName: t("settings.secretsHeading"),
+      to: { screen: "settings", page: "keys", setting: secret.name } as const,
+    }));
+  const rest = [...settings]
+    .sort((first, second) => {
+      const bySection = sectionOrder.indexOf(first.section) - sectionOrder.indexOf(second.section);
+      return bySection === 0 ? first.key.localeCompare(second.key) : bySection;
+    })
+    .map((setting) => ({ setting, label: settingLabel(t, "labels", setting.key) }))
+    .filter(({ setting, label }) =>
+      isFound(search, [label, setting.key, settingDescription(t, setting)]),
+    )
+    .map(({ setting, label }): Found =>
+      // The address in the home is set on Network, not on its section's page.
+      networkSettingKeys.has(setting.key)
+        ? {
+            key: setting.key,
+            label,
+            pageName: t("settings.networkPage"),
+            to: { screen: "network" },
+          }
+        : {
+            key: setting.key,
+            label,
+            pageName: sectionName(t, setting.section),
+            to: { screen: "settings", page: setting.section, setting: setting.key },
+          },
+    );
+  return [...keys, ...rest];
+}
+
+/** What a search found, each leading to its row on its page; or that nothing matches. */
+function SearchResults(props: { readonly found: readonly Found[] }): JSX.Element {
   const { t } = useTranslation();
-  return (
-    <ConfirmDialog
-      question={t("settings.removeQuestion", { key: props.name })}
-      consequence={t("settings.removeConsequence")}
-      confirmLabel={t("settings.removeConfirm")}
-      onConfirm={props.onRemove}
-      onClose={props.onKeep}
-    />
-  );
-}
-
-/**
- * A secret's buttons: what it is for, and a bin that asks before removing it while it is set.
- */
-function SecretControls(props: {
-  readonly secret: Secret;
-  readonly onRemove: () => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const [isAsking, setIsAsking] = useState(false);
-  const { name, isSet } = props.secret;
-  const remove = t("settings.removeSecret", { key: name });
-  return (
-    <span className="settings__controls">
-      <SettingHelp name={name} description={secretDescription(t, props.secret)} />
-      <button
-        type="button"
-        className="settings__control"
-        disabled={!isSet}
-        aria-label={remove}
-        data-tip={isSet ? t("settings.tipRemove") : t("settings.tipNotSet")}
-        onClick={() => {
-          setIsAsking(true);
-        }}
-      >
-        <ResetIcon />
-      </button>
-      {isAsking ? (
-        <RemoveQuestion
-          name={name}
-          onRemove={props.onRemove}
-          onKeep={() => {
-            setIsAsking(false);
-          }}
-        />
-      ) : null}
-    </span>
-  );
-}
-
-/**
- * What a secret's row says below its field: whether one is set, on its own line, never in the field
- * (ui.md §14: no placeholder), which describes the field; why it must be entered again; and how its
- * last change went: "Saved", or why it was refused.
- */
-function SecretNotes(props: {
-  readonly secret: Secret;
-  readonly fieldId: string;
-  /** Why the server refused the secret's last change; "" when it did not. */
-  readonly problem: string;
-  readonly isSaved: boolean;
-}): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <>
-      <span id={`${props.fieldId}-state`} className="settings__secret-state">
-        {secretState(t, props.secret)}
-      </span>
-      {props.secret.needsReentry ? (
-        <StatusNote told={{ kind: "problem", text: t("settings.secretReentry") }} />
-      ) : null}
-      <StatusNote told={shownSaveTold(t, props.problem, props.isSaved)} />
-    </>
-  );
-}
-
-/** A secret's field: what is typed, never what is set, which the line under it says is. */
-function SecretField(props: {
-  readonly id: string;
-  readonly name: string;
-  readonly text: string;
-  readonly onText: (text: string) => void;
-  readonly onCommit: () => void;
-}): JSX.Element {
-  return (
-    <input
-      id={props.id}
-      className="settings__value"
-      type="password"
-      autoComplete="off"
-      aria-labelledby={`secret-${props.name}`}
-      aria-describedby={`${props.id}-state`}
-      value={props.text}
-      onChange={(event) => {
-        props.onText(event.target.value);
-      }}
-      onBlur={props.onCommit}
-    />
-  );
-}
-
-/**
- * One secret's row, in one column as a setting's: its name, its key under it, a field to type a new
- * one in, which says whether one is set, what it is for, and a bin that removes it once asked again.
- */
-const SecretRow = memo(function SecretRow(props: {
-  readonly secret: Secret;
-  /** Why the server refused this secret's last change; "" when it did not. */
-  readonly problem: string;
-  /** Whether its last change was saved, so it says so. */
-  readonly isSaved: boolean;
-  readonly onSave: (name: string, value: string) => void;
-  readonly onRemove: (name: string) => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { secret } = props;
-  const { text, setText, commit } = useSecretField(secret.name, props.onSave);
-  const fieldId = `secret-field-${secret.name}`;
-  return (
-    <form
-      className="settings__row"
-      aria-labelledby={`secret-${secret.name}`}
-      onSubmit={(event) => {
-        event.preventDefault();
-        commit();
-      }}
-    >
-      <RowName
-        id={`secret-${secret.name}`}
-        fieldId={fieldId}
-        label={settingLabel(t, "secretLabels", secret.name)}
-        settingKey={secret.name}
-      />
-      <span className="settings__field">
-        <SecretField
-          id={fieldId}
-          name={secret.name}
-          text={text}
-          onText={setText}
-          onCommit={commit}
-        />
-        <SecretControls
-          secret={secret}
-          onRemove={() => {
-            props.onRemove(secret.name);
-          }}
-        />
-      </span>
-      <SecretNotes
-        secret={secret}
-        fieldId={fieldId}
-        problem={props.problem}
-        isSaved={props.isSaved}
-      />
-    </form>
-  );
-});
-
-/** The keys and passwords, each set, replaced or removed, never shown, found by the search. */
-export function SecretsView(props: {
-  readonly secrets: readonly Secret[];
-  /** What the person searched for: a secret shows when it has every word. */
-  readonly search: string;
-  /** Why the server refused a secret's last change, by name. */
-  readonly problems: ReadonlyMap<string, string>;
-  /** The secrets whose last change was saved, which say so. */
-  readonly saved?: ReadonlySet<string>;
-  readonly onSave: (name: string, value: string) => void;
-  readonly onRemove: (name: string) => void;
-}): JSX.Element | null {
-  const { t } = useTranslation();
-  const shown = props.secrets
-    .filter((secret) => isFound(props.search, secret.name, secretDescription(t, secret)))
-    .sort((first, second) => first.name.localeCompare(second.name));
-  if (shown.length === 0) {
-    return null;
+  if (props.found.length === 0) {
+    return <p>{t("settings.noneFound")}</p>;
   }
   return (
-    <section aria-labelledby="secrets-heading">
-      <h2 className="settings__section" id="secrets-heading">
-        {t("settings.secretsHeading")}
-      </h2>
-      {shown.map((secret) => (
-        <SecretRow
-          key={secret.name}
-          secret={secret}
-          problem={props.problems.get(secret.name) ?? ""}
-          isSaved={props.saved?.has(secret.name) ?? false}
-          onSave={props.onSave}
-          onRemove={props.onRemove}
-        />
+    <ul className="settings-index">
+      {props.found.map((found) => (
+        <li key={found.key}>
+          <Link to={found.to} className="settings-index__row">
+            <span className="settings-index__name">{found.label}</span>
+            <span className="settings-index__summary">{found.pageName}</span>
+          </Link>
+        </li>
       ))}
-    </section>
+    </ul>
+  );
+}
+
+/** The keys' states in a line, Keys and passwords' summary: "TMDB API key set · …". */
+function keysSummary(t: TFunction, secrets: readonly Secret[]): string {
+  return secrets
+    .map((secret) => {
+      const name = settingLabel(t, "secretLabels", secret.name);
+      return secret.isSet ? t("settings.keySet", { name }) : t("settings.keyUnset", { name });
+    })
+    .join(" · ");
+}
+
+/** The pages, one row each: Keys and passwords first, its keys' states, then every section. */
+function SectionList(props: {
+  readonly secrets: readonly Secret[] | undefined;
+  readonly isKeysNeeded: boolean;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <ul className="settings-index">
+      <li>
+        <Link to={{ screen: "settings", page: "keys" }} className="settings-index__row">
+          <span className="settings-index__name">
+            {t("settings.secretsHeading")}
+            {props.isKeysNeeded ? <WarningIcon /> : null}
+          </span>
+          <span className="settings-index__summary">
+            {props.secrets === undefined ? "" : keysSummary(t, props.secrets)}
+          </span>
+        </Link>
+      </li>
+      {sectionOrder.map((section) => (
+        <li key={section}>
+          <Link to={{ screen: "settings", page: section }} className="settings-index__row">
+            <span className="settings-index__name">{sectionName(t, section)}</span>
+            <span className="settings-index__summary">
+              {t(`settings.summaries.${camelKey(section)}`)}
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }
 
 /**
- * Settings, for an admin: one list of rows by section, the keys and passwords first, then the
- * server's settings; the important ones, or with Advanced every one, found by the search.
+ * Settings' index (pages-spec-3): Needs you while a key needs the admin; one search over every
+ * setting and key, advanced ones included, whose results replace the list; then the pages.
  */
-export function Settings(): JSX.Element {
+function SettingsIndex(): JSX.Element {
   const { t } = useTranslation();
-  // Unticked at every visit: the page opens on the few most households set.
-  const [isAdvanced, setIsAdvanced] = useState(false);
   const [search, setSearch] = useState("");
+  const attention = usePageAttention("settings");
+  const settings = useServerSettings();
+  const [secrets] = useSecrets();
+  const loadedSecrets = secrets.state === "loaded" ? secrets.value : undefined;
   return (
-    <section className="settings" aria-labelledby="settings-heading">
-      <h1 id="settings-heading">{t("settings.heading")}</h1>
-      <p>
-        {t("settings.intro")} <Link to={{ screen: "update" }}>{t("update.howTo")}</Link>
-      </p>
-      <SettingsFilters
-        isAdvanced={isAdvanced}
-        onAdvanced={setIsAdvanced}
-        search={search}
-        onSearch={setSearch}
-      />
-      <UpdateSettings />
-      <Secrets search={search} />
-      <ServerSettings isAdvanced={isAdvanced} search={search} />
-    </section>
-  );
-}
-
-/** The secrets, loaded, with saving and removing; a refusal is shown beside its secret. */
-function Secrets(props: { readonly search: string }): JSX.Element {
-  const { t } = useTranslation();
-  const { api } = useServices();
-  const [problems, setProblems] = useState<ReadonlyMap<string, string>>(() => new Map());
-  const [saved, setSaved] = useState<ReadonlySet<string>>(() => new Set());
-  const [secrets, reload] = useResource("secrets", async () => {
-    const secretsBody = dataOrThrow(await api.GET("/secrets"));
-    return secretsBody.secrets ?? [];
-  });
-  /** Shows a change's refusal beside its secret, or clears it, then loads the secrets again. */
-  const settle = useCallback(
-    async (name: string, send: () => Promise<Parameters<typeof throwIfRefused>[0]>) => {
-      let problem = "";
-      try {
-        throwIfRefused(await send());
-      } catch (cause: unknown) {
-        problem = fieldProblemText(t, cause, { fields: { "body.value": name } });
-      }
-      setProblems((previous) => new Map(previous).set(name, problem));
-      setSaved((previous) => withMember(previous, name, problem === ""));
-      reload();
-    },
-    [t, reload],
-  );
-  const save = useCallback(
-    (name: string, value: string): void => {
-      void settle(name, () =>
-        api.PUT("/secrets/{name}", { params: { path: { name } }, body: { value } }),
-      );
-    },
-    [api, settle],
-  );
-  const remove = useCallback(
-    (name: string): void => {
-      void settle(name, () => api.DELETE("/secrets/{name}", { params: { path: { name } } }));
-    },
-    [api, settle],
-  );
-  return (
-    <Loaded
-      resource={secrets}
-      render={(loaded) => (
-        <SecretsView
-          secrets={loaded}
-          search={props.search}
-          problems={problems}
-          saved={saved}
-          onSave={save}
-          onRemove={remove}
+    <Page
+      heading={t("settings.heading")}
+      job={t("settings.job")}
+      needsYou={pageNeedsYou(attention)}
+    >
+      <search className="settings__filters">
+        <Field label={t("settings.search")}>
+          {(control) => (
+            <input
+              {...control}
+              type="search"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+              }}
+            />
+          )}
+        </Field>
+      </search>
+      {search.trim() === "" ? (
+        <SectionList secrets={loadedSecrets} isKeysNeeded={attention.length > 0} />
+      ) : (
+        <Loaded
+          resource={settings}
+          render={(loaded) => (
+            <SearchResults
+              found={foundBySearch(t, search, { settings: loaded, secrets: loadedSecrets ?? [] })}
+            />
+          )}
         />
       )}
+    </Page>
+  );
+}
+
+/** Whether this browser shows every setting on a section's page, not only the important ones. */
+function useAdvancedShown(): readonly [boolean, (isShown: boolean) => void] {
+  const [isShown, setIsShown] = useState(
+    () => browserStorage().getItem(advancedShownKey) === "true",
+  );
+  return [
+    isShown,
+    (shouldShow: boolean): void => {
+      if (shouldShow) {
+        browserStorage().setItem(advancedShownKey, "true");
+      } else {
+        browserStorage().removeItem(advancedShownKey);
+      }
+      setIsShown(shouldShow);
+    },
+  ];
+}
+
+/** A section's settings as loaded, each saved or reset on its own. */
+function ChangingSection(props: {
+  readonly loaded: readonly Setting[];
+  readonly section: SettingsSection;
+  readonly isAdvanced: boolean;
+  readonly arrival: string | undefined;
+}): JSX.Element {
+  const changes = useSettingChanges(props.loaded);
+  return (
+    <SectionSettingsView
+      settings={changes.settings}
+      section={props.section}
+      isAdvanced={props.isAdvanced}
+      arrival={props.arrival}
+      problems={changes.problems}
+      saved={changes.saved}
+      onSave={changes.save}
+      onReset={changes.reset}
     />
+  );
+}
+
+/**
+ * A section's page (pages-spec-3): up to Settings, the section's name its heading and no job line;
+ * "Show advanced settings", remembered in this browser for every section; then its settings. Remote
+ * access leads to Network for the address in the home, which is set there.
+ */
+function SectionPage(props: {
+  readonly section: SettingsSection;
+  readonly arrival: string | undefined;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const name = sectionName(t, props.section);
+  const settings = useServerSettings();
+  const [isAdvanced, setIsAdvanced] = useAdvancedShown();
+  // A setting the address names is shown, advanced or not, for focus to arrive at.
+  const isShowingAll =
+    isAdvanced ||
+    (settings.state === "loaded" &&
+      settings.value.some((each) => each.key === props.arrival && !each.isImportant));
+  return (
+    <Page heading={name} upward={settingsUpward(t, name)}>
+      <div className="settings__advanced">
+        <Switch label={t("settings.advanced")} isOn={isShowingAll} onSwitch={setIsAdvanced} />
+      </div>
+      {props.section === "remoteAccess" ? (
+        <p>
+          <Link to={{ screen: "network" }}>{t("settings.onNetwork")}</Link>
+        </p>
+      ) : null}
+      <Loaded
+        resource={settings}
+        render={(loaded) => (
+          <ChangingSection
+            loaded={loaded}
+            section={props.section}
+            isAdvanced={isShowingAll}
+            arrival={props.arrival}
+          />
+        )}
+      />
+    </Page>
+  );
+}
+
+/**
+ * Keys and passwords (pages-spec-3): up to Settings, what they are and that none is shown again,
+ * Needs you while one must be entered again or was refused, then a row to each key.
+ */
+function KeysPage(props: { readonly arrival: string | undefined }): JSX.Element {
+  const { t } = useTranslation();
+  const heading = t("settings.secretsHeading");
+  const attention = usePageAttention("settings");
+  const [secrets, reload] = useSecrets();
+  const changes = useKeyChanges(reload);
+  return (
+    <Page
+      heading={heading}
+      upward={settingsUpward(t, heading)}
+      job={t("settings.keysJob")}
+      needsYou={pageNeedsYou(attention)}
+    >
+      <Loaded
+        resource={secrets}
+        render={(loaded) => (
+          <KeysView
+            secrets={loaded}
+            arrival={props.arrival}
+            problems={changes.problems}
+            saved={changes.saved}
+            onSave={changes.save}
+            onRemove={changes.remove}
+          />
+        )}
+      />
+    </Page>
   );
 }

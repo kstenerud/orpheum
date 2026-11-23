@@ -8,8 +8,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "./app-shell.tsx";
 import { SecurityUpdateNote } from "./security-update-note.tsx";
 import {
+  bodyField,
   buttonWithText,
   click,
+  isSwitchOn,
   mount,
   servedBy,
   settleUntil,
@@ -17,7 +19,7 @@ import {
   type Mounted,
 } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
-import { HowToUpdateView, UpdateSettings, UpdateSystem } from "./update-page.tsx";
+import { HowToUpdateView, UpdateChecking, UpdateSystem } from "./update-page.tsx";
 import { securityUpdateSnoozeKey, snoozeLastsMs, type Update } from "./update.tsx";
 
 let mounted: Mounted | undefined;
@@ -264,15 +266,46 @@ describe("How to update", () => {
   });
 });
 
-describe("UpdateSettings", () => {
-  it("is where a newer release without a security fix shows, with the way to How to update", async () => {
+describe("UpdateChecking", () => {
+  it("turns the server's own checking for updates on and off, an unanswered question until then, saving at once (pages-spec-3)", async () => {
+    const asked = {
+      key: "shouldCheckForUpdates",
+      kind: "bool",
+      description: "updates",
+      question: "Check for updates?",
+      value: null,
+      startingValue: null,
+      isModified: false,
+      isImportant: true,
+      section: "general",
+      setAt: 1,
+    };
+    const heard: Heard[] = [];
     mounted = await mount(
-      withServices(<UpdateSettings />, servedBy({ "GET /system/update": [200, plain] })),
+      withServices(
+        <UpdateChecking />,
+        servedBy(
+          {
+            "GET /config": [200, { settings: [asked] }],
+            "PUT /config": [200, { settings: [{ ...asked, value: true, isModified: true }] }],
+          },
+          heard,
+        ),
+      ),
     );
     const shown = mounted;
-    await settleUntil(() => shown.container.textContent.includes("v0.3.3 is available."));
-    expect(shown.container.textContent).toContain("This server runs v0.3.2.");
-    expect(shown.container.querySelector('a[href="/update"]')?.textContent).toBe("How to update");
+    await settleUntil(() => shown.container.querySelector('[role="switch"]') !== null);
+    expect(shown.container.querySelector("h2")?.textContent).toBe("Checking");
+    const checking = shown.container.querySelector('[role="switch"]');
+    expect(isSwitchOn(checking)).toBe(false);
+    expect(shown.container.textContent).toContain("unanswered");
+    await click(checking);
+    await settleUntil(() => shown.container.textContent.includes("Saved"));
+    const put = heard.find((each) => each.methodAndPath === "PUT /config");
+    expect(put === undefined ? undefined : bodyField(put, "valuesByKey")).toEqual({
+      shouldCheckForUpdates: true,
+    });
+    expect(isSwitchOn(shown.container.querySelector('[role="switch"]'))).toBe(true);
   });
 });
 

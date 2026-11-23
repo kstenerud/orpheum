@@ -1,0 +1,19 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* What a setting is for (setting-info.tsx): its paragraphs, a reading line wide, a step apart. */
+.setting-info {
+  max-inline-size: var(--size-reading);
+}
+
+.setting-info > p {
+  margin: 0;
+}
+
+.setting-info > p + p {
+  margin-block-start: var(--space-3);
+}
+
+/* Its name in the configuration may be long, and breaks where it must on a phone. */
+.setting-info code {
+  overflow-wrap: anywhere;
+}

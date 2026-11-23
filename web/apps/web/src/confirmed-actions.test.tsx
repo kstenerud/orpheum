@@ -8,7 +8,7 @@ import { afterEach, expect, it, vi } from "vitest";
 
 import { JobList, type Job } from "./jobs.tsx";
 import { LibraryPage } from "./library-manage.tsx";
-import { SettingsView } from "./server-settings.tsx";
+import { SectionSettingsView } from "./server-settings.tsx";
 import { Users } from "./users.tsx";
 import { UserPage } from "./user.tsx";
 import { Settings } from "./settings.tsx";
@@ -223,7 +223,7 @@ it("removes a stored secret only when asked again", async () => {
   const heard: Heard[] = [];
   mounted = await mount(
     withServices(
-      <Settings />,
+      <Settings page="keys" />,
       servedBy(
         {
           "GET /secrets": [
@@ -235,20 +235,18 @@ it("removes a stored secret only when asked again", async () => {
             },
           ],
           "GET /config": [200, { settings: [] }],
-          "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
+          "GET /needs-attention": [200, { items: [] }],
           "DELETE /secrets/tmdbApiKey": [204, null],
         },
         heard,
       ),
     ),
   );
-  // The bin asks first, in the confirm, on Cancel; only its red action removes the key.
-  const bin = mounted.container.querySelector<HTMLElement>(
-    'button[aria-label="Remove tmdbApiKey"]',
-  );
+  // Remove… asks first, in the confirm, on Cancel; only its red action removes the key.
+  const bin = buttonWithText(mounted.container, "Remove…");
   await click(bin);
   expect(heard.map((each) => each.methodAndPath)).not.toContain("DELETE /secrets/tmdbApiKey");
-  expect(confirmShown()?.getAttribute("aria-label")).toBe("Remove tmdbApiKey?");
+  expect(confirmShown()?.getAttribute("aria-label")).toBe("Remove the TMDB API key?");
   const confirm = await expectAsked("Remove it");
   expect(confirm?.className).toBe("irreversible");
   await click(buttonWithText(confirmShown() ?? document.body, "Cancel"));
@@ -395,15 +393,15 @@ it("removes what a scan did not find, and a gone disk's files, only when asked a
   });
 });
 
-it("returns a setting to its starting value only when asked again, its value lost (ui.md rule 8)", async () => {
+// D538 §11: Use the default, in What it is for's dialog beside its Cancel, took the bin's confirm's place.
+it("returns a setting to its default only when asked in What it is for, Cancel leaving it", async () => {
   const reset: string[] = [];
   mounted = await mount(
     withServices(
-      <SettingsView
+      <SectionSettingsView
+        section="together"
         isAdvanced={false}
-        search=""
         problems={new Map()}
-        resetting={new Set()}
         onSave={() => undefined}
         onReset={(key) => {
           reset.push(key);
@@ -424,16 +422,20 @@ it("returns a setting to its starting value only when asked again, its value los
       />,
     ),
   );
-  const bin = mounted.container.querySelector<HTMLElement>(
-    'button[aria-label="Return tmdbRefreshAfterDays to its starting value, 180"]',
+  const info = mounted.container.querySelector<HTMLElement>(
+    'button[aria-label="What Refresh details from TMDB after (days) is for"]',
   );
-  await click(bin);
+  await click(info);
   expect(reset).toEqual([]);
-  expect(confirmShown()?.getAttribute("aria-label")).toBe("Return tmdbRefreshAfterDays to 180?");
-  await expectAsked("Return it");
-  await click(buttonWithText(confirmShown() ?? document.body, "Cancel"));
+  const asked = (): HTMLElement | null => document.querySelector<HTMLElement>("dialog");
+  expect(asked()?.textContent).toContain("The default is 180.");
+  expect(
+    [...(asked()?.querySelectorAll(".modal-dialog__foot button") ?? [])].map((b) => b.textContent),
+  ).toEqual(["Cancel", "Use the default"]);
+  await click(buttonWithText(asked() ?? document.body, "Cancel"));
+  expect(asked()).toBeNull();
   expect(reset).toEqual([]);
-  await click(bin);
-  await click(buttonWithText(confirmShown() ?? document.body, "Return it"));
+  await click(info);
+  await click(buttonWithText(asked() ?? document.body, "Use the default"));
   expect(reset).toEqual(["tmdbRefreshAfterDays"]);
 });

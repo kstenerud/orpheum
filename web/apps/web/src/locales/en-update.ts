@@ -64,6 +64,7 @@ export const enUpdate = {
     lastSucceeded: "The last one that succeeded was {{at}}.",
     noneSucceeded: "None has succeeded yet.",
     settingsHeading: "Updates",
-    howTo: "How to update",
+    checkingHeading: "Checking",
+    checkingSwitch: "Check for updates by itself",
   },
 };

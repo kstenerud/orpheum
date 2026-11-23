@@ -1,32 +1,54 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/* The server settings: one to a row, by section, each in one column. */
+/* Settings' pages (settings.tsx): the index's search and rows, and a page's settings, one to a row. */
 .settings__filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-4);
-  align-items: center;
   margin-block-end: var(--space-3);
 }
 
-/* The search is wide enough to show its hint whole. */
+/* The search is wide enough to show what is typed in it. */
 .settings__filters input[type="search"] {
-  inline-size: min(22rem, 70vw);
+  inline-size: min(22rem, 100%);
 }
 
-/* A section's name, half again the size of a subheading's, in coral over a coral bar (the owner,
-   2026-10-21). */
-.settings__section {
-  margin-block: var(--space-5) var(--space-1);
-  padding-block-end: var(--space-1);
-  border-block-end: 2px solid var(--color-accent);
-  color: var(--color-accent);
-  font-size: calc(var(--font-size-h3) * 1.5);
+/* The index's rows (pages-spec-3): a page's name, its warning where it needs the admin, its line. */
+.settings-index {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.settings-index__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-block-size: var(--size-control);
+  padding: var(--space-2);
+  border-block-end: 1px solid var(--color-border);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.settings-index__name {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+}
+
+.settings-index__summary {
+  color: var(--color-muted);
+  font-size: var(--font-size-small);
+}
+
+/* "Show advanced settings", at the top of a section's page. */
+.settings__advanced {
+  margin-block-end: var(--space-3);
 }
 
 /*
- * A row, in one column (ui-audit-2026-11-04.md §3): the setting's name, its key in small type under
- * it, then its field with its controls, then "Saved" or a refusal.
+ * A row, in one column (ui-audit-2026-11-04.md §3): the setting's control, labelled, with its info
+ * button at its end, then "Saved" or a refusal; a key's name and state above its field.
  */
 .settings__row {
   display: flex;
@@ -37,93 +59,34 @@
   border-block-end: 1px solid var(--color-border);
 }
 
-.settings__label {
-  font-weight: 600;
+/* A key's name, a row's heading, at the size of a label. */
+.settings__key-name {
+  margin: 0;
+  font-size: var(--font-size-body);
 }
 
-.settings__key {
-  color: var(--color-muted);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-small);
-  overflow-wrap: anywhere;
-}
-
-/* The field, then what it is for and its way back, on one line. */
+/* The control, then what it is for, on one line, the button at the control's foot. */
 .settings__field {
   display: flex;
   gap: var(--space-2);
-  align-items: center;
+  align-items: flex-end;
 }
 
-.settings__value {
+.settings__text {
   flex: 1;
   min-inline-size: 0;
   max-inline-size: 24rem;
 }
 
-.settings__controls {
-  display: flex;
-  gap: var(--space-1);
+.settings__value {
+  inline-size: 100%;
 }
 
-.settings__control {
-  display: inline-grid;
-  place-items: center;
-  inline-size: var(--size-control);
-  block-size: var(--size-control);
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-control);
-  background: none;
-  color: var(--color-text);
-}
-
-/*
- * A control's tooltip, above it so the pointer does not hide it (the owner, 2026-10-21), which the
- * browser's own title tooltip, drawn under the pointer, cannot be. Its end lines up with the
- * control's, the controls being at the row's end.
- */
-.settings__control[data-tip] {
-  position: relative;
-}
-
-.settings__control[data-tip]:is(:hover, :focus-visible)::after {
-  position: absolute;
-  z-index: var(--layer-popup);
-  inset-block-end: calc(100% + var(--space-1));
-  inset-inline-end: 0;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-surface-raised);
-  box-shadow: var(--shadow-raised);
-  color: var(--color-text);
-  font-size: var(--font-size-small);
-  white-space: nowrap;
-  content: attr(data-tip);
-  pointer-events: none;
-}
-
-.settings__control:hover:not(:disabled) {
-  background: var(--color-surface);
-}
-
-/*
- * A setting at its starting value has nothing to return to: its icon is dimmed, not the button,
- * whose tooltip keeps the text's own white whatever it is about (the owner, 2026-10-21).
- */
-.settings__control:disabled {
-  opacity: 1;
-}
-
-.settings__control:disabled .settings__icon {
-  opacity: 0.35;
-}
-
-/* Whether a key is set, its own line under its field (no placeholder, ui.md §14). */
+/* Whether a key is set, after its name (no placeholder, ui.md §14). */
 .settings__secret-state {
   color: var(--color-muted);
   font-size: var(--font-size-small);
+  font-weight: 400;
 }
 
 /* A row's note, "Saved" or its refusal (status-note.tsx), sits in the row's own gap. */

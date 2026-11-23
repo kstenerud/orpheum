@@ -13,7 +13,7 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 import { page } from "vitest/browser";
 
-import { SecretsView } from "./settings.tsx";
+import { KeysView } from "./settings-keys.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -34,12 +34,11 @@ describe("a setting's row", () => {
     mounted = undefined;
   });
 
-  it("stands in one column: its name, its key under it, then its field, a line's width at most", async () => {
+  it("stands in one column: its name, then its field with What it is for at its end, a line's width at most", async () => {
     await page.viewport(1280, 800);
     mounted = await mount(
       withServices(
-        <SecretsView
-          search=""
+        <KeysView
           problems={new Map()}
           onSave={ignore}
           onRemove={ignore}
@@ -54,12 +53,12 @@ describe("a setting's row", () => {
       }
       return element.getBoundingClientRect();
     };
-    const name = box(".settings__label");
-    const key = box(".settings__key");
+    const name = box(".settings__key-name");
+    const info = box(".settings__field > :last-child");
     const field = box(".settings__field");
-    expect(key.top).toBeGreaterThanOrEqual(name.bottom - roundingPx);
-    expect(field.top).toBeGreaterThanOrEqual(key.bottom - roundingPx);
-    expect(Math.abs(key.left - name.left)).toBeLessThanOrEqual(roundingPx);
+    expect(Math.abs(info.bottom - field.bottom)).toBeLessThanOrEqual(roundingPx);
+    expect(field.top).toBeGreaterThanOrEqual(name.bottom - roundingPx);
+    expect(info.right).toBeLessThanOrEqual(field.right + roundingPx);
     expect(Math.abs(field.left - name.left)).toBeLessThanOrEqual(roundingPx);
     expect(box(".settings__row").width).toBeLessThanOrEqual(widestRowPx + roundingPx);
   });

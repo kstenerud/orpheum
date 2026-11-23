@@ -11,6 +11,7 @@ import { CreateLibraryPage } from "./create-library.tsx";
 import { LibraryPage } from "./library-manage.tsx";
 import { Settings } from "./settings.tsx";
 import {
+  buttonNamed,
   buttonWithText,
   click,
   enter,
@@ -152,20 +153,21 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
   it("saving a secret, and resetting a setting", async () => {
     const services = servedBy({
       "GET /secrets": [200, { secrets: [secret] }],
+      "GET /needs-attention": [200, { items: [] }],
       "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
       "GET /config": [200, { settings: [setting] }],
       "PUT /secrets/tmdbApiKey": refusal(409, "conflict"),
       "POST /config/shouldScanOnNodeHello/reset": refusal(404, "notFound"),
     });
-    mounted = await mount(withServices(<Settings />, services));
-    const secretForm = 'form[aria-labelledby="secret-tmdbApiKey"]';
+    mounted = await mount(withServices(<Settings page="keys" />, services));
+    const secretForm = 'section[aria-labelledby="secret-tmdbApiKey"] form';
     await enter(mounted.container.querySelector(`${secretForm} input`), "a new key");
     await submit(mounted.container.querySelector(secretForm));
     expectSays(conflict);
-    await click(
-      mounted.container.querySelector('button[aria-label^="Return shouldScanOnNodeHello"]'),
-    );
-    await click(buttonWithText(mounted.container, "Return it"));
+    mounted.unmount();
+    mounted = await mount(withServices(<Settings page="libraries" />, services));
+    await click(buttonNamed(mounted.container, "What Scan when a machine connects is for"));
+    await click(buttonWithText(document.body, "Use the default"));
     expectSays(notFound);
   });
 });
@@ -174,6 +176,7 @@ describe("a refused setting is named beside it, in the form's words", () => {
   it("saving a setting's value the server does not accept", async () => {
     const services = servedBy({
       "GET /secrets": [200, { secrets: [secret] }],
+      "GET /needs-attention": [200, { items: [] }],
       "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
       "GET /config": [200, { settings: [setting, libraryCheck] }],
       "PUT /config": [
@@ -194,14 +197,14 @@ describe("a refused setting is named beside it, in the form's words", () => {
         },
       ],
     });
-    mounted = await mount(withServices(<Settings />, services));
-    const form = 'form[aria-labelledby="setting-newLibraryDefaultScanEveryHours"]';
+    mounted = await mount(withServices(<Settings page="libraries" />, services));
+    const form = "#setting-newLibraryDefaultScanEveryHours";
     await enter(mounted.container.querySelector(`${form} input`), "100000");
-    await submit(mounted.container.querySelector(form));
+    await submit(mounted.container.querySelector(`${form} form`));
     expect(mounted.container.querySelector(`${form} [role="alert"]`)?.textContent).toBe(
       "The server did not accept what was entered in newLibraryDefaultScanEveryHours. Correct what is there and try again.",
     );
-    const other = 'form[aria-labelledby="setting-shouldScanOnNodeHello"] [role="alert"]';
+    const other = '#setting-shouldScanOnNodeHello [role="alert"]';
     expect(mounted.container.querySelector(other)).toBeNull();
     expectSays("newLibraryDefaultScanEveryHours. Correct what is there");
   });
@@ -247,15 +250,14 @@ describe("a request that never reaches the server says so, rather than nothing",
   it("resetting a setting", async () => {
     const services = servedBy({
       "GET /secrets": [200, { secrets: [secret] }],
+      "GET /needs-attention": [200, { items: [] }],
       "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
       "GET /config": [200, { settings: [setting] }],
       "POST /config/shouldScanOnNodeHello/reset": unreachable,
     });
-    mounted = await mount(withServices(<Settings />, services));
-    await click(
-      mounted.container.querySelector('button[aria-label^="Return shouldScanOnNodeHello"]'),
-    );
-    await click(buttonWithText(mounted.container, "Return it"));
+    mounted = await mount(withServices(<Settings page="libraries" />, services));
+    await click(buttonNamed(mounted.container, "What Scan when a machine connects is for"));
+    await click(buttonWithText(document.body, "Use the default"));
     expectSays(cannotReach);
   });
 });

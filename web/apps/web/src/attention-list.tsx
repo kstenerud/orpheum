@@ -6,9 +6,12 @@ import type { JSX, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { attentionLine } from "./attention-lines.ts";
-import type { AttentionItem } from "./attention-pages.ts";
+import { itemsOf, type AttentionItem, type AttentionPageKey } from "./attention-pages.ts";
 import { WarningIcon } from "./icons.tsx";
 import { Link } from "./link.tsx";
+import { needsAttentionKey, readNeedsAttention } from "./needs-attention-read.ts";
+import { useServices } from "./services.tsx";
+import { useResource } from "./use-resource.ts";
 
 /**
  * What needs an admin on one page, one line to an item (D538 §12): a problem with the warning icon,
@@ -38,4 +41,25 @@ export function AttentionList(props: {
       {props.children}
     </ul>
   );
+}
+
+/**
+ * A page's own items of what needs the admin (D538 §12), as the Needs attention page and the menu's
+ * marks read them (D478): those of a kind this app knows, none while they are read or failed.
+ */
+export function usePageAttention(page: AttentionPageKey): readonly AttentionItem[] {
+  const { t, i18n } = useTranslation();
+  const { api } = useServices();
+  const [counts] = useResource(needsAttentionKey, async () => await readNeedsAttention(api));
+  if (counts.state !== "loaded") {
+    return [];
+  }
+  return itemsOf(counts.value.pages, page).filter(
+    (item) => attentionLine(t, item, i18n.language) !== undefined,
+  );
+}
+
+/** A page's Needs you (page.tsx): its own items' lines, or undefined while nothing needs the admin. */
+export function pageNeedsYou(items: readonly AttentionItem[]): ReactNode {
+  return items.length === 0 ? undefined : <AttentionList items={items} />;
 }

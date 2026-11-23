@@ -22,6 +22,22 @@ export const enSettingsCatalogue = {
     backups: "Backups and upkeep",
     diagnostics: "Diagnostics and development",
   },
+  /** What each section holds, in a line, under its name on the Settings index (pages-spec-3). */
+  summaries: {
+    general: "The server's name, language and time zone",
+    accounts: "How long sign-ins last, and what a new account may do",
+    libraries: "How often folders are checked, and how files are named",
+    metadata: "Where film information and posters come from",
+    playback: "Converting video, resuming, and subtitles",
+    slowLinks: "What the server does when a connection is slow",
+    upload: "How much a device may upload, and when",
+    together: "Group sessions and their voice calls",
+    nodes: "Other machines that do work for this server",
+    jobs: "How many jobs run at once, and when they give up",
+    remoteAccess: "Reaching the server from away from home",
+    backups: "When backups are made and how many are kept",
+    diagnostics: "Logs, reports and tools for developers",
+  },
   secretDescriptions: {
     dnsProviderToken:
       "The DNS provider's API token the server proves its name with, to get its HTTPS certificate.",

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import "./settings.css";
+import "./settings-words.ts";
 
 import { ApiProblem } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
@@ -9,13 +9,15 @@ import { useTranslation } from "react-i18next";
 import { CopyButton } from "./copy-button.tsx";
 import { dateTimeText } from "./date-time-text.ts";
 import { idempotent } from "./idempotent.ts";
-import { Link } from "./link.tsx";
 import { Loaded } from "./loaded.tsx";
 import { dataOrThrow, problemText } from "./problem.ts";
+import { Section } from "./section.tsx";
+import { useServerSettings, useSettingChanges, type Setting } from "./server-settings.tsx";
 import { useServices } from "./services.tsx";
+import { Switch } from "./switch.tsx";
 import { composeUpdateCommand, useReadUpdateAgain, useUpdate, type Update } from "./update.tsx";
 import { useRequest } from "./use-request.ts";
-import { StatusNote } from "./status-note.tsx";
+import { shownSaveTold, StatusNote } from "./status-note.tsx";
 
 /**
  * The folder the script's step names to show `--dir` written out, for a server that does not know its
@@ -59,6 +61,7 @@ export function HowToUpdate(): JSX.Element {
           );
         }}
       />
+      <UpdateChecking />
     </section>
   );
 }
@@ -375,28 +378,48 @@ function UpdateStanding(props: { readonly update: Update }): JSX.Element {
   );
 }
 
-/**
- * The settings page's Updates row: the version the server runs and a newer one, with the way to the
- * How to update page; the one place a newer release with no security fix shows (security-updates.md
- * Part B). Shown once read, and not at all while it is not: the settings beside it do not hang on it.
- */
-export function UpdateSettings(): JSX.Element | null {
+/** The setting Checking turns on and off: whether the server looks for a newer release itself. */
+const checkingKey = "shouldCheckForUpdates";
+
+/** Checking's Switch over the setting as loaded, saving at once, with "Saved" or the refusal. */
+function CheckingSwitch(props: { readonly loaded: readonly Setting[] }): JSX.Element | null {
   const { t } = useTranslation();
-  const update = useUpdate(true);
-  if (update.state !== "loaded" || update.value === undefined) {
+  const changes = useSettingChanges(props.loaded);
+  const setting = changes.settings.find((each) => each.key === checkingKey);
+  if (setting === undefined) {
     return null;
   }
   return (
-    <section aria-labelledby="update-settings-heading">
-      <h2 className="settings__section" id="update-settings-heading">
-        {t("update.settingsHeading")}
-      </h2>
-      <UpdateStanding update={update.value} />
-      {update.value.command === undefined ? null : (
-        <p>
-          <Link to={{ screen: "update" }}>{t("update.howTo")}</Link>
-        </p>
-      )}
-    </section>
+    <>
+      <Switch
+        label={t("update.checkingSwitch")}
+        status={setting.value === null ? t("settings.unanswered") : undefined}
+        isOn={setting.value === true}
+        onSwitch={(isOn) => {
+          changes.save(checkingKey, isOn);
+        }}
+      />
+      <StatusNote
+        told={shownSaveTold(
+          t,
+          changes.problems.get(checkingKey) ?? "",
+          changes.saved.has(checkingKey),
+        )}
+      />
+    </>
+  );
+}
+
+/**
+ * Checking (pages-spec-3), moved here from Settings: whether the server checks for updates by
+ * itself, the setting shouldCheckForUpdates, a question until an admin answers it (D184).
+ */
+export function UpdateChecking(): JSX.Element {
+  const { t } = useTranslation();
+  const settings = useServerSettings();
+  return (
+    <Section heading={t("update.checkingHeading")}>
+      <Loaded resource={settings} render={(loaded) => <CheckingSwitch loaded={loaded} />} />
+    </Section>
   );
 }
