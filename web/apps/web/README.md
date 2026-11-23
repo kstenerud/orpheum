@@ -392,7 +392,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   Safari's picker. Pressed, the grant's master is added to the element as an HLS alternative and
   the picker shown; WebKit itself moves the film to the receiver the person picks (D523 §1,
   `@orpheum/player`'s `airplay.ts`). Whether AirPlay plays is the element's wireless flag alone: on
-  as it rises, off once it stayed false 1 s (§2). While on, the menu, and a guest's Cast dialog, say
+  as it rises, off once it stayed false 1 s (§2). While on, the menu, and a guest's Cast pop-up, say
   *Playing on AirPlay* with one button, *AirPlay controls*, which shows the picker and closes the
   menu, and no Stop (§6); Cast's sign over the film shows a cast on; no device and no Chromecast is
   offered (§7). A sound chosen while on is reloaded on the receiver from a grant for it (§3). Once
@@ -401,7 +401,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   started. The grant's asks are a parameter of the one flow
   (`AirPlayGrants`, `AirPlayGrantsContext`): the person's session's, or, on a Watch Together guest
   by link's page, their membership's (`POST`/`DELETE /together/airplay-grants`, D519 §1), offered
-  after Chromecast in their Cast dialog whatever their link's controls (`src/together-guest-cast.tsx`).
+  after Chromecast in their Cast pop-up whatever their link's controls (`src/together-guest-cast.tsx`).
   A grant asked for waits for the last AirPlay's revocation to be answered, so that it cannot be
   revoked with it. `src/airplay-entry.test.tsx`, `src/cast-dialog.test.tsx`,
   `src/ladder-playback.test.tsx`, `src/together-guest-airplay.test.tsx`; on a device, VQ315,

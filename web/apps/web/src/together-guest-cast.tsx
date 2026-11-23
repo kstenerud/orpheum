@@ -4,7 +4,7 @@ import "./cast.css";
 import "./cast-words.ts";
 
 import type { TogetherSnapshot } from "@orpheum/sdk";
-import { useEffect, useMemo, useState, type JSX } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { grantAt, grantBody } from "./airplay.ts";
@@ -20,7 +20,7 @@ import {
   openGuestReceiverBy,
 } from "./google-cast.ts";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
-import { ModalDialog } from "./modal-dialog.tsx";
+import { Popover } from "./popover.tsx";
 import { dataOrThrow, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { membershipHeaders, type Membership } from "./together-storage.ts";
@@ -38,7 +38,7 @@ import { StatusNote } from "./status-note.tsx";
  * person's session. The page's cast is its Cast session: Stop casting ends it, as does the page's
  * going, and Chrome's own Cast control ends it too, as the signed-in cast's ends with its session.
  *
- * In Safari, the dialog offers AirPlay after it, as the Cast menu does (AirPlayEntry), for the
+ * In Safari, the pop-up offers AirPlay after it, as the Cast menu does (AirPlayEntry), for the
  * group's film the guest's player plays on its ladder (D519 §1): its grant is asked for and revoked
  * by the guest's membership (membershipAirPlayGrants), the player handing the film over and back as
  * the signed-in person's does. Each film the group plays is a playback of its own, whose AirPlay is a
@@ -89,7 +89,7 @@ export interface GuestsCast {
   readonly isOffered: boolean;
   /** The name of the Chromecast that takes the guest's part, while one does. */
   readonly castingTo: string | undefined;
-  /** Whether Cast's dialog is open, Chromecast offered: until a device takes the part. */
+  /** Whether Cast's pop-up is open, Chromecast offered: until a device takes the part. */
   readonly isChoosing: boolean;
   readonly setIsChoosing: (isChoosing: boolean) => void;
   readonly isBusy: boolean;
@@ -165,10 +165,12 @@ export function useGuestsCast(membership: Membership, isOffered: boolean): Guest
 
 /**
  * The guest's Cast, on their page's panel: while no Chromecast takes their part, Cast, which opens a
- * dialog of the one choice, Chromecast, saying there why a cast failed; while one does, which it is
- * and Stop casting. Chromecast waits while the session is not connected, as the Cast menu's does
- * while the live connection is down; then AirPlay, where the guest's player offers it (Safari), as
- * the Cast menu's last choice, the dialog closing as the film goes to it.
+ * pop-up at itself of the one choice, Chromecast (a quick choice from a list is a pop-up at its
+ * opener, not a dialog: dialogs-spec, D538 §3), why a cast failed said under Cast once the pop-up
+ * has closed for Chrome's picker; while one does, which it is and Stop casting. Chromecast waits
+ * while the session is not connected, as the Cast menu's does while the live connection is down;
+ * then AirPlay, where the guest's player offers it (Safari), as the Cast menu's last choice. Pressing
+ * either closes the pop-up, focus back on Cast, as the film goes to it (popover.tsx).
  */
 export function GuestsCastEntry(props: {
   readonly cast: GuestsCast;
@@ -178,49 +180,66 @@ export function GuestsCastEntry(props: {
   const { cast, snapshot } = props;
   const airPlayHere = useAirPlayHere();
   const isAirPlayOffered = cast.airPlayGrants !== undefined && airPlayHere !== undefined;
-  // Open, the dialog stays as the group's film changes, AirPlay offered again for the next one.
+  // Open, the pop-up stays as the group's film changes, AirPlay offered again for the next one.
   if (!cast.isOffered && !isAirPlayOffered && !cast.isChoosing) {
     return null;
   }
   if (cast.castingTo !== undefined) {
     return <GuestsCastOn cast={cast} name={cast.castingTo} snapshot={snapshot} />;
   }
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => {
-          cast.setIsChoosing(true);
-        }}
-      >
-        {t("cast.page")}
-      </button>
-      {cast.isChoosing ? (
-        <GuestsCastChoices cast={cast} snapshot={snapshot} isAirPlayOffered={isAirPlayOffered} />
-      ) : null}
-    </>
-  );
+  return <GuestsCastOpener cast={cast} snapshot={snapshot} isAirPlayOffered={isAirPlayOffered} />;
 }
 
-/**
- * Cast's dialog: Chromecast where this page casts to one, then AirPlay where it is offered; while the
- * film plays on AirPlay, AirPlay alone, one cast at a time (D523 §7).
- */
-function GuestsCastChoices(props: {
+/** Cast, which opens its pop-up of choices at itself, and under it why a cast failed. */
+function GuestsCastOpener(props: {
   readonly cast: GuestsCast;
   readonly snapshot: TogetherSnapshot | undefined;
   readonly isAirPlayOffered: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
   const { cast } = props;
-  const isOnAirPlay = useIsOnAirPlay();
-  const close = (): void => {
-    cast.setIsChoosing(false);
-  };
+  const openerRef = useRef<HTMLButtonElement>(null);
   return (
-    <ModalDialog label={t("cast.page")} onClose={close}>
-      <section className="cast-to" aria-labelledby="guest-cast-heading">
-        <h2 id="guest-cast-heading">{t("cast.heading")}</h2>
+    <>
+      <button
+        ref={openerRef}
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={cast.isChoosing}
+        onClick={() => {
+          cast.setIsChoosing(!cast.isChoosing);
+        }}
+      >
+        {t("cast.page")}
+      </button>
+      {cast.isChoosing ? <GuestsCastChoices {...props} openerRef={openerRef} /> : null}
+      {cast.problem === undefined ? null : (
+        <StatusNote told={{ kind: "problem", text: cast.problem }} />
+      )}
+    </>
+  );
+}
+
+/**
+ * Cast's pop-up at its opener: Chromecast where this page casts to one, then AirPlay where it is
+ * offered; while the film plays on AirPlay, AirPlay alone, one cast at a time (D523 §7). Its name is
+ * Cast's heading, "Cast to", as the signed-in Cast dialog's list's is.
+ */
+function GuestsCastChoices(props: {
+  readonly cast: GuestsCast;
+  readonly snapshot: TogetherSnapshot | undefined;
+  readonly isAirPlayOffered: boolean;
+  readonly openerRef: RefObject<HTMLButtonElement | null>;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { cast } = props;
+  const isOnAirPlay = useIsOnAirPlay();
+  const close = useCallback((): void => {
+    cast.setIsChoosing(false);
+  }, [cast]);
+  return (
+    <Popover label={t("cast.heading")} openerRef={props.openerRef} isFromItsTop onClose={close}>
+      <div className="cast-to">
         {cast.isOffered && !isOnAirPlay ? (
           <ChromecastEntry
             isStale={props.snapshot?.status !== "connected" || cast.isBusy}
@@ -228,11 +247,8 @@ function GuestsCastChoices(props: {
           />
         ) : null}
         {props.isAirPlayOffered ? <AirPlayEntry onPressed={close} /> : null}
-        {cast.problem === undefined ? null : (
-          <StatusNote told={{ kind: "problem", text: cast.problem }} />
-        )}
-      </section>
-    </ModalDialog>
+      </div>
+    </Popover>
   );
 }
 

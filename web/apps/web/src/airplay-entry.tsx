@@ -21,8 +21,8 @@ import { useResource } from "./use-resource.ts";
  * so, with AirPlay controls, which shows AirPlay's picker, where every choice is the person's: another
  * receiver, its sound, or this device, the film coming back to this page (D523 §6); it closes the menu
  * too. There is no Stop: the page cannot end AirPlay itself. Left open as the film changes, it
- * offers the new film's AirPlay, by a grant of its own. A Watch Together guest by link's Cast dialog
- * offers it too, its grant their membership's (D519 §1, together-guest-cast.tsx).
+ * offers the new film's AirPlay, by a grant of its own. A Watch Together guest by link's Cast
+ * offers it too, in its pop-up, its grant their membership's (D519 §1, together-guest-cast.tsx).
  */
 export function AirPlayEntry(props: {
   readonly onPressed?: (() => void) | undefined;
