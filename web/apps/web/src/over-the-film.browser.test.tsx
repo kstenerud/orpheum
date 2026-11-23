@@ -15,7 +15,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { UpNext } from "./around-file.ts";
+import { tabStorage } from "./browser-storage.ts";
 import { CastReady } from "./cast-ready.tsx";
+import { forgetReceiving, wasReceiving } from "./cast-receiving-mark.ts";
 import { ControlledMode } from "./cast-receiver.tsx";
 import { useTellsOffered, type OfferPiece } from "./convenience-area.tsx";
 import { CornerNotes, type CornerNote } from "./corner-notes.tsx";
@@ -67,6 +69,9 @@ afterEach(() => {
   }
   mounted = [];
   vi.restoreAllMocks();
+  // A cast received marks the tab (D383 §2), and a tab's storage is every test file's frame's: a
+  // mark left would hold each later file's Play page in doubt, drawing nothing.
+  forgetReceiving(tabStorage());
 });
 
 /** What was pressed, by the words of each press, in order. */
@@ -305,6 +310,10 @@ describe("the notes at the film's bottom-left (D538 §1, player-spec's three pla
       expect(coveredBy(noteBoxes(), ready!)).toEqual([]);
       expect(Math.round(noteBoxes()[0]!.left)).toBe(8);
     }
+  });
+  // The test before this one received a cast, marking the tab; the mark is gone with it.
+  it("leave no cast marked as received for the test files after them", () => {
+    expect(wasReceiving(tabStorage())).toBe(false);
   });
 });
 
