@@ -4968,7 +4968,12 @@ None puts a ✕ on the card. The proposal:
 - The ✕ goes.
 - The play button takes the focus.
 - Back or Escape puts the offer away.
-- Where there is no Back key, a text "Watch the credits" button does it. The owner chooses.
+
+The owner, on a device with no Back key: "There should already be a back key, as well as next and
+previous buttons even in the screen where there's no up next offering." So the card adds no button
+of its own:
+- The player's own Back puts the offer away first, then leaves the film on a second press.
+- Next and previous stay where they are.
 
 ### A library's checks (questions 13 and 14)
 
@@ -4988,7 +4993,8 @@ agree on that."
   - The least is 1, and a stored value below 1 is read as 1. That reading is the owner's exception
     to D200 for this field, recorded in a decision.
 - **The most is 168 hours (7 days)** for every part: the library's field, the API, and
-  `newLibraryDefaultScanEveryHours` (now 8760), whose default becomes 6.
+  `newLibraryDefaultScanEveryHours` (now 8760). That setting stays, and its default becomes 6
+  (the owner: "yes, default of 6").
 - **A scan asked for while the same scan runs is dropped.** The queue already drops a request a
   running job covers. This batch checks that the scan kind's cover holds for a periodic scan, and
   proves it with a test.
@@ -4999,6 +5005,8 @@ agree on that."
 
 The owner: "No. We should have a button beside each one for resetting it, with a confirmation."
 - Each setting's row gets a "Use the default" button beside it, which asks first.
+- The button shows only while the setting differs from its default (the owner: "yes, only when
+  different").
 - The dialog's "Use the default" goes.
 
 ### The focus on a section page (question 20)
@@ -5019,3 +5027,11 @@ work better. I'd need to verify on the various devices though."
   for the owner to walk on each device before one is chosen.
 - One risk to walk on a TV: in a focused number field, Up and Down change the number instead of
   moving the focus.
+
+The owner, on the Stepper in the gallery: "it looks bad. The - and + buttons are different sizes and
+have weird gaps between them that were not present in the mock-ups."
+- The Stepper is redrawn to the design system's mock-up (`components/Stepper/preview.html` in the
+  UI handoff).
+- The forms spec bars `type=number` everywhere: "Native `<select>` and `type=number` are not used
+  anywhere". The owner's walk of the two side by side decides between the spec and the
+  browser's own control.
