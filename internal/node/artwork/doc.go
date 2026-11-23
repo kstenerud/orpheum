@@ -30,6 +30,13 @@
 //     that is not black is ErrNoFrame, not a failure (D362 §1, §5).
 //     TestStill_FFmpegReadsOnlyTheFilmFromItsPlaceAndSkipsTheBlack, TestStill_NothingWrittenIsAVideoWithNoFrame,
 //     TestStill_AVideosStillSkipsItsBlackLeadInAndBecomesOurOwnWebP (integration tier).
+//   - A key frame, the picture a cast's remote shows (D545), is read from the film it is given and
+//     nothing else, as a still's is: the input sought to its place, keyframes alone decoded and the
+//     first kept, so it is the keyframe at or before the place and one frame is decoded; 640 across at
+//     its pixels' shape, one WebP of ours with no metadata. Nothing keeps it, so it has no recipe
+//     until something does (trickplay).
+//     TestKeyFrame_FFmpegDecodesOnlyTheKeyframeAtOrBeforeThePlaceAt640Across,
+//     TestKeyFrame_IsTheKeyframeAtOrBeforeThePlaceAsOurOwnWebP640Across (integration tier).
 //   - A frame still's FFmpeg arguments, for a fixed set of commands, are recorded beside
 //     nodeproto.FrameStillRecipe, so a change to them fails until it is raised (D536 §2).
 //     TestFrameStillRecipe_IsRaisedWithAnyChangeToItsArguments.
@@ -47,4 +54,5 @@
 //   - derive.go: the probe, the planning of sizes, and FFmpeg's arguments. The size table is
 //     internal/nodeproto's Shape.Sizes, shared with the core.
 //   - still.go: taking a still from a video: where, how long a stretch, what counts as black.
+//   - frame.go: a key frame for a cast's remote (D545).
 package artwork

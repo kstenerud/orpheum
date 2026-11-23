@@ -52,18 +52,32 @@ func (deriver *Deriver) Still(
 	// Its position moves only when the still is written, at the end: the run is given the longer of
 	// the re-encode's timeout and stillShortestTimeout to start, stand still and end.
 	timeout := max(deriver.perRunTimeout, stillShortestTimeout)
+	still, err := deriver.runOnFilm(ctx, film, stillArguments(film.Input(), streamIndex, from), maxStillBytes, timeout)
+	if err != nil {
+		return nil, fmt.Errorf("take a still: %w", err)
+	}
+	if len(still) == 0 {
+		return nil, ErrNoFrame
+	}
+	return still, nil
+}
+
+// runOnFilm runs FFmpeg with arguments that read film, as every run reads one (execx.Film: granted
+// its path alone, or served it over fdproxy and granted none), keeping up to stdoutLimitBytes of
+// what it writes, which it writes only at its end: timeout bounds its start, its standing still and
+// its whole run. A frame still and a key frame are each one such run.
+func (deriver *Deriver) runOnFilm(
+	ctx context.Context, film execx.Film, arguments []string, stdoutLimitBytes int, timeout time.Duration,
+) ([]byte, error) {
 	ran, err := deriver.runner.RunWatched(ctx, execx.WatchedRun{
 		Access:           confine.Access{Read: film.Readable()},
-		Arguments:        stillArguments(film.Input(), streamIndex, from),
-		StdoutLimitBytes: maxStillBytes,
+		Arguments:        arguments,
+		StdoutLimitBytes: stdoutLimitBytes,
 		Watch:            execx.Watch{StartGrace: timeout, StallWindow: timeout, Deadline: timeout},
 		Film:             film.Stream,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("take a still: %w", err)
-	}
-	if len(ran.Stdout) == 0 {
-		return nil, ErrNoFrame
+		return nil, fmt.Errorf("run FFmpeg on %s: %w", film.Path, err)
 	}
 	return ran.Stdout, nil
 }
@@ -72,7 +86,7 @@ func (deriver *Deriver) Still(
 // there, read the stretch, square the pixels, drop the black pictures, choose the most
 // representative of what is left, bound its size, and write one PNG with no metadata.
 func stillArguments(input []string, streamIndex int, from time.Duration) []string {
-	filters := "scale='trunc(iw*sar/2)*2':ih,setsar=1," +
+	filters := squarePixels + "," +
 		"blackframe=amount=0:threshold=" + strconv.Itoa(stillBlackLuma) + "," +
 		"metadata=mode=select:key=lavfi.blackframe.pblack:value=" + strconv.Itoa(stillMostBlackPercent) +
 		":function=less," +
@@ -88,6 +102,10 @@ func stillArguments(input []string, streamIndex int, from time.Duration) []strin
 		"-vf", filters, "-frames:v", "1", "-map_metadata", "-1", "-map_chapters", "-1",
 		"-c:v", "png", "-f", "image2pipe", "pipe:1")
 }
+
+// squarePixels is FFmpeg's filter that makes a picture's pixels square, at its own height, its width
+// even.
+const squarePixels = "scale='trunc(iw*sar/2)*2':ih,setsar=1"
 
 // seconds is a duration as FFmpeg's seconds, to the millisecond.
 func seconds(duration time.Duration) string {
