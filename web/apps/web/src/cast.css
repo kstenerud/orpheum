@@ -85,6 +85,14 @@
   inset-inline-end: var(--space-4);
 }
 
+/* Its "Controlled from" note at the bottom-left (corner-notes.css) wraps short of the ⤢ and its focus
+   ring, which arrives there: a long device's name on a narrow screen ran under the button. */
+.cast-ready .corner-notes {
+  max-width: calc(
+    100% - var(--screen-edge-room-left) - var(--size-control) - var(--space-4) - var(--space-4)
+  );
+}
+
 .cast-ready__line {
   margin: 0;
   color: var(--color-muted);
