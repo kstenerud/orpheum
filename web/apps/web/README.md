@@ -719,8 +719,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   a credits segment (D139), else from `upNextLeadMs` (30 s) before its end (D339), and on the end
   screen, a button a mouse, a remote's OK or a controller presses; with autoplay on (the person's own
   switch, on until turned off, on their account) it counts `upNextCountdownMs` (10 s) down from the
-  credits, else from the end, and plays it (a cast's receiver keeps the fixed lead, as its remote
-  does; plans/up-next.md §9); any press stops the count. It has no ✕ (the owner, 2026-11-23): Back
+  credits, else from the end, and plays it (a cast's receiver from its film's credits too, as its
+  remote and a Chromecast show it, D546; plans/up-next.md §9); any press stops the count. It has no ✕ (the owner, 2026-11-23): Back
   or Escape puts it away, the film playing on (where all of the overlay shows, its first Back hides
   that, D407 §5), and so does the player's own Back's first press, for a device with no Back key;
   the next Back leaves the film. Its play is the card's one button, so Up reaches it first. It

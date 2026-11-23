@@ -476,7 +476,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D468](working-notes.md#d468--a-cast-to-ones-own-device-asks-nothing-there-a-browser-receiver-with-no-press-yet-waits-for-one-press-to-start) A cast to one's own device asks nothing there; a browser receiver with no press yet waits for one press to start
 - [D469](working-notes.md#d469--a-devices-code-signs-it-in-for-one-cast-alone-as-a-guest-receiver-of-the-phone-that-answered-it) A device's code signs it in for one cast alone, as a guest receiver of the phone that answered it
 - [D470](working-notes.md#d470--a-lists-sort-and-filters-are-kept-for-the-way-back-to-it-in-its-address-alone-the-banner-opens-it-at-its-defaults) A list's sort and filters are kept for the way back to it, in its address alone; the banner opens it at its defaults
-- [D471](working-notes.md#d471--a-client-sends-only-what-its-rights-allow-a-guests-link-may-give-next-and-previous) A client sends only what its rights allow; a guest's link may give next and previous
+- [D471](working-notes.md#d471--a-client-sends-only-what-its-rights-allow-a-guests-link-may-give-next-and-previous) A client sends only what its rights allow; a guest's link may give next and previous — *revisited by D546*
 - [D472](working-notes.md#d472--connects-operator-console-before-the-beta-its-actions-a-fresh-passkey-touch-before-each-that-destroys-over-wireguard) Connect's operator console before the beta: its actions, a fresh passkey touch before each that destroys, over WireGuard
 - [D473](working-notes.md#d473--airplays-grant-may-be-in-the-medias-path-for-a-day-bound-to-the-tvs-address-and-airplay-leaves-the-lab) AirPlay's grant may be in the media's path, for a day, bound to the TV's address, and AirPlay leaves the lab — *revisited by D474, D521, D523*
 - [D474](working-notes.md#d474--an-airplay-grant-serves-its-senders-address-always-and-binds-to-the-first-other) An AirPlay grant serves its sender's address always and binds to the first other
@@ -550,6 +550,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D542](working-notes.md#d542--a-node-keeps-5-gib-of-its-prepared-directorys-disk-free-not-100-mib) A node keeps 5 GiB of its prepared directory's disk free, not 100 MiB
 - [D543](working-notes.md#d543--no-room-on-a-nodes-disk-is-an-error-the-player-is-told-at-once-and-an-admin-is-told) No room on a node's disk is an error: the player is told at once, and an admin is told
 - [D544](working-notes.md#d544--a-result-the-core-refuses-for-what-it-is-fails-its-attempt-and-the-node-stops-sending-it) A result the core refuses for what it is fails its attempt, and the node stops sending it
+- [D545](working-notes.md#d545--a-casts-remote-shows-the-films-key-frame-at-the-receivers-place-every-3-s-while-it-moves) A cast's remote shows the film's key frame at the receiver's place, every 3 s while it moves
+- [D546](working-notes.md#d546--casting-offers-the-skips-and-up-next-from-the-credits-as-the-player-does-locally) Casting offers the skips, and Up next from the credits, as the player does locally
 
 ## Archived
 

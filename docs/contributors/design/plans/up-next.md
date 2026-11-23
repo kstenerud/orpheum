@@ -69,10 +69,12 @@ Where nothing above decides, the build chose the conventional behaviour:
    credits too, and a host's autoplay moves their group on from there as at the end (§10). A Watch
    Together guest whose link puts the next episode on sees the offer from the credits as well
    (D471 §2). On an episode with a next one the offer takes the place of *Skip credits*: the player
-   never shows both (media-segments.md). **Not built:** the credits cue on a cast, whose receiver,
-   remote and Chromecast show the offer together on the fixed lead (D471: the remote and the
-   Chromecast are told no segments); and *Still watching?* on a cast's receiver, which keeps
-   counting, since its presses are Take back control's and its remote has no card yet.
+   never shows both (media-segments.md). On a cast the offer shows from the credits too, as
+   locally (D546, amending D471 as built): a web receiver and a Chromecast by the segments of their
+   own playback, the remote by `GET /files/{id}/segments`, so all of them still show and go
+   together; the remote offers the skips as the player does. **Not built:** *Still watching?* on a
+   cast's receiver, which keeps counting, since its presses are Take back control's and its remote
+   has no card yet.
 10. **Built by D339:** after `stillWatchingAfterAutoplays` (3) episodes autoplayed in a row with no
    press on the page (a remote's command, a key, a tap or a click), the next film's end shows *Still
    watching?* in the offer's place, Continue focused (plays the next) and Stop (leaves the film), and

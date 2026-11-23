@@ -31311,3 +31311,66 @@ and `internal/node/agent`.
    limit, as it did; the protocol's version is unchanged.
 4. **Tests.** `TestReject_FailsTheAttemptOfAResultRefusedForWhatItIs` (`internal/core/nodes`) and
    `TestAgent_AResultTheCoreRejectsIsNotSentAgain` (`internal/node/agent`).
+
+## D545 — A cast's remote shows the film's key frame at the receiver's place, every 3 s while it moves
+
+**Decided** (2026-11-23), by the project owner: "is it possible to do the keyframe sending in this
+batch? I'd suggest one keyframe per 3 seconds (only updating if the video has moved)", and "Running
+ffmpeg every 3s is ok as a temporary measure for now, but when we implement trickplay we'll likely
+need to cache stuff." **Amends** the cast remote's picture, which was the film's still alone.
+
+**Status:** decided. Its code is `internal/node/artwork/frame.go`, `internal/node/byteserver/frame.go`,
+`internal/nodeproto/frame.go`, `internal/core/playback/frame.go`, `internal/core/api/frame.go` and
+`web/apps/web/src/cast-frame.tsx`.
+
+1. **What.** Where the video would be, a cast's remote shows the picture the receiver is showing:
+   the key frame at the receiver's place, drawn as the video is (contained in the whole box), and
+   the film's still until the first has loaded.
+2. **How often.** Every 3 s (`castFrameEveryMs`), and only when the place has moved since the last
+   ask: a paused film asks nothing more. A hidden page asks nothing. A frame is loaded apart and
+   shown once it has loaded, so the picture never flashes or goes blank.
+3. **The route.** `GET /api/v1/bytes/files/{id}/frame?atMs=`, under `/bytes/` so the image carries
+   the media cookie, as artwork does. It is authorised as playing the file is: a file the person
+   does not reach is 404 (D243 §4), a place outside the film 422, a file with no picture 404.
+4. **The frame.** The keyframe at or before the place, not the exact frame: it needs to be fast,
+   not exact (the owner, 2026-11-21, on trickplay). The node of a place the person reaches makes it
+   at once on its byte socket (`nodeproto.PathBytesFrame`), outside every queue, as a file's bytes
+   are served, one at a time, as a 640-wide WebP with none of the video's metadata.
+5. **Kept nowhere.** Nothing on the server keeps a frame; the answer is `private, max-age=3600`,
+   the asker's own. It is a stand-in until trickplay (`design/plans/trickplay.md`) brings a cache
+   whose entries D530 evicts, as the owner said.
+6. **Protocol.** `ProtocolVersion` 72 adds the route; no message changed. A node of 71 answers it
+   404, so the remote keeps the still.
+7. **Tests.** `TestRunNode_MakesKeyFramesOnTheByteSocket` (`cmd/orpheum`),
+   `TestServeFrame_MakesTheKeyFrameOfTheFileItsHashNamesAtThePlace` (`internal/node/byteserver`),
+   `TestFrame_IsRelayedForAPersonReachingTheFileAndNoOneElse` (`internal/core/api`), the artwork
+   deriver's frame tests and `cast-frame.test.tsx`.
+
+## D546 — Casting offers the skips, and Up next from the credits, as the player does locally
+
+**Decided** (2026-11-23), by the project owner: casting should *"behave as close to how it would
+behave when playing locally as we can (within reason)"*, approving the three changes below.
+**Amends** D471 as built, whose cast remote and Chromecast were told no segments, so a cast's
+receiver used none either, and plans/up-next.md §9, whose credits cue was not built on a cast.
+
+**Status:** decided. Its code is `internal/core/api/file_segments.go`,
+`web/apps/web/src/up-next.tsx`, `web/apps/cast-receiver/src/up-next.ts` and the remote's
+`web/apps/web/src/cast-segments.tsx`.
+
+1. **The server gives a file's segments to a client that may play it:** `GET /files/{id}/segments`
+   answers the segments `POST /playback` carries, authorised as `GET /files/{id}/up-next` is:
+   anyone reaching the file, and a guest receiver for its own cast's film alone (D471 §1, D465 §2).
+   A cast's remote starts no playback of its own, so this is how it learns them.
+2. **The remote offers Skip intro, recap and preview as the player does,** and Skip credits where
+   Up next does not take its place: the same card and words, shown while the cast's position is
+   inside the segment, hidden once pressed for it. Its press seeks the cast to the segment's end.
+   The receiver still offers no skip: its presses are Take back control's (plans/up-next.md §8).
+3. **Up next while casting shows from the credits where the file has a credits segment,** as
+   locally, on the remote, a web receiver and a Chromecast alike, each from the same segments (the
+   remote by §1, a receiver by its own playback's), so all of them still show and go together
+   (D471); the fixed lead stays for a file without one (D339).
+4. **Tests.** `TestFileSegments_AreThePlaybacksToAnyoneReachingTheFile`,
+   `TestGuestReceiver_ReadsItsCastsFilmsSegmentsAlone` (`internal/core/api`), and the receivers'
+   and remote's own in `web/apps/web/src/up-next.test.tsx`,
+   `web/apps/cast-receiver/src/up-next.test.ts`, `web/apps/cast-receiver/src/device-up-next.test.ts`
+   and `web/apps/web/src/cast-segments.test.tsx`.
