@@ -30998,13 +30998,15 @@ the principles are written from it, in the standards ([ui.md](../standards/ui.md
 principles (the "Interface" heading of [the principles](../principles/README.md#interface), §31
 to §41).
 
-**Status:** decided; §1–5, §9 and §11 not built (§1 in part, below). §6 and §7 are built in the player:
+**Status:** decided; §1–5 and §9 not built (§1 in part, below). §6 and §7 are built in the player:
 the scrub bar has every control's ring and no fade, Cast's and Watch Together's signs end the
 buttons row, and the subtitles rise by the rows as drawn; of §1's parts the player's overlay has
 Pill (the notes over the film, "Part skipped" among them) and a touch phone's centre cluster
 (`web/apps/web/src/player-widgets.browser.test.tsx`,
 `web/apps/web/src/player-overlay-layout.browser.test.tsx`; on devices, VQ380); its offers are not
-yet OfferCards nor its banners one part. §12's API side is built, the pages not yet:
+yet OfferCards nor its banners one part. §11 is built: Network at `/network`, the old address
+leading there. §12 is built: the Needs attention page lists by page what the server sends, each
+Manage place in the menu marked while its page has anything, and the API's side:
 GET /needs-attention lists, beside
 its counts, everything that needs an admin by page with where each item links
 (TestNeedsAttention_PagesListEachPlaceOfflineWithItsMachineAndPath,
@@ -31049,7 +31051,8 @@ Data use choice, Play the original file last in it for a person showing debug to
 - 7: `web/apps/web/src/player-overlay-signs.test.tsx`, `web/apps/web/src/cast-remote.test.tsx`, `web/apps/web/src/icon-button.test.tsx`: Cast's and Watch Together's signs follow the menus in the buttons row, before full screen, and leave the top row; VQ380
 - 8: `web/apps/web/src/sound-menu.test.tsx`, `web/apps/web/src/player-menus.test.tsx`: every sound setting in the Sound menu, ⁝ ordered as the spec does with none; VQ379
 - 10: `web/apps/web/src/player-menus.test.tsx`: Quality lists Automatic, then the rungs in GB per hour, the original last and only while debug tools show, played for one playback; `web/apps/web/src/player-menus-input.browser.test.tsx`; VQ379
-- 12: `TestNeedsAttention_PagesListEachPlaceOfflineWithItsMachineAndPath`, `TestNeedsAttention_PagesPutSystemsWorkFailingBeforeItsChecks`, `TestJobs_TheViewCountsTheJobsFailedWithinTheHealthWindow`, `TestPeople_TheListSaysWhenEachLastWatched`, `TestLibraries_TheHoursBetweenChecksAreAWeekAtMost` (internal/core/api), the API side
+- 11: `web/apps/web/src/navigation.test.ts`, `web/apps/web/src/app.test.tsx`: Network opens at `/remote-access` and replaces it with `/network`
+- 12: `TestNeedsAttention_PagesListEachPlaceOfflineWithItsMachineAndPath`, `TestNeedsAttention_PagesPutSystemsWorkFailingBeforeItsChecks`, `TestJobs_TheViewCountsTheJobsFailedWithinTheHealthWindow`, `TestPeople_TheListSaysWhenEachLastWatched`, `TestLibraries_TheHoursBetweenChecksAreAWeekAtMost` (internal/core/api), the API side; `web/apps/web/src/status-tray.test.tsx`: Needs attention lists each page's items in the menu's order, each leading to its place, a problem marked; `web/apps/web/src/app-shell-menu-place.test.tsx`: the menu marks a Manage place while its page has anything
 
 ## D539 — One file browser chooses a folder and browses every library by its folders
 
