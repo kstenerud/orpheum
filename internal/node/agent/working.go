@@ -180,7 +180,9 @@ func (list *workList) startDue() {
 }
 
 // continuePaused continues the paused work, by priority, whose device has a reader free again and no
-// play-driven work waiting for one there. The caller holds the mutex.
+// play-driven work waiting for one there, and paused work raised to play-driven since at once: one
+// person's watching never waits for another's (D240 §6), and background work a second person came
+// to play waited paused for the first person's play to end. The caller holds the mutex.
 func (list *workList) continuePaused(ordered []*heldWork) {
 	wantedForPlay := map[string]bool{}
 	for _, work := range ordered {
@@ -189,8 +191,8 @@ func (list *workList) continuePaused(ordered []*heldWork) {
 		}
 	}
 	for _, work := range ordered {
-		if work.isRunning() && work.pausing.IsPaused() && !wantedForPlay[work.device] &&
-			list.hasFreeReader(work.device) {
+		hasRoom := !wantedForPlay[work.device] && list.hasFreeReader(work.device)
+		if work.isRunning() && work.pausing.IsPaused() && (work.isPlayDriven || hasRoom) {
 			work.pausing.Continue()
 			work.movement.resume()
 		}

@@ -397,3 +397,27 @@ func TestMovement_PausedTimeIsNotTimeWithoutMoving(t *testing.T) {
 		t.Errorf("just moved: %v without moving, want none", since)
 	}
 }
+
+// Background work paused for one person's play, then raised to play-driven because a second person
+// now plays it, continues beside that play at once: one person's watching never waits for another's
+// (D240 §6).
+func TestWorkList_PausedWorkRaisedToPlayDrivenContinuesBesideAnothersPlay(t *testing.T) {
+	t.Parallel()
+	list := newWorkList(nodeproto.Capacity{EncodeSlotCount: 2, RemuxSlotCount: 2}, heldAt())
+	background, play := newBlockingWork(), newBlockingWork()
+	list.hold(t.Context(), background.onDevice(1, nodeproto.SlotEncode, "zfs:tank", false))
+	testutil.Receive(t, background.started, "the background encode's start")
+	list.hold(t.Context(), play.onDevice(2, nodeproto.SlotEncode, "zfs:tank", true))
+	testutil.Receive(t, play.started, "the first person's play-driven encode")
+	if state := stateOf(list, 1); state != "paused" {
+		t.Fatalf("the background encode is %s, want paused for the play", state)
+	}
+	// The core raises job 1 (a second person now plays its film): ReprioritizeCommand.
+	list.reprioritize(tokenOf(1), 100, true)
+	if state := stateOf(list, 1); state != "running" {
+		t.Errorf("job 1, now play-driven, is %s while another person's play reads its device: "+
+			"it waits for that play to end", state)
+	}
+	close(play.release)
+	close(background.release)
+}

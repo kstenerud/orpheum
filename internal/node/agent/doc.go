@@ -25,9 +25,11 @@
 //     TestWorkList_PlayDrivenWorkNeverWaitsForAnothersSlot.
 //   - Play-driven work that finds its device's readers taken pauses the background work reading
 //     it, which continues once it ends; an examining of the device waits between files meanwhile; a device
-//     with room for both pauses nothing (D240 §6). The status says what is paused.
+//     with room for both pauses nothing (D240 §6). The status says what is paused. Paused work
+//     raised to play-driven continues at once, beside the play that paused it.
 //     TestWorkList_PlayDrivenWorkPausesBackgroundWorkOnItsDeviceUntilItEnds,
-//     TestWorkList_ADeviceWithRoomForBothPausesNothing.
+//     TestWorkList_ADeviceWithRoomForBothPausesNothing,
+//     TestWorkList_PausedWorkRaisedToPlayDrivenContinuesBesideAnothersPlay.
 //   - A reprioritize command gives the attempt it names its new priority and its place in line
 //     (D234 §3). TestWorkList_AReprioritizedJobTakesItsNewPlaceInLine,
 //     TestAgent_AReprioritizeCommandGivesTheAttemptItsNewPriority.
