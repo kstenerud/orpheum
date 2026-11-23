@@ -55,6 +55,7 @@
 //     an attempt ended, on one path), progress.go (its word on where one is, best effort, on
 //     another), and artwork.go, chunks.go, subtitle.go, readthrough.go and repeats.go, each a command's payload
 //     and its answer's. stall.go: what a node saw of an FFmpeg run it stopped as stalled, which
-//     those answers carry. bytes.go names a file on the node's byte socket. probe.go: the probe
+//     those answers carry. bytes.go names a file on the node's byte socket, and frame.go asks it for a
+//     key frame (D545). probe.go: the probe
 //     record a scan reports and the core keeps.
 package nodeproto

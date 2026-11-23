@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Package byteserver serves the node's read-only socket (/run/orpheum/node.sock): GET only, file ranges
-// by path and payload hash, and the chunks in the prepared directory. It carries no commands. A request whose
-// hash no longer matches the path is refused.
+// Package byteserver serves the node's read-only socket (/run/orpheum/node.sock): GET only, file
+// ranges by path and payload hash, the chunks in the prepared directory, and a key frame of a video.
+// It carries no commands. A request whose hash no longer matches the path is refused.
 //
 // # Invariants
 //
@@ -56,6 +56,12 @@
 //     never a part of one, the share left not stuck (D539 §7).
 //     TestServeFolders_CountsEachFoldersVideosAsAScanWouldReadThem,
 //     TestServeFolders_AFolderNotCountedWithinTheBudgetCarriesNoCount.
+//   - A key frame, for a cast's remote, is made of the file the request names only while its payload
+//     hash is that one, opened as a file to serve is, through its disk's gate, and read as a probe
+//     reads a film; at once, outside every queue, one at a time, an ask waiting its turn for no
+//     longer than its asker waits; a node made to make none answers 404, as one of protocol 71 does
+//     (D545). TestServeFrame_MakesTheKeyFrameOfTheFileItsHashNamesAtThePlace,
+//     TestServeFrame_RefusesWhatItCannotMakeAFrameOf, TestServeFrame_MakesOneAtATime.
 //   - GET and HEAD only; Range and If-Range are honoured. Enforced by TestServeFile_OnlyReads and
 //     TestServeFile_HonoursRangeAndIfRange.
 //   - The recent log is every line the node process kept, whatever level it writes, each field's
@@ -71,6 +77,7 @@
 //   - D128: the node keeps what it makes.
 //   - D327: the probe, a question answered outside every queue.
 //   - D524 §3: the recent log, for a problem report.
+//   - D545: a key frame for a cast's remote.
 //   - docs/contributors/design/plans/cut-a.md §4.
 //
 // # Where to change
@@ -79,4 +86,5 @@
 //   - probe.go: the probe of a root (D327), and the sharing of a read among asks.
 //   - folders.go: the folders in a folder (D359 §2).
 //   - recentlog.go: the node's recent log (D524 §3).
+//   - frame.go: a key frame of a video (D545).
 package byteserver

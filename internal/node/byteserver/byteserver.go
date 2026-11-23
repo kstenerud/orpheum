@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"regexp"
@@ -67,6 +68,11 @@ type Server struct {
 	// (ServingRecentLog).
 	recent      *slogx.Recent
 	recentClock clock.Clock
+	// films and frames make a key frame of a video (D545); nil frames makes none.
+	films  Films
+	frames Frames
+	// frameSlot is held by the one key frame being made.
+	frameSlot chan struct{}
 }
 
 // LoggingTo has the server log to logger what an admin's folder listings asked and found, and how
@@ -99,7 +105,7 @@ func New(roots []*confine.MediaRoot) *Server {
 	for _, root := range roots {
 		byPath[root.Path()] = root
 	}
-	server := &Server{roots: byPath, payloadHashes: namedfile.NewHashes()}
+	server := &Server{roots: byPath, payloadHashes: namedfile.NewHashes(), frameSlot: make(chan struct{}, 1)}
 	server.openFile = server.payloadHashes.OpenNamed
 	server.placeFacts = (*confine.MediaRoot).FactsOf
 	server.subfolders = (*confine.MediaRoot).Subfolders
@@ -150,6 +156,7 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("GET "+nodeproto.PathBytesProbe, server.serveProbe)
 	mux.HandleFunc("GET "+nodeproto.PathBytesFolders, server.serveFolders)
 	mux.HandleFunc("GET "+nodeproto.PathBytesRecentLog, server.serveRecentLog)
+	mux.HandleFunc("GET "+nodeproto.PathBytesFrame, server.serveFrame)
 	return mux
 }
 
@@ -173,44 +180,58 @@ func (server *Server) serveResult(writer http.ResponseWriter, request *http.Requ
 // serveFile serves nodeproto.PathBytesFile: a file's bytes, honouring Range and If-Range, once its
 // payload hash is the one the core asked for.
 func (server *Server) serveFile(writer http.ResponseWriter, request *http.Request) {
-	query := request.URL.Query()
+	named := namedIn(request.URL.Query())
+	file, info, err := server.openNamed(request.Context(), named)
+	if refusedOpen(writer, named, err) {
+		return
+	}
+	defer readonly.Close(file)
+	payloadHash := strings.ToLower(named.PayloadHash) // as hex writes it
+	writer.Header().Set("Content-Type", "application/octet-stream")
+	writer.Header().Set("ETag", `"`+payloadHash+`"`)
+	http.ServeContent(writer, request, "", info.ModTime(), file)
+}
+
+// namedIn is the file a query names, as nodeproto.BytesFile.Target writes it: a path that is not
+// base64url is no path, which opening refuses as a bad name.
+func namedIn(query url.Values) nodeproto.BytesFile {
 	rawPath, pathErr := base64.RawURLEncoding.DecodeString(query.Get("path"))
 	if pathErr != nil {
 		rawPath = nil // named with no path
 	}
-	wantPayloadHash := query.Get("payloadHash")
-	named := nodeproto.BytesFile{RootPath: query.Get("rootPath"), Path: rawPath, PayloadHash: wantPayloadHash}
-	file, info, err := server.openNamed(request.Context(), named)
+	return nodeproto.BytesFile{RootPath: query.Get("rootPath"), Path: rawPath, PayloadHash: query.Get("payloadHash")}
+}
+
+// refusedOpen answers the failure to open the file named, as every route that opens one answers it,
+// and says whether there was one: a disk not answering is 504 naming its root (D233 §10), a file that
+// is not the one named 409 (D100), a bad name 400, and a file that is not there 404.
+func refusedOpen(writer http.ResponseWriter, named nodeproto.BytesFile, err error) bool {
 	switch {
 	case errors.Is(err, diskwatch.ErrStalled), diskwatch.IsDiskFailure(err):
 		writer.Header().Set(nodeproto.HeaderStalledRoot, named.RootPath)
 		http.Error(writer, "the disk this file is on is not answering", http.StatusGatewayTimeout)
-		return
+		return true
 	case errors.Is(err, namedfile.ErrNoRoot):
 		http.Error(writer, "the root is not one of this node's", http.StatusNotFound)
-		return
+		return true
 	case errors.Is(err, namedfile.ErrBadName):
 		http.Error(writer, "want rootPath, path (base64url) and payloadHash (hex)", http.StatusBadRequest)
-		return
+		return true
 	case errors.Is(err, namedfile.ErrChanged):
 		// D100: the core named a file by its payload hash, and this is no longer that file.
 		http.Error(writer, "the file at this path is not the one asked for", http.StatusConflict)
-		return
+		return true
 	case errors.Is(err, namedfile.ErrUnhashable):
 		http.Error(writer, "the file cannot be read", http.StatusInternalServerError)
-		return
+		return true
 	case errors.Is(err, namedfile.ErrNotRegular):
 		http.Error(writer, "not a regular file", http.StatusNotFound)
-		return
+		return true
 	case err != nil:
 		http.Error(writer, "no such file under the root", http.StatusNotFound)
-		return
+		return true
 	}
-	defer readonly.Close(file)
-	payloadHash := strings.ToLower(wantPayloadHash) // as hex writes it
-	writer.Header().Set("Content-Type", "application/octet-stream")
-	writer.Header().Set("ETag", `"`+payloadHash+`"`)
-	http.ServeContent(writer, request, "", info.ModTime(), file)
+	return false
 }
 
 // openNamed opens the file named through the disk gate, when the server has one.
@@ -222,14 +243,9 @@ func (server *Server) openNamed(ctx context.Context, named nodeproto.BytesFile) 
 		file *os.File
 		info fs.FileInfo
 	}
-	// Keyed by the configured root holding a library folder, so one stuck share holds one reading
-	// (D359 §1).
-	gateRoot := named.RootPath
-	if root, _, isHeld := confine.Holding(server.roots, named.RootPath); isHeld {
-		gateRoot = root.Path()
-	}
 	operation := diskwatch.Operation{
-		Root: gateRoot, Path: named.RootPath + "/" + string(named.Path), Window: server.openWindow,
+		Root: server.gateRootOf(named.RootPath), Path: named.RootPath + "/" + string(named.Path),
+		Window: server.openWindow,
 	}
 	got, err := diskwatch.Run(ctx, server.disks, operation, func() (opened, error) {
 		file, info, openErr := server.openFile(server.roots, named)
@@ -239,6 +255,15 @@ func (server *Server) openNamed(ctx context.Context, named nodeproto.BytesFile) 
 		return nil, nil, err
 	}
 	return got.file, got.info, nil
+}
+
+// gateRootOf is the disk gate's key for a file under rootPath: the configured root holding it, a
+// library folder's own, so one stuck share holds one reading (D359 §1).
+func (server *Server) gateRootOf(rootPath string) string {
+	if root, _, isHeld := confine.Holding(server.roots, rootPath); isHeld {
+		return root.Path()
+	}
+	return rootPath
 }
 
 // storeNamePattern is the only shape a store's file may be named by: "<file_id>/chunks-<stream>/<grid_id>/"

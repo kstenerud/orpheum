@@ -180,6 +180,9 @@ var wireShapeByVersion = map[int]string{
 	// 71 adds a folder listing's counts of its folders' videos, FolderListing.VideoCounts (D539 §7): a
 	// core of 70 would refuse a node of 71's listing for a field it does not know.
 	71: "865577522c6815aca752daa26d6ad72bd865ea3d9ae9825fa65fd76ec55de6ce",
+	// 72 adds the byte socket's frame route, PathBytesFrame, a key frame for a cast's remote (D545):
+	// a node of 71 would answer it 404. No message changed, so the shape is 71's.
+	72: "865577522c6815aca752daa26d6ad72bd865ea3d9ae9825fa65fd76ec55de6ce",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
