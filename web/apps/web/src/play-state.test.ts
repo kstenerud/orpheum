@@ -24,6 +24,7 @@ import {
   mount,
   refusal,
   servedBy,
+  settleUntil,
   unreachable,
   type Answers,
   type Heard,
@@ -259,6 +260,14 @@ describe("play state", () => {
       lost.dispatchEvent(new Event("playing")); // reported, and refused: the server lost it
       await settle();
     });
+    // The report's refusal and the reopening it starts take more than settle's few turns on a busy
+    // machine (a make check beside three agents' test runs, 2026-11-23): wait for the line itself.
+    await settleUntil(
+      () =>
+        mounted?.container
+          .querySelector(reopening)
+          ?.textContent?.includes("Opening the film again where you were") ?? false,
+    );
     expect(videoOf(mounted)).toBe(lost);
     expect(mounted.container.querySelector(reopening)?.textContent).toContain(
       "Opening the film again where you were",
@@ -269,6 +278,7 @@ describe("play state", () => {
       await new Promise((resolve) => setTimeout(resolve, reopenWaitsMs[0]));
       await settle();
     });
+    await settleUntil(() => mounted !== undefined && videoOf(mounted) !== lost);
     const again = videoOf(mounted);
     expect(again).not.toBe(lost);
     expect(isPlayedAtOnce(again)).toBe(true);
