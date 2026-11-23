@@ -444,6 +444,33 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
     expect(positionAt()).toBe(30);
   });
 
+  // D538 §7 moved Watch Together and Cast to the buttons row's end, by Full screen, from the top
+  // row: the remote's way up from there to the top row, and back down to where it left, is by the
+  // arrows alone.
+  it("walks up from the buttons row's end, Full screen, to the top row and back down to it, by the arrows alone", async () => {
+    await onAFireTv(true);
+    const named = (): string | null | undefined =>
+      document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.textContent;
+    await expect.poll(named).toBe("Where the film stands");
+    await press("{ArrowDown}");
+    for (let step = 0; step < 8; step += 1) {
+      await press("{ArrowRight}");
+    }
+    expect(named()).toBe("Full screen");
+    const walked: (string | null | undefined)[] = [];
+    for (const key of ["{ArrowUp}", "{ArrowUp}", "{ArrowDown}", "{ArrowDown}"]) {
+      await press(key);
+      walked.push(named());
+    }
+    expect(walked).toEqual([
+      "Where the film stands",
+      "Film 3",
+      "Where the film stands",
+      "Full screen",
+    ]);
+    expect(shown()).toBe("full");
+  });
+
   it("seeks by Left and Right while hidden, the scrub bar alone showing", async () => {
     const video = await onAFireTv();
     const positionAt = standsAt(video, 30);
