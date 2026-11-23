@@ -49,10 +49,10 @@ func TestRefreshChunkTiming_IsTheSettingsAndARunIsPlannedByThem(t *testing.T) {
 		starts[index] = int64(index) * 6000
 	}
 	grid := Grid{StartsMs: starts, FilmDurationMs: 360_000}
-	first, last, isPlanned := service.runs.plan("store", grid, 0, wantsEvery)
-	if !isPlanned || first != 0 || last != 3 {
+	planned, isPlanned := service.runs.planCuttingAhead("store", grid, 0, wantsEvery)
+	if !isPlanned || planned.first != 0 || planned.last != 3 {
 		t.Errorf("a run planned from the start at a 20 s span = %d to %d (%t); want chunks 0 to 3, "+
-			"those starting within 20 s", first, last, isPlanned)
+			"those starting within 20 s", planned.first, planned.last, isPlanned)
 	}
 	answers[settings.ChunkRunSpanSeconds] = 5 * time.Second
 	if raised := service.refreshChunkTiming(t.Context()); raised.runSpanMs != 10_000 {

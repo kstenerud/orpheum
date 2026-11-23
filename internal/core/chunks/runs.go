@@ -129,19 +129,6 @@ func (tracker *runTracker) isMadeFromThrough(dir string, first, last int) bool {
 	return true
 }
 
-// plan finds the run a player asking for chunk wanted of the store needs, and records it on its
-// way: the first chunk of those that start within the timing's lookaheadMs of film from wanted's
-// start that is neither made nor to be made by a run, through the earliest of its runSpanMs of film, the chunk before
-// the next that is made or to be made, and the grid's last. It reports false when every chunk in
-// the look-ahead is made or on its way; for an evicted store, which starts no run until a stall
-// asks for it again (D250 §6); and for a run wants says no player wants (D309). The
-// caller queues the run, and forgets it if it was not queued.
-func (tracker *runTracker) plan(dir string, grid Grid, wanted int, wants wantedness) (first, last int, isPlanned bool) {
-	tracker.mutex.Lock()
-	defer tracker.mutex.Unlock()
-	return tracker.storeLocked(dir).planLocked(tracker.timing, grid, wanted, wants)
-}
-
 // plannedRun is a run planCuttingAhead planned, from first through last, and the run waiting in the
 // queue it cut, ahead, when isCut.
 type plannedRun struct {
@@ -150,10 +137,19 @@ type plannedRun struct {
 	isCut       bool
 }
 
-// planCuttingAhead is plan, and cuts the run of the store waiting in the queue just ahead of wanted
-// (cutQueuedAheadLocked) only when it plans a run, which then makes that run's chunks: decided under
-// one hold of the lock, and the caller cancels the run cut. Cut before the plan was decided, an ask
-// whose own run no player wanted cut the run ahead all the same, and left nothing on its way for the
+// planCuttingAhead finds the run a player asking for chunk wanted of the store needs, and
+// records it on its way: the first chunk of those that start within the timing's lookaheadMs of
+// film from wanted's start that is neither made nor to be made by a run, through the earliest of
+// its runSpanMs of film, the chunk before the next that is made or to be made, and the grid's
+// last. It reports false when every chunk in the look-ahead is made or on its way; for an
+// evicted store, which starts no run until a stall asks for it again (D250 §6); and for a run
+// wants says no player wants (D309). The caller queues the run, and forgets it if it was not
+// queued.
+//
+// It cuts the run of the store waiting in the queue just ahead of wanted (cutQueuedAheadLocked)
+// only when it plans a run, which then makes that run's chunks: decided under one hold of the
+// lock, and the caller cancels the run cut. Cut before the plan was decided, an ask whose own
+// run no player wanted cut the run ahead all the same, and left nothing on its way for the
 // player waiting on it (the queue audit, 2026-11-23).
 func (tracker *runTracker) planCuttingAhead(
 	dir string, grid Grid, wanted int, wants wantedness,
@@ -188,7 +184,7 @@ func (tracker *runTracker) uncut(ahead stoppedRun) {
 	}
 }
 
-// planLocked is plan, its tracker locked.
+// planLocked is planCuttingAhead's plan, its tracker locked.
 func (known *storeRuns) planLocked(
 	timing chunkTiming, grid Grid, wanted int, wants wantedness,
 ) (first, last int, isPlanned bool) {
