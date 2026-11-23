@@ -124,7 +124,7 @@ interface Destination {
     | "settings"
     | "jobs"
     | "system"
-    | "remoteAccess"
+    | "network"
     | "update"
     | "thisDevice"
     | "account"
@@ -197,8 +197,8 @@ const destinations: readonly Destination[] = [
   { route: { screen: "jobs" }, labelKey: "jobs", audience: "admin", group: "manage" },
   { route: { screen: "system" }, labelKey: "system", audience: "admin", group: "manage" },
   {
-    route: { screen: "remote-access" },
-    labelKey: "remoteAccess",
+    route: { screen: "network" },
+    labelKey: "network",
     audience: "admin",
     group: "manage",
   },
@@ -450,7 +450,7 @@ function MenuSection(props: {
  * The admin's way to their account at the discovery, last under Manage, opened in a tab of its own:
  * where the server is connected to a discovery that keeps its households' admin accounts, and
  * nothing otherwise (the owner, 2026-11-20). Where it is comes in the shell's first read alone: a
- * read that carried none offers none, and the System page's Remote access still links there.
+ * read that carried none offers none, and the System page still links to Network.
  */
 function AdminAccountPlace(): JSX.Element | null {
   const { t } = useTranslation();

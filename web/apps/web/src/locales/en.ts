@@ -29,7 +29,7 @@ const enOwn = {
     settings: "Settings",
     jobs: "Jobs",
     system: "System",
-    remoteAccess: "Remote access",
+    network: "Network",
     update: "Update",
     updateKnown: "! Update",
     adminAccount: "Go to your Orpheum account",

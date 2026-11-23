@@ -123,8 +123,11 @@ export type Route =
   | { readonly screen: "settings" }
   | { readonly screen: "jobs" }
   | { readonly screen: "system" }
-  /** Where the server is reached from outside the house: linking it to a discovery (D528 §1). */
-  | { readonly screen: "remote-access" }
+  /**
+   * How devices reach the server, at home and from away, linking it to a discovery (D528 §1): named
+   * Network (D538 §11), and reached at its old address too (movedPath).
+   */
+  | { readonly screen: "network" }
   /** How to update the server, for an admin (security-updates.md Part B). */
   | { readonly screen: "update" }
   | { readonly screen: "needs-attention" }
@@ -209,7 +212,9 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/settings\/?$/u, toRoute: () => ({ screen: "settings" }) },
   { pattern: /^\/jobs\/?$/u, toRoute: () => ({ screen: "jobs" }) },
   { pattern: /^\/system\/?$/u, toRoute: () => ({ screen: "system" }) },
-  { pattern: /^\/remote-access\/?$/u, toRoute: () => ({ screen: "remote-access" }) },
+  { pattern: /^\/network\/?$/u, toRoute: () => ({ screen: "network" }) },
+  // Network's address before D538 §11, for a bookmark or a link written down (movedPath).
+  { pattern: /^\/remote-access\/?$/u, toRoute: () => ({ screen: "network" }) },
   { pattern: /^\/update\/?$/u, toRoute: () => ({ screen: "update" }) },
   { pattern: /^\/needs-attention\/?$/u, toRoute: () => ({ screen: "needs-attention" }) },
   { pattern: /^\/users\/?$/u, toRoute: () => ({ screen: "users" }) },
@@ -318,6 +323,15 @@ function accountRoute(search: URLSearchParams): Route {
   return code === "" || keyHash === ""
     ? { screen: "account" }
     : { screen: "account", scanned: { code, keyHash } };
+}
+
+/**
+ * Where a page is now, for an address it had before it moved, else undefined (D538 §11: Remote
+ * access is Network): the page opens at its old address, and the address shown is replaced with its
+ * own (navigation.ts's createNavigation), so a bookmark made there is of where the page is.
+ */
+export function movedPath(pathname: string): string | undefined {
+  return /^\/remote-access\/?$/u.test(pathname) ? "/network" : undefined;
 }
 
 export function parseRoute(pathname: string, search: string): Route {

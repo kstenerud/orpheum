@@ -64,7 +64,7 @@ function LibrariesStep(): JSX.Element {
 /**
  * The last page: what a discovery gives, that the server works without one, whose account it takes,
  * and two links that say what each does (D528 §1): one ends the first-time pages, the other opens
- * Remote access, where Connect is. A tester read the old pair, a link to System and a button, as two
+ * Network (was Remote access), where Connect is. A tester read the old pair, a link to System and a button, as two
  * choices that each changed something (the OpenMediaVault mock install, 2026-11-20).
  */
 function DiscoveryStep(): JSX.Element {
@@ -87,7 +87,7 @@ function DiscoveryStep(): JSX.Element {
           </Link>
         </li>
         <li>
-          <Link to={{ screen: "remote-access" }} isReplacing>
+          <Link to={{ screen: "network" }} isReplacing>
             {t("welcome.connectOutside")}
           </Link>{" "}
           {t("welcome.connectLater")}

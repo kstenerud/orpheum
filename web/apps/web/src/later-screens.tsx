@@ -12,7 +12,7 @@ import type { UiGallery as UiGalleryComponent } from "./ui-gallery.tsx";
 import type { Identify as IdentifyComponent } from "./identify.tsx";
 import type { Jobs as JobsComponent } from "./jobs.tsx";
 import type { System as SystemComponent } from "./system.tsx";
-import type { RemoteAccess as RemoteAccessComponent } from "./remote-access.tsx";
+import type { Network as NetworkComponent } from "./network.tsx";
 import type { HowToUpdate as HowToUpdateComponent } from "./update-page.tsx";
 import type { NeedsAttention as NeedsAttentionComponent } from "./needs-attention.tsx";
 import type { Users as UsersComponent } from "./users.tsx";
@@ -82,8 +82,8 @@ const loadJobs = async (): Promise<{ default: typeof JobsComponent }> => ({
 const loadSystem = async (): Promise<{ default: typeof SystemComponent }> => ({
   default: (await import("./system.tsx")).System,
 });
-const loadRemoteAccess = async (): Promise<{ default: typeof RemoteAccessComponent }> => ({
-  default: (await import("./remote-access.tsx")).RemoteAccess,
+const loadNetwork = async (): Promise<{ default: typeof NetworkComponent }> => ({
+  default: (await import("./network.tsx")).Network,
 });
 const loadHowToUpdate = async (): Promise<{ default: typeof HowToUpdateComponent }> => ({
   default: (await import("./update-page.tsx")).HowToUpdate,
@@ -189,10 +189,7 @@ export let UiGallery: LazyScreenOf<typeof UiGalleryComponent> = lazyScreen(
 export let Identify: LazyScreenOf<typeof IdentifyComponent> = lazyScreen("identify", loadIdentify);
 export let Jobs: LazyScreenOf<typeof JobsComponent> = lazyScreen("jobs", loadJobs);
 export let System: LazyScreenOf<typeof SystemComponent> = lazyScreen("system", loadSystem);
-export let RemoteAccess: LazyScreenOf<typeof RemoteAccessComponent> = lazyScreen(
-  "remote-access",
-  loadRemoteAccess,
-);
+export let Network: LazyScreenOf<typeof NetworkComponent> = lazyScreen("network", loadNetwork);
 export let HowToUpdate: LazyScreenOf<typeof HowToUpdateComponent> = lazyScreen(
   "update",
   loadHowToUpdate,
@@ -338,7 +335,7 @@ export function resetLazyScreensForTests(): void {
   Identify = lazyScreen("identify", loadIdentify);
   Jobs = lazyScreen("jobs", loadJobs);
   System = lazyScreen("system", loadSystem);
-  RemoteAccess = lazyScreen("remote-access", loadRemoteAccess);
+  Network = lazyScreen("network", loadNetwork);
   HowToUpdate = lazyScreen("update", loadHowToUpdate);
   NeedsAttention = lazyScreen("needs-attention", loadNeedsAttention);
   Users = lazyScreen("users", loadUsers);

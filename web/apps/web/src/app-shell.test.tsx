@@ -296,7 +296,7 @@ describe("AppShell", () => {
     );
   });
 
-  it("lists Remote access under Manage, after System and before Update (D528 §1)", async () => {
+  it("lists Network under Manage, after System and before Update (D528 §1, D538 §11)", async () => {
     const shell = (
       <AppShell
         isAdmin={true}
@@ -310,7 +310,7 @@ describe("AppShell", () => {
     );
     const menu = await drawnWithMenuOpen(shell);
     expect(menu).toMatch(
-      /href="\/system"[^]*?href="\/remote-access"[^>]*>[^]*?Remote access[^]*?href="\/update"/u,
+      /href="\/system"[^]*?href="\/network"[^>]*>[^]*?Network[^]*?href="\/update"/u,
     );
   });
 

@@ -219,10 +219,10 @@ export const enSystem = {
       confirm: "Delete it",
     },
     discovery: {
-      heading: "Remote access",
+      heading: "Network",
       movedWhat:
         "Reaching this server from outside the house, through a discovery service, has a page of its own.",
-      open: "Open Remote access",
+      open: "Open Network",
       what: "A discovery tells your devices where to find this server, so you reach it from outside the house without a VPS of your own in front of it. It passes on addresses, never your films.",
       invitation:
         "None of this works without an account at the discovery, and an account needs an invitation: you need an invitation from whoever runs your Orpheum service. At home, you need none of it.",

@@ -46,7 +46,7 @@ const none = {
   portMapping: { isWanted: false, checkedAt: 0, mappings: [], problems: [] },
 };
 
-/** What Remote access says until the server is claimed (the install report, 2026-11-19). */
+/** What Network says until the server is claimed (the install report, 2026-11-19). */
 const invitationNeeded =
   "you need an invitation from whoever runs your Orpheum service. At home, you need none of it.";
 

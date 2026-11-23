@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { isOnTelevision as isThisATelevision } from "./input-mode.ts";
-import { parseRoute, routeHref, routeOfHref, type Route } from "./router.ts";
+import { movedPath, parseRoute, routeHref, routeOfHref, type Route } from "./router.ts";
 
 /** What navigation reads and writes: the browser's location and history, or a test's. */
 export interface Place {
@@ -233,9 +233,22 @@ export function createNavigation(
 /** What navigates among the pages' own entries: Navigation but for what the held entries do. */
 type PageNavigation = Omit<Navigation, "holdBack" | "whenNoneHeld" | "onPersonsStep" | "leave">;
 
+/**
+ * An address a page had before it moved (/remote-access, D538 §11) replaced, in the same entry, by
+ * the page's own, what follows it kept: the page opens as it would at its own.
+ */
+function showMovedAtItsPlace(place: Place): void {
+  const { pathname, search, hash } = place.location;
+  const moved = movedPath(pathname);
+  if (moved !== undefined) {
+    place.history.replaceState(place.history.state, "", moved + search + hash);
+  }
+}
+
 /** Navigation among the pages' own entries, over a place whose held entries are kept apart. */
 function createPageNavigation(place: Place, isOnTelevision: boolean): PageNavigation {
   const readRoute = (): Route => parseRoute(place.location.pathname, place.location.search);
+  showMovedAtItsPlace(place);
   let current = readRoute();
   let depth = isOnTelevision ? layBase(place, current) : depthOf(place.history.state);
   const listeners = new Set<() => void>();

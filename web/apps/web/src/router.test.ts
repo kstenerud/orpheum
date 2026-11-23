@@ -34,7 +34,7 @@ describe("parseRoute and routeHref", () => {
       { screen: "browse", library: 3, view: "folders", folder: "2024/Summer" },
       { screen: "browse", query: "glass runner & co" },
       { screen: "identify" },
-      { screen: "remote-access" },
+      { screen: "network" },
       { screen: "libraries" },
       { screen: "library", libraryId: 3 },
       { screen: "new-library" },

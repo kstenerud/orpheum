@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-// Remote access's Connect (D527 §2.3, D528 §1): one button that links the server to an account at
+// Network's Connect (D527 §2.3, D528 §1): one button that links the server to an account at
 // the discovery, by the account page the core answers, which says itself that the server is linked
 // (D528 §2).
 

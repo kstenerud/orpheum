@@ -23,7 +23,7 @@ export const enLibraries = {
       "Outside access takes an account at a discovery service, which is by invitation while Orpheum is in beta.",
     keepLocal: "Keep using Orpheum locally",
     connectOutside: "Connect to a discovery service for outside access",
-    connectLater: "You can also do this later, from Manage → Remote access.",
+    connectLater: "You can also do this later, from Manage → Network.",
   },
   libraries: {
     offerHeading: "Your media folder holds these folders. Make a library of each?",

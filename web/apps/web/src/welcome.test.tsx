@@ -167,7 +167,7 @@ describe("the first-time pages (D527 §3)", () => {
     expect(parseRoute("/welcome/posters", "")).toEqual({ screen: "not-found" });
   });
 
-  it("end on discovery, which says the server works without one and links to staying at home or to Remote access (D528 §1)", async () => {
+  it("end on discovery, which says the server works without one and links to staying at home or to Network (D528 §1, D538 §11)", async () => {
     const mounted = await mount(withServices(<Welcome step="discovery" />, servedBy(noSuggestion)));
     const text = mounted.container.textContent;
     expect(text).toContain("works fully at home without one");
@@ -175,19 +175,19 @@ describe("the first-time pages (D527 §3)", () => {
     expect(mounted.container.querySelector('a[href="/"]')?.textContent).toBe(
       "Keep using Orpheum locally",
     );
-    expect(mounted.container.querySelector('a[href="/remote-access"]')?.textContent).toBe(
+    expect(mounted.container.querySelector('a[href="/network"]')?.textContent).toBe(
       "Connect to a discovery service for outside access",
     );
-    expect(text).toContain("You can also do this later, from Manage → Remote access.");
+    expect(text).toContain("You can also do this later, from Manage → Network.");
     // Two links that say where they go, not a link and a button that read as two settings.
     expect(mounted.container.querySelector("button")).toBeNull();
     mounted.unmount();
   });
 
-  it("end by going home, or to Remote access, in the page's place", async () => {
+  it("end by going home, or to Network, in the page's place", async () => {
     for (const [label, route] of [
       ["Keep using Orpheum locally", { screen: "home" }],
-      ["Connect to a discovery service for outside access", { screen: "remote-access" }],
+      ["Connect to a discovery service for outside access", { screen: "network" }],
     ] as const) {
       const services = openedAt("/welcome/discovery", noSuggestion);
       const mounted = await mount(withServices(<Welcome step="discovery" />, services));

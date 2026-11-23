@@ -126,7 +126,7 @@ export function System(): JSX.Element {
 }
 
 /**
- * Where Remote access went: a page of its own (D528 §1), which this section names and links to, so
+ * Where Remote access went: a page of its own (D528 §1), Network (D538 §11), which this section names and links to, so
  * an admin who looks for it here still finds it.
  */
 function SystemRemoteAccess(): JSX.Element {
@@ -136,7 +136,7 @@ function SystemRemoteAccess(): JSX.Element {
       <h2 id="system-discovery">{t("system.discovery.heading")}</h2>
       <p>
         {t("system.discovery.movedWhat")}{" "}
-        <Link to={{ screen: "remote-access" }}>{t("system.discovery.open")}</Link>
+        <Link to={{ screen: "network" }}>{t("system.discovery.open")}</Link>
       </p>
     </section>
   );

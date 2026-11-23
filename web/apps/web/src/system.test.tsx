@@ -507,13 +507,11 @@ it("the System page notes a machine whose kernel has MPTCP on, and says nothing 
   expect(await withMultipathTCP(false)).not.toContain("MPTCP");
 });
 
-it("the System page leaves Remote access to its own page, and links to it there (D528 §1)", async () => {
+it("the System page leaves Network to its own page, and links to it there (D528 §1, D538 §11)", async () => {
   await shown(connected);
   const section = mounted?.container.querySelector("#system-discovery")?.closest("section");
   expect(section?.textContent).toContain("has a page of its own");
-  expect(section?.querySelector('a[href="/remote-access"]')?.textContent).toBe(
-    "Open Remote access",
-  );
+  expect(section?.querySelector('a[href="/network"]')?.textContent).toBe("Open Network");
   expect(section?.querySelector("button")).toBeNull();
 });
 
@@ -532,7 +530,7 @@ it("the System page opens with a contents row whose links focus their sections' 
     "Backups",
     "Problem reports",
     "Reached from outside",
-    "Remote access",
+    "Network",
   ]);
   // Each link leads to the heading that names it.
   expect(

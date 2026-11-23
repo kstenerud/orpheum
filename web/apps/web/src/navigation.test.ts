@@ -6,6 +6,15 @@ import { createNavigation, type Navigation } from "./navigation.ts";
 import { routeHref, type Route } from "./router.ts";
 import { fakePlace, steppingLater, testOrigin, type FakePlace } from "./test-services.tsx";
 
+describe("a page that moved (D538 §11)", () => {
+  it("opens Network at Remote access's old address, which it replaces with its own", () => {
+    const place = fakePlace("/remote-access?from=welcome");
+    const navigation = createNavigation(place, false);
+    expect(navigation.route()).toEqual({ screen: "network" });
+    expect(place.addresses).toEqual(["/network?from=welcome"]);
+  });
+});
+
 describe("navigation's Up (D367 §7)", () => {
   const isSeries = (route: Route): boolean =>
     route.screen === "series-page" && route.collectionId === 5;
