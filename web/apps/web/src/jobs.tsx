@@ -4,11 +4,13 @@ import { allPages } from "@orpheum/sdk";
 import "./jobs.css";
 
 import type { Api, components } from "@orpheum/sdk";
-import { useState, type JSX } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
 import { useRequest } from "./use-request.ts";
+import { AttentionList, usePageAttention } from "./attention-list.tsx";
+import { Section } from "./section.tsx";
 import { idempotent } from "./idempotent.ts";
 import { BusyGroup } from "./busy-group.tsx";
 import { camelKey } from "./catalogue-key.ts";
@@ -96,11 +98,14 @@ export function isCancellable(job: Job): boolean {
 /**
  * The job view, for the admin: every recent job, what it works on, how far it is and why, with
  * a way to cancel one that has not ended. It asks again every few seconds, keeping what it shows
- * meanwhile.
+ * meanwhile. While jobs have failed in System's job health window, its Needs you says how many,
+ * leading to the ended jobs with State set to Failed (pages-spec-3), where `isFailedOnly` opens it.
  */
-export function Jobs(): JSX.Element {
+export function Jobs(props: { readonly isFailedOnly?: boolean }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
+  const failing = usePageAttention("system").filter((item) => item.kind === "workFailing");
+  const isFailedOnly = props.isFailedOnly === true;
   const [jobs, reloadJobs] = useResource("jobs", () => listJobs(api), {
     poller: useBackgroundChangesPoller(),
   });
@@ -116,9 +121,24 @@ export function Jobs(): JSX.Element {
   return (
     <section aria-labelledby="jobs-heading">
       <h1 id="jobs-heading">{t("jobs.heading")}</h1>
+      {failing.length === 0 ? null : (
+        <Section heading={t("page.needsYou")}>
+          <AttentionList items={failing} />
+        </Section>
+      )}
       {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
       <BusyGroup isBusy={isBusy}>
-        <Loaded resource={jobs} render={(value) => <JobsView jobs={value} onCancel={cancel} />} />
+        <Loaded
+          resource={jobs}
+          render={(value) => (
+            <JobsView
+              key={isFailedOnly ? "failed" : "every"}
+              jobs={value}
+              onCancel={cancel}
+              isFailedOnly={isFailedOnly}
+            />
+          )}
+        />
       </BusyGroup>
     </section>
   );
@@ -181,14 +201,26 @@ const jobStates = [
 /**
  * The job view's list (ui-audit-2026-11-04.md §3, Jobs): a filter by state and by kind, run here on
  * the newest jobs the server sends (the owner, 2026-11-04, Option A); then the jobs running and
- * waiting; then the ended ones, folded by the day they ended.
+ * waiting; then the ended ones, folded by the day they ended. Arrived at the failed jobs, it shows
+ * those alone, with the focus on the ended ones' heading.
  */
 export function JobsView(props: {
   readonly jobs: readonly Job[];
   readonly onCancel: (job: Job) => void;
+  readonly isFailedOnly?: boolean;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
-  const [filter, setFilter] = useState<JobFilter>({ state: "", kind: "" });
+  const isFailedOnly = props.isFailedOnly === true;
+  const [filter, setFilter] = useState<JobFilter>({
+    state: isFailedOnly ? "failed" : "",
+    kind: "",
+  });
+  const ended = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (isFailedOnly) {
+      ended.current?.focus();
+    }
+  }, [isFailedOnly]);
   if (props.jobs.length === 0) {
     return <p>{t("jobs.none")}</p>;
   }
@@ -205,7 +237,11 @@ export function JobsView(props: {
           <JobList jobs={active} onCancel={props.onCancel} />
         </>
       )}
-      {days.length === 0 ? null : <h2>{t("jobs.finished")}</h2>}
+      {days.length === 0 ? null : (
+        <h2 id="jobs-ended" ref={ended} tabIndex={-1}>
+          {t("jobs.finished")}
+        </h2>
+      )}
       {days.map(({ day, jobs }) => (
         <details key={day} className="jobs__day">
           <summary>

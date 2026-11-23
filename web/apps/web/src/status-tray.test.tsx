@@ -538,7 +538,7 @@ it("lists what needs the admin by the page it is fixed on, in the menu's order, 
   expect(linkOf(match?.querySelector("a") ?? null)[1]).toBe("/identify");
   expect(match?.querySelector(".warning-icon")).toBeNull();
   const failing = lineSaying(container, "4 jobs failed in the last 24 hours.");
-  expect(linkOf(failing?.querySelector("a") ?? null)[1]).toBe("/jobs");
+  expect(linkOf(failing?.querySelector("a") ?? null)[1]).toBe("/jobs?state=failed");
 });
 
 it("says nothing needs the admin while no page has anything of a kind it knows (D432 §2)", async () => {

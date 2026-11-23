@@ -70,6 +70,9 @@ const lookedUp: Job = {
 
 let mounted: Mounted | undefined;
 
+/** The Needs you read every Jobs page makes, with nothing in it. */
+const noAttention = { "GET /needs-attention": [200, { items: [] }] } as const;
+
 afterEach(() => {
   mounted?.unmount();
   mounted = undefined;
@@ -85,6 +88,7 @@ describe("the job view", () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
+        ...noAttention,
         "GET /jobs": [
           [200, { jobs: [making, lookedUp] }],
           [200, { jobs: [{ ...making, state: "cancelled" }, lookedUp] }],
@@ -106,6 +110,7 @@ describe("the job view", () => {
     // It asks first (ui.md rule 8; confirmed-actions.test.tsx).
     await click(buttonWithText(document.body, "Stop the job"));
     expect(heard.map((each) => each.methodAndPath)).toEqual([
+      "GET /needs-attention",
       "GET /jobs",
       "POST /jobs/5/cancel",
       "GET /jobs",
@@ -146,7 +151,10 @@ describe("the job view", () => {
         isChecking: false,
       },
     };
-    const services = servedBy({ "GET /jobs": [200, { jobs: [waitingOnTMDB, waitingOnNode] }] });
+    const services = servedBy({
+      ...noAttention,
+      "GET /jobs": [200, { jobs: [waitingOnTMDB, waitingOnNode] }],
+    });
     mounted = await mount(withServices(<Jobs />, services));
     const waiting = [...mounted.container.querySelectorAll(".jobs__waiting")].map(
       (line) => line.textContent,
@@ -167,7 +175,10 @@ describe("the job view", () => {
       onNode: "paused",
     };
     const running: Job = { ...making, id: 10, onNode: "running" };
-    const services = servedBy({ "GET /jobs": [200, { jobs: [waitingForSlot, paused, running] }] });
+    const services = servedBy({
+      ...noAttention,
+      "GET /jobs": [200, { jobs: [waitingForSlot, paused, running] }],
+    });
     mounted = await mount(withServices(<Jobs />, services));
     const waiting = [...mounted.container.querySelectorAll(".jobs__waiting")].map(
       (line) => line.textContent,
@@ -195,7 +206,9 @@ describe("the job view", () => {
       finishedAt: at(3, 9),
     };
     const jobs = [doneToday, waiting, failedYesterday, making, scannedYesterday];
-    mounted = await mount(withServices(<Jobs />, servedBy({ "GET /jobs": [200, { jobs }] })));
+    mounted = await mount(
+      withServices(<Jobs />, servedBy({ ...noAttention, "GET /jobs": [200, { jobs }] })),
+    );
     const page = mounted.container;
     const named = (within: Element | null | undefined): string[] =>
       [...(within?.querySelectorAll("strong") ?? [])].map((name) => name.textContent);
@@ -223,6 +236,7 @@ describe("the job view", () => {
 
   it("says so when the job had already ended", async () => {
     const services = servedBy({
+      ...noAttention,
       "GET /jobs": [200, { jobs: [making] }],
       "POST /jobs/5/cancel": refusal(409, "conflict"),
     });
@@ -230,6 +244,34 @@ describe("the job view", () => {
     await click(mounted.container.querySelector("button"));
     await click(buttonWithText(document.body, "Stop the job"));
     expect(mounted.container.textContent).toContain("That job has already ended.");
+  });
+
+  it("says in Needs you how many jobs failed, leading to the ended ones with State set to Failed (pages-spec-3)", async () => {
+    expect(parseRoute("/jobs", "?state=failed")).toEqual({ screen: "jobs", isFailedOnly: true });
+    expect(routeHref({ screen: "jobs", isFailedOnly: true })).toBe("/jobs?state=failed");
+    const failed: Job = { ...lookedUp, id: 3, finishedAt: 2 };
+    const done: Job = { ...lookedUp, id: 2, state: "done", finishedAt: 1 };
+    const failing = { kind: "workFailing", isProblem: true, count: 4, windowHours: 24 };
+    const services = servedBy({
+      "GET /needs-attention": [
+        200,
+        { pages: { system: { isProblem: true, itemCount: 1, items: [failing] } } },
+      ],
+      "GET /jobs": [200, { jobs: [making, failed, done] }],
+    });
+    mounted = await mount(withServices(<Jobs />, services));
+    const lines = [...mounted.container.querySelectorAll(".attention-list a")];
+    expect(lines.map((line) => [line.textContent, line.getAttribute("href")])).toEqual([
+      ["4 jobs failed in the last 24 hours.", "/jobs?state=failed"],
+    ]);
+    mounted.unmount();
+    mounted = await mount(withServices(<Jobs isFailedOnly />, services));
+    const page = mounted.container;
+    expect([...page.querySelectorAll("strong")].map((name) => name.textContent)).toEqual([
+      "Looking up #9",
+    ]);
+    expect(page.querySelector("h2 + ul.jobs")).toBeNull();
+    expect(document.activeElement).toBe(page.querySelector("h2#jobs-ended"));
   });
 });
 
@@ -252,7 +294,10 @@ describe("each kind of job", () => {
       createdAt: 1,
     };
     mounted = await mount(
-      withServices(<Jobs />, servedBy({ "GET /jobs": [200, { jobs: [backingUp] }] })),
+      withServices(
+        <Jobs />,
+        servedBy({ ...noAttention, "GET /jobs": [200, { jobs: [backingUp] }] }),
+      ),
     );
     expect(mounted.container.querySelector("strong")?.textContent).toBe("Backing up");
     expect(mounted.container.querySelector("button")?.getAttribute("aria-label")).toBe(
@@ -271,7 +316,10 @@ describe("each kind of job", () => {
       createdAt: 1,
     };
     mounted = await mount(
-      withServices(<Jobs />, servedBy({ "GET /jobs": [200, { jobs: [comparing] }] })),
+      withServices(
+        <Jobs />,
+        servedBy({ ...noAttention, "GET /jobs": [200, { jobs: [comparing] }] }),
+      ),
     );
     expect(mounted.container.querySelector("strong")?.textContent).toBe(
       "Finding a season's intros and credits: season group #12",

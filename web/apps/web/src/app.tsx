@@ -543,7 +543,7 @@ function adminScreen(route: Route): JSX.Element | undefined {
     return <Settings page={route.page} setting={route.setting} />;
   }
   if (route.screen === "jobs") {
-    return <Jobs />;
+    return <Jobs isFailedOnly={route.isFailedOnly === true} />;
   }
   if (route.screen === "system") {
     return <System />;

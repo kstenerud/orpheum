@@ -88,13 +88,16 @@ const kindLines: Readonly<Record<AttentionItem["kind"], KindLine>> = {
 
 /**
  * The exact place an item is fixed at: a library's own page for a library's; Keys and passwords for
- * a key's, at the key where the item names it (D538 §11).
+ * a key's, at the key where the item names it (D538 §11); the failed jobs for jobs failing.
  */
 function placeOf(place: Place, item: AttentionItem): Route {
   if (place === "settings") {
     return item.kind === "secretNeedsReentry" && item.name !== undefined
       ? { screen: "settings", page: "keys", setting: item.name }
       : { screen: "settings", page: "keys" };
+  }
+  if (place === "jobs") {
+    return { screen: "jobs", isFailedOnly: true };
   }
   if (place !== "library") {
     return { screen: place };

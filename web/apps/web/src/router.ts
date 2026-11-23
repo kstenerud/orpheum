@@ -131,7 +131,8 @@ export type Route =
       readonly page?: SettingsPage;
       readonly setting?: string;
     }
-  | { readonly screen: "jobs" }
+  /** The jobs, or arrived at the ended ones with State set to Failed (pages-spec-3). */
+  | { readonly screen: "jobs"; readonly isFailedOnly?: true }
   | { readonly screen: "system" }
   /**
    * How devices reach the server, at home and from away, linking it to a discovery (D528 §1): named
@@ -227,7 +228,13 @@ const shapes: readonly Shape[] = [
       return setting === "" ? { screen: "settings", page } : { screen: "settings", page, setting };
     },
   })),
-  { pattern: /^\/jobs\/?$/u, toRoute: () => ({ screen: "jobs" }) },
+  {
+    pattern: /^\/jobs\/?$/u,
+    toRoute: (_: number, search: URLSearchParams): Route =>
+      search.get("state") === "failed"
+        ? { screen: "jobs", isFailedOnly: true }
+        : { screen: "jobs" },
+  },
   { pattern: /^\/system\/?$/u, toRoute: () => ({ screen: "system" }) },
   { pattern: /^\/network\/?$/u, toRoute: () => ({ screen: "network" }) },
   // Network's address before D538 §11, for a bookmark or a link written down (movedPath).
@@ -469,9 +476,22 @@ function settingsRouteHref(route: Route): string | undefined {
     : `${path}?${new URLSearchParams({ setting: route.setting }).toString()}`;
 }
 
-/** The address of a first-time page, of Settings' or of the device lab's, or undefined for another. */
+/** The failed jobs' address, or undefined for another route or every job. */
+function failedJobsHref(route: Route): string | undefined {
+  return route.screen === "jobs" && route.isFailedOnly === true ? "/jobs?state=failed" : undefined;
+}
+
+/**
+ * The address of a first-time page, of Settings', of the failed jobs or of the device lab's, or
+ * undefined for another.
+ */
 function pageRouteHref(route: Route): string | undefined {
-  return welcomeRouteHref(route) ?? settingsRouteHref(route) ?? labRouteHref(route);
+  return (
+    welcomeRouteHref(route) ??
+    settingsRouteHref(route) ??
+    failedJobsHref(route) ??
+    labRouteHref(route)
+  );
 }
 
 /** The address of one of the device lab's routes, or undefined for another. */
