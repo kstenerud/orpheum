@@ -140,15 +140,16 @@
 
 .player-overlay[data-offer] .convenience-area {
   position: absolute;
+  z-index: var(--layer-video-offer);
   inset-block-start: var(--space-5);
   inset-inline-end: var(--space-5);
   max-width: min(26rem, calc(100% - 2 * var(--space-5)));
   pointer-events: auto;
 }
 
-/* The area holds the card's room from the stage's edges, as the card's own rule would (up-next.css):
-   the card's, against the area it sizes, took that room a second time, off its end. */
-.player-overlay[data-offer] .convenience-area .up-next {
+/* The area holds the card's room from the stage's edges, as the card's own rule would
+   (offer-card.css): the card's, against the area it sizes, took that room a second time, off its end. */
+.player-overlay[data-offer] .convenience-area .offer-card {
   max-width: none;
 }
 
@@ -157,10 +158,6 @@
   display: flex;
   align-items: center;
   margin-inline-start: auto;
-}
-
-.convenience-area .up-next {
-  position: static;
 }
 
 /* Row 0: the way up, "‹ S1E1 Pilot" (D367 §8, D407 §1). */

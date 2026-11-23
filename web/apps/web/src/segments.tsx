@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import "./segments.css";
 import "./play-words.ts";
 
 import type { components } from "@orpheum/sdk";
@@ -19,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import { useTellsOffered, type OfferPlace } from "./convenience-area.tsx";
 import { askedByOf, seekAheadOf } from "./seek-ahead.ts";
 import { isOnTelevision } from "./input-mode.ts";
+import { OfferCard } from "./offer-card.tsx";
 import { hearStanding, useVideoStanding, type StandingTaken } from "./video-standing.ts";
 
 /** A typed range of the file playing (plans/media-segments.md), as POST /playback gives it. */
@@ -101,7 +101,8 @@ function skipTakingOf(skipped: readonly SkippedSegment[]): StandingTaken<number 
 
 /**
  * The skip over the film (D82; b1.md Phase C): while an intro, a recap, a preview or credits plays,
- * "Skip intro" (and its kind), whose press seeks to the segment's end. It shows on its own for
+ * "Skip intro" (and its kind), an OfferCard pressed itself, with no ✕ (D538 §1), whose press seeks
+ * to the segment's end. It shows on its own for
  * skipShownAloneMs as the segment starts, told the overlay as an offer (onOffered), which then shows
  * it with the rest hidden; after that it shows while the controls do, and in the bar under the film
  * while the segment plays. On a television it takes focus as it shows where nothing else has it, so
@@ -144,11 +145,7 @@ export function SkipOffer(
       seekAheadOf(video).aim(segment.endMs, 0, askedByOf("skip", segment.type));
     }
   };
-  return (
-    <button ref={buttonRef} type="button" className="skip-segment" onClick={skip}>
-      {t(skipWords[segment.type])}
-    </button>
-  );
+  return <OfferCard words={t(skipWords[segment.type])} onTake={skip} takeRef={buttonRef} />;
 }
 
 /** The frames a skip waits for its convenience area to be drawn before it gives up its focus. */

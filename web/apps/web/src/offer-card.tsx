@@ -2,7 +2,7 @@
 
 import "./offer-card.css";
 
-import type { JSX, ReactNode } from "react";
+import type { JSX, ReactNode, RefObject } from "react";
 
 import { IconButton } from "./icon-button.tsx";
 import { CloseIcon } from "./player-icons.tsx";
@@ -17,7 +17,8 @@ export interface OfferDismissal {
  * A card over a film offering one thing to take or leave (standards/ui.md, over the film, rule 15;
  * D538 §1): Skip, Up next, Still watching?. One at a time, in the film's top-right corner, which
  * its user lays it in, on the film's layer for offers. Its words are read out once as it shows
- * (an `<output>`); a line under them (a countdown) is not, as it changes every second. Where the
+ * (an `<output>`), with a sentence said alone where given ("Plays in 10 seconds", as a countdown
+ * starts); a line under them (the countdown itself) is not, as it changes every second. Where the
  * offer is taken by pressing the card itself (Skip, Up next), the still and the words are one
  * button; otherwise its buttons follow the words (Still watching's Continue and Stop). A ✕ puts it
  * away only where it can be put away.
@@ -27,10 +28,14 @@ export function OfferCard(props: {
   readonly words: ReactNode;
   /** A line under the words that is not read out at each change: "Plays in 10 s". */
   readonly detail?: ReactNode;
+  /** A sentence read out with the words but not shown, once, as it comes: "Plays in 10 seconds". */
+  readonly said?: string | undefined;
   /** A still of what it offers, an image the card sizes to 8rem, 16:9. */
   readonly still?: ReactNode;
   /** Taking the offer by pressing the card itself. */
   readonly onTake?: (() => void) | undefined;
+  /** The card's own button, where it is pressed itself, for its user to focus. */
+  readonly takeRef?: RefObject<HTMLButtonElement | null> | undefined;
   /** The card's buttons, where it is not pressed itself, the main one first. */
   readonly buttons?: ReactNode;
   readonly dismissal?: OfferDismissal | undefined;
@@ -40,7 +45,10 @@ export function OfferCard(props: {
     <>
       {props.still === undefined ? null : <span className="offer-card__still">{props.still}</span>}
       <span className="offer-card__words">
-        <output className="offer-card__offer">{props.words}</output>
+        <output className="offer-card__offer">
+          {props.words}
+          {props.said === undefined ? null : <span className="offer-card__said">{props.said}</span>}
+        </output>
         {props.detail === undefined ? null : (
           <span className="offer-card__detail">{props.detail}</span>
         )}
@@ -48,12 +56,17 @@ export function OfferCard(props: {
     </>
   );
   return (
-    <div className="offer-card">
+    <div className="offer-card" data-focus-container="">
       <div className="offer-card__body">
         {onTake === undefined ? (
           <div className="offer-card__content">{content}</div>
         ) : (
-          <button type="button" className="offer-card__content offer-card__take" onClick={onTake}>
+          <button
+            ref={props.takeRef}
+            type="button"
+            className="offer-card__content offer-card__take"
+            onClick={onTake}
+          >
             {content}
           </button>
         )}

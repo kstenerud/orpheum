@@ -16,7 +16,6 @@ import { useTranslation } from "react-i18next";
 import { tabStorage } from "./browser-storage.ts";
 import { noOverlay, RemoteMenus, useRemotePrevious } from "./cast-remote-choices.tsx";
 import { listMyCasts, moveCastOn, myCastsKey } from "./cast.ts";
-import { placeCode } from "./episode-place.ts";
 import { useLeavesFullScreen } from "./film-fullscreen.ts";
 import { useShowsARemote } from "./hidden-need.ts";
 import type { PlayerControl, PlayerSource } from "./player-controls.tsx";
@@ -31,7 +30,7 @@ import { usePositionNow, useRemoteSource } from "./session-remote.tsx";
 import { useMembership } from "./together-membership.ts";
 import { TogetherBehindTheRemote } from "./together-on-the-remote.tsx";
 import { useAroundFile, type AroundFile, type UpNext } from "./around-file.ts";
-import { offerState, useLeavesForThePageAbove } from "./up-next.tsx";
+import { offerState, UpNextCard, useLeavesForThePageAbove } from "./up-next.tsx";
 import { useResource } from "./use-resource.ts";
 import { useTogether } from "./use-together.ts";
 
@@ -469,15 +468,26 @@ function RemoteTop(props: {
     { isDismissed: false, isCancelled: false },
     false,
   ).isNearTheEnd;
+  // Put away by its ✕, it comes again as the film nears its end once more: adjusted as it renders.
+  const [isDismissed, setIsDismissed] = useState(false);
+  if (isDismissed && !isAtTheEnd) {
+    setIsDismissed(false);
+  }
   return (
     <>
       <div className="cast-remote__sign">
         <h2 id="cast-remote-heading">{sent.itemName === "" ? t("cast.aFilm") : sent.itemName}</h2>
         <p>{t("cast.playingOn", { name: sent.receiverName })}</p>
       </div>
-      {isAtTheEnd ? (
+      {isAtTheEnd && !isDismissed ? (
         <div className="convenience-area">
-          <RemoteUpNext sent={sent} upNext={props.upNext} />
+          <RemoteUpNext
+            sent={sent}
+            upNext={props.upNext}
+            onDismiss={() => {
+              setIsDismissed(true);
+            }}
+          />
         </div>
       ) : null}
     </>
@@ -500,30 +510,29 @@ function useHostedPanel(): WorkedSession | undefined {
 }
 
 /**
- * The remote's Up next: the cast's film's next episode, "Up next: S1E3 · ‹name›", which moves the
- * cast on to it, the receiver handed it (plans/up-next.md); nothing where none can play next.
+ * The remote's Up next: the cast's film's next episode, the Up next card with no count (UpNextCard,
+ * D538 §1), which moves the cast on to it, the receiver handed it (plans/up-next.md), and whose ✕
+ * puts it away; nothing where none can play next.
  */
 function RemoteUpNext(props: {
   readonly sent: CastSending;
   readonly upNext: UpNext | undefined;
+  readonly onDismiss: () => void;
 }): JSX.Element | null {
-  const { t } = useTranslation();
   const { api } = useServices();
   const { sent, upNext } = props;
   if (upNext === undefined || upNext.episode.unavailable !== undefined) {
     return null;
   }
-  const { episode } = upNext;
-  const place = placeCode(t, upNext.ordering, { ...episode, isOnlyGroup: upNext.isOnlyGroup });
   return (
-    <button
-      type="button"
-      className="cast-remote__up-next"
-      onClick={() => {
-        moveCastOn(api, sent.castId).catch(() => undefined); // the cast goes on as it was
+    <UpNextCard
+      upNext={upNext}
+      play={{
+        onPlay: () => {
+          moveCastOn(api, sent.castId).catch(() => undefined); // the cast goes on as it was
+        },
+        onDismiss: props.onDismiss,
       }}
-    >
-      {t("upNext.offer", { place, name: episode.name ?? "" })}
-    </button>
+    />
   );
 }

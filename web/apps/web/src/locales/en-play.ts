@@ -17,6 +17,8 @@ export const enPlay = {
   upNext: {
     offer: "Up next: {{place}} · {{name}}",
     countdown: "Plays in {{seconds}} s",
+    countdownSaid: "Plays in {{seconds}} seconds",
+    playNow: "Play now",
     dismiss: "Dismiss Up next",
     stillWatching: "Still watching?",
     continue: "Continue",

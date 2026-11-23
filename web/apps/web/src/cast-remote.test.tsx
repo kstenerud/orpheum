@@ -752,17 +752,52 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
       },
       heard,
     );
-    expect(buttonWithText(mounted!.container, "Up next: S1E2 · Cat")).toBeUndefined(); // at 1:01
+    expect(upNextCard(mounted!.container, "Up next: S1E2 · Cat")).toBeUndefined(); // at 1:01
     const atTheEnd = { state: "paused", positionMs: 575_000, rate: 1, fileId: 4, event: "seeked" };
     await sockets.session.say({ type: "group", seq: 4, group: atTheEnd });
-    await click(buttonWithText(mounted!.container, "Up next: S1E2 · Cat"));
+    await click(upNextCard(mounted!.container, "Up next: S1E2 · Cat"));
     expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/next")).toBe(true);
     await sockets.live.say({
       type: "sending",
       sending: { ...sending, fileId: 5, itemName: "Cat" },
     });
     expect(mounted!.container.querySelector("h2")?.textContent).toBe("Cat");
-    expect(buttonWithText(mounted!.container, "Up next: S1E2 · Cat")).toBeUndefined();
+    expect(upNextCard(mounted!.container, "Up next: S1E2 · Cat")).toBeUndefined();
+  });
+
+  it("puts its Up next away at the card's ✕, offering it again once the film nears its end anew (D538 §1)", async () => {
+    const { sockets } = await casting({
+      "GET /files/4/up-next": [
+        200,
+        {
+          upNext: {
+            episode: {
+              itemId: 3,
+              name: "Cat",
+              groupNumber: 1,
+              numberInGroup: 2,
+              fileId: 5,
+              isPartway: false,
+            },
+            ordering: "aired",
+          },
+        },
+      ],
+    });
+    const at = (positionMs: number) => ({
+      state: "paused",
+      positionMs,
+      rate: 1,
+      fileId: 4,
+      event: "seeked",
+    });
+    await sockets.session.say({ type: "group", seq: 4, group: at(575_000) });
+    expect(mounted!.container.textContent).toContain("Play now"); // no count on a remote
+    await click(buttonNamed(mounted!.container, "Dismiss Up next"));
+    expect(upNextCard(mounted!.container, "Up next: S1E2 · Cat")).toBeUndefined();
+    await sockets.session.say({ type: "group", seq: 5, group: at(100_000) });
+    await sockets.session.say({ type: "group", seq: 6, group: at(575_000) });
+    expect(upNextCard(mounted!.container, "Up next: S1E2 · Cat")).toBeDefined();
   });
 
   it("reads what plays around the cast's film once, for its ⏮ and its Up next both (D477 §2)", async () => {
@@ -780,11 +815,16 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     );
     const atTheEnd = { state: "paused", positionMs: 575_000, rate: 1, fileId: 4, event: "seeked" };
     await sockets.session.say({ type: "group", seq: 4, group: atTheEnd });
-    await settleUntil(
-      () => buttonWithText(mounted!.container, "Up next: S1E2 · Cat") !== undefined,
-    );
+    await settleUntil(() => upNextCard(mounted!.container, "Up next: S1E2 · Cat") !== undefined);
     expect(buttonNamed(mounted!.container, "Previous episode")).toBeDefined();
     const reads = heard.filter((each) => each.methodAndPath === "GET /files/4/up-next");
     expect(reads).toHaveLength(1);
   });
 });
+
+/** The Up next card's own button whose offer says words: the card holds its still and "Play now" too. */
+function upNextCard(container: HTMLElement, words: string): HTMLElement | undefined {
+  return [...container.querySelectorAll<HTMLElement>("button.offer-card__take")].find(
+    (each) => each.querySelector(".offer-card__offer")?.textContent === words,
+  );
+}

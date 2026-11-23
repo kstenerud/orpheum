@@ -124,7 +124,7 @@ describe("the skip over the film (b1.md Phase C)", () => {
   }
 
   function button(container: HTMLElement): HTMLButtonElement | null {
-    return container.querySelector("button.skip-segment");
+    return container.querySelector("button.offer-card__take");
   }
 
   it.each([

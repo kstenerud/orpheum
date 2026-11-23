@@ -23,7 +23,7 @@ import { moveBack, moveOnOrReady, type Receiving } from "./cast-receiver.tsx";
 import { useFocusAsItShows, useTellsOffered, type OfferPlace } from "./convenience-area.tsx";
 import { placeCode } from "./episode-place.ts";
 import type { FilmParts, FilmPiece } from "./film-player.tsx";
-import { IconButton } from "./icon-button.tsx";
+import { OfferCard } from "./offer-card.tsx";
 import type { MediaTracks } from "./input-commands.ts";
 import { useCommands } from "./input-layer.tsx";
 import { useAtTheEndWithNothingNext } from "./film-end.ts";
@@ -31,7 +31,6 @@ import { useLatest } from "./latest.ts";
 import { OverTheFilm, PageControls } from "./page-controls.tsx";
 import { PlayUpwardContext } from "./play-up.tsx";
 import type { SequenceMoves } from "./player-controls.tsx";
-import { CloseIcon } from "./player-icons.tsx";
 import { Still } from "./poster.tsx";
 import {
   noteAutoplayed,
@@ -458,23 +457,12 @@ export function UpNextOffer(props: UpNextOfferParts): JSX.Element | null {
       />
     );
   }
-  const words = (
-    <OfferWords upNext={props.upNext} secondsLeft={isCounting ? secondsLeft : undefined} />
-  );
-  if (!isPressable) {
-    return (
-      <div className="up-next">
-        <div className="up-next__play">{words}</div>
-      </div>
-    );
-  }
   return (
-    <div className="up-next" data-focus-container="">
-      <button ref={playRef} type="button" className="up-next__play" onClick={props.onPlay}>
-        {words}
-      </button>
-      <DismissButton onDismiss={dismiss} />
-    </div>
+    <UpNextCard
+      upNext={props.upNext}
+      secondsLeft={isCounting ? secondsLeft : undefined}
+      play={isPressable ? { onPlay: props.onPlay, playRef, onDismiss: dismiss } : undefined}
+    />
   );
 }
 
@@ -524,38 +512,48 @@ function useAutoplay(
   return { isAsking, secondsLeft };
 }
 
-/** What the offer says: the next episode's still, its place and name, and the count while it runs. */
-function OfferWords(props: {
+/**
+ * The Up next card (OfferCard, D538 §1): the next episode's still, "Up next: S1E3 · ‹name›", then
+ * "Plays in 10 s" while the count runs, said once as it starts and not at each second, or "Play now"
+ * where it is pressed; the card plays it, and its ✕ puts it away. Where nothing here presses it (a
+ * cast's receiver), its words alone. The cast's remote's Up next is this card, playing it there.
+ */
+export function UpNextCard(props: {
   readonly upNext: UpNext;
-  readonly secondsLeft: number | undefined;
+  /** The count's seconds left while it runs; none, no count. */
+  readonly secondsLeft?: number | undefined;
+  /** Its press and its ✕, where it is pressed here. */
+  readonly play?:
+    | {
+        readonly onPlay: () => void;
+        readonly playRef?: RefObject<HTMLButtonElement | null>;
+        readonly onDismiss: () => void;
+      }
+    | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { upNext, secondsLeft } = props;
+  const { upNext, secondsLeft, play } = props;
   const { episode } = upNext;
   const place = placeCode(t, upNext.ordering, { ...episode, isOnlyGroup: upNext.isOnlyGroup });
+  const isCounting = secondsLeft !== undefined;
+  const countdown = isCounting ? t("upNext.countdown", { seconds: secondsLeft }) : undefined;
   return (
-    <>
-      <Still sourceSha256={upNext.stillSha256} className="up-next__still" isNoPosterMarked />
-      <span className="up-next__words">
-        <span>{t("upNext.offer", { place, name: episode.name ?? "" })}</span>
-        {secondsLeft === undefined ? null : (
-          <span className="up-next__count">{t("upNext.countdown", { seconds: secondsLeft })}</span>
-        )}
-      </span>
-    </>
-  );
-}
-
-/** The offer's ×, which dismisses it as Back does. */
-function DismissButton(props: { readonly onDismiss: () => void }): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <IconButton
-      isOverVideo
-      isOnCard
-      label={t("upNext.dismiss")}
-      icon={<CloseIcon />}
-      onClick={props.onDismiss}
+    <OfferCard
+      words={t("upNext.offer", { place, name: episode.name ?? "" })}
+      said={
+        isCounting
+          ? t("upNext.countdownSaid", { seconds: Math.round(upNextCountdownMs / 1000) })
+          : undefined
+      }
+      detail={countdown ?? (play === undefined ? undefined : t("upNext.playNow"))}
+      still={
+        <Still sourceSha256={upNext.stillSha256} className="up-next__still" isNoPosterMarked />
+      }
+      onTake={play?.onPlay}
+      takeRef={play?.playRef}
+      dismissal={
+        play === undefined ? undefined : { label: t("upNext.dismiss"), onDismiss: play.onDismiss }
+      }
     />
   );
 }

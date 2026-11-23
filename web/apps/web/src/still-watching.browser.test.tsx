@@ -8,7 +8,7 @@
 
 import "./tokens.css";
 import "./base.css";
-import "./up-next.css";
+import "./offer-card.css";
 import "./i18n.ts";
 
 import { afterEach, describe, expect, it } from "vitest";
@@ -26,9 +26,9 @@ describe("the Still watching card, laid out by a real browser", () => {
   it("runs its question the card's full width, with its two answers in a row", async () => {
     mounted = await mount(<StillWatching onContinue={() => undefined} onStop={() => undefined} />);
     mounted.container.style.width = "26rem";
-    const card = mounted.container.querySelector(".still-watching__card");
-    const question = mounted.container.querySelector(".still-watching__card p");
-    const buttons = [...mounted.container.querySelectorAll(".still-watching__card button")];
+    const card = mounted.container.querySelector(".offer-card__body");
+    const question = mounted.container.querySelector(".offer-card__words");
+    const buttons = [...mounted.container.querySelectorAll(".offer-card__buttons button")];
     if (card === null || question === null || buttons.length !== 2) {
       throw new Error("the card is missing its question or its two answers");
     }

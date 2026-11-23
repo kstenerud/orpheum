@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 
 import { commandEventName } from "./input-commands.ts";
 import { isOnTelevision } from "./input-mode.ts";
+import { OfferCard } from "./offer-card.tsx";
 
 /**
  * After how many episodes autoplay has played in a row, with no press between, the next one waits
@@ -101,23 +102,27 @@ export function StillWatching(props: {
     continueRef.current?.focus();
   }, []);
   return (
-    <section className="up-next still-watching" aria-label={t("upNext.stillWatching")}>
-      <div className="up-next__play still-watching__card" data-focus-container="">
-        <p>{t("upNext.stillWatching")}</p>
-        <button
-          ref={continueRef}
-          type="button"
-          onClick={() => {
-            forgetAutoplays();
-            props.onContinue();
-          }}
-        >
-          {t("upNext.continue")}
-        </button>
-        <button type="button" onClick={props.onStop}>
-          {t("upNext.stop")}
-        </button>
-      </div>
+    <section className="still-watching" aria-label={t("upNext.stillWatching")}>
+      <OfferCard
+        words={t("upNext.stillWatching")}
+        buttons={
+          <>
+            <button
+              ref={continueRef}
+              type="button"
+              onClick={() => {
+                forgetAutoplays();
+                props.onContinue();
+              }}
+            >
+              {t("upNext.continue")}
+            </button>
+            <button type="button" onClick={props.onStop}>
+              {t("upNext.stop")}
+            </button>
+          </>
+        }
+      />
     </section>
   );
 }

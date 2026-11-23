@@ -65,6 +65,21 @@
   align-items: center;
 }
 
+/* A guest's Up next (OfferCard), in the film's top-right corner, as the overlay draws a player's. */
+.together-viewer__offer {
+  position: absolute;
+  inset-block-start: var(--space-5);
+  inset-inline-end: var(--space-5);
+  z-index: var(--layer-video-offer);
+  display: flex;
+  justify-content: end;
+  max-width: calc(100% - 2 * var(--space-5));
+}
+
+.together-viewer__offer .offer-card {
+  max-width: min(26rem, 100%);
+}
+
 .together-viewer__fullscreen {
   opacity: 0.85;
 }

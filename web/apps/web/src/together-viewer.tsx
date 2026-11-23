@@ -619,13 +619,15 @@ function MovesTheGroup(props: FilmButtonsParts): JSX.Element {
     <>
       <FilmButtons {...props} moves={moves} />
       {upNext === undefined || moves.next === undefined ? null : (
-        <UpNextOffer
-          upNext={upNext}
-          isAutoplayOn={false}
-          creditsStartMs={creditsStartOf(decision.segments ?? [])}
-          videoRef={props.videoRef}
-          onPlay={moves.next}
-        />
+        <div className="together-viewer__offer">
+          <UpNextOffer
+            upNext={upNext}
+            isAutoplayOn={false}
+            creditsStartMs={creditsStartOf(decision.segments ?? [])}
+            videoRef={props.videoRef}
+            onPlay={moves.next}
+          />
+        </div>
       )}
     </>
   );

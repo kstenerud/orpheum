@@ -96,7 +96,7 @@ describe("Up next over a television's film", () => {
 
   /** The offer's card and the film's stage, as the browser lays them out. */
   function boxes(): { readonly card: DOMRect; readonly stage: DOMRect } {
-    const card = document.querySelector(".player-overlay .up-next");
+    const card = document.querySelector(".player-overlay .offer-card");
     const stage = document.querySelector(".film-player__stage");
     if (card === null || stage === null) {
       throw new Error("no Up next card over the film's stage");

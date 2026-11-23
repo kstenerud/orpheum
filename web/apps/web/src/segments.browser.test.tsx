@@ -90,13 +90,13 @@ describe("the skip over a television's film", () => {
         return shown();
       })
       .toBe("convenience");
-    const skip = document.querySelector(".player-overlay .skip-segment");
+    const skip = document.querySelector(".player-overlay .offer-card__take");
     expect(skip?.textContent).toBe("Skip intro");
     await expect.poll(() => document.activeElement === skip).toBe(true);
     await userEvent.keyboard("{Enter}");
     expect(video.currentTime).toBe(90);
     video.dispatchEvent(new Event("seeked"));
-    await expect.poll(() => isDrawn(".skip-segment")).toBe(false);
+    await expect.poll(() => isDrawn(".offer-card__take")).toBe(false);
     await expect.poll(shown).toBe("hidden");
   });
 });

@@ -456,7 +456,7 @@ describe("the Up next offer over the film", () => {
     expect(page.textContent).not.toContain("Plays in");
     video.stand(1200, true);
     expect(page.textContent).toContain("Plays in 10 s");
-    expect(document.activeElement?.className).toBe("up-next__play");
+    expect(document.activeElement?.classList.contains("offer-card__take")).toBe(true);
     press("select"); // OK on the offer is the browser's press of its button, no stop of the count
     waitMs(upNextCountdownMs - 1000);
     expect(page.textContent).toContain("Plays in 1 s");
@@ -473,7 +473,7 @@ describe("the Up next offer over the film", () => {
     expect(page.textContent).not.toContain("Plays in");
     expect(played).toBe(0);
     const focused = document.activeElement;
-    expect(focused?.className).toBe("up-next__play");
+    expect(focused?.classList.contains("offer-card__take")).toBe(true);
     act(() => {
       (focused as HTMLButtonElement).click();
     });
@@ -490,6 +490,22 @@ describe("the Up next offer over the film", () => {
     expect(page.textContent).not.toContain("Plays in");
     press("back");
     expect(page.textContent).toBe("");
+  });
+
+  // D538 §1: the card's said words, its live region, carry the count once as it starts; the count
+  // shown under them is outside it, so a reader is not told each second; a stopped count says Play now.
+  it("says the count once as it starts, not at each second, and says Play now once a press stops it (D538 §1)", async () => {
+    const page = await offer(true);
+    video.stand(1200, true);
+    const said = (): string | null | undefined =>
+      page.querySelector(".offer-card output")?.textContent;
+    expect(said()).toBe("Up next: S1E3 · BagPlays in 10 seconds");
+    waitMs(3000);
+    expect(page.textContent).toContain("Plays in 7 s");
+    expect(said()).toBe("Up next: S1E3 · BagPlays in 10 seconds");
+    press("down");
+    expect(said()).toBe("Up next: S1E3 · Bag");
+    expect(page.querySelector(".offer-card__detail")?.textContent).toBe("Play now");
   });
 
   // D407 §3: in all of the overlay, its first Back hides it, the offer staying; the overlay is told
@@ -521,7 +537,7 @@ describe("the Up next offer over the film", () => {
     waitMs(upNextCountdownMs * 2);
     expect(played).toBe(0);
     act(() => {
-      page.querySelector<HTMLButtonElement>(".up-next__play")?.click();
+      page.querySelector<HTMLButtonElement>(".offer-card__take")?.click();
     });
     expect(played).toBe(1);
   });

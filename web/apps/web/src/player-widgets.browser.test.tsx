@@ -11,7 +11,7 @@ import "./base.css";
 import "./cast.css";
 import "./status-tray.css";
 import "./title.css";
-import "./up-next.css";
+import "./offer-card.css";
 import "./i18n.ts";
 
 import { act, createRef } from "react";
@@ -198,7 +198,7 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
 
   it("draws Up next's × on the card's ground, as its card", async () => {
     await drawn(
-      <div className="up-next">
+      <div className="offer-card">
         <IconButton
           isOverVideo
           isOnCard
@@ -209,7 +209,7 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
       </div>,
       (mounted) => {
         expect(
-          getComputedStyle(found(mounted.container, ".up-next .icon-button")).backgroundColor,
+          getComputedStyle(found(mounted.container, ".offer-card .icon-button")).backgroundColor,
         ).toBe(videoCard);
       },
     );

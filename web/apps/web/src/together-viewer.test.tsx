@@ -371,7 +371,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       }
       await fire(video, new Event("timeupdate"));
       const offer =
-        mounted.container.querySelector<HTMLButtonElement>(".up-next__play") ?? undefined;
+        mounted.container.querySelector<HTMLButtonElement>(".offer-card__take") ?? undefined;
       expect(offer?.textContent ?? "· Bag").toContain("· Bag");
       shown.push(
         `canNext ${String(canNext)}: offered ${String(offer !== undefined)}, asked ${String(
@@ -446,7 +446,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     await standAt(310);
     expect(video?.currentTime).toBe(310);
     await standAt(1150);
-    expect(mounted.container.querySelector(".up-next__play")?.textContent).toContain("· Bag");
+    expect(mounted.container.querySelector(".offer-card__take")?.textContent).toContain("· Bag");
     expect(mounted.container.textContent).not.toContain("Skip");
     mounted.unmount();
   });

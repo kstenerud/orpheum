@@ -1,61 +1,7 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/* The Up next offer (up-next.tsx): a card in the film's top corner, inside its stage so it stays in
-   full screen, small enough to leave the ending in view (D139). Clear of a television's overlay
-   along the bottom and of the browser's own controls. Drawn in the overlay's convenience area, the
-   area holds that corner whenever the offer shows, with or without the rest of the overlay (the
-   owner, 2026-11-09; player-overlay.css). */
-.up-next {
-  position: absolute;
-  inset-block-start: var(--space-5);
-  inset-inline-end: var(--space-5);
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  max-width: min(26rem, calc(100% - 2 * var(--space-5)));
-}
-
-.up-next__play {
-  display: grid;
-  grid-template-columns: 8rem minmax(0, 1fr);
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2);
-  border: 0;
-  border-radius: var(--radius-card);
-  background: var(--color-video-card);
-  color: var(--color-on-video);
-  text-align: start;
-}
-
+/* The Up next offer's still (up-next.tsx), the OfferCard's, which sizes it: the blank's "No poster"
+   card fills its box as a picture does. */
 .up-next__still {
   display: block;
-  width: 8rem;
-  aspect-ratio: 16 / 9;
-  border-radius: var(--radius-control);
-  background: var(--color-video-control);
-  object-fit: cover;
-}
-
-.up-next__words {
-  display: grid;
-  gap: var(--space-1);
-}
-
-.up-next__count {
-  font-size: var(--font-size-small);
-}
-
-/* "Still watching?" in the offer's place (still-watching.tsx, D339): the question and its two
-   answers on one card. */
-.still-watching__card {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.still-watching__card p {
-  flex-basis: 100%;
-  margin: 0;
 }
