@@ -22,6 +22,7 @@ import { KeysView } from "./settings-keys.tsx";
 import { advancedShownKey, foundBySearch, Settings } from "./settings.tsx";
 import {
   buttonNamed,
+  buttonWithText,
   click,
   enter,
   isSwitchOn,
@@ -269,7 +270,7 @@ describe("a setting's control (D538 §1, the owner, 2026-11-22)", () => {
     expect(saved).toEqual([["logLevel", "debug"]]);
   });
 
-  it("puts a changed setting back by What it is for's Use the default, naming the default", async () => {
+  it("puts a changed setting back by its row's Use the default, asked first, What it is for naming the default", async () => {
     const reset: string[] = [];
     mounted = await mount(
       withServices(
@@ -304,14 +305,32 @@ describe("a setting's control (D538 §1, the owner, 2026-11-22)", () => {
     );
     expect(dialog?.textContent).toContain("tmdbRefreshAfterDays");
     expect(dialog?.textContent).toContain("The default is 180.");
-    await click(buttonNamed(container, "Use the default"));
+    // What it is for only tells (the owner, 2026-11-23, revamp question 16): Done alone.
+    expect(
+      [...(dialog?.querySelectorAll(".modal-dialog__foot button") ?? [])].map((b) => b.textContent),
+    ).toEqual(["Done"]);
+    await click(buttonWithText(dialog instanceof HTMLElement ? dialog : container, "Done"));
+    // The row's own Use the default asks, then puts it back.
+    await click(
+      buttonNamed(container, "Use the default for Refresh details from TMDB after (days)"),
+    );
+    expect(reset).toEqual([]);
+    await click(
+      buttonWithText(
+        container.querySelector<HTMLElement>("dialog") ?? container,
+        "Use the default",
+      ),
+    );
     expect(reset).toEqual(["tmdbRefreshAfterDays"]);
     expect(container.querySelector("dialog")).toBeNull();
-    // A setting at its default has nothing to put back: Done alone.
-    await click(
-      buttonNamed(container, "What End an idle Watch Together session after (hours) is for"),
-    );
-    expect(buttonNamed(container, "Use the default")).toBeUndefined();
+    // A setting at its default has nothing to put back: no button beside it.
+    expect(
+      buttonNamed(
+        container,
+        "Use the default for End an idle Watch Together session after (hours)",
+      ),
+    ).toBeUndefined();
+    expect(container.querySelectorAll('button[aria-label^="Use the default for"]')).toHaveLength(1);
   });
 
   it("is a Stepper only for a whole number whose bounds are no more than 200 apart", () => {

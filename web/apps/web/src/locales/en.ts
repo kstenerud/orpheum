@@ -565,6 +565,10 @@ const enOwn = {
     configName: "Its name in the configuration:",
     defaultIs: "The default is {{start}}.",
     useDefault: "Use the default",
+    useDefaultFor: "Use the default for {{label}}",
+    resetQuestion: "Put {{label}} back to its default?",
+    resetConsequence:
+      "It goes from {{value}} to {{start}}, its default. Setting it again puts it back.",
     range: "From {{min}} to {{max}}",
     stepperField: "{{label}}, from {{min}} to {{max}}",
     stepperValue: "{{label}}: {{value}}",

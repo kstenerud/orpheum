@@ -166,8 +166,13 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
     expectSays(conflict);
     mounted.unmount();
     mounted = await mount(withServices(<Settings page="libraries" />, services));
-    await click(buttonNamed(mounted.container, "What Scan when a machine connects is for"));
-    await click(buttonWithText(document.body, "Use the default"));
+    await click(buttonNamed(mounted.container, "Use the default for Scan when a machine connects"));
+    await click(
+      buttonWithText(
+        document.querySelector<HTMLElement>("dialog") ?? document.body,
+        "Use the default",
+      ),
+    );
     expectSays(notFound);
   });
 });
@@ -256,8 +261,13 @@ describe("a request that never reaches the server says so, rather than nothing",
       "POST /config/shouldScanOnNodeHello/reset": unreachable,
     });
     mounted = await mount(withServices(<Settings page="libraries" />, services));
-    await click(buttonNamed(mounted.container, "What Scan when a machine connects is for"));
-    await click(buttonWithText(document.body, "Use the default"));
+    await click(buttonNamed(mounted.container, "Use the default for Scan when a machine connects"));
+    await click(
+      buttonWithText(
+        document.querySelector<HTMLElement>("dialog") ?? document.body,
+        "Use the default",
+      ),
+    );
     expectSays(cannotReach);
   });
 });

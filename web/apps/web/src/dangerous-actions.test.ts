@@ -35,6 +35,7 @@ const dangerousActions: readonly (readonly [file: string, confirmKey: string])[]
   ["./node-unconfined.tsx", "system.unconfined.allowConfirm"],
   ["./rescan-action.tsx", "libraries.rescanConfirm"],
   ["./roles-section.tsx", "roles.deleteConfirm"],
+  ["./server-settings.tsx", "settings.useDefault"],
   ["./settings-keys.tsx", "settings.removeConfirm"],
   ["./settings-unread.tsx", "settings.unread.confirm"],
   ["./system-discovery.tsx", "system.discovery.leaveConfirm"],

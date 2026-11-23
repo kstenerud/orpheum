@@ -9,7 +9,9 @@ import { memo, useCallback, useEffect, useRef, useState, type JSX } from "react"
 import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
+import { ConfirmButton } from "./confirm-button.tsx";
 import { Field } from "./field.tsx";
+import { firstFocusTargetIn } from "./focus-engine.ts";
 import { arrivalMark } from "./focus-navigation.ts";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { dataOrThrow, fieldProblemText } from "./problem.ts";
@@ -305,8 +307,12 @@ const SettingRow = memo(function SettingRow(props: {
   const { t } = useTranslation();
   const { setting, onReset } = props;
   const label = settingLabel(t, "labels", setting.key);
+  const start = startText(t, setting.startingValue);
+  const rowRef = useRef<HTMLDivElement>(null);
+  useFocusKeptAtTheDefault(rowRef, setting.isModified);
   return (
     <div
+      ref={rowRef}
       className="settings__row"
       id={`setting-${setting.key}`}
       {...(props.isArrival ? arrivalMark : {})}
@@ -317,19 +323,49 @@ const SettingRow = memo(function SettingRow(props: {
           label={label}
           configName={setting.key}
           description={setting.question ?? settingDescription(t, setting)}
-          default={{
-            text: startText(t, setting.startingValue),
-            isModified: setting.isModified,
-            onUse: () => {
-              onReset(setting.key);
-            },
-          }}
+          defaultText={start}
         />
+        {setting.isModified ? (
+          <ConfirmButton
+            label={t("settings.useDefault")}
+            labelForReader={t("settings.useDefaultFor", { label })}
+            question={t("settings.resetQuestion", { label })}
+            consequence={t("settings.resetConsequence", {
+              value: startText(t, setting.value),
+              start,
+            })}
+            confirmLabel={t("settings.useDefault")}
+            isHarmless
+            onConfirm={() => {
+              onReset(setting.key);
+            }}
+          />
+        ) : null}
       </div>
       <StatusNote told={shownSaveTold(t, props.problem, props.isSaved)} />
     </div>
   );
 });
+
+/**
+ * Keeps focus in a setting's row as its value comes back to the default: the row's Use the default,
+ * which had it as its confirm closed, goes with the value's difference, and focus would be left on
+ * nothing, so it moves to the setting's control, where the next press acts on the setting.
+ */
+function useFocusKeptAtTheDefault(
+  rowRef: { readonly current: HTMLElement | null },
+  isModified: boolean,
+): void {
+  const wasModifiedRef = useRef(isModified);
+  useEffect(() => {
+    const isNowAtTheDefault = wasModifiedRef.current && !isModified;
+    wasModifiedRef.current = isModified;
+    const isFocusLost = document.activeElement === null || document.activeElement === document.body;
+    if (isNowAtTheDefault && isFocusLost && rowRef.current !== null) {
+      firstFocusTargetIn(rowRef.current)?.focus();
+    }
+  }, [rowRef, isModified]);
+}
 
 /**
  * The keys of the remote access settings whose home is Network, which sets the address in the home

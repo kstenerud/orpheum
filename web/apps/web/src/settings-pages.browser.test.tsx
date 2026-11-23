@@ -4,7 +4,8 @@
  * Settings' pages as a real browser runs them (D538 §11, pages-spec-3): the index leads to a
  * section's page and its trail back up; a search leads to a setting's row, focus arriving there; a
  * Stepper saves at each step, and a text field on Enter or on leaving it, never as the page closes;
- * by a mouse, a finger, the keyboard and a remote's arrows and OK alike, at a phone's, a computer's
+ * a changed setting goes back to its default by its row's Use the default, asked first; by a mouse,
+ * a finger, the keyboard and a remote's arrows and OK alike, at a phone's, a computer's
  * and a television's width, the ring showing and focus never on nothing.
  */
 
@@ -25,6 +26,7 @@ import {
   mount,
   servedBy,
   settleAnswers,
+  type Answer,
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
@@ -69,11 +71,19 @@ function SettingsHere(): JSX.Element {
   );
 }
 
-/** Mounts Settings' pages at its index, every request they make answered; heard keeps them. */
-async function mountSettings(heard: Heard[] = []): Promise<Mounted> {
+/**
+ * Mounts Settings' pages at its index, every request they make answered, settings those it reads, and
+ * answers more; heard keeps them.
+ */
+async function mountSettings(
+  heard: Heard[] = [],
+  settings: readonly Setting[] = [mostTitles, timeZone],
+  answers: Readonly<Record<string, Answer>> = {},
+): Promise<Mounted> {
   const services = servedBy(
     {
-      "GET /config": [200, { settings: [mostTitles, timeZone] }],
+      ...answers,
+      "GET /config": [200, { settings }],
       "GET /config/unused": [200, { unusedSettings: [] }],
       "GET /secrets": [200, { secrets: [] }],
       "GET /needs-attention": [200, { pages: {} }],
@@ -244,6 +254,118 @@ describe("Settings' index and a section's page", () => {
       await expect.poll(heading).toBe("Settings");
     }
   });
+});
+
+describe("a changed setting's Use the default (the owner, 2026-11-23, revamp question 16)", () => {
+  /** The time zone, changed from its default. */
+  const changedZone: Setting = { ...timeZone, value: "UTC", isModified: true };
+
+  /** The row's Use the default, where it shows. */
+  function shownDefaultButton(): HTMLElement | null {
+    return document.querySelector<HTMLElement>(
+      'main button[aria-label="Use the default for Time zone"]',
+    );
+  }
+
+  /** The row's Use the default. */
+  function defaultButton(): HTMLElement {
+    const found = shownDefaultButton();
+    if (found === null) {
+      throw new Error("no Use the default");
+    }
+    return found;
+  }
+
+  /** The confirm open over the page. */
+  function confirm(): HTMLDialogElement | null {
+    return document.querySelector<HTMLDialogElement>("dialog[open]");
+  }
+
+  /** The confirm's button saying text. */
+  function confirmButton(text: string): HTMLElement {
+    const found = [...(confirm()?.querySelectorAll<HTMLElement>("button") ?? [])].find(
+      (each) => each.textContent.trim() === text,
+    );
+    if (found === undefined) {
+      throw new Error(`no ${text} in the confirm`);
+    }
+    return found;
+  }
+
+  /** The resets heard. */
+  function resets(heard: readonly Heard[]): number {
+    return heard.filter((each) => each.methodAndPath === "POST /config/timeZone/reset").length;
+  }
+
+  it.each(partWidths)(
+    "shows beside the changed setting alone at %i px, asks by a click, a tap and the keyboard, focus on Cancel, and puts it back by a remote, focus kept in its row",
+    async (width) => {
+      await page.viewport(width, 800);
+      const heard: Heard[] = [];
+      mounted = await mountSettings(heard, [mostTitles, changedZone], {
+        "POST /config/timeZone/reset": [200, timeZone],
+      });
+      await userEvent.click(link("General"));
+      await expect.poll(shownDefaultButton).not.toBeNull();
+      // Beside the changed setting alone, inside the page's width.
+      expect(
+        document.querySelectorAll('main button[aria-label^="Use the default for"]'),
+      ).toHaveLength(1);
+      const box = defaultButton().getBoundingClientRect();
+      expect(box.right).toBeLessThanOrEqual(width);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(defaultButton().closest("#setting-timeZone")).not.toBeNull();
+      // A click asks, plain, focus on Cancel; Cancel sends nothing.
+      await userEvent.click(defaultButton());
+      await expect.poll(confirm).not.toBeNull();
+      expect(document.activeElement).toBe(confirmButton("Cancel"));
+      expect(confirmButton("Use the default").className).not.toContain("irreversible");
+      expect(confirm()?.textContent).toContain("It goes from UTC to Europe/Berlin, its default.");
+      await userEvent.click(confirmButton("Cancel"));
+      await expect.poll(confirm).toBeNull();
+      // A tap asks; Escape sends nothing.
+      tapOn(defaultButton());
+      await expect.poll(confirm).not.toBeNull();
+      expect(document.activeElement).toBe(confirmButton("Cancel"));
+      await userEvent.keyboard("{Escape}");
+      await expect.poll(confirm).toBeNull();
+      // The keyboard: Enter asks, Enter on Cancel sends nothing, focus back on the button.
+      defaultButton().focus();
+      await userEvent.keyboard("{Enter}");
+      await expect.poll(confirm).not.toBeNull();
+      expect(document.activeElement).toBe(confirmButton("Cancel"));
+      await userEvent.keyboard("{Enter}");
+      await expect.poll(confirm).toBeNull();
+      await expect.poll(() => document.activeElement).toBe(shownDefaultButton());
+      await settleAnswers();
+      expect(resets(heard)).toBe(0);
+      // A remote: Down from the trail into the time zone's row, Right along it to the button, OK
+      // asks, Right to Use the default, OK puts it back.
+      trailUp().focus();
+      const isInRow = (): boolean =>
+        (document.activeElement?.closest("#setting-timeZone") ?? null) !== null;
+      expect(await arrowUntil("ArrowDown", isInRow)).toBe(true);
+      const isOnButton = (): boolean => document.activeElement === shownDefaultButton();
+      expect(await arrowUntil("ArrowRight", isOnButton, 4)).toBe(true);
+      expect(isRingShown()).toBe(true);
+      await userEvent.keyboard("{Enter}");
+      await expect.poll(confirm).not.toBeNull();
+      expect(document.activeElement).toBe(confirmButton("Cancel"));
+      // Beside Cancel, or under or over it where a phone's width stacks the confirm's foot.
+      const isOnUse = (): boolean => document.activeElement === confirmButton("Use the default");
+      expect(
+        (await arrowUntil("ArrowRight", isOnUse, 1)) ||
+          (await arrowUntil("ArrowDown", isOnUse, 1)) ||
+          (await arrowUntil("ArrowUp", isOnUse, 1)),
+      ).toBe(true);
+      await userEvent.keyboard("{Enter}");
+      await expect.poll(() => resets(heard)).toBe(1);
+      // At the default it has nothing to put back, and focus stays in the setting's row.
+      await expect.poll(shownDefaultButton).toBeNull();
+      await expect.poll(isInRow).toBe(true);
+      expect(isFocusOnSomething()).toBe(true);
+    },
+  );
 });
 
 describe("a section's settings, saving as they change (D538 §9)", () => {

@@ -20,7 +20,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   its `StatusNote` (`src/status-note.tsx`, `useSaveState`) says "Saved" beside it, or the refusal in its place. A creation
   (a library, an invitation) keeps its one Create. Settings shows each setting in one column, its
   name in the person's words above its key (`locales/en-setting-labels.ts`, every setting's held by
-  `TestRegistry_TheWebCatalogueLabelsEverySetting`). `src/settings.test.tsx`.
+  `TestRegistry_TheWebCatalogueLabelsEverySetting`). A setting changed from its default has Use
+  the default beside it, and only then; a plain confirm asks first, naming the value and the
+  default, as setting it again undoes it (ui.md rule 8), and focus stays in its row as the button
+  goes. What it is for only tells, its default named, Done alone (the owner, 2026-11-23, revamp
+  question 16). `src/settings.test.tsx`, `src/settings-pages.browser.test.tsx`.
 - **Anyone signed in reports a problem to the household's admin, who alone reads it** (D524 §2,
   §4): *Report a problem* is in the account menu for a person signed in and in the player's ⁝, which
   adds where the film stood as it was chosen; it sends their words, the page and the device's facts

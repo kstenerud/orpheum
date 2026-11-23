@@ -69,13 +69,13 @@ it("opens 🔈's row of sliders in its session: the film's, then each person's l
   expect(galleryOverlay().querySelectorAll("dialog[open] input[type=range]")).toHaveLength(4);
 });
 
-it("opens What it is for at a setting's default with Done alone, and changed from it with Cancel and Use the default (D538 §11)", async () => {
+it("opens What it is for with Done alone, its default named (the owner, 2026-11-23, revamp question 16)", async () => {
   mounted = await mount(withServices(<UiGallery />));
   const settings = mounted.container.querySelector('[aria-labelledby="gallery-settings"]');
   const infoButtons = [
     ...(settings?.querySelectorAll('button[aria-label="What Back up every (hours) is for"]') ?? []),
   ];
-  expect(infoButtons).toHaveLength(2);
+  expect(infoButtons).toHaveLength(1);
   const footOf = async (opener: Element | undefined): Promise<string[]> => {
     if (opener === undefined) {
       throw new Error("no info button");
@@ -94,5 +94,4 @@ it("opens What it is for at a setting's default with Done alone, and changed fro
     return foot;
   };
   expect(await footOf(infoButtons[0])).toEqual(["Done"]);
-  expect(await footOf(infoButtons[1])).toEqual(["Cancel", "Use the default"]);
 });

@@ -393,8 +393,9 @@ it("removes what a scan did not find, and a gone disk's files, only when asked a
   });
 });
 
-// D538 §11: Use the default, in What it is for's dialog beside its Cancel, took the bin's confirm's place.
-it("returns a setting to its default only when asked in What it is for, Cancel leaving it", async () => {
+// The owner, 2026-11-23 (revamp question 16): Use the default is the row's own, beside the setting,
+// and asks first; What it is for only tells.
+it("returns a setting to its default only when its row's Use the default is confirmed, Cancel leaving it", async () => {
   const reset: string[] = [];
   mounted = await mount(
     withServices(
@@ -422,20 +423,24 @@ it("returns a setting to its default only when asked in What it is for, Cancel l
       />,
     ),
   );
-  const info = mounted.container.querySelector<HTMLElement>(
-    'button[aria-label="What Refresh details from TMDB after (days) is for"]',
+  const useDefault = mounted.container.querySelector<HTMLElement>(
+    'button[aria-label="Use the default for Refresh details from TMDB after (days)"]',
   );
-  await click(info);
+  expect(useDefault?.className).not.toContain("irreversible");
+  await click(useDefault);
   expect(reset).toEqual([]);
   const asked = (): HTMLElement | null => document.querySelector<HTMLElement>("dialog");
-  expect(asked()?.textContent).toContain("The default is 180.");
-  expect(
-    [...(asked()?.querySelectorAll(".modal-dialog__foot button") ?? [])].map((b) => b.textContent),
-  ).toEqual(["Cancel", "Use the default"]);
+  expect(asked()?.querySelector("h2, h1")?.textContent).toBe(
+    "Put Refresh details from TMDB after (days) back to its default?",
+  );
+  expect(asked()?.textContent).toContain("It goes from 30 to 180, its default.");
+  const foot = [...(asked()?.querySelectorAll(".modal-dialog__foot button") ?? [])];
+  expect(foot.map((b) => b.textContent)).toEqual(["Cancel", "Use the default"]);
+  expect(foot.map((b) => b.className.includes("irreversible"))).toEqual([false, false]);
   await click(buttonWithText(asked() ?? document.body, "Cancel"));
   expect(asked()).toBeNull();
   expect(reset).toEqual([]);
-  await click(info);
+  await click(useDefault);
   await click(buttonWithText(asked() ?? document.body, "Use the default"));
   expect(reset).toEqual(["tmdbRefreshAfterDays"]);
 });

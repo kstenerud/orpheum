@@ -179,7 +179,6 @@ export const enGallery = {
     settingsUnsaved: "A section's settings, before a change is answered",
     settingsAllAdvanced: "A section whose settings are all advanced",
     settingsKeys: "Keys and passwords: one set, one not, one to enter again",
-    settingsInfoAtDefault: "What it is for, at its default",
-    settingsInfoChanged: "What it is for, changed from its default",
+    settingsInfo: "What it is for",
   },
 };

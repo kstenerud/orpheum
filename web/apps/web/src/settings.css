@@ -78,6 +78,7 @@
 /* The control, then what it is for, on one line, the button at the control's foot. */
 .settings__field {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
   align-items: flex-end;
 }

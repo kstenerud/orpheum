@@ -147,29 +147,19 @@ export function GallerySettings(): JSX.Element {
   );
 }
 
-/** What it is for, at a setting's default, Done alone, and changed from it, with Use the default. */
+/** What it is for: what a setting is for and its default, Done alone. */
 function GalleryInfo(): JSX.Element {
   const { t } = useTranslation();
   const label = t("settings.labels.backupEveryHours");
   const description = t("settings.descriptions.backupEveryHours");
   return (
-    <>
-      <GalleryState heading={t("gallery.settingsInfoAtDefault")}>
-        <SettingInfo
-          label={label}
-          configName="backupEveryHours"
-          description={description}
-          default={{ text: "6", isModified: false, onUse: ignore }}
-        />
-      </GalleryState>
-      <GalleryState heading={t("gallery.settingsInfoChanged")}>
-        <SettingInfo
-          label={label}
-          configName="backupEveryHours"
-          description={description}
-          default={{ text: "6", isModified: true, onUse: ignore }}
-        />
-      </GalleryState>
-    </>
+    <GalleryState heading={t("gallery.settingsInfo")}>
+      <SettingInfo
+        label={label}
+        configName="backupEveryHours"
+        description={description}
+        defaultText="6"
+      />
+    </GalleryState>
   );
 }
