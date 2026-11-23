@@ -539,3 +539,13 @@ func TestLoggingReaderWrites_WarnsOnlyOfAWriteNoReadingRequestMayMake(t *testing
 		t.Errorf("a write no reading request may make logged %q; want a warning naming it", text)
 	}
 }
+
+// A node's config that names no floor of free disk keeps 5 GiB free (D542; the owner, 2026-11-23).
+func TestLoadConfig_TheNodeKeepsFiveGiBFreeWhenTheFileNamesNoFloor(t *testing.T) {
+	t.Parallel()
+	unnamed := strings.Replace(validConfigTexts[kindNode], "prepared_disk_min_free_mib = 100\n", "", 1)
+	config, _, err := loadConfig(writeConfig(t, unnamed), kindNode)
+	if err != nil || config.Node.PreparedDiskMinFreeMiB != 5120 {
+		t.Errorf("with no floor named: %d MiB, %v; want 5120 (5 GiB)", config.Node.PreparedDiskMinFreeMiB, err)
+	}
+}

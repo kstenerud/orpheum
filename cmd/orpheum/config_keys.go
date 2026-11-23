@@ -181,9 +181,10 @@ func nodeConfigKeys() []configKey {
 				"evicted, and a run of chunks with nothing to evict is refused (D217 §5)",
 		},
 		{
-			tableNode, "prepared_disk_min_free_mib", "100",
+			tableNode, "prepared_disk_min_free_mib", "5120",
 			"MiB the prepared directory's disk keeps free, whatever its fullness limit; below it, stores are " +
-				"evicted, and a run of chunks with nothing to evict is refused",
+				"evicted, and a run of chunks with nothing to evict is refused. 5 GiB, so what else writes " +
+				"to the disk cannot fill it before the node can act (D542)",
 		},
 	}, nodeCapacityConfigKeys()...)
 }

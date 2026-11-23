@@ -31231,3 +31231,23 @@ near a week, and all parts should agree on that."
 - 2: `TestDueRoots_ARootIsDueOnceItsLibrariesIntervalHasPassedSinceItsLastScan` (internal/core/library), `TestSchema_RefusesRowsThatBreakTheirRules`
 - 3: `TestRegistry_TheHoursBetweenALibrarysScansAreAtMostAWeek`, `TestRead_HoursSetAboveAWeekBeforeTheMostWasAWeekAreReadAsStored` (internal/core/settings), `TestLibraries_TheHoursBetweenChecksAreAtMostTheSettingsWeek` (internal/core/api), `web/apps/web/src/libraries.test.tsx`, `web/apps/web/src/change-detection.test.tsx`
 - 4: `TestScanSchedule_APeriodicScanDueWhileItsRootsScanRunsIsDroppedAndTheNextPeriodAsks` (internal/core/library)
+
+## D542 — A node keeps 5 GiB of its prepared directory's disk free, not 100 MiB
+
+**Decided** (2026-11-23), by the project owner: "I believe that we use up to a max of 95% of the
+disk space, but I think that's too aggressive because other processes could fill up the remaining
+space before we can react. Maybe a hybrid max that ensures there's at least 5gb free or something
+like that?" **Amends** D217 §5 (the prepared directory's disk limits).
+
+**Status:** decided. Its code is `cmd/orpheum/config_keys.go` (the starting value) and
+`internal/deployment/templates/node.toml` (the written config).
+
+1. **The rule.** The node already stops at whichever of its two limits comes first: the disk 95%
+   full (`node.prepared_disk_used_limit_percent`) or less than `node.prepared_disk_min_free_mib`
+   free. Past either, stores are evicted, and a run of chunks with nothing to evict is refused. The
+   floor's starting value goes from 100 MiB to 5120 MiB (5 GiB), and the deployment writes 5120
+   where it wrote 1024. The 95% stays: on a disk under 100 GiB it is the stricter of the two.
+2. **Why.** A percentage leaves little on a small disk, and 100 MiB is seconds of another program's
+   writing. 5 GiB gives the node time to evict before the disk fills under others.
+3. **Tests.** `TestWriteConfigs_TheNodeKeepsFiveGiBOfItsDiskFree` and
+   `TestLoadConfig_TheNodeKeepsFiveGiBFreeWhenTheFileNamesNoFloor`.

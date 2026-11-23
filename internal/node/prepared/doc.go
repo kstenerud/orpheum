@@ -71,6 +71,7 @@
 // # Read before changing
 //
 //   - D217 §5: a node owns its prepared directory, its budget, kept time and disk limit.
+//   - D542: the disk's floor of free space starts at 5 GiB.
 //   - D344: the whole-film prepare is retired; the directory holds stores of chunks.
 //   - D392 §4: what is kept is checked against what is there; made chunks missing or damaged are
 //     dropped.
