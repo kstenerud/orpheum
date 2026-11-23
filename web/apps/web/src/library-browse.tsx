@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import "./library-browse.css";
-
 import type { TFunction } from "i18next";
 import { useCallback, useEffect, useRef, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
