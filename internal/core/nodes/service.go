@@ -70,6 +70,10 @@ type ResultSink interface {
 	// Deliver records a result and hands it to the job waiting for it; an error leaves it
 	// unacknowledged.
 	Deliver(ctx context.Context, nodeID int64, result nodeproto.Result) error
+	// Reject fails the attempt a result answers that the core refused for what it is (why, an
+	// ErrMalformedResult), so its job does not wait on a result that would be refused at every send;
+	// an error leaves the result unacknowledged.
+	Reject(ctx context.Context, nodeID int64, result nodeproto.Result, why error) error
 	// DeliverProgress hands a node's word on where an attempt is to the job waiting for it.
 	DeliverProgress(ctx context.Context, nodeID int64, progress nodeproto.Progress)
 	// Interrupt tells the jobs given to a node under another start than startID, the one its hello

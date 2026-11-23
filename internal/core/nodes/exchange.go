@@ -262,6 +262,27 @@ func (all *Exchanges) Deliver(ctx context.Context, nodeID int64, result nodeprot
 	return all.resolveResult(ctx, held.Attempt, held.assignee, result)
 }
 
+// Reject resolves the attempt a result the core refused for what it is answers (why), as its kind
+// takes a node's silence (Assignee.Unanswered): an attempt's failure, tried again. Sent
+// again, the result would be refused again, so the node is answered StatusResultRejected and
+// stops: before, it sent it for good and the attempt was never resolved (the queue audit,
+// 2026-11-23). A result for no attempt given to the node fails nothing.
+func (all *Exchanges) Reject(ctx context.Context, nodeID int64, result nodeproto.Result, why error) error {
+	held, isHeld, err := all.attemptOf(nodeID, result.AttemptToken)
+	if err != nil {
+		return err
+	}
+	all.logger.WarnContext(ctx, "a node's result was refused for what it is; its attempt fails", "nodeId", nodeID,
+		"jobId", result.JobID, "attemptToken", result.AttemptToken, "err", why)
+	if !isHeld {
+		return nil
+	}
+	return all.resolve(ctx, held.Attempt, held.assignee, func(job jobs.Job) error {
+		return held.assignee.Unanswered(ctx, job, held.Attempt, fmt.Errorf("node %d's result for %s job %d: %w",
+			nodeID, held.Kind, held.JobID, why))
+	})
+}
+
 // DeliverProgress takes a node's word on where an attempt is, by its token and from its node, as
 // Deliver does a result. Progress is best effort: one for no attempt given to the node is dropped.
 func (all *Exchanges) DeliverProgress(ctx context.Context, nodeID int64, progress nodeproto.Progress) {

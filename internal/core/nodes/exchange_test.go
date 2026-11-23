@@ -301,6 +301,28 @@ func TestExchange_AJobWhoseTimeRanOutTellsTheNodeToStop(t *testing.T) {
 	bench.wantNothingSent(t, "the attempt is forgotten once its time ran out")
 }
 
+// A result refused for what it is fails its attempt as its kind takes a silence, and is forgotten:
+// sent again it would be refused again, and before, the node sent it for good while its job waited
+// out its time (the queue audit, 2026-11-23).
+func TestReject_FailsTheAttemptOfAResultRefusedForWhatItIs(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	resolved := make(answers, 1)
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(resolved, nil))
+	sent := bench.assign(t)
+	refused := nodeproto.Result{JobID: 7, AttemptToken: sent.AttemptToken}
+	if err := bench.exchanges.Reject(t.Context(), 1, refused, nodes.ErrMalformedResult); err != nil {
+		t.Fatal(err)
+	}
+	if answer := testutil.Receive(t, resolved, "job 7's answer"); !errors.Is(answer, nodes.ErrMalformedResult) ||
+		jobs.IsMarkedPermanent(answer) {
+		t.Errorf("a refused result resolved job 7 with %v; want an attempt's failure, tried again", answer)
+	}
+	if rows, err := bench.cache.Read().ListNodeAttempts(t.Context()); err != nil || len(rows) != 0 {
+		t.Errorf("cache.db keeps %+v, %v; want the refused result's attempt forgotten", rows, err)
+	}
+}
+
 // A result for no attempt given to the node resolves nothing, and the log names the job by its id,
 // as the records do (D227).
 func TestExchanges_AResultForNoWaitingJobIsLoggedByItsJobID(t *testing.T) {

@@ -46,7 +46,11 @@
 //     §5, D238 §2): each result is recorded by its kind's Recorder, by the content its echoed work
 //     names, as it arrives and whether or not a job still waits (S81), before any job hears it and
 //     before the node is answered; a result not recorded is refused, and the node sends it again.
-//     TestExchanges_RecordEveryResultBeforeAnyJobHearsIt. A result too large to post is fetched from
+//     TestExchanges_RecordEveryResultBeforeAnyJobHearsIt. One refused for what it is
+//     (ErrMalformedResult), which would be refused at every send, fails its attempt as its kind
+//     takes a silence and is answered nodeproto.StatusResultRejected, so the node stops sending it.
+//     TestResult_IsAcknowledgedOnlyOnceTheSinkRecordedIt,
+//     TestReject_FailsTheAttemptOfAResultRefusedForWhatItIs. A result too large to post is fetched from
 //     the node's byte socket by its attempt's token and taken only at the size and SHA-256 its post
 //     named, for the same job and attempt; one that cannot be fetched leaves the post unacknowledged.
 //     TestResult_AHeldResultIsFetchedWholeBeforeItIsTaken,

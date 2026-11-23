@@ -43,6 +43,8 @@ func (taken *takenResults) Deliver(_ context.Context, _ int64, result nodeproto.
 
 func (*takenResults) DeliverProgress(context.Context, int64, nodeproto.Progress) {}
 
+func (*takenResults) Reject(context.Context, int64, nodeproto.Result, error) error { return nil }
+
 func (*takenResults) Interrupt(context.Context, int64, string) {}
 
 func (*takenResults) Reconcile(context.Context, int64, []nodeproto.HeldAttempt, map[string]bool) {}

@@ -132,16 +132,25 @@ func (service *Service) takeResult(writer http.ResponseWriter, request *http.Req
 	if !ok {
 		return
 	}
+	posted, taken := result, result
 	var err error
-	if result.Held != nil {
-		result, err = service.readHeld(request.Context(), nodeID, result)
+	if posted.Held != nil {
+		taken, err = service.readHeld(request.Context(), nodeID, posted)
 	}
 	if err == nil {
-		err = service.resultSink.Deliver(request.Context(), nodeID, result)
+		err = service.resultSink.Deliver(request.Context(), nodeID, taken)
+	}
+	if errors.Is(err, ErrMalformedResult) {
+		// Refused for what it is, it would be refused at every send: its attempt fails, and the node
+		// is told to stop sending it (nodeproto.StatusResultRejected).
+		if rejectErr := service.resultSink.Reject(request.Context(), nodeID, posted, err); rejectErr != nil {
+			service.fail(request.Context(), writer, "fail the attempt of a node's refused result", rejectErr)
+			return
+		}
+		http.Error(writer, err.Error(), nodeproto.StatusResultRejected)
+		return
 	}
 	switch {
-	case errors.Is(err, ErrMalformedResult):
-		http.Error(writer, err.Error(), http.StatusBadRequest)
 	case err != nil:
 		service.fail(request.Context(), writer, "record a node's result", err)
 	default:

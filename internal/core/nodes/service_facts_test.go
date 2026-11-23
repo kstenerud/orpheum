@@ -91,8 +91,17 @@ func TestResult_IsAcknowledgedOnlyOnceTheSinkRecordedIt(t *testing.T) {
 		t.Errorf("a result the sink could not record: %d, want 500", status)
 	}
 	sink.refusal = ErrMalformedResult
-	if status := post(); status != http.StatusBadRequest {
-		t.Errorf("a result the sink cannot take as it is: %d, want 400", status)
+	sink.rejectErr = errors.New("cache.db is busy")
+	if status := post(); status != http.StatusInternalServerError {
+		t.Errorf("a result refused for what it is whose attempt could not be failed: %d, want 500", status)
+	}
+	sink.rejectErr = nil
+	// Refused for what it is, it would be refused at every send: its attempt is failed, and the node
+	// told to stop sending it (the queue audit, 2026-11-23).
+	if status := post(); status != nodeproto.StatusResultRejected || len(sink.rejected) != 2 ||
+		!errors.Is(sink.rejected[1].why, ErrMalformedResult) {
+		t.Errorf("a result the sink cannot take as it is: %d, rejected %+v; want %d and its attempt failed",
+			status, sink.rejected, nodeproto.StatusResultRejected)
 	}
 	sink.refusal = nil
 	if status := post(); status != http.StatusOK || len(sink.results) != 1 {
@@ -112,6 +121,21 @@ type recordingResultSink struct {
 	refusal error
 	// reconciled are the calls to reconcile what a node holds, in order.
 	reconciled []reconciliation
+	// rejected are the results whose attempts it was told to fail, refused for what they are.
+	rejected []rejection
+	// rejectErr, when set, is Reject's error: an attempt it could not fail.
+	rejectErr error
+}
+
+// rejection is one call to fail the attempt of a result refused for what it is.
+type rejection struct {
+	result nodeproto.Result
+	why    error
+}
+
+func (sink *recordingResultSink) Reject(_ context.Context, _ int64, result nodeproto.Result, why error) error {
+	sink.rejected = append(sink.rejected, rejection{result: result, why: why})
+	return sink.rejectErr
 }
 
 func (sink *recordingResultSink) Reconcile(
