@@ -75,6 +75,7 @@ import {
 import { RouteChooser } from "./route-chooser.tsx";
 import { StatusNotes, StatusTray, type CueSubject } from "./status-cues.tsx";
 import { GalleryFileBrowser } from "./ui-gallery-files.tsx";
+import { GallerySettings } from "./ui-gallery-settings.tsx";
 import { Stepper } from "./stepper.tsx";
 import { Timeline } from "./timeline.tsx";
 import { GalleryLayoutParts } from "./ui-gallery-layout.tsx";
@@ -149,6 +150,7 @@ export function UiGallery(): JSX.Element {
       <PopUpsAndLayouts />
       <GalleryLayoutParts />
       <GalleryFileBrowser />
+      <GallerySettings />
       <OverlayParts />
       <PlayerWidgets />
     </article>

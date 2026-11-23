@@ -16,6 +16,7 @@ import { WarningIcon } from "./icons.tsx";
 import { Link } from "./link.tsx";
 import { Loaded } from "./loaded.tsx";
 import { Page } from "./page.tsx";
+import type { Resource } from "./resource.ts";
 import type { Route } from "./router.ts";
 import {
   isFound,
@@ -214,24 +215,24 @@ function indexNeedsYou(
 }
 
 /**
- * Settings' index (pages-spec-3): Needs you while a key needs the admin or a setting is one this
- * release does not read; one search over every setting and key, advanced ones included, whose
- * results replace the list; then the pages, and the unread settings, folded.
+ * Settings' index as it is drawn (pages-spec-3): one search over every setting and key, advanced
+ * ones included, whose results replace the list, or that nothing matches; else the pages, one row
+ * each. What it reads is given, so the gallery draws it too.
  */
-function SettingsIndex(): JSX.Element {
+export function SettingsIndexView(props: {
+  readonly search: string;
+  readonly onSearch: (search: string) => void;
+  /** Every setting, as read, for the search alone. */
+  readonly settings: Resource<readonly Setting[]>;
+  /** The keys and passwords, once read, for Keys and passwords' line. */
+  readonly secrets: readonly Secret[] | undefined;
+  /** Whether a key needs the admin, which marks Keys and passwords' row. */
+  readonly isKeysNeeded: boolean;
+}): JSX.Element {
   const { t } = useTranslation();
-  const [search, setSearch] = useState("");
-  const attention = usePageAttention("settings");
-  const unread = useUnreadSettings();
-  const settings = useServerSettings();
-  const [secrets] = useSecrets();
-  const loadedSecrets = secrets.state === "loaded" ? secrets.value : undefined;
+  const { search, onSearch, secrets } = props;
   return (
-    <Page
-      heading={t("settings.heading")}
-      job={t("settings.job")}
-      needsYou={indexNeedsYou(attention, unread.listed.length)}
-    >
+    <>
       <search className="settings__filters">
         <Field label={t("settings.search")}>
           {(control) => (
@@ -240,24 +241,53 @@ function SettingsIndex(): JSX.Element {
               type="search"
               value={search}
               onChange={(event) => {
-                setSearch(event.target.value);
+                onSearch(event.target.value);
               }}
             />
           )}
         </Field>
       </search>
       {search.trim() === "" ? (
-        <SectionList secrets={loadedSecrets} isKeysNeeded={attention.length > 0} />
+        <SectionList secrets={secrets} isKeysNeeded={props.isKeysNeeded} />
       ) : (
         <Loaded
-          resource={settings}
+          resource={props.settings}
           render={(loaded) => (
             <SearchResults
-              found={foundBySearch(t, search, { settings: loaded, secrets: loadedSecrets ?? [] })}
+              found={foundBySearch(t, search, { settings: loaded, secrets: secrets ?? [] })}
             />
           )}
         />
       )}
+    </>
+  );
+}
+
+/**
+ * Settings' index (pages-spec-3): Needs you while a key needs the admin or a setting is one this
+ * release does not read; the search and the pages (SettingsIndexView); then the unread settings,
+ * folded.
+ */
+function SettingsIndex(): JSX.Element {
+  const { t } = useTranslation();
+  const [search, setSearch] = useState("");
+  const attention = usePageAttention("settings");
+  const unread = useUnreadSettings();
+  const settings = useServerSettings();
+  const [secrets] = useSecrets();
+  return (
+    <Page
+      heading={t("settings.heading")}
+      job={t("settings.job")}
+      needsYou={indexNeedsYou(attention, unread.listed.length)}
+    >
+      <SettingsIndexView
+        search={search}
+        onSearch={setSearch}
+        settings={settings}
+        secrets={secrets.state === "loaded" ? secrets.value : undefined}
+        isKeysNeeded={attention.length > 0}
+      />
       <UnreadSettingsFold unread={unread} />
     </Page>
   );

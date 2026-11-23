@@ -250,3 +250,32 @@ it("draws the player's new Pills and every shell Banner in each state (D538 §1)
   }
   expect(overlays).toContain("Remind me tomorrow");
 });
+
+it("draws Settings' pages by their own views: the index, a search found and not, a section's settings saved, refused and unanswered, and Keys and passwords (D538 §11)", () => {
+  const markup = renderToStaticMarkup(withServices(<UiGallery />));
+  const settings = markup.slice(
+    markup.indexOf('id="gallery-settings"'),
+    markup.indexOf('id="gallery-overlays"'),
+  );
+  // The index: Keys and passwords first, its keys' states and its warning, then the sections.
+  expect(settings).toContain(
+    "TMDB API key set · OpenSubtitles username not set · OpenSubtitles password set",
+  );
+  expect(settings).toContain("warning-icon");
+  expect(settings).toContain("Diagnostics");
+  // A search's results, each with its page's name, and one nothing matches.
+  expect(settings).toMatch(/Time zone<\/span><span class="settings-index__summary">General/u);
+  expect(settings).toContain("No setting matches.");
+  // A setting of each kind: a Switch, a Stepper and a text field.
+  expect(settings).toContain('role="switch"');
+  expect(settings).toContain("Most titles in Continue watching: one more");
+  expect(settings).toContain('value="Europe/Berlin"');
+  // Saved, refused, and every setting advanced.
+  expect(settings.match(/>Saved</gu)?.length).toBeGreaterThanOrEqual(3);
+  expect(settings.match(/The server can&#x27;t use this value\./gu)).toHaveLength(3);
+  expect(settings).toContain("Every setting here is advanced.");
+  // Keys and passwords: set with its last four, not set, and to be entered again.
+  expect(settings).toContain("Set, ending in 4f2a");
+  expect(settings).toContain("Not set");
+  expect(settings.match(/>Remove…</gu)).toHaveLength(2);
+});
