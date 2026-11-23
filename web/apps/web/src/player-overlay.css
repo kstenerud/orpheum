@@ -52,24 +52,9 @@
   visibility: hidden;
 }
 
-/* The scrub bar focused looks as it always does, no ring; a key's focus on another of the overlay's
-   controls fades it a little, enough to say focus left it (the owner, 2026-11-03; D410). A mouse's
-   focus is not :focus-visible, so a pointer never fades it. Where the browser asks for more contrast,
-   the focused scrub bar has the ring as well (focus-ring-contrast.test.ts). */
-.player-overlay .timeline__range {
-  transition: opacity var(--duration-quick) var(--easing-exit);
-}
-
-@media (forced-colors: none) and (prefers-contrast: no-preference) {
-  .player-overlay .timeline__range:focus-visible {
-    outline: none;
-    box-shadow: none;
-  }
-}
-
-.player-overlay:has(:focus-visible) .timeline__range:not(:focus-visible) {
-  opacity: 0.6;
-}
+/* The scrub bar focused has the ring every control has (standards/ui.md rule 4), and focus on another
+   control leaves it as it is (D538 §6, amending the owner's 2026-11-03 look and D410's fade): a fade
+   alone said where focus was by opacity. */
 
 /* An offer stays through a seek's scrub bar and the pause sign (Q3). */
 .player-overlay[data-offer] .convenience-area {
@@ -151,11 +136,25 @@
   align-items: stretch;
 }
 
+/* "‹ {parent}" takes the room left over and ends in an ellipsis, so a long name never pushes what
+   follows it off the row (D538 §6); no row wraps. */
 .player-overlay__up {
   display: inline-flex;
+  flex: 1 1 0;
   gap: var(--space-2);
   align-items: center;
+  min-width: 0;
   color: inherit;
+}
+
+.player-overlay__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-overlay .player-controls__buttons {
+  flex-wrap: nowrap;
 }
 
 /* The pause sign, over the film's middle, while OK has paused it with the overlay hidden (D407 §4). */
@@ -172,39 +171,20 @@
   display: none;
 }
 
-/* The line over a film the browser would not start (useStartRefused in player-overlay.tsx): above
-   the middle, clear of the overlay's rows, on the film's control ground. */
-.player-overlay-refused {
+/* The centre's one note (standards/ui.md rule 15, D538 §6): the volume a moment, or the line over a
+   film the browser would not start, a Pill (pill.css) in the film's middle, where the pause sign
+   would be. The place alone is here; the look is the Pill's. */
+.player-overlay-centre {
   position: absolute;
-  top: 35%;
-  left: 50%;
-  max-width: calc(100% - 2 * var(--space-3));
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-control);
-  background: var(--color-video-card);
-  color: var(--color-on-video);
-  font-size: var(--font-size-h2);
-  text-align: center;
-  pointer-events: none;
-  transform: translate(-50%, -50%);
-}
-
-/* The volume + or − left (D407 §10), a moment, where the pause sign would be. */
-.player-overlay-volume {
-  position: absolute;
+  z-index: var(--layer-video-note);
   top: 50%;
   left: 50%;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-control);
-  background: var(--color-video-card);
-  color: var(--color-on-video);
-  font-size: var(--font-size-h2);
+  max-width: calc(100% - 2 * var(--space-3));
   pointer-events: none;
   transform: translate(-50%, -50%);
 }
 
-.player-overlay-volume[hidden] {
+.player-overlay-centre[hidden] {
   display: none;
 }
 
@@ -212,12 +192,8 @@
    after the last tap, and with reduced motion it only goes. It takes no tap and no focus. */
 .player-overlay-seeked {
   position: absolute;
+  z-index: var(--layer-video-note);
   top: 50%;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-control);
-  background: var(--color-video-card);
-  color: var(--color-on-video);
-  font-size: var(--font-size-h2);
   font-variant-numeric: tabular-nums;
   opacity: 0;
   pointer-events: none;
@@ -311,8 +287,9 @@ dialog[open] {
 /* While the overlay's buttons show, the subtitles JASSUB draws move up above them, and back down as
    they hide (D407 §8): the whole canvas, which lies over the video in the stage, rises by the rows'
    height. Only JASSUB's layer: a browser's own captions show in the video's own full screen alone, an
-   iPhone's, where the overlay is not drawn (plans/player-overlay.md). A justified length: the three
-   rows and their padding, as the overlay lays them out at its default size. */
+   iPhone's, where the overlay is not drawn (plans/player-overlay.md). The rows' height is measured as
+   they are drawn (overlay-measure.ts, D538 §6); the fallback, a justified length, is the three rows
+   and their padding at the overlay's default size, for the moment before the first measure. */
 .film-player__stage:has(.player-overlay[data-shown="full"]) .JASSUB {
   translate: 0 calc(-1 * var(--player-overlay-lift, 11rem));
 }

@@ -77,10 +77,10 @@ describe("the player's buttons, icons in place of characters a television's font
     const buttons = [...mounted.container.querySelectorAll("button")];
     vi.restoreAllMocks();
     expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
-      "Cast to a device",
       "Back 10 s",
       "Play",
       "Forward 10 s",
+      "Cast to a device",
       "Full screen",
     ]);
     for (const button of buttons) {

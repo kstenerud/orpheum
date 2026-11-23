@@ -54,7 +54,7 @@ describe("a film the browser would not start, on the Play page's overlay", () =>
 
   /** The line over the picture. */
   function line(): HTMLElement | null | undefined {
-    return mounted?.container.querySelector<HTMLElement>(".player-overlay-refused");
+    return mounted?.container.querySelector<HTMLElement>(".player-overlay-refused output");
   }
 
   // Chrome on an iPhone refused a start asked 0.58 s after the press, and the page was black, no

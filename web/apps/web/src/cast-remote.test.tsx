@@ -285,12 +285,15 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(places.some((place) => place.includes("bare"))).toBe(false);
   });
 
-  it("holds the tray's Cast sign in its top row, whose dialog holds Stop casting, and no Stop of its own (D444)", async () => {
+  // D538 §7 (the owner, 2026-11-22): the signs end the buttons row, as the overlay's do.
+  it("holds the tray's Cast sign in its buttons row, whose dialog holds Stop casting, and no Stop of its own (D444)", async () => {
     await casting({}, [], { castSign: () => <button type="button">Cast sign</button> });
     const page = mounted!.container;
     expect(buttonWithText(page, "Stop casting")).toBeUndefined();
+    const buttons = page.querySelector<HTMLElement>(".player-overlay__buttons");
+    expect(buttons === null ? undefined : buttonWithText(buttons, "Cast sign")).toBeDefined();
     const top = page.querySelector<HTMLElement>(".player-overlay__top");
-    expect(top === null ? undefined : buttonWithText(top, "Cast sign")).toBeDefined();
+    expect(top === null ? undefined : buttonWithText(top, "Cast sign")).toBeUndefined();
   });
 
   // A Fire TV's own controls are hidden while it is controlled, so its sound could only be changed

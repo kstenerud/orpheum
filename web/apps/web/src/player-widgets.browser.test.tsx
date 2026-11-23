@@ -33,6 +33,7 @@ import { PlayUpwardContext } from "./play-up.tsx";
 import { PlayerOverlay } from "./player-overlay.tsx";
 import { doubleTapWaitMs } from "./player-overlay-state.ts";
 import { mount, type Mounted } from "./test-dom.tsx";
+import { isRingShown } from "./test-parts.ts";
 import { withServices } from "./test-services.tsx";
 import { UiGallery } from "./ui-gallery.tsx";
 import type { Upward } from "./upward.ts";
@@ -334,9 +335,9 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
     );
   });
 
-  // The owner, 2026-11-03: focused, the scrub bar looks as it always does, its ring "looks terrible";
-  // a key's focus moved off it fades it a little, a mouse's never (D410).
-  it("draws the focused scrub bar with no ring, and fades it a little while a key's focus is on a button", async () => {
+  // D538 §6 (the owner, 2026-11-22): focused, the scrub bar has the ring every control has, and a
+  // key's focus moved off it leaves it as it is, no fade, which said where focus was by opacity alone.
+  it("draws the focused scrub bar with its ring, and leaves it unfaded while a key's focus is on a button", async () => {
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", document.createElement("video"));
     // The overlay's time held, so it stays up while the keys come: under load a walk outlasted its
@@ -360,12 +361,38 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
         }
         expect(overlay.getAttribute("data-shown")).toBe("full");
         expect(scrub.matches(":focus-visible")).toBe(true);
-        expect(getComputedStyle(scrub).outlineStyle).toBe("none");
-        expect(getComputedStyle(scrub).boxShadow).toBe("none");
-        await expect.poll(() => getComputedStyle(scrub).opacity).toBe("1");
+        expect(isRingShown()).toBe(true);
         await userEvent.keyboard("{Tab}");
         expect(overlay.contains(document.activeElement)).toBe(true);
-        await expect.poll(() => getComputedStyle(scrub).opacity).toBe("0.6");
+        expect(isRingShown()).toBe(true);
+        expect(getComputedStyle(scrub).opacity).toBe("1");
+      },
+    );
+  });
+
+  it("lifts JASSUB's subtitles by the overlay's rows as they are drawn, not by a fixed guess (D538 §6)", async () => {
+    const videoRef = createRef<HTMLVideoElement>();
+    Reflect.set(videoRef, "current", document.createElement("video"));
+    await drawn(
+      <div className="film-player__stage">
+        <canvas className="JASSUB" />
+        <PlayerOverlay videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
+      </div>,
+      async (mounted) => {
+        const stage = found(mounted.container, ".film-player__stage");
+        const overlay = found(mounted.container, ".player-overlay");
+        shownByAMouse();
+        const rowsPx = (): number =>
+          Math.ceil(
+            overlay.getBoundingClientRect().bottom -
+              found(overlay, ".player-overlay__top").getBoundingClientRect().top,
+          );
+        await expect
+          .poll(() => stage.style.getPropertyValue("--player-overlay-lift"))
+          .toBe(`${String(rowsPx())}px`);
+        expect(getComputedStyle(found(mounted.container, ".JASSUB")).translate).toBe(
+          `0px -${String(rowsPx())}px`,
+        );
       },
     );
   });

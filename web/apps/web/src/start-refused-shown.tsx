@@ -6,6 +6,7 @@ import { useEffect, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useLatest } from "./latest.ts";
+import { Pill } from "./pill.tsx";
 import { startRefusedEvent } from "./start-refused.ts";
 
 /**
@@ -56,11 +57,14 @@ export function useStartRefused(
 
 /**
  * The line over a film the browser would not start (useStartRefused), saying why the picture stands
- * still and what starts it, drawn only then; an output, a status a screen reader says as it shows.
+ * still and what starts it, drawn only then: a centre Pill, a status a screen reader says as it
+ * shows (standards/ui.md, over the film).
  */
 export function StartRefusedShown(props: { readonly isShown: boolean }): JSX.Element | null {
   const { t } = useTranslation();
   return props.isShown ? (
-    <output className="player-overlay-refused">{t("playerControls.pressPlayToStart")}</output>
+    <span className="player-overlay-centre player-overlay-refused">
+      <Pill>{t("playerControls.pressPlayToStart")}</Pill>
+    </span>
   ) : null;
 }

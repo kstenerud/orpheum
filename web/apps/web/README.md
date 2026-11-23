@@ -81,7 +81,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `preloadableScreen`), so a first press opens it at once, never "Loading…" in the sign's place
   (the owner, 2026-11-03; VQ254). `src/status-tray.test.tsx`, `src/app-shell.test.tsx`, `src/app.test.tsx`,
   `src/ui-gallery.test.tsx`, `src/player-widgets.browser.test.tsx`. Over a film in full screen,
-  which hides the tray, Watch Together's sign is in the overlay's top row and opens the same dialog
+  which hides the tray, Watch Together's sign is in the overlay's buttons row, after the menus and
+  before Cast's and full screen (D538 §7), and opens the same dialog
   over the film (`src/together-over-the-film.tsx`, D433): blue while a session's panel is drawn,
   which moves in under the controls, and, with no session, white to a person who may host and is
   not receiving a cast, so a session starts from full screen and the dialog stays open as the

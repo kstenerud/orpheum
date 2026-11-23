@@ -437,7 +437,12 @@ function RemotePlaying(props: {
         source={source}
         controls={remoteControls}
         moves={moves}
-        menus={<RemoteMenus playback={playback} connection={props.cast.connection} />}
+        menus={
+          <>
+            <RemoteMenus playback={playback} connection={props.cast.connection} />
+            <SignsOverTheFilm onOpenChange={noOverlay} />
+          </>
+        }
         isOverTheFilm={false}
       />
     </div>
@@ -448,8 +453,9 @@ function RemotePlaying(props: {
 const remoteControls: readonly PlayerControl[] = ["previous", "steps", "play"];
 
 /**
- * The remote's top row, as the overlay's over the film: the film's sign, Up next at its end, and
- * the signs over the film (the Cast sign, Watch Together's).
+ * The remote's top row, as the overlay's over the film: the film's sign and Up next at its end; the
+ * signs over the film (the Cast sign, Watch Together's) end its buttons row, as the overlay's do
+ * (D538 §7).
  */
 function RemoteTop(props: {
   readonly sent: CastSending;
@@ -474,7 +480,6 @@ function RemoteTop(props: {
           <RemoteUpNext sent={sent} upNext={props.upNext} />
         </div>
       ) : null}
-      <SignsOverTheFilm onOpenChange={noOverlay} />
     </>
   );
 }

@@ -31,11 +31,9 @@ import {
   PlayerControls,
   useVideoSource,
   type PlayerControl,
-  type PlayerSound,
   type PlayerSource,
   type SequenceMoves,
 } from "./player-controls.tsx";
-import { PauseIcon } from "./player-icons.tsx";
 import { PlayerMenus } from "./player-menus.tsx";
 import {
   afterPictureTap,
@@ -45,13 +43,14 @@ import {
   shownWith,
   type OverlayAnswer,
   type OverlayControl,
-  volumeShownForMs,
   type OverlayState,
   type PressContext,
 } from "./player-overlay-state.ts";
-import { useAnswersPictureTaps, useOpensAtThePointer, type SeekFeedback } from "./player-taps.ts";
+import { useAnswersPictureTaps, useOpensAtThePointer } from "./player-taps.ts";
 import { OverlayShield } from "./overlay-shield.tsx";
-import { StartRefusedShown, useStartRefused } from "./start-refused-shown.tsx";
+import { OverThePicture, useVolumeShown, type PictureSigns } from "./over-the-picture.tsx";
+import { useOverlayMeasured } from "./overlay-measure.ts";
+import { useStartRefused } from "./start-refused-shown.tsx";
 import { StopCastingHere } from "./stop-casting-here.tsx";
 import { Timeline } from "./timeline.tsx";
 import { TogetherSignOverTheFilm } from "./together-over-the-film.tsx";
@@ -100,6 +99,7 @@ export function PlayerOverlay(
   const told = { hasOffer, isMenuOpen };
   const overlay = useOverlay(refs, told);
   const { state, source, isTv } = overlay;
+  const isPhone = useOverlayMeasured(overlayRef, state.shown);
   const convenience = {
     film,
     offer,
@@ -116,6 +116,7 @@ export function PlayerOverlay(
         className="player-overlay"
         data-shown={shownWith(state.shown, hasOffer)}
         data-offer={hasOffer ? "" : undefined}
+        data-layout={isPhone ? "phone" : undefined}
         data-focus-container=""
         data-player-controls=""
       >
@@ -194,106 +195,6 @@ function useOverlay(
   return { state, source, isTv, signs };
 }
 
-/** The signs over the picture besides the pause sign (OverThePicture), as the overlay has them. */
-interface PictureSigns {
-  readonly isVolumeShown: boolean;
-  readonly seekFeedback: SeekFeedback | undefined;
-  /** Whether the browser refused the film's start and it has not played since (useStartRefused). */
-  readonly isStartRefused: boolean;
-}
-
-/**
- * What shows over the picture, outside the overlay's rows: the pause sign after OK paused, the line
- * over a film the browser would not start, a double tap's seek and the volume a moment.
- */
-function OverThePicture(
-  props: PictureSigns & { readonly state: OverlayState; readonly source: PlayerSource },
-): JSX.Element {
-  const { state, source } = props;
-  return (
-    <>
-      <span className="player-overlay-paused" hidden={state.shown !== "paused"} aria-hidden="true">
-        <PauseIcon />
-      </span>
-      <StartRefusedShown isShown={props.isStartRefused && source.isPaused} />
-      <SeekFeedbackShown feedback={props.seekFeedback} />
-      <VolumeShown sound={source.sound} isShown={props.isVolumeShown} />
-    </>
-  );
-}
-
-/**
- * Whether the volume shows, and what shows it: from a press of + or − for volumeShownForMs after
- * the last (D407 §10), as the scrub bar shows alone after a seek.
- */
-function useVolumeShown(): { readonly isShown: boolean; readonly show: () => void } {
-  const [pressCount, setPressCount] = useState(0);
-  const [isShown, setIsShown] = useState(false);
-  useEffect(() => {
-    if (pressCount === 0) {
-      return undefined;
-    }
-    const timer = setTimeout(() => {
-      setIsShown(false);
-    }, volumeShownForMs);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [pressCount]);
-  return {
-    isShown,
-    show: () => {
-      setIsShown(true);
-      setPressCount((count) => count + 1);
-    },
-  };
-}
-
-/**
- * A double-tap seek's "+10" or "−10", stacking as "+20", on the side tapped, fading shortly after the
- * last tap (D415 §5). It is aria-hidden: the seek is what a screen reader's user has, not a second
- * announcement; it takes no pointer and no focus.
- */
-function SeekFeedbackShown(props: {
-  readonly feedback: SeekFeedback | undefined;
-}): JSX.Element | null {
-  const { t } = useTranslation();
-  const { feedback } = props;
-  if (feedback === undefined) {
-    return null;
-  }
-  const key =
-    feedback.direction === 1 ? "playerControls.seekedForward" : "playerControls.seekedBack";
-  return (
-    <span
-      className="player-overlay-seeked"
-      data-side={feedback.direction === 1 ? "right" : "left"}
-      data-shown={feedback.isShown ? "" : undefined}
-      aria-hidden="true"
-    >
-      {t(key, { seconds: feedback.seconds })}
-    </span>
-  );
-}
-
-/** The volume + or − left, in the middle of the film a moment (useVolumeShown); muted is none. */
-function VolumeShown(props: {
-  readonly sound: PlayerSound | undefined;
-  readonly isShown: boolean;
-}): JSX.Element | null {
-  const { t } = useTranslation();
-  const { sound } = props;
-  if (sound === undefined) {
-    return null;
-  }
-  const percent = sound.isMuted ? 0 : Math.round(sound.volume * 100);
-  return (
-    <output className="player-overlay-volume" hidden={!props.isShown}>
-      {props.isShown ? t("playerControls.volumeLevel", { percent }) : ""}
-    </output>
-  );
-}
-
 /**
  * The overlay as the player opens: hidden on every device, the picture alone with nothing ringed
  * (ui-audit-2026-11-04.md §3, the player: "no ring, controls hidden"); the first press shows it
@@ -317,8 +218,10 @@ interface OverlayRefs {
 }
 
 /**
- * The tray's signs over the film, last in the top row: Watch Together's, then Cast's (D422, D423);
- * on the cast's remote's too (D444), whose Cast sign's dialog holds Stop casting.
+ * The tray's signs over the film, after the menus at the buttons row's end, before full screen:
+ * Watch Together's, then Cast's (D538 §7, amending D422 §1 and D423 §1), so the top row's title keeps
+ * its width and a remote finds every control in one row; on the cast's remote's too (D444), whose
+ * Cast sign's dialog holds Stop casting.
  */
 export function SignsOverTheFilm(props: {
   readonly onOpenChange: (isOpen: boolean) => void;
@@ -334,9 +237,9 @@ export function SignsOverTheFilm(props: {
 
 /**
  * The overlay's three rows (D407 §1): the way up and the convenience area (convenience-area.tsx);
- * the scrub bar; the buttons, those the device shows (controlsShown), the menus 🔈, Subtitles, Sound
- * track and ⁝ before full screen (player-menus.tsx), and previous and next where the sequence has
- * them (moves). Exported for the UI gallery, which draws the real rows over no film (ui-gallery.tsx);
+ * the scrub bar; the buttons, those the device shows (controlsShown), the menus (player-menus.tsx)
+ * and the signs over the film (SignsOverTheFilm) before full screen, and previous and next where
+ * the sequence has them (moves). No row wraps (player-overlay.css). Exported for the UI gallery, which draws the real rows over no film (ui-gallery.tsx);
  * what the overlay does with them, its showing, hiding and presses, is PlayerOverlay's.
  */
 export function OverlayRows({
@@ -366,14 +269,18 @@ export function OverlayRows({
             {...convenience}
             leftMs={source.durationMs === 0 ? undefined : source.durationMs - source.atMs}
           />
-          <SignsOverTheFilm onOpenChange={onMenuOpenChange} />
         </>
       }
       source={source}
       refs={refs}
       controls={barControlsOf(shown)}
       moves={moves}
-      menus={<PlayerMenus {...menus} onOpenChange={onMenuOpenChange} />}
+      menus={
+        <>
+          <PlayerMenus {...menus} onOpenChange={onMenuOpenChange} />
+          <SignsOverTheFilm onOpenChange={onMenuOpenChange} />
+        </>
+      }
       isOverTheFilm
     />
   );

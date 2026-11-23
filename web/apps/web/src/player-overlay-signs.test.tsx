@@ -47,28 +47,38 @@ describe("the player's overlay's signs over the film", () => {
     mounted.container.querySelector(".film-player__stage")?.prepend(video);
   }
 
-  /** The labels of the top row's buttons, in order. */
-  function topLabels(): (string | null)[] {
-    const top = mounted?.container.querySelector(".player-overlay__top");
-    return [...(top?.querySelectorAll("button") ?? [])].map((button) =>
+  /** The labels of the buttons row's trailing buttons, in order. */
+  function trailingLabels(): (string | null)[] {
+    const trailing = mounted?.container.querySelector(
+      ".player-overlay__buttons .player-controls__trailing",
+    );
+    return [...(trailing?.querySelectorAll("button") ?? [])].map((button) =>
       button.getAttribute("aria-label"),
     );
   }
 
-  it("draws Cast's sign last in its top row, over the film", async () => {
+  // D538 §7 (the owner, 2026-11-22): the signs leave the top row, so the way up keeps its width,
+  // and end the buttons row's menus, before full screen.
+  it("draws Cast's sign after the menus in its buttons row, before full screen, over the film", async () => {
     await drawn();
+    const labels = trailingLabels();
+    const cast = labels.indexOf("Cast to a device");
+    expect(cast).not.toBe(-1);
+    expect(labels[cast + 1]).toBe("Full screen");
     const top = mounted?.container.querySelector(".player-overlay__top");
-    const last = top?.lastElementChild?.querySelector("button");
-    expect(last?.getAttribute("aria-label")).toBe("Cast to a device");
-    expect(last?.classList.contains("icon-button--over-video")).toBe(true);
-    expect(topLabels()).not.toContain("Watch Together is on: its controls");
+    expect(top?.querySelector('[aria-label="Cast to a device"]')).toBeNull();
+    const sign = mounted?.container.querySelector('[aria-label="Cast to a device"]');
+    expect(sign?.classList.contains("icon-button--over-video")).toBe(true);
+    expect(labels).not.toContain("Watch Together is on: its controls");
   });
 
   it("draws Watch Together's sign just before Cast's while a session's panel is drawn (D423)", async () => {
     await drawn();
     const panel = await mount(<TogetherPanel>{null}</TogetherPanel>);
     try {
-      expect(topLabels().slice(-2)).toEqual([
+      const labels = trailingLabels();
+      const cast = labels.indexOf("Cast to a device");
+      expect(labels.slice(cast - 1, cast + 1)).toEqual([
         "Watch Together is on: its controls",
         "Cast to a device",
       ]);
