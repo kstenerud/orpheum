@@ -424,16 +424,19 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
     await press("{ArrowDown}");
     expect(document.activeElement?.getAttribute("aria-label")).toBe("Back 10 s");
     const walked: (string | null | undefined)[] = [];
-    for (let step = 0; step < 6; step += 1) {
+    for (let step = 0; step < 8; step += 1) {
       await press("{ArrowRight}");
       walked.push(document.activeElement?.getAttribute("aria-label"));
     }
+    // The signs, Watch Together and Cast, end the buttons row, before Full screen (D538 §7).
     expect(walked).toEqual([
       "Play",
       "Forward 10 s",
       "Subtitles: Off",
       "Sound",
       "Settings",
+      "Watch Together",
+      "Cast to a device",
       "Full screen",
     ]);
     expect(document.activeElement).toBe(fullScreen);
