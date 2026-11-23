@@ -49,7 +49,7 @@ func TestDocument_ResponsesAreOpenAndRequestsClosed(t *testing.T) {
 	document := newServer(slog.New(slog.DiscardHandler), nil).OpenAPI()
 	library := map[string]any{
 		"id": 1, "name": "Films", "kind": "film", "metadataSource": "tmdb", "changeDetection": "watch",
-		"isWritable": true, "createdAt": 1, "addedByALaterServer": "ignored",
+		"checkEveryHours": 6, "isWritable": true, "createdAt": 1, "addedByALaterServer": "ignored",
 	}
 	if refused := validateAgainst(t, document, "LibraryBody", library); len(refused) != 0 {
 		t.Errorf("a library with a field a later server added is refused: %v", refused)

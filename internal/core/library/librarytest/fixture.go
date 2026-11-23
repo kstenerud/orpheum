@@ -44,7 +44,7 @@ func LibraryOn(t *testing.T, database *store.Database, nodeID int64, library Lib
 		var err error
 		libraryID, err = queries.InsertLibrary(t.Context(), sqlcgen.InsertLibraryParams{
 			Name: library.Name, Kind: library.Kind, MetadataSource: library.MetadataSource,
-			ChangeDetection: "manual", CreatedAt: 1,
+			ChangeDetection: "manual", CheckEveryHours: 6, CreatedAt: 1,
 		})
 		if err != nil {
 			return err

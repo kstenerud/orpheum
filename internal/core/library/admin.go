@@ -148,9 +148,14 @@ func (admin *Admin) Create(ctx context.Context, request CreateRequest) (int64, e
 	library := request.NewLibrary
 	library.NodeID = nodeID
 	library.Roots = admin.outermostOfNew(ctx, request.NodeName, request.Roots)
+	hours, err := hoursToStart(ctx, admin.settings, library.CheckEveryHours)
+	if err != nil {
+		return 0, err
+	}
+	library.CheckEveryHours = &hours
 	var id int64
 	var forgotten []jobs.Destination
-	err := admin.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+	err = admin.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		var createErr error
 		if id, createErr = create(ctx, queries, admin.clock, library); createErr != nil {
 			return createErr
@@ -182,8 +187,9 @@ func (admin *Admin) Create(ctx context.Context, request CreateRequest) (int64, e
 }
 
 // SetChangeDetection chooses again how a library notices changes: "watch", "interval" every
-// checkEveryHours, or "manual" (D184). The next scan schedule, and the watcher's next notice, follow
-// it (D272 §1, §9). The schema's checks refuse an answer outside the closed set.
+// checkEveryHours, or "manual" (D184); hours given are kept whatever it notices changes by, and nil
+// keeps those it has (D541 §1). The next scan schedule, and the watcher's next notice, follow it
+// (D272 §1, §9). The schema's checks refuse an answer outside the closed set.
 func (admin *Admin) SetChangeDetection(
 	ctx context.Context, libraryID int64, changeDetection string, checkEveryHours *int64,
 ) error {

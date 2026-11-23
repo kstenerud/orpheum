@@ -156,10 +156,12 @@
 //   - Every write to a row people edit (a field set by hand, a library, a user, a role, a setting)
 //     raises its revision (sql.md M1). Enforced by TestRevision_EachUpdateOfAnEditedRowRaisesIt.
 //   - The schema keeps the rules D303 put in the engine: every table, both databases', STRICT; a
-//     work and a sequence an item of their kind; an id at a source only with its source; a
-//     library's interval only for checking by interval; one sort key per item in each locale; the
-//     full-text indexes rewritten only on change; an index for each path a query takes. Enforced by
-//     TestSchema_EveryTableIsStrict, TestSchema_RefusesRowsThatBreakTheirRules,
+//     work and a sequence an item of their kind; an id at a source only with its source; every
+//     library's hours between checks, one at least, whatever it notices changes by (D541 §1); one
+//     sort key per item in each locale; the full-text indexes rewritten only on change; an index for
+//     each path a query takes. Enforced by TestSchema_EveryTableIsStrict,
+//     TestSchema_RefusesRowsThatBreakTheirRules,
+//     TestMigrate_EveryLibraryHasItsHoursBetweenChecksAfterStep0101,
 //     TestSchema_ASortKeyIsOnePerItemInEachLocaleAndReadByIt,
 //     TestSchema_TheTextIndexesAreRewrittenOnlyOnChange and TestSchema_EachPathsIndexServesIt.
 //   - A foreign key whose parent can be deleted, or that cascades or sets null, has an index on its

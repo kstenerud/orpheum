@@ -8,7 +8,14 @@ import { useTranslation } from "react-i18next";
 
 import { ChooseOpener } from "./file-browser-choose.tsx";
 import { LibraryOffer } from "./library-offer.tsx";
-import { blankLibrary, libraryToCreate, libraryWords, type NewLibrary } from "./library-draft.ts";
+import {
+  blankLibrary,
+  boundedHours,
+  mostHoursBetweenChecks,
+  libraryToCreate,
+  libraryWords,
+  type NewLibrary,
+} from "./library-draft.ts";
 import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
 import { submitWith } from "./form-row.tsx";
@@ -30,8 +37,8 @@ export type LibraryNode = components["schemas"]["NodeBody"];
 type Setting = components["schemas"]["SettingBody"];
 
 /**
- * The hours between checks a new library checked on an interval starts with: the server's
- * newLibraryDefaultScanEveryHours, so the form holds no default of its own (D200).
+ * The hours between checks a new library starts with: the server's newLibraryDefaultScanEveryHours,
+ * so the form holds no default of its own (D200).
  */
 export function checkEveryHoursToStart(settings: readonly Setting[]): number {
   const value = settings.find(
@@ -44,19 +51,24 @@ export function checkEveryHoursToStart(settings: readonly Setting[]): number {
 }
 
 /**
- * The draft with how changes are noticed chosen: an interval starts at hoursToStart unless hours
- * were already given, and any other choice takes none, since the server refuses hours without an
- * interval.
+ * The draft with its hours between checks, which it always holds, whatever it notices changes by:
+ * those given, or hoursToStart, within their bounds (D541 §1).
+ */
+export function withHours(draft: NewLibrary, hoursToStart: number): NewLibrary {
+  const hours = draft.checkEveryHours ?? hoursToStart;
+  return { ...draft, checkEveryHours: boundedHours(hours, 1) };
+}
+
+/**
+ * The draft with how changes are noticed chosen. Its hours are kept whatever is chosen, and used
+ * only for an interval (D541 §1).
  */
 export function withChangeDetection(
   draft: NewLibrary,
   changeDetection: NewLibrary["changeDetection"],
   hoursToStart: number,
 ): NewLibrary {
-  const { checkEveryHours, ...rest } = draft;
-  return changeDetection === "interval"
-    ? { ...rest, changeDetection, checkEveryHours: checkEveryHours ?? hoursToStart }
-    : { ...rest, changeDetection };
+  return { ...withHours(draft, hoursToStart), changeDetection };
 }
 
 /** The roots chosen, with one ticked or unticked. */
@@ -362,7 +374,7 @@ function ScanningQuestions(props: {
       />
       {draft.changeDetection === "interval" ? (
         <HoursStepper
-          hours={draft.checkEveryHours ?? props.checkEveryHoursToStart}
+          hours={withHours(draft, props.checkEveryHoursToStart).checkEveryHours ?? 1}
           onChange={(hours) => {
             props.setAnswer("checkEveryHours", hours);
           }}
@@ -371,9 +383,6 @@ function ScanningQuestions(props: {
     </>
   );
 }
-
-/** The most hours between checks the form offers: a week (the review's 1 to 168, D538 §9). */
-const mostHoursBetweenChecks = 168;
 
 /** The hours between a library's checks, stepped an hour at a time from 1 to a week. */
 function HoursStepper(props: {
@@ -457,7 +466,7 @@ export function CreateLibraryForm(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const Heading = props.isNested === true ? "h2" : "h1";
-  const draft = onAConnectedNode(props.draft, props.nodes);
+  const draft = withHours(onAConnectedNode(props.draft, props.nodes), props.checkEveryHoursToStart);
   const marks = useFormFields(props.failure, failedFields(props.failure, libraryWords(t)));
   // An answer changed takes its field's mark away.
   const setAnswer: SetAnswer = (key, value) => {
@@ -547,7 +556,11 @@ export function CreateLibrary(props: {
   });
   const nodes = choices.state === "loaded" ? choices.value.nodes : [];
   const submit = (): void => {
-    const body = libraryToCreate(onAConnectedNode(draft, nodes));
+    if (choices.state !== "loaded") {
+      return;
+    }
+    const placed = onAConnectedNode(draft, nodes);
+    const body = libraryToCreate(withHours(placed, choices.value.checkEveryHoursToStart));
     creating.runRequest(async (idempotencyKey) => {
       const created = dataOrThrow(
         await api.POST("/libraries", { body, ...idempotent(idempotencyKey) }),

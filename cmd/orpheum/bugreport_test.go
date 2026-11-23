@@ -38,8 +38,8 @@ func bugreportInstance(t *testing.T, logFile string) (Config, string) {
 	storetest.ExecRaw(t, filepath.Join(config.Instance.PersistentDir, "persistent.db"),
 		`INSERT INTO user (name, role_id, created_at) VALUES ('danielle', 1, 1)`,
 		`INSERT INTO node (name, enrolled_at) VALUES ('garagebox', 1)`,
-		`INSERT INTO library (name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES ('grandmas shelf', 'movie', 'tmdb', 'manual', 0, 1)`)
+		`INSERT INTO library (name, kind, metadata_source, change_detection, check_every_hours, is_writable, created_at)
+		 VALUES ('grandmas shelf', 'movie', 'tmdb', 'manual', 6, 0, 1)`)
 	return config, configPath
 }
 

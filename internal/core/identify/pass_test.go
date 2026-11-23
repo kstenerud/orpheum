@@ -344,7 +344,8 @@ func TestPass_ATitleFollowsItsFilesToAnotherLibrary(t *testing.T) {
 	err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		var err error
 		kidsID, err = queries.InsertLibrary(t.Context(), sqlcgen.InsertLibraryParams{
-			Name: "Kids", Kind: "movie", MetadataSource: "nfo", ChangeDetection: "manual", CreatedAt: 1,
+			Name: "Kids", Kind: "movie", MetadataSource: "nfo", ChangeDetection: "manual",
+			CheckEveryHours: 6, CreatedAt: 1,
 		})
 		if err != nil {
 			return fmt.Errorf("library: %w", err)

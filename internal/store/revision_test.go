@@ -102,8 +102,9 @@ func TestRevision_EachUpdateOfAnEditedRowRaisesIt(t *testing.T) {
 			storetest.ExecRaw(t, database.Path(),
 				"INSERT INTO role (id, name, capabilities) VALUES (99, 'admins', 'administer'), (98, 'den', '')",
 				"INSERT INTO user (id, name, role_id, created_at) VALUES (5, 'dan', 99, 1)",
-				`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-				 VALUES (2, 'Films', 'movie', 'tmdb', 'watch', 0, 1)`,
+				`INSERT INTO library (id, name, kind, metadata_source, change_detection, check_every_hours, is_writable,
+				  created_at)
+				 VALUES (2, 'Films', 'movie', 'tmdb', 'watch', 6, 0, 1)`,
 				"INSERT INTO item (id, kind, identification_state, added_at) VALUES (1, 'movie', 'identified', 1)",
 				`INSERT INTO field_override (item_id, field, override_value, origin, set_by_user_id, set_at)
 				 VALUES (1, 'title', 'Wing', 'typed', 5, 50)`,

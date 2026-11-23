@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -23,7 +25,7 @@ type NewLibrary struct {
 	Kind            string // movies, shows or other
 	MetadataSource  string // nfo_then_tmdb, tmdb or nfo
 	ChangeDetection string // watch, interval or manual
-	CheckEveryHours *int64 // interval only
+	CheckEveryHours *int64 // kept whatever ChangeDetection is, used for interval; nil: newLibraryDefaultScanEveryHours
 	IsWritable      bool
 	NodeID          int64
 	Roots           []string
@@ -34,13 +36,34 @@ type NewLibrary struct {
 func Create(
 	ctx context.Context, database *store.Database, clockSource clock.Clock, newLibrary NewLibrary,
 ) (int64, error) {
+	hours, err := hoursToStart(ctx, nil, newLibrary.CheckEveryHours)
+	if err != nil {
+		return 0, err
+	}
+	newLibrary.CheckEveryHours = &hours
 	var id int64
-	err := database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		var err error
-		id, err = create(ctx, queries, clockSource, newLibrary)
-		return err
+	err = database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		var createErr error
+		id, createErr = create(ctx, queries, clockSource, newLibrary)
+		return createErr
 	})
 	return id, err
+}
+
+// hoursToStart is a new library's hours between checks, which every library keeps (D541 §1): those
+// asked, or else newLibraryDefaultScanEveryHours as reader reads it, its starting value with no reader.
+func hoursToStart(ctx context.Context, reader AdminSettings, asked *int64) (int64, error) {
+	if asked != nil {
+		return *asked, nil
+	}
+	if reader == nil {
+		return settings.StartingInt(settings.NewLibraryDefaultScanEveryHours), nil
+	}
+	hours, err := reader.Int(ctx, settings.NewLibraryDefaultScanEveryHours)
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", settings.NewLibraryDefaultScanEveryHours, err)
+	}
+	return hours, nil
 }
 
 // create is Create in the caller's transaction.
@@ -58,7 +81,7 @@ func create(
 	}
 	id, err := queries.InsertLibrary(ctx, sqlcgen.InsertLibraryParams{
 		Name: newLibrary.Name, Kind: newLibrary.Kind, MetadataSource: newLibrary.MetadataSource,
-		ChangeDetection: newLibrary.ChangeDetection, CheckEveryHours: newLibrary.CheckEveryHours,
+		ChangeDetection: newLibrary.ChangeDetection, CheckEveryHours: ptr.ValueOrZero(newLibrary.CheckEveryHours),
 		IsWritable: writable,
 		CreatedAt:  clockSource.Now().UnixMilli(),
 	})

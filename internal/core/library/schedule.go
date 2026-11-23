@@ -219,6 +219,16 @@ func scopeOfChange(libraryFolder, changed string) (string, bool) {
 	return "", false
 }
 
+// leastHoursBetweenChecks is the fewest hours between a library's checks (D541 §2).
+const leastHoursBetweenChecks = 1
+
+// HoursBetweenChecks is a library's hours between checks as stored, read as the least, 1, when below
+// it: a guard against a value no request could have stored reaching the database some other way, the
+// owner's exception to D200 for this field alone (D541 §2).
+func HoursBetweenChecks(stored int64) int64 {
+	return max(stored, leastHoursBetweenChecks)
+}
+
 // dueRoots are the roots whose last scan is older than their libraries' interval, or that were
 // never scanned, once each. A root two libraries check is due by the shorter interval.
 func dueRoots(rows []sqlcgen.ListCheckedRootsRow, watchedEvery time.Duration, now time.Time) []ScanRoot {
@@ -228,8 +238,8 @@ func dueRoots(rows []sqlcgen.ListCheckedRootsRow, watchedEvery time.Duration, no
 	for _, row := range rows {
 		root := ScanRoot{NodeID: row.NodeID, RootPath: row.RootPath}
 		every := watchedEvery
-		if row.ChangeDetection == "interval" && row.CheckEveryHours != nil {
-			every = time.Duration(*row.CheckEveryHours) * time.Hour
+		if row.ChangeDetection == "interval" {
+			every = time.Duration(HoursBetweenChecks(row.CheckEveryHours)) * time.Hour
 		}
 		known, isKnown := shortest[root]
 		if !isKnown {

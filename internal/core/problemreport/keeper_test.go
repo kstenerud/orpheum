@@ -166,8 +166,8 @@ func TestDownload_TheShareableFormHidesTheNamesTheDatabaseHolds(t *testing.T) {
 	fixture := newKeeperFixture(t)
 	fixture.addNode(t, "garagebox")
 	storetest.ExecRaw(t, fixture.database.Path(),
-		`INSERT INTO library (name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES ('grandmas shelf', 'movie', 'tmdb', 'manual', 0, 1)`)
+		`INSERT INTO library (name, kind, metadata_source, change_detection, check_every_hours, is_writable, created_at)
+		 VALUES ('grandmas shelf', 'movie', 'tmdb', 'manual', 6, 0, 1)`)
 	words := "danielle on the lounge telly: grandmas shelf from garagebox stalls at hillhouse"
 	reportID := fixture.report(t, words)
 

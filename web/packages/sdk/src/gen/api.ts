@@ -3104,7 +3104,7 @@ export interface components {
             changeDetection: "watch" | "interval" | "manual";
             /**
              * Format: int64
-             * @description Hours between checks, 1 to 168 (a week); interval only
+             * @description Hours between checks, 1 to 168 (a week), kept whatever changeDetection is and used for interval; absent, those the library has (D541)
              */
             checkEveryHours?: number;
         };
@@ -3248,7 +3248,7 @@ export interface components {
             changeDetection: "watch" | "interval" | "manual";
             /**
              * Format: int64
-             * @description Hours between checks, 1 to 168 (a week); interval only
+             * @description Hours between checks, 1 to 168 (a week), kept whatever changeDetection is and used for interval; absent, newLibraryDefaultScanEveryHours (D541)
              */
             checkEveryHours?: number;
             /** @description May the server write beside the media */
@@ -4418,8 +4418,11 @@ export interface components {
         LibraryBody: {
             /** @enum {string} */
             changeDetection: "watch" | "interval" | "manual";
-            /** Format: int64 */
-            checkEveryHours?: number;
+            /**
+             * Format: int64
+             * @description Hours between checks, kept whatever changeDetection is; used for interval (D541)
+             */
+            checkEveryHours: number;
             /** Format: int64 */
             createdAt: number;
             /** @description Live files by filing (D163) */

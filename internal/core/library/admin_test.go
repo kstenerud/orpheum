@@ -13,6 +13,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -165,6 +167,36 @@ func TestAdmin_CreatesALibraryOverTheNodesRootsAndScansIt(t *testing.T) {
 	libraries, err := admin.List(t.Context(), auth.EveryLibrary())
 	if err != nil || len(libraries) != 2 || libraries[1].Name != "Shows" || len(libraries[1].Roots) != 1 {
 		t.Errorf("List = %+v, %v", libraries, err)
+	}
+}
+
+// A new library given no hours between checks starts at newLibraryDefaultScanEveryHours as the server
+// has it, and keeps them whatever it notices changes by; one given hours keeps those (D541 §1).
+func TestAdmin_ANewLibraryStartsAtTheServersHoursBetweenChecks(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	settingstest.Set(t, world.settings, settings.NewLibraryDefaultScanEveryHours, "9")
+	nodes := &fakeNodes{id: world.nodeID, roots: []string{root, "/media/shows", "/media/clips"}}
+	admin := NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(&fakeWork{}))
+	admin.UseSettings(world.settings)
+	if _, err := admin.Create(t.Context(), showsRequest("local", "/media/shows")); err != nil {
+		t.Fatal(err)
+	}
+	given := showsRequest("local", "/media/clips")
+	given.Name, given.CheckEveryHours = "Clips", new(int64(3))
+	if _, err := admin.Create(t.Context(), given); err != nil {
+		t.Fatal(err)
+	}
+	libraries, err := admin.List(t.Context(), auth.EveryLibrary())
+	if err != nil {
+		t.Fatal(err)
+	}
+	hours := map[string]int64{}
+	for _, made := range libraries {
+		hours[made.Name] = made.CheckEveryHours
+	}
+	if hours["Shows"] != 9 || hours["Clips"] != 3 {
+		t.Errorf("hours between checks %v; want Shows, given none, at the server's 9, and Clips at its 3", hours)
 	}
 }
 

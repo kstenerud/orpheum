@@ -66,7 +66,7 @@ type LibraryBody struct {
 	Kind               string           `enum:"film,series,other" json:"kind"`
 	MetadataSource     string           `enum:"nfoThenTmdb,tmdb,nfo" json:"metadataSource"`
 	ChangeDetection    string           `enum:"watch,interval,manual" json:"changeDetection"`
-	CheckEveryHours    *int64           `json:"checkEveryHours,omitempty"`
+	CheckEveryHours    int64            `doc:"Hours between checks, kept whatever changeDetection is; used for interval (D541)" json:"checkEveryHours"` //nolint:lll // one struct tag
 	IsWritable         bool             `json:"isWritable"`
 	CreatedAt          int64            `json:"createdAt"`
 	Roots              []RootBody       `json:"roots,omitempty"`
@@ -95,7 +95,7 @@ type CreateLibraryInput struct {
 		// of every kind but other, which takes NFO files only and is not asked (D184, D349).
 		MetadataSource  string   `enum:"nfoThenTmdb,tmdb,nfo" json:"metadataSource,omitempty" required:"false"`
 		ChangeDetection string   `enum:"watch,interval,manual" json:"changeDetection"`
-		CheckEveryHours *int64   `doc:"Hours between checks, 1 to 168 (a week); interval only" json:"checkEveryHours,omitempty" maximum:"168" minimum:"1"` //nolint:lll // one struct tag
+		CheckEveryHours *int64   `doc:"Hours between checks, 1 to 168 (a week), kept whatever changeDetection is and used for interval; absent, newLibraryDefaultScanEveryHours (D541)" json:"checkEveryHours,omitempty" maximum:"168" minimum:"1"` //nolint:lll // one struct tag
 		IsWritable      bool     `doc:"May the server write beside the media" json:"isWritable"`
 		NodeName        string   `doc:"The node's configured name" json:"nodeName" minLength:"1"`
 		RootPaths       []string `doc:"The node's configured roots, or folders inside them (D359)" json:"rootPaths" minItems:"1"` //nolint:lll // one struct tag
@@ -115,7 +115,7 @@ type ChangeDetectionInput struct {
 	ID   int64 `path:"id"`
 	Body struct {
 		ChangeDetection string `enum:"watch,interval,manual" json:"changeDetection"`
-		CheckEveryHours *int64 `doc:"Hours between checks, 1 to 168 (a week); interval only" json:"checkEveryHours,omitempty" maximum:"168" minimum:"1"` //nolint:lll // one struct tag
+		CheckEveryHours *int64 `doc:"Hours between checks, 1 to 168 (a week), kept whatever changeDetection is and used for interval; absent, those the library has (D541)" json:"checkEveryHours,omitempty" maximum:"168" minimum:"1"` //nolint:lll // one struct tag
 	}
 }
 
@@ -299,10 +299,6 @@ func (server *Server) createLibrary(ctx context.Context, input *CreateLibraryInp
 		return nil, err
 	}
 	body := input.Body
-	if (body.ChangeDetection == "interval") != (body.CheckEveryHours != nil) {
-		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.checkEveryHours",
-			"checkEveryHours is given with changeDetection interval, and only then")
-	}
 	body.Kind = keptKind(body.Kind)
 	metadataSource, err := metadataSourceOf(body.Kind, keptValue(body.MetadataSource))
 	if err != nil {
@@ -407,9 +403,10 @@ func (server *Server) librariesBody(
 		body := LibraryBody{
 			ID: summary.ID, Name: summary.Name, Kind: saidKind(summary.Kind),
 			MetadataSource:  saidValue(summary.MetadataSource),
-			ChangeDetection: summary.ChangeDetection, CheckEveryHours: summary.CheckEveryHours,
-			IsWritable: summary.IsWritable == 1,
-			CreatedAt:  summary.CreatedAt,
+			ChangeDetection: summary.ChangeDetection,
+			CheckEveryHours: library.HoursBetweenChecks(summary.CheckEveryHours),
+			IsWritable:      summary.IsWritable == 1,
+			CreatedAt:       summary.CreatedAt,
 		}
 		// Roots are shown where the admin administers, never from away (the Plex-chain review's T2).
 		if administersHere(ctx, principal) {
@@ -522,10 +519,6 @@ func (server *Server) setLibraryChangeDetection(ctx context.Context, input *Chan
 		return nil, err
 	}
 	body := input.Body
-	if (body.ChangeDetection == "interval") != (body.CheckEveryHours != nil) {
-		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.checkEveryHours",
-			"checkEveryHours is given with changeDetection interval, and only then")
-	}
 	err = dependencies.Libraries.SetChangeDetection(ctx, input.ID, body.ChangeDetection, body.CheckEveryHours)
 	if err != nil {
 		return nil, server.libraryError(ctx, "set a library's change detection", err)

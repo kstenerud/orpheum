@@ -66,9 +66,10 @@ ORDER BY library_root.root_path;
 
 -- name: SetLibraryChangeDetection :execrows
 -- How a live library notices changes, chosen again by an admin: watching, checking every so many
--- hours, or only when asked (D184; the owner, 2026-10-09).
+-- hours, or only when asked (D184; the owner, 2026-10-09); and its hours between checks, which it
+-- keeps whatever it notices changes by: NULL keeps those it has (D541 section 1).
 UPDATE library SET revision = revision + 1, change_detection = sqlc.arg(change_detection),
-  check_every_hours = sqlc.narg(check_every_hours)
+  check_every_hours = coalesce(sqlc.narg(check_every_hours), check_every_hours)
 WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: ListCheckedRoots :many

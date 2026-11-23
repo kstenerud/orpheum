@@ -140,6 +140,7 @@ func Library(spec LibrarySpec) string {
 		column{columnKind, text(defaultString(spec.Kind, "movie"))},
 		column{"metadata_source", text(defaultString(spec.MetadataSource, "nfo"))},
 		column{"change_detection", text(defaultString(spec.ChangeDetection, "manual"))},
+		column{"check_every_hours", "6"},
 		column{"is_writable", "0"},
 		column{"created_at", integer(defaultInt(spec.CreatedAt, 1))})
 	if spec.NodeID == 0 {

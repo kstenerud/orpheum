@@ -323,7 +323,7 @@ export const enSettingsCatalogue = {
     readyAheadOfNextChunkPercent:
       "How much of a film a player loads before it starts or plays on after a jump, as a share of the time its next piece takes to arrive.",
     newLibraryDefaultScanEveryHours:
-      "How often a new library checked on a schedule looks for changes. Each library keeps its own once made.",
+      "How often a new library looks for changes while it is checked on a schedule, from 1 hour to a week. Each library keeps its own once made.",
     nodeJobsBeyondFreeSlots:
       "How many jobs a media node is given beyond what it can run at once, so the next starts without waiting.",
     nodeProgressEverySeconds:

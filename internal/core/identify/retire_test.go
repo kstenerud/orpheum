@@ -34,7 +34,8 @@ func (lib *testLibrary) deleteAndStartAnother(kind, source string) {
 	const kids = "/media/kids"
 	err := lib.database.Write(lib.t.Context(), func(queries *sqlcgen.Queries) error {
 		kidsID, err := queries.InsertLibrary(lib.t.Context(), sqlcgen.InsertLibraryParams{
-			Name: "Kids", Kind: kind, MetadataSource: source, ChangeDetection: "manual", CreatedAt: 1,
+			Name: "Kids", Kind: kind, MetadataSource: source, ChangeDetection: "manual",
+			CheckEveryHours: 6, CreatedAt: 1,
 		})
 		if err != nil {
 			return fmt.Errorf("library: %w", err)

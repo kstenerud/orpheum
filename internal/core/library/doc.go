@@ -133,7 +133,16 @@
 //     since its last scan, and a watched one's once watchedLibraryScanEveryHours has, beneath
 //     the watching, which can miss a change unseen (D27, D272 §1); a root checked only when asked
 //     never is. TestDueRoots_ARootIsDueOnceItsLibrariesIntervalHasPassedSinceItsLastScan,
-//     TestScanSchedule_AsksForTheDueScansOfLibrariesThatCheckByThemselves.
+//     TestScanSchedule_AsksForTheDueScansOfLibrariesThatCheckByThemselves. Every library keeps its
+//     hours whatever it notices changes by; a new one given none starts at
+//     newLibraryDefaultScanEveryHours, and a stored value under 1 is read as 1, the owner's
+//     exception to D200 (D541 §1–2). TestAdmin_ANewLibraryStartsAtTheServersHoursBetweenChecks,
+//     TestDueRoots_ARootIsDueOnceItsLibrariesIntervalHasPassedSinceItsLastScan.
+//
+//   - A periodic scan that falls due while its root's scan runs is dropped, neither listed again
+//     nor marked to follow, and the next period asks again (D541 §4); a person's ask is not
+//     dropped, it follows the running one.
+//     TestScanSchedule_APeriodicScanDueWhileItsRootsScanRunsIsDroppedAndTheNextPeriodAsks.
 //
 //   - A scan of a folder, a watcher's notice (D272 §9), removes nothing outside it, counts a copy
 //     there as a second file and never as the file outside it moved, and leaves the root's last

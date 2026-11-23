@@ -22,12 +22,13 @@ const films: Library = {
   kind: "film",
   metadataSource: "nfo",
   changeDetection: "manual",
+  checkEveryHours: 6,
   isWritable: false,
   createdAt: 1,
 };
 
 // The owner, 2026-11-04, Q5: every setting saves at once, so no Save.
-it("saves how a library notices changes as it is chosen, an interval once it has its hours, and says Saved (2026-10-09)", async () => {
+it("saves how a library notices changes as it is chosen, always with its hours, from 1 to a week, and says Saved (2026-10-09, D541)", async () => {
   const saved: ChangeDetection[] = [];
   mounted = await mount(
     <ChangeDetectionChoice
@@ -44,22 +45,28 @@ it("saves how a library notices changes as it is chosen, an interval once it has
   expect(container.querySelector("input[type=number]")).toBeNull();
   expect(container.textContent).not.toContain("Saved");
 
-  // An interval waits for its hours, sent on leaving their field.
+  // An interval is sent at once with the hours the library kept; new hours on leaving their field.
   await chooseIn(container, "How changes are noticed", "Check every so many hours");
-  expect(saved).toEqual([]);
-  const hours = container.querySelector("input[type=number]");
-  await enter(hours, "6");
-  expect(saved).toEqual([]);
-  await fire(hours, new FocusEvent("focusout", { bubbles: true }));
   await settleAnswers();
   expect(container.querySelector("output.status-line--success")?.textContent).toBe("Saved");
+  const hours = container.querySelector<HTMLInputElement>("input[type=number]");
+  expect(hours?.max).toBe("168");
+  await enter(hours, "200");
+  expect(saved).toHaveLength(1);
+  expect(hours?.value).toBe("168");
+  // An emptied field keeps the hours it held.
+  await enter(hours, "");
+  expect(hours?.value).toBe("168");
+  await fire(hours, new FocusEvent("focusout", { bubbles: true }));
+  await settleAnswers();
   // Enter on the same hours sends nothing again.
   await submit(container.querySelector("form"));
   await chooseIn(container, "How changes are noticed", "Watch the folders");
   expect(container.querySelector("input[type=number]")).toBeNull();
   expect(saved).toEqual([
     { changeDetection: "interval", checkEveryHours: 6 },
-    { changeDetection: "watch" },
+    { changeDetection: "interval", checkEveryHours: 168 },
+    { changeDetection: "watch", checkEveryHours: 168 },
   ]);
 });
 

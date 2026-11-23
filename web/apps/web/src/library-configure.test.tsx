@@ -37,6 +37,7 @@ function library(id: number, name: string, kind: LibraryBody["kind"]): LibraryBo
     kind,
     metadataSource: "tmdb",
     changeDetection: "watch",
+    checkEveryHours: 6,
     isWritable: true,
     createdAt: 0,
   };

@@ -31,6 +31,7 @@ const library: components["schemas"]["LibraryBody"] = {
   kind: "film",
   metadataSource: "nfoThenTmdb",
   changeDetection: "manual",
+  checkEveryHours: 6,
   isWritable: false,
   createdAt: 1,
   fileCountsByFiling: {},

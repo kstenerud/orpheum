@@ -779,7 +779,7 @@
             "type": "string"
           },
           "checkEveryHours": {
-            "description": "Hours between checks, 1 to 168 (a week); interval only",
+            "description": "Hours between checks, 1 to 168 (a week), kept whatever changeDetection is and used for interval; absent, those the library has (D541)",
             "format": "int64",
             "maximum": 168,
             "minimum": 1,
@@ -1200,7 +1200,7 @@
             "type": "string"
           },
           "checkEveryHours": {
-            "description": "Hours between checks, 1 to 168 (a week); interval only",
+            "description": "Hours between checks, 1 to 168 (a week), kept whatever changeDetection is and used for interval; absent, newLibraryDefaultScanEveryHours (D541)",
             "format": "int64",
             "maximum": 168,
             "minimum": 1,
@@ -4436,6 +4436,7 @@
             "type": "string"
           },
           "checkEveryHours": {
+            "description": "Hours between checks, kept whatever changeDetection is; used for interval (D541)",
             "format": "int64",
             "type": "integer"
           },
@@ -4501,6 +4502,7 @@
           "kind",
           "metadataSource",
           "changeDetection",
+          "checkEveryHours",
           "isWritable",
           "createdAt"
         ],

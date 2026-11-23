@@ -383,11 +383,10 @@ func scanDefinitions() []Definition {
 			"how many videos of one folder a node reads in one go, each with the files beside it; a lost one "+
 				"is read again (D240 §8)"),
 			"the owner's choice, 2026-10-03: a folder of a few dozen loose films is a few of them"),
-		sourced(durationSetting(WatchedLibraryScanEveryHours, time.Hour, "24", 1, 8760,
+		sourced(durationSetting(WatchedLibraryScanEveryHours, time.Hour, "24", 1, MostHoursBetweenScans,
 			"hours between full scans of a watched library's folders, beneath the watching, which can miss "+
 				"a change and never says so (D27, D272 §1)"),
-			"best guess: daily, as newLibraryDefaultScanEveryHours; scanner.md: periodic full scans "+
-				"are mandatory even with a perfect watcher"),
+			"best guess: daily; scanner.md: periodic full scans are mandatory even with a perfect watcher"),
 		sourced(durationSetting(UnavailableRootRescanSeconds, time.Second, "10", 5, 3600,
 			"seconds between scans of a library folder that is unavailable, its disk or its share not "+
 				"answering, which bring it back once one reads it (D233 §10, D241)"),
@@ -649,10 +648,10 @@ func upkeepAndDisplayDefinitions() []Definition {
 			"seconds such a screen waits before asking again after a read that failed, every time, so it "+
 				"shows the server's answer soon after it is back (D237)"),
 			"D237's amendment: the owner, 2026-10-06: \"Make it every 5 seconds\""),
-		sourced(durationSetting(NewLibraryDefaultScanEveryHours, time.Hour, "24", 1, 8760,
-			"hours between looks for changes that a new library checked on an interval starts with; each "+
-				"library keeps its own once made"),
-			"best guess: daily, as metadataRefreshCheckEveryHours; the web form had it as its own default"),
+		sourced(durationSetting(NewLibraryDefaultScanEveryHours, time.Hour, "6", 1, MostHoursBetweenScans,
+			"hours between looks for changes that a new library starts with, used while it checks on an "+
+				"interval; each library keeps its own once made (D541)"),
+			"D541: the owner, 2026-11-23: \"make a default of once every 6 hours\""),
 		sourced(integerSetting(LoudnessTargetLUFS, "-23", -40, -5,
 			"LUFS a measured sound is raised or lowered towards (D226 §3)"),
 			"D226 §3: EBU R128's target, chosen from the owner's films (-18.8 to -30.0 LUFS measured "+
@@ -727,6 +726,11 @@ func sourced(definition Definition, startSource string) Definition {
 
 // day is the unit of a setting whose key ends Days.
 const day = 24 * time.Hour
+
+// MostHoursBetweenScans is the most hours between a library's scans, a week, for every part that says
+// it: a library's own hours, newLibraryDefaultScanEveryHours and watchedLibraryScanEveryHours (D541 §3;
+// the owner, 2026-11-23: "all parts should agree on that").
+const MostHoursBetweenScans = 168
 
 func durationSetting(
 	key Key, unit time.Duration, start string, minimum, maximum int64, description string,

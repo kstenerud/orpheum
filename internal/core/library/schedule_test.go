@@ -54,8 +54,7 @@ func TestDueRoots_ARootIsDueOnceItsLibrariesIntervalHasPassedSinceItsLastScan(t 
 	t.Parallel()
 	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
 	hoursAgo := func(hours int) *int64 { return new(now.Add(-time.Duration(hours) * time.Hour).UnixMilli()) }
-	every := func(hours int64) *int64 { return &hours }
-	row := func(root, detection string, checkEvery, lastScan *int64) sqlcgen.ListCheckedRootsRow {
+	row := func(root, detection string, checkEvery int64, lastScan *int64) sqlcgen.ListCheckedRootsRow {
 		return sqlcgen.ListCheckedRootsRow{
 			NodeID: 1, RootPath: root, ChangeDetection: detection,
 			CheckEveryHours: checkEvery, LastScanAt: lastScan,
@@ -66,25 +65,43 @@ func TestDueRoots_ARootIsDueOnceItsLibrariesIntervalHasPassedSinceItsLastScan(t 
 		rows    []sqlcgen.ListCheckedRootsRow
 		wantDue []string
 	}{
-		{"never scanned", []sqlcgen.ListCheckedRootsRow{row("/a", "interval", every(6), nil)}, []string{"/a"}},
+		{"never scanned", []sqlcgen.ListCheckedRootsRow{row("/a", "interval", 6, nil)}, []string{"/a"}},
 		{
 			"scanned within its interval",
-			[]sqlcgen.ListCheckedRootsRow{row("/a", "interval", every(6), hoursAgo(5))},
+			[]sqlcgen.ListCheckedRootsRow{row("/a", "interval", 6, hoursAgo(5))},
 			nil,
 		},
 		{
 			"its interval just passed",
-			[]sqlcgen.ListCheckedRootsRow{row("/a", "interval", every(6), hoursAgo(6))},
+			[]sqlcgen.ListCheckedRootsRow{row("/a", "interval", 6, hoursAgo(6))},
 			[]string{"/a"},
 		},
 		{
 			"watched, within the watched interval",
-			[]sqlcgen.ListCheckedRootsRow{row("/a", "watch", nil, hoursAgo(23))},
+			[]sqlcgen.ListCheckedRootsRow{row("/a", "watch", 1, hoursAgo(23))},
 			nil,
 		},
-		{"watched, past it", []sqlcgen.ListCheckedRootsRow{row("/a", "watch", nil, hoursAgo(24))}, []string{"/a"}},
+		{"watched, past it", []sqlcgen.ListCheckedRootsRow{row("/a", "watch", 1, hoursAgo(24))}, []string{"/a"}},
+		{
+			"watched, its own hours unused",
+			[]sqlcgen.ListCheckedRootsRow{row("/a", "watch", 1, hoursAgo(2))},
+			nil,
+		},
+		{
+			"hours under the least read as one, not yet passed",
+			[]sqlcgen.ListCheckedRootsRow{
+				row("/a", "interval", 0, new(now.Add(-30*time.Minute).UnixMilli())),
+				row("/b", "interval", -5, new(now.Add(-30*time.Minute).UnixMilli())),
+			},
+			nil,
+		},
+		{
+			"hours under the least read as one, passed",
+			[]sqlcgen.ListCheckedRootsRow{row("/a", "interval", 0, hoursAgo(1))},
+			[]string{"/a"},
+		},
 		{"two libraries over one root, due by the shorter", []sqlcgen.ListCheckedRootsRow{
-			row("/a", "watch", nil, hoursAgo(3)), row("/a", "interval", every(2), hoursAgo(3)),
+			row("/a", "watch", 1, hoursAgo(3)), row("/a", "interval", 2, hoursAgo(3)),
 		}, []string{"/a"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -335,5 +352,55 @@ func TestScanSchedule_AsksNoScanOfAFolderItsNodeWasNotGiven(t *testing.T) {
 	}
 	if want := []ScanRoot{{NodeID: world.nodeID, RootPath: "/media/away"}}; !slices.Equal(swept.asked, want) {
 		t.Errorf("the sweep asked scans of %v; want %v alone", swept.asked, want)
+	}
+}
+
+// A periodic scan that falls due while its root's scan runs is dropped, not queued behind it: no
+// listing more, none marked to follow the running one; the period is counted again from the scan that
+// ran, and the next one asks again (the owner, 2026-11-23: "If it can't queue because one is already
+// running, it drops it and lets the next periodic scan try again later", D541 §4).
+func TestScanSchedule_APeriodicScanDueWhileItsRootsScanRunsIsDroppedAndTheNextPeriodAsks(t *testing.T) {
+	t.Parallel()
+	bench := newScanBench(t)
+	ctx := t.Context()
+	err := bench.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		_, err := queries.SetLibraryChangeDetection(ctx, sqlcgen.SetLibraryChangeDetectionParams{
+			ChangeDetection: "interval", CheckEveryHours: new(int64(6)), ID: bench.libraryID,
+		})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	schedule := NewScanSchedule(bench.database, bench.scans, bench.settings, bench.clock, slog.New(slog.DiscardHandler))
+	queueDue := func() int {
+		t.Helper()
+		asked, err := schedule.QueueDue(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return asked
+	}
+	if asked := queueDue(); asked != 1 {
+		t.Fatalf("a root never scanned: the schedule asked for %d scans, want 1", asked)
+	}
+	bench.hand() // its listing is with the node: the scan runs
+	bench.clock.Advance(7 * time.Hour)
+	listings := bench.jobs.count(jobs.KindScan)
+	if asked := queueDue(); asked != 0 || bench.jobs.count(jobs.KindScan) != listings || bench.isAnotherScanQueued() {
+		t.Errorf("a period passed while the root's scan ran: asked %d, listings queued %d (was %d), another to "+
+			"follow %v; want it dropped", asked, bench.jobs.count(jobs.KindScan), listings, bench.isAnotherScanQueued())
+	}
+	bench.list()
+	if bench.isScanning() {
+		t.Fatal("the root's scan did not end once listed")
+	}
+	bench.clock.Advance(5 * time.Hour)
+	if asked := queueDue(); asked != 0 {
+		t.Errorf("5 hours after the scan that ran, the schedule asked for %d scans; want none yet", asked)
+	}
+	bench.clock.Advance(time.Hour)
+	if asked := queueDue(); asked != 1 {
+		t.Errorf("a period after the scan that ran, the schedule asked for %d scans; want the next one", asked)
 	}
 }

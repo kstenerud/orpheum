@@ -103,8 +103,8 @@ func TestSchema_EachPathsIndexServesIt(t *testing.T) {
 
 // A title and a collection are each an item of their own kind, the kind its item says (D426 §2), an id
 // at a source has its source, a release date falls in its year, only a person is never identified,
-// and a library's check interval is for checking by interval alone: the engine refuses each
-// otherwise (D303, M5).
+// and every library has its hours between checks, one at least, whatever it notices changes by (D541
+// §1): the engine refuses each otherwise (D303, M5).
 func TestSchema_RefusesRowsThatBreakTheirRules(t *testing.T) {
 	t.Parallel()
 	database := openMigrated(t)
@@ -123,8 +123,10 @@ func TestSchema_RefusesRowsThatBreakTheirRules(t *testing.T) {
 		"a person with an identification": "INSERT INTO item (kind, added_at, identification_state) " +
 			"VALUES ('person', 1, 'identified')",
 		"a film with none": "INSERT INTO item (kind, added_at) VALUES ('movie', 1)",
-		"hours for a manual library": "INSERT INTO library (name, kind, metadata_source, change_detection, " +
-			"check_every_hours, is_writable, created_at) VALUES ('Films', 'movie', 'nfo', 'manual', 6, 0, 1)",
+		"a library with no hours": "INSERT INTO library (name, kind, metadata_source, change_detection, " +
+			"is_writable, created_at) VALUES ('Films', 'movie', 'nfo', 'manual', 0, 1)",
+		"a library checked every 0 hours": "INSERT INTO library (name, kind, metadata_source, change_detection, " +
+			"check_every_hours, is_writable, created_at) VALUES ('Films', 'movie', 'nfo', 'interval', 0, 0, 1)",
 		"text in an integer column": "INSERT INTO item (kind, added_at, identification_state) " +
 			"VALUES ('movie', 'yesterday', 'identified')",
 	} {
@@ -161,8 +163,9 @@ func TestSchema_TheSystemLibraryIsLeftOutOfVersionLibrary(t *testing.T) {
 	database := openMigrated(t)
 	execRaw(t, database,
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'nas', 1)",
-		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at) VALUES
-		 (1, 'Clips', 'other', 'nfo', 'manual', 0, 1), (2, 'System', 'other', 'nfo', 'manual', 0, 1)`,
+		`INSERT INTO library (id, name, kind, metadata_source, change_detection, check_every_hours, is_writable,
+		  created_at) VALUES
+		 (1, 'Clips', 'other', 'nfo', 'manual', 6, 0, 1), (2, 'System', 'other', 'nfo', 'manual', 6, 0, 1)`,
 		`INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/media'), (2, 1, '/own')`,
 		"INSERT INTO item (id, kind, identification_state, added_at) VALUES (20, 'other', 'identified', 1)",
 		"INSERT INTO item (id, kind, identification_state, added_at) VALUES (21, 'other', 'identified', 1)",

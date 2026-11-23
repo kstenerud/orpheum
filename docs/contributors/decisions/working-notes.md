@@ -31194,3 +31194,40 @@ its signal) and D234 (an assigned job's work is sent once it is recorded assigne
 - 6: `TestGiveBackUnheld_GivesBackOnlyARunningJobNoneHolds` (internal/platform/jobqueue), `TestSweepUnheldRunning_GivesBackAJobNoRunnerHolds` (internal/core/jobs)
 - 7: `TestPark_RoomMadeBetweenTheLookAndTheParkIsNotLost` (internal/core/nodes)
 - 8: `TestAssign_AnAttemptKeptAsItsJobIsCancelledIsForgotten` (internal/core/nodes)
+
+## D541 — Every library keeps its hours between checks, from 1 to a week, and a periodic scan due while its root's scan runs is dropped
+
+**Decided** (2026-11-23), by the project owner, answering questions 13 and 14 of the UI revamp's
+review (the 10-27 plan's answers, "A library's checks"). Amends D184 (hours only with an interval),
+D303 M5 (the engine refusing hours for a library not checked on an interval) and, for this field
+alone, D200 (a stored value is read as it is). The owner, on 13: "make a default of once every 6
+hours for the periodic check value (minimum 1, and a guard making any value < 1 effectively equal 1
+in case a weird value gets into the database somehow), which is not used unless the enumeration is
+set to periodic. [...] If it can't queue because one is already running, it drops it and lets the
+next periodic scan try again later." On 14: "Max time between scans should be a round number that's
+near a week, and all parts should agree on that."
+
+**Status:** decided.
+
+1. **Every library keeps its hours between checks,** whatever it notices changes by (`watch`,
+   `interval` or `manual`, D184, unchanged), and they are used only while it checks on an
+   interval. A new library given none starts at `newLibraryDefaultScanEveryHours`, which starts at 6
+   (it was 24); a choice of how changes are noticed that gives none keeps those the library has.
+   Step 0101 gives each library that had none 6, and the column refuses a library without hours.
+2. **The least is 1, and a stored value under 1 is read as 1:** the owner's exception to D200 for
+   this field, a guard against a value no API wrote. The column refuses one under 1 too.
+3. **The most is 168 hours, a week, for every part:** the library's field in the web and the API,
+   `newLibraryDefaultScanEveryHours` (it was 8760) and `watchedLibraryScanEveryHours` (it was 8760;
+   it still starts at 24). A setting a person stored above 168 before is read as stored, as every
+   setting is, and the server starts; only setting it again is held to 168. The web's form starts a
+   new library's hours at the server's setting held within 1 to 168.
+4. **A periodic scan that falls due while its root's scan runs is dropped:** nothing more is listed
+   and none is marked to follow the running one, and the next period asks again, counted from the
+   scan that ran. It is the schedule that drops it, skipping a root whose scan is in progress; the
+   scans' own join, which marks one to follow, is for a person's ask (D236 §3).
+
+**Proven by:**
+- 1: `TestMigrate_EveryLibraryHasItsHoursBetweenChecksAfterStep0101`, `TestSchema_RefusesRowsThatBreakTheirRules` (internal/store), `TestAdmin_ANewLibraryStartsAtTheServersHoursBetweenChecks` (internal/core/library), `TestLibraries_AnAdminChoosesAgainHowALibraryNoticesChanges` (internal/core/api), `web/apps/web/src/libraries.test.tsx`, `web/apps/web/src/change-detection.test.tsx`
+- 2: `TestDueRoots_ARootIsDueOnceItsLibrariesIntervalHasPassedSinceItsLastScan` (internal/core/library), `TestSchema_RefusesRowsThatBreakTheirRules`
+- 3: `TestRegistry_TheHoursBetweenALibrarysScansAreAtMostAWeek`, `TestRead_HoursSetAboveAWeekBeforeTheMostWasAWeekAreReadAsStored` (internal/core/settings), `TestLibraries_TheHoursBetweenChecksAreAtMostTheSettingsWeek` (internal/core/api), `web/apps/web/src/libraries.test.tsx`, `web/apps/web/src/change-detection.test.tsx`
+- 4: `TestScanSchedule_APeriodicScanDueWhileItsRootsScanRunsIsDroppedAndTheNextPeriodAsks` (internal/core/library)

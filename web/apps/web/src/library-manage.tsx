@@ -18,6 +18,7 @@ import {
   RescanProgress,
   type Library,
 } from "./libraries.tsx";
+import { boundedHours, mostHoursBetweenChecks } from "./library-draft.ts";
 import { Link } from "./link.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
@@ -280,8 +281,9 @@ const changeDetectionKeys = {
 /**
  * How a library notices changes, chosen again after it was made (the owner, 2026-10-09): watching,
  * checking every so many hours, or when asked; saved at once (the owner, 2026-11-04, Q5), a choice
- * as it is made and the hours on Enter or on leaving their field, an interval only once it has its
- * hours, and saying Saved, or the refusal, beside it.
+ * as it is made and the hours on Enter or on leaving their field, and saying Saved, or the refusal,
+ * beside it. The hours are always held, from 1 to a week, and sent with every choice, so the
+ * library keeps them whatever it notices changes by (D541 §1).
  */
 export function ChangeDetectionChoice(props: {
   readonly library: Library;
@@ -290,13 +292,13 @@ export function ChangeDetectionChoice(props: {
   const { t } = useTranslation();
   const { library } = props;
   const [detection, setDetection] = useState(library.changeDetection);
-  const [hours, setHours] = useState<number | undefined>(library.checkEveryHours);
+  const [hours, setHours] = useState(() => boundedHours(library.checkEveryHours, 1));
   const { told, send } = useSentOnce(library, props.onSave);
   const isInterval = detection === "interval";
-  const withHours = (chosen: Library["changeDetection"]): ChangeDetection =>
-    chosen === "interval" && hours !== undefined
-      ? { changeDetection: chosen, checkEveryHours: hours }
-      : { changeDetection: chosen };
+  const withHours = (chosen: Library["changeDetection"]): ChangeDetection => ({
+    changeDetection: chosen,
+    checkEveryHours: hours,
+  });
   const choices = changeDetections.map((each): ActionChoice => ({
     key: each,
     label: t(changeDetectionKeys[each]),
@@ -324,10 +326,14 @@ export function ChangeDetectionChoice(props: {
           <input
             type="number"
             min={1}
+            max={mostHoursBetweenChecks}
             required
-            value={hours ?? ""}
+            value={hours}
             onChange={(event) => {
-              setHours(event.target.value === "" ? undefined : Number(event.target.value));
+              // A field emptied keeps the hours it held: there are always hours to send.
+              if (event.target.value !== "") {
+                setHours(boundedHours(Number(event.target.value), hours));
+              }
             }}
             onBlur={() => {
               send(withHours(detection));
@@ -341,8 +347,8 @@ export function ChangeDetectionChoice(props: {
 }
 
 /**
- * Sending a way of noticing changes as it is chosen, not the one last sent again, nor an interval
- * still without its hours; a refused one may be sent again.
+ * Sending a way of noticing changes as it is chosen, not the one last sent again; a refused one may
+ * be sent again.
  */
 function useSentOnce(
   library: Library,
@@ -351,9 +357,6 @@ function useSentOnce(
   const { told, save } = useSaveState();
   const [sent, setSent] = useState(() => choiceKey(library));
   const send = (choice: ChangeDetection): void => {
-    if (choice.changeDetection === "interval" && choice.checkEveryHours === undefined) {
-      return;
-    }
     if (choiceKey(choice) === sent) {
       return;
     }

@@ -39,6 +39,7 @@ describe("libraries", () => {
             kind: "film",
             metadataSource: "nfoThenTmdb",
             changeDetection: "manual",
+            checkEveryHours: 6,
             isWritable: false,
             createdAt: 1,
             fileCountsByFiling: { listed: 40, errored: 2 },
@@ -81,6 +82,7 @@ describe("libraries", () => {
             kind: "film",
             metadataSource: "nfo",
             changeDetection,
+            checkEveryHours: 6,
             isWritable: false,
             createdAt: 1,
             roots: [
@@ -128,6 +130,7 @@ describe("libraries", () => {
               kind: "film",
               metadataSource: "nfoThenTmdb",
               changeDetection: "manual",
+              checkEveryHours: 6,
               isWritable: false,
               createdAt: 1,
               roots: [
@@ -182,6 +185,7 @@ describe("libraries", () => {
               kind,
               metadataSource: kind === "other" ? "nfo" : "tmdb",
               changeDetection: "manual",
+              checkEveryHours: 6,
               isWritable: false,
               createdAt: 1,
               ...(rescan === undefined ? {} : { rescan }),
@@ -233,6 +237,7 @@ describe("libraries", () => {
             kind: "film",
             metadataSource: "nfo",
             changeDetection: "manual",
+            checkEveryHours: 6,
             isWritable: false,
             createdAt: 1,
             roots: [root],
@@ -280,7 +285,7 @@ describe("libraries", () => {
     expect(withRootChosen(["/a", "/b"], "/a", false)).toEqual(["/b"]);
   });
 
-  it("starts an interval at the server's newLibraryDefaultScanEveryHours and sends hours only with one", () => {
+  it("starts a library's hours at the server's newLibraryDefaultScanEveryHours and keeps them, from 1 to a week, whatever it notices changes by (D541)", () => {
     const setting = {
       key: "newLibraryDefaultScanEveryHours",
       kind: "integer" as const,
@@ -299,7 +304,13 @@ describe("libraries", () => {
     expect(
       withChangeDetection({ ...interval, checkEveryHours: 3 }, "interval", 6).checkEveryHours,
     ).toBe(3);
-    expect("checkEveryHours" in withChangeDetection(interval, "watch", 6)).toBe(false);
+    expect(withChangeDetection(interval, "watch", 6).checkEveryHours).toBe(6);
+    expect(withChangeDetection(blankLibrary(), "manual", 6).checkEveryHours).toBe(6);
+    expect(
+      withChangeDetection({ ...interval, checkEveryHours: 0 }, "interval", 6).checkEveryHours,
+    ).toBe(1);
+    // A server setting stored above a week, before the most was one, starts the form at a week.
+    expect(withChangeDetection(blankLibrary(), "interval", 8760).checkEveryHours).toBe(168);
     const markup = renderToStaticMarkup(
       withServices(
         <CreateLibraryForm

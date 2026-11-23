@@ -63,7 +63,7 @@ type GetLibraryRow struct {
 	Kind            string
 	MetadataSource  string
 	ChangeDetection string
-	CheckEveryHours *int64
+	CheckEveryHours int64
 	IsWritable      int64
 	CreatedAt       int64
 }
@@ -154,7 +154,7 @@ type InsertLibraryParams struct {
 	Kind            string
 	MetadataSource  string
 	ChangeDetection string
-	CheckEveryHours *int64
+	CheckEveryHours int64
 	IsWritable      int64
 	CreatedAt       int64
 }
@@ -238,7 +238,7 @@ type ListCheckedRootsRow struct {
 	NodeID          int64
 	RootPath        string
 	ChangeDetection string
-	CheckEveryHours *int64
+	CheckEveryHours int64
 	LastScanAt      *int64
 }
 
@@ -368,7 +368,7 @@ type ListLibrariesRow struct {
 	Kind            string
 	MetadataSource  string
 	ChangeDetection string
-	CheckEveryHours *int64
+	CheckEveryHours int64
 	IsWritable      int64
 	CreatedAt       int64
 }
@@ -522,7 +522,7 @@ func (q *Queries) ListSystemVideos(ctx context.Context) ([]ListSystemVideosRow, 
 
 const setLibraryChangeDetection = `-- name: SetLibraryChangeDetection :execrows
 UPDATE library SET revision = revision + 1, change_detection = ?1,
-  check_every_hours = ?2
+  check_every_hours = coalesce(?2, check_every_hours)
 WHERE id = ?3 AND removed_at IS NULL
 `
 
@@ -533,7 +533,8 @@ type SetLibraryChangeDetectionParams struct {
 }
 
 // How a live library notices changes, chosen again by an admin: watching, checking every so many
-// hours, or only when asked (D184; the owner, 2026-10-09).
+// hours, or only when asked (D184; the owner, 2026-10-09); and its hours between checks, which it
+// keeps whatever it notices changes by: NULL keeps those it has (D541 section 1).
 func (q *Queries) SetLibraryChangeDetection(ctx context.Context, arg SetLibraryChangeDetectionParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, setLibraryChangeDetection, arg.ChangeDetection, arg.CheckEveryHours, arg.ID)
 	if err != nil {

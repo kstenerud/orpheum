@@ -30,9 +30,14 @@ func CreateSystemLibrary(
 		if !errors.Is(err, store.ErrNotFound) {
 			return fmt.Errorf("read the system library: %w", err)
 		}
+		// Kept as every library's hours are, and never used: it is scanned only when asked (D541 §1).
+		hours, err := hoursToStart(ctx, nil, nil)
+		if err != nil {
+			return err
+		}
 		id, err := queries.InsertLibrary(ctx, sqlcgen.InsertLibraryParams{
 			Name: systemLibraryName, Kind: LibraryKindOther, MetadataSource: "nfo", ChangeDetection: "manual",
-			CreatedAt: clockSource.Now().UnixMilli(),
+			CheckEveryHours: hours, CreatedAt: clockSource.Now().UnixMilli(),
 		})
 		if err != nil {
 			return fmt.Errorf("create the system library: %w", err)

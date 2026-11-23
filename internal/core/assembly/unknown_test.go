@@ -17,8 +17,9 @@ func TestBuild_TriesOnceMoreTheFetchesAnEarlierStartGaveUpForAnUnknownCause(t *t
 	t.Parallel()
 	parts := testParts(t)
 	storetest.ExecRaw(t, parts.Database.Path(),
-		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'movie', 'nfo_then_tmdb', 'manual', 0, 1790000000000)`,
+		`INSERT INTO library (id, name, kind, metadata_source, change_detection, check_every_hours, is_writable,
+		  created_at)
+		 VALUES (1, 'Films', 'movie', 'nfo_then_tmdb', 'manual', 6, 0, 1790000000000)`,
 		`INSERT INTO item (id, kind, filing_library_id, added_at, followed_source, identification_state)
 		 VALUES (5, 'movie', 1, 1790000000000, 'none', 'unidentified')`,
 		`INSERT INTO fetch_failure (item_id, failure, failed_at) VALUES (5, 'not JSON', 1790000000000)`,

@@ -71,7 +71,7 @@ function changeDetectionText(t: TFunction, library: Library): string {
     case "watch":
       return t("libraries.summaryWatched");
     case "interval":
-      return t("libraries.summaryInterval", { hours: library.checkEveryHours ?? 0 });
+      return t("libraries.summaryInterval", { hours: library.checkEveryHours });
     case "manual":
       return t("libraries.summaryManual");
   }

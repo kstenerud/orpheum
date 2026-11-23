@@ -458,8 +458,9 @@ func TestLibraries_AnAdminSeesARootsScanInProgress(t *testing.T) {
 	}
 }
 
-// How a library notices changes is chosen again after it is made, by an admin alone, with hours only
-// for an interval (D184; the owner, 2026-10-09).
+// How a library notices changes is chosen again after it is made, by an admin alone (D184; the owner,
+// 2026-10-09); its hours between checks are kept whatever it notices changes by, and a choice that
+// gives none keeps those it has (D541 §1).
 func TestLibraries_AnAdminChoosesAgainHowALibraryNoticesChanges(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -470,21 +471,31 @@ func TestLibraries_AnAdminChoosesAgainHowALibraryNoticesChanges(t *testing.T) {
 		t.Fatalf("POST /libraries = %d %s", created.status, created.body)
 	}
 	const path = "/libraries/1/change-detection"
-	wantInvalidAt(t, harness.do(t, http.MethodPut, path, admin, map[string]any{"changeDetection": "interval"}),
-		http.StatusUnprocessableEntity, "body.checkEveryHours")
-	wantInvalidAt(t, harness.do(t, http.MethodPut, path, admin,
-		map[string]any{"changeDetection": "watch", "checkEveryHours": 6}),
-		http.StatusUnprocessableEntity, "body.checkEveryHours")
+	listed := harness.do(t, http.MethodGet, "/libraries", admin, nil)
+	if !strings.Contains(listed.body, `"checkEveryHours":6`) {
+		t.Errorf("a library made checked when asked, GET /libraries = %s; want the hours a new library starts with, 6",
+			listed.body)
+	}
 	for _, change := range []map[string]any{
-		{"changeDetection": "interval", "checkEveryHours": 6}, {"changeDetection": "watch"},
+		{"changeDetection": "watch", "checkEveryHours": 9}, {"changeDetection": "interval"},
 	} {
 		if answered := harness.do(t, http.MethodPut, path, admin, change); answered.status != http.StatusNoContent {
 			t.Fatalf("PUT %s %v = %d %s", path, change, answered.status, answered.body)
 		}
 	}
-	listed := harness.do(t, http.MethodGet, "/libraries", admin, nil)
-	if !strings.Contains(listed.body, `"changeDetection":"watch"`) || strings.Contains(listed.body, "checkEveryHours") {
-		t.Errorf("after watching was chosen, GET /libraries = %s; want watch and no hours", listed.body)
+	listed = harness.do(t, http.MethodGet, "/libraries", admin, nil)
+	if !strings.Contains(listed.body, `"changeDetection":"interval","checkEveryHours":9`) {
+		t.Errorf("hours given while watching, then an interval with none, GET /libraries = %s; want the "+
+			"interval at the 9 hours kept", listed.body)
+	}
+	watched := map[string]any{"changeDetection": "watch"}
+	if answered := harness.do(t, http.MethodPut, path, admin, watched); answered.status !=
+		http.StatusNoContent {
+		t.Fatalf("PUT %s watch = %d %s", path, answered.status, answered.body)
+	}
+	listed = harness.do(t, http.MethodGet, "/libraries", admin, nil)
+	if !strings.Contains(listed.body, `"changeDetection":"watch","checkEveryHours":9`) {
+		t.Errorf("after watching was chosen, GET /libraries = %s; want watch, its hours kept", listed.body)
 	}
 	wantError(t, harness.do(t, http.MethodPut, "/libraries/9/change-detection", admin,
 		map[string]any{"changeDetection": "manual"}), http.StatusNotFound, api.CodeNotFound)
@@ -531,12 +542,12 @@ func TestLibraries_AnAdminCreatesOneOverTheNodesRoots(t *testing.T) {
 	harness.connectNode(t, "/media/shows")
 	wantInvalidAt(t, harness.do(t, http.MethodPost, "/libraries", admin, newShows("/etc")),
 		http.StatusUnprocessableEntity, "body.rootPaths")
-	interval := newShows("/media/shows")
-	interval["changeDetection"] = "interval"
-	withoutHours := harness.do(t, http.MethodPost, "/libraries", admin, interval)
+	tooFew := newShows("/media/shows")
+	tooFew["changeDetection"], tooFew["checkEveryHours"] = "interval", 0
+	withoutHours := harness.do(t, http.MethodPost, "/libraries", admin, tooFew)
 	wantInvalidAt(t, withoutHours, http.StatusUnprocessableEntity, "body.checkEveryHours")
 	if !strings.Contains(withoutHours.body, "checkEveryHours") {
-		t.Errorf("an interval library with no hours = %s, want it to name checkEveryHours", withoutHours.body)
+		t.Errorf("an interval library checked every 0 hours = %s, want it to name checkEveryHours", withoutHours.body)
 	}
 	created := harness.do(t, http.MethodPost, "/libraries", admin, newShows("/media/shows"))
 	if created.status != http.StatusCreated || !strings.Contains(created.body, `"id":`) {

@@ -278,7 +278,8 @@ func TestIngest_AFileInAnotherRootIsNeverTakenForAMove(t *testing.T) {
 	const shows = "/media/shows"
 	err := world.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		libraryID, err := queries.InsertLibrary(t.Context(), sqlcgen.InsertLibraryParams{
-			Name: "Shows", Kind: "series", MetadataSource: "nfo", ChangeDetection: "manual", CreatedAt: 1,
+			Name: "Shows", Kind: "series", MetadataSource: "nfo", ChangeDetection: "manual",
+			CheckEveryHours: 6, CreatedAt: 1,
 		})
 		if err != nil {
 			return err
