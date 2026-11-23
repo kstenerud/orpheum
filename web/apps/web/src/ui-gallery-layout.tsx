@@ -87,6 +87,11 @@ function GalleryOverFilm(props: { readonly press: Press }): JSX.Element {
         <Pill voice="volume">{t("gallery.layoutParts.volume")}</Pill>
         <Pill voice="silent">{t("gallery.layoutParts.seekForward")}</Pill>
         <Pill>{t("gallery.layoutParts.joined")}</Pill>
+        <Pill>
+          {t("skipped.told", {
+            stretches: "42:10–42:28",
+          })}
+        </Pill>
         <ActionPill onPress={press("gallery.layoutParts.soundOn")}>
           {t("gallery.layoutParts.soundOn")}
         </ActionPill>

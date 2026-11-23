@@ -23,6 +23,7 @@ import {
   playerControlsAttribute,
 } from "./player-commands.ts";
 import { seekRestMs, seekStepMs } from "./seek-ahead.ts";
+import { skippedShownMs } from "./skipped-parts.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import type { Upward } from "./upward.ts";
@@ -373,25 +374,33 @@ describe("the player's controls under the film outside full screen (D369 §2, D4
     expect(sign()).not.toBeNull();
   });
 
-  it("tell a stretch longer than 15 s in a pop-up too, in full screen as well, once", async () => {
+  // D538 §1 (the owner, 2026-11-22; dialogs-spec's "Part skipped"): a long stretch stepped over
+  // needs no answer, so it is a Pill over the film for a while, said as it shows, not a dialog.
+  it("tell a stretch longer than 15 s in a Pill over the film too, in full screen as well, once, for skippedShownMs", async () => {
     const showModal = vi.spyOn(HTMLDialogElement.prototype, "showModal");
     const { video, videoRef } = stagedVideo(() => true);
     const stage = await drawn(video, videoRef);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     act(() => {
       setFillsWindow(stage, true);
     });
+    const pill = (): Element | null => stage.querySelector(".skipped-parts__pill output");
     skipped(video, 2_530_000, 2_544_000);
-    expect(stage.querySelector("dialog")).toBeNull();
+    expect(pill()).toBeNull();
     skipped(video, 2_530_000, 2_548_600);
-    const dialog = stage.querySelector("dialog");
-    expect(dialog?.getAttribute("role")).toBe("alertdialog");
-    expect(dialog?.textContent).toContain("42:10–42:28");
-    expect(showModal).toHaveBeenCalled();
-    act(() => {
-      dialog?.querySelector<HTMLButtonElement>("footer button")?.click();
-    });
-    skipped(video, 2_530_000, 2_550_900);
+    expect(pill()?.textContent).toContain("42:10–42:28");
     expect(stage.querySelector("dialog")).toBeNull();
+    expect(showModal).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(skippedShownMs - 1);
+    });
+    expect(pill()).not.toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(pill()).toBeNull();
+    skipped(video, 2_530_000, 2_550_900);
+    expect(pill()).toBeNull();
     act(() => {
       video.dispatchEvent(
         new CustomEvent(playerSkippedEvent, {

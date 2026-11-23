@@ -38,9 +38,10 @@ interface ControlsGiven {
  * shouldOpenFullScreen puts the stage full screen as the player opens, as a television's player is,
  * filling the window where the browser refuses; hasPressesOnTheFilm has a mouse's click on the film
  * play or pause it and its double click put it full screen or leave (the two clicks' play and pause
- * undoing each other), a finger's never (usePressesOnTheFilm). Over the film too, in and out of full screen, the pop-up that tells a long
- * stretch skipped (SkippedPopUp). The switch is made in the Play page's pieces, not in the film
- * player's stage, which Watch Together's guest shares (the plan's §6 audit).
+ * undoing each other), a finger's never (usePressesOnTheFilm). Over the film too, in and out of
+ * full screen, the Pill that tells a long stretch skipped, or the dialog that the film cannot go on
+ * (SkippedPopUp). The switch is made in the Play page's pieces, not in the film player's stage,
+ * which Watch Together's guest shares (the plan's §6 audit).
  */
 export function OverTheFilm(
   props: FilmParts &

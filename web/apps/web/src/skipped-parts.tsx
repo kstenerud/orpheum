@@ -7,7 +7,9 @@ import { useEffect, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { clockText } from "./date-time-text.ts";
+import { useLatest } from "./latest.ts";
 import { DialogClose, ModalDialog } from "./modal-dialog.tsx";
+import { Pill } from "./pill.tsx";
 import { WarningSign } from "./warning-sign.tsx";
 
 /**
@@ -17,9 +19,10 @@ import { WarningSign } from "./warning-sign.tsx";
  * forward, and will skip more than 15 seconds (or simply can't play any further), show a pop-up
  * dialog as well." The sign stays for the viewing; the pop-up shows in full screen too; the player
  * steps over two minutes at most (the owner's agreement, 2026-11-03).
+ * D538 §1 (the owner, 2026-11-22) makes the long stretch's pop-up a Pill: it needs no answer.
  */
 
-/** A stretch longer than this, in ms, is told in a pop-up too, not only by the sign. */
+/** A stretch longer than this, in ms, is told over the film too, not only by the sign. */
 export const toldInAPopUpPastMs = 15_000;
 
 /**
@@ -87,9 +90,18 @@ function popUpOf(stretch: SkippedStretch): string {
 }
 
 /**
- * The pop-up that tells a stretch longer than toldInAPopUpPastMs as it is stepped over, or one the
- * film cannot go on past, each once, over the film, its full screen too, where the dialog, a modal,
- * is drawn above the stage and the failure's words under the film are not seen.
+ * How long a long stretch's Pill shows over the film (SkippedPopUp), in ms: as long as the other
+ * notes over the film that need no answer (castNoteShownMs, comingAndGoingShownMs), long enough to
+ * read its line once. A justified constant.
+ */
+export const skippedShownMs = 5000;
+
+/**
+ * What tells a stretch longer than toldInAPopUpPastMs as it is stepped over, or one the film
+ * cannot go on past, each once, over the film, its full screen too, where the failure's words under
+ * the film are not seen. A long stretch stepped over needs no answer: a Pill in the film's middle
+ * for skippedShownMs (D538 §1, dialogs-spec's "Part skipped"), said as it shows. The film that
+ * cannot go on stops, which the viewer must know: a dialog, a modal, drawn above the stage.
  */
 export function SkippedPopUp(props: {
   readonly videoRef: RefObject<HTMLVideoElement | null>;
@@ -102,17 +114,24 @@ export function SkippedPopUp(props: {
       (stretch.isWhereItStops === true || stretch.toMs - stretch.fromMs > toldInAPopUpPastMs) &&
       !closed.includes(popUpOf(stretch)),
   );
+  const close = (): void => {
+    if (shown !== undefined) {
+      setClosed((was) => [...was, popUpOf(shown)]);
+    }
+  };
   if (shown === undefined) {
     return null;
   }
-  const summary = shown.isWhereItStops === true ? t("skipped.cannotGoOn") : t("skipped.summary");
-  const told =
-    shown.isWhereItStops === true
-      ? t("skipped.cannotGoOnTold", { from: clockText(shown.fromMs, i18n.language) })
-      : t("skipped.told", { stretches: stretchText(shown, i18n.language) });
-  const close = (): void => {
-    setClosed((was) => [...was, popUpOf(shown)]);
-  };
+  if (shown.isWhereItStops !== true) {
+    return (
+      <SkippedPill
+        key={popUpOf(shown)}
+        told={t("skipped.told", { stretches: stretchText(shown, i18n.language) })}
+        onGone={close}
+      />
+    );
+  }
+  const summary = t("skipped.cannotGoOn");
   return (
     <ModalDialog
       label={summary}
@@ -121,7 +140,25 @@ export function SkippedPopUp(props: {
       heading={summary}
       footer={<DialogClose onClose={close} />}
     >
-      <p>{told}</p>
+      <p>{t("skipped.cannotGoOnTold", { from: clockText(shown.fromMs, i18n.language) })}</p>
     </ModalDialog>
+  );
+}
+
+/** A long stretch's line in a Pill in the film's middle, gone after skippedShownMs (onGone). */
+function SkippedPill(props: { readonly told: string; readonly onGone: () => void }): JSX.Element {
+  const onGoneRef = useLatest(props.onGone);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onGoneRef.current();
+    }, skippedShownMs);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [onGoneRef]);
+  return (
+    <span className="player-overlay-centre skipped-parts__pill">
+      <Pill voice="said">{props.told}</Pill>
+    </span>
   );
 }
