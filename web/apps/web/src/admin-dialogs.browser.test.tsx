@@ -190,6 +190,13 @@ describe("System's Back up now", () => {
       await page.viewport(width, 800);
       button("Back up now").focus();
       await userEvent.keyboard("{Enter}");
+      // Below 36rem the sheet rises as it opens; measured mid-rise, a 44 px button's top and bottom
+      // are fractions apart by a rounding error, so the sizes are read once it has risen.
+      await Promise.all(
+        dialog()
+          ?.getAnimations()
+          .map(async (rise) => rise.finished) ?? [],
+      );
       const box = dialog()?.getBoundingClientRect();
       expect(box?.left, `${String(width)} px`).toBeGreaterThanOrEqual(0);
       expect(box?.right, `${String(width)} px`).toBeLessThanOrEqual(width);
