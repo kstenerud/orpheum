@@ -30,10 +30,7 @@ type Banned = keyof typeof banned;
  */
 const knownSites: Readonly<Record<Banned, Readonly<Record<string, number>>>> = {
   nativeSelect: {},
-  numberField: {
-    // An interval that must be given, which has no client-side default to step from (D200).
-    "library-manage.tsx": 1,
-  },
+  numberField: {},
   placeholder: {
     "listing-tools.tsx": 1,
   },
