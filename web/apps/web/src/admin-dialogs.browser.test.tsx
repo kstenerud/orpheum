@@ -195,7 +195,7 @@ describe("System's Back up now", () => {
       await Promise.all(
         dialog()
           ?.getAnimations()
-          .map(async (rise) => rise.finished) ?? [],
+          .map((rise) => rise.finished) ?? [],
       );
       const box = dialog()?.getBoundingClientRect();
       expect(box?.left, `${String(width)} px`).toBeGreaterThanOrEqual(0);
