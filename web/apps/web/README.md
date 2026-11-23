@@ -24,7 +24,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   the default beside it, and only then; a plain confirm asks first, naming the value and the
   default, as setting it again undoes it (ui.md rule 8), and focus stays in its row as the button
   goes. What it is for only tells, its default named, Done alone (the owner, 2026-11-23, revamp
-  question 16). `src/settings.test.tsx`, `src/settings-pages.browser.test.tsx`.
+  question 16). A section's page arrives on the setting its address names, else on its first
+  setting (revamp question 20). `src/settings.test.tsx`, `src/settings-pages.browser.test.tsx`.
 - **Anyone signed in reports a problem to the household's admin, who alone reads it** (D524 §2,
   §4): *Report a problem* is in the account menu for a person signed in and in the player's ⁝, which
   adds where the film stood as it was chosen; it sends their words, the page and the device's facts

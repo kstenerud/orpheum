@@ -144,6 +144,11 @@ function isFocusOnSomething(): boolean {
   return document.activeElement !== null && document.activeElement !== document.body;
 }
 
+/** Whether focus is on the first setting of General, where it arrives as the page opens. */
+function isOnFirstSetting(): boolean {
+  return (document.activeElement?.closest("#setting-continueWatchingMaxWorks") ?? null) !== null;
+}
+
 /** A remote's arrows. */
 type Arrow = "ArrowDown" | "ArrowUp" | "ArrowLeft" | "ArrowRight";
 
@@ -201,17 +206,22 @@ describe("Settings' index and a section's page", () => {
       await expect.poll(heading).toBe("General");
       tapOn(trailUp());
       await expect.poll(heading).toBe("Settings");
-      // The keyboard: Tab from the search to General, Enter; Tab to the trail, its first control,
-      // Enter. A page that marks no arrival leaves focus where the page left took it, so the first
-      // press after it opens is what must land on something.
+      // The keyboard: Tab from the search to General, Enter; focus arrives on its first setting
+      // (the owner, 2026-11-23, revamp question 20); Shift+Tab back to the trail, Enter. The index
+      // marks no arrival and leaves focus where the page left took it, so the first press after it
+      // opens is what must land on something.
       searchField().focus();
       await userEvent.keyboard("{Tab}{Tab}");
       expect(document.activeElement).toBe(link("General"));
       expect(isRingShown()).toBe(true);
       await userEvent.keyboard("{Enter}");
       await expect.poll(heading).toBe("General");
-      await settleAnswers();
-      await userEvent.keyboard("{Tab}");
+      await expect.poll(isOnFirstSetting).toBe(true);
+      expect(isRingShown()).toBe(true);
+      for (let press = 0; press < 4 && document.activeElement !== trailUp(); press += 1) {
+        await userEvent.keyboard("{Shift>}{Tab}{/Shift}");
+        expect(isFocusOnSomething()).toBe(true);
+      }
       expect(document.activeElement).toBe(trailUp());
       expect(isRingShown()).toBe(true);
       await userEvent.keyboard("{Enter}");
@@ -224,7 +234,7 @@ describe("Settings' index and a section's page", () => {
       expect(isRingShown()).toBe(true);
       await userEvent.keyboard("{Enter}");
       await expect.poll(heading).toBe("General");
-      await settleAnswers();
+      await expect.poll(isOnFirstSetting).toBe(true);
       expect(await arrowTo("ArrowUp", trailUp)).toBe(true);
       expect(isRingShown()).toBe(true);
       await userEvent.keyboard("{Enter}");

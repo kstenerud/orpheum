@@ -401,7 +401,11 @@ export function SectionSettingsView(props: {
   readonly section: Section;
   /** Whether every setting shows, not only the important ones ("Show advanced settings"). */
   readonly isAdvanced: boolean;
-  /** The setting the page's address names, where focus arrives. */
+  /**
+   * The setting the page's address names, where focus arrives; undefined, focus arrives on the first
+   * setting shown, so a remote's first press acts on a setting (the owner, 2026-11-23, revamp
+   * question 20).
+   */
   readonly arrival?: string | undefined;
   /** Why the server refused a setting's last change, by key. */
   readonly problems: ReadonlyMap<string, string>;
@@ -415,13 +419,13 @@ export function SectionSettingsView(props: {
   return (
     <>
       {shown.length === 0 ? <p>{t("settings.allAdvanced")}</p> : null}
-      {shown.map((setting) => (
+      {shown.map((setting, index) => (
         <SettingRow
           key={setting.key}
           setting={setting}
           problem={props.problems.get(setting.key) ?? ""}
           isSaved={props.saved?.has(setting.key) ?? false}
-          isArrival={setting.key === props.arrival}
+          isArrival={props.arrival === undefined ? index === 0 : setting.key === props.arrival}
           onSave={props.onSave}
           onReset={props.onReset}
         />
