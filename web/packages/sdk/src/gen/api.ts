@@ -57,6 +57,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bytes/files/{id}/frame": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The keyframe at or before a place of a file's picture, 640 across, made by its node at once and kept nowhere: what a cast's remote shows (D545) */
+        get: operations["getFileFrame"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/bytes/media/chunks/{token}/{streamName}/{fileName}": {
         parameters: {
             query?: never;
@@ -6903,6 +6920,55 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    getFileFrame: {
+        parameters: {
+            query: {
+                /** @description The place, in milliseconds from the film's start: the keyframe at or before it is the picture */
+                atMs: number;
+            };
+            header?: {
+                /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
+                "Orpheum-Viewer"?: string;
+                /** @description The browser's Sec-Fetch-Site */
+                "Sec-Fetch-Site"?: string;
+            };
+            path: {
+                /** @description The file */
+                id: number;
+            };
+            cookie?: {
+                /** @description The media cookie sign-in sets over TLS, for an <img> */
+                "__Host-orpheum_media"?: string;
+                /** @description A Watch Together viewer's over TLS, set as their playback starts */
+                "__Host-orpheum_viewer"?: string;
+                /** @description The media cookie sign-in sets over plain HTTP, for an <img> */
+                orpheum_media?: string;
+                /** @description A Watch Together viewer's over plain HTTP, set as their playback starts */
+                orpheum_viewer?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The key frame */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/webp": unknown;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
         };
     };

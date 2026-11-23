@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // fakeFilms makes a film of the file opened by its path, saying how it was asked to read it.
@@ -52,14 +53,17 @@ type fakeFrames struct {
 }
 
 func (frames *fakeFrames) KeyFrame(
-	_ context.Context, film execx.Film, streamIndex int, at time.Duration,
+	ctx context.Context, film execx.Film, streamIndex int, at time.Duration,
 ) ([]byte, error) {
 	frames.mutex.Lock()
 	frames.asks = append(frames.asks, fakeFrame{film: film, streamIndex: streamIndex, at: at})
 	frames.mutex.Unlock()
 	if frames.release != nil {
 		frames.started <- struct{}{}
-		<-frames.release
+		select {
+		case <-frames.release:
+		case <-ctx.Done():
+		}
 	}
 	return frames.frame, frames.err
 }
@@ -160,13 +164,13 @@ func TestServeFrame_MakesOneAtATime(t *testing.T) {
 	target := frameTarget(movie, movie.payloadHash, 0, 0)
 	first := make(chan int)
 	go func() { first <- request(t, handler, http.MethodGet, target, nil).Code }()
-	<-frames.started
+	testutil.Receive(t, frames.started, "the first key frame to start")
 	ctx, stop := context.WithCancel(t.Context())
 	stop()
 	waiting := httptest.NewRecorder()
 	handler.ServeHTTP(waiting, httptest.NewRequestWithContext(ctx, http.MethodGet, target, nil))
 	close(frames.release)
-	if code := <-first; code != http.StatusOK {
+	if code := testutil.Receive(t, first, "the first ask's answer"); code != http.StatusOK {
 		t.Errorf("the first ask = %d, want 200", code)
 	}
 	if asks := frames.asked(); len(asks) != 1 {

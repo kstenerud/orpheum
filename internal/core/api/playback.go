@@ -229,6 +229,7 @@ func (server *Server) registerPlayback() {
 	server.registerSubtitleFetch()
 	server.registerChunks()
 	server.registerUpNext()
+	server.registerFrame()
 }
 
 // FileAvailabilityOutput is whether a file can be read now.
