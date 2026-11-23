@@ -199,7 +199,8 @@ func (service *Service) logUnwantedAsk(ctx context.Context, dir string, stream S
 }
 
 // ask is a player's ask for chunk wanted of the store: an evicted store refuses it when it is neither
-// made nor on its way (ErrNoRoomToMake, D250 §6), and plans no run (runTracker.plan): only a player
+// made nor on its way (ErrNoRoomToMake, D250 §6), a node whose disk has no room when no run on it
+// is making it (ErrDiskFull, D543), and plans no run (runTracker.plan): only a player
 // its eviction left without its chunks is told why it stops. Refusing every ask, a chunk made and
 // served was answered 500, and a player whose quality another run was making at 2.5x playback asked
 // for it every two seconds for minutes (the owner's film on the production NAS, 2026-10-17). For a player's
@@ -212,6 +213,9 @@ func (service *Service) ask(
 	service.runs.knowGrid(dir, film.grid)
 	if service.runs.isEvicted(dir) && !service.runs.isCovered(dir, wanted) {
 		return nil, fmt.Errorf("%s: %w", dir, ErrNoRoomToMake)
+	}
+	if service.isDiskFull(film.file.NodeID) && !service.runs.isOnItsNode(dir, wanted) {
+		return nil, fmt.Errorf("%s: %w", dir, ErrDiskFull)
 	}
 	return service.wantednessOf(ctx, film.file.ID, stream, isAsked)
 }
@@ -263,7 +267,7 @@ func (service *Service) storeIDOf(ctx context.Context, fileID int64, stream Stre
 // word recorded. A player waited on the quality it stepped down to, unmade since its run stopped at
 // the step up, and stalled with only the picture it had buffered (film 200 on staging, 2026-11-21).
 // A name the playback is not offered as a picture, its own or a quality made of it, a film not cut
-// yet, and a chunk its node has no room for or FFmpeg has given up on are said at debug and refused
+// yet, and a chunk its node has no room for, nor disk for, or FFmpeg has given up on are said at debug and refused
 // nothing: the player's own ask then meets them as it does today.
 func (service *Service) Foresee(ctx context.Context, playback Playback, streamName string, positionMs int64) error {
 	film, stream, err := service.offeredStream(ctx, playback, streamName)
@@ -273,7 +277,7 @@ func (service *Service) Foresee(ctx context.Context, playback Playback, streamNa
 	if err == nil {
 		err = service.askedFor(ctx, playback.FileID, playback.gridKind(), stream, film.grid.chunkAt(positionMs))
 	}
-	for _, foreseeable := range []error{ErrNoStream, ErrNoGrid, ErrNoRoomToMake, ErrCannotBeMade} {
+	for _, foreseeable := range []error{ErrNoStream, ErrNoGrid, ErrNoRoomToMake, ErrDiskFull, ErrCannotBeMade} {
 		if errors.Is(err, foreseeable) {
 			service.logger.DebugContext(ctx, "made nothing ahead of a step down",
 				slogx.EventKey, "stepDownNotForeseen", "fileId", playback.FileID, "stream", streamName,

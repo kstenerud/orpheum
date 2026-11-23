@@ -159,6 +159,56 @@ func TestMakeRoom_RefusesWhenTheDiskIsPastItsLimitWithNothingToEvict(t *testing.
 	}
 }
 
+// D543: a disk the last eviction left with no room is measured again at each read of its usage, the
+// node's status, so the room an admin makes outside is seen and the core's waiting runs start again;
+// and a run no longer watched is evicted then, though no run asks for room. The status said what the
+// refusal left until the node restarted.
+func TestUsage_ADiskWithNoRoomIsMeasuredAgainUntilItHasRoom(t *testing.T) {
+	t.Parallel()
+	disk := 97
+	budget := Budget{
+		MaxBytes: 1 << 30, KeptAfterLastPlay: 72 * time.Hour, WatchedWithin: 10 * time.Minute,
+		DiskUsedLimitPercent: 95,
+	}
+	shelf := shelfWith(t, budget, &disk, map[string]struct {
+		bytes int
+		ago   time.Duration
+	}{"1/remux/aaaaaaaaaaaaaaaa": {100, 2 * time.Minute}})
+	if err := shelf.MakeRoom(t.Context()); !errors.Is(err, ErrNoRoom) {
+		t.Fatalf("MakeRoom with the disk 97%% full and only a film being watched: %v, want ErrNoRoom", err)
+	}
+	if usage, isKnown := shelf.Usage(t.Context()); !isKnown || usage.DiskUsedPercent != 97 {
+		t.Errorf("Usage with the disk still full = %+v %v; want 97%% full", usage, isKnown)
+	}
+	// Watched no longer, the run is evicted at the next read, freeing the disk.
+	fake, isFake := shelf.clock.(*clocktest.Fake)
+	if !isFake {
+		t.Fatalf("the shelf's clock is %T; want the fake", shelf.clock)
+	}
+	fake.Advance(20 * time.Minute)
+	shelf.diskUsedPercent = func(string) (int, error) {
+		if len(remainingRunDirs(t, shelf)) == 0 {
+			return 90, nil
+		}
+		return disk, nil
+	}
+	if usage, _ := shelf.Usage(t.Context()); usage.DiskUsedPercent != 90 {
+		t.Errorf("Usage once the film is no longer watched = %+v; want it evicted, 90%% full", usage)
+	}
+	// Room made outside, with nothing left to evict, is seen too.
+	if err := shelf.MakeRoom(t.Context()); err != nil {
+		t.Fatalf("MakeRoom at 90%%: %v", err)
+	}
+	shelf.diskUsedPercent = func(string) (int, error) { return disk, nil }
+	if err := shelf.MakeRoom(t.Context()); !errors.Is(err, ErrNoRoom) {
+		t.Fatalf("MakeRoom with the disk 97%% full again: %v, want ErrNoRoom", err)
+	}
+	disk = 40
+	if usage, _ := shelf.Usage(t.Context()); usage.DiskUsedPercent != 40 {
+		t.Errorf("Usage once room was made outside = %+v; want 40%% full", usage)
+	}
+}
+
 // A rendition served within the watched window is never evicted, whatever the disk says: the next
 // prepare is refused instead, and the log names what was kept. On staging a disk past its limit
 // evicted the film being watched, and it stopped (the owner, 2026-10-06).

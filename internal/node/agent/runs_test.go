@@ -121,7 +121,7 @@ func (shelf evictingShelf) Evict(context.Context) (prepared.Usage, error) {
 	return prepared.Usage{}, nil
 }
 
-func (evictingShelf) LastUsage() (prepared.Usage, bool) { return prepared.Usage{}, false }
+func (evictingShelf) Usage(context.Context) (prepared.Usage, bool) { return prepared.Usage{}, false }
 
 func (evictingShelf) EvictUnfinished() ([]string, error) { return nil, nil }
 

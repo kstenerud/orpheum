@@ -31251,3 +31251,41 @@ like that?" **Amends** D217 §5 (the prepared directory's disk limits).
    writing. 5 GiB gives the node time to evict before the disk fills under others.
 3. **Tests.** `TestWriteConfigs_TheNodeKeepsFiveGiBOfItsDiskFree` and
    `TestLoadConfig_TheNodeKeepsFiveGiBFreeWhenTheFileNamesNoFloor`.
+
+## D543 — No room on a node's disk is an error: the player is told at once, and an admin is told
+
+**Decided** (2026-11-23), by the project owner: "Lack of disk space is a real error and must be
+handled as such. We can't wait for space to clear up because that could take days." And: "we need
+a "no room" response type, and wording for the user + alert for the admin that the disk is too
+full." **Amends** D231 §5 (a node's prepared directory parked for want of room) and D217 §5 (what
+the node's status says of its prepared directory).
+
+**Status:** decided. Its code is `internal/core/chunks/disk_full.go`, `internal/core/api/chunks.go`,
+`internal/core/api/needs_attention_pages.go`, `internal/node/prepared/shelf.go` and, in the web,
+`packages/player/src/failure.ts` and `apps/web/src/attention-lines.ts`.
+
+1. **The answer.** While a node's prepared directory is parked for want of room (a run it refused,
+   `RefusedNoRoom`), a player's ask for a chunk no run on that node is making is answered at once
+   with 507 Insufficient Storage, code `diskFull` (`chunks.ErrDiskFull`), and queues nothing. A run
+   the node took before goes on, and its chunks are still waited for. The player does not ask again
+   (`neverAskedAgain`) and says its own words: "The film could not play: there is no room on the
+   server, its disk too full to prepare this video. An admin has been told." The words go inside
+   the player's existing failure note, as every play failure's do.
+2. **No poison.** The node's status measured the disk only at an eviction, and with every run
+   refused none came: the status said "no room" until the node restarted. Its status now measures
+   again, evicting what is no longer watched, while the last measure left no room
+   (`Shelf.Usage`). Room made outside, or freed by a film no longer watched, unparks the directory
+   at the next status (`nodes.keepStatus`), and the next ask is made.
+3. **The admin.** System's Needs attention has a problem, `diskFull`, in place of the destination
+   down: "<machine>'s disk is too full to prepare videos: it has N GiB free and keeps at least M GiB
+   free" (or "it is P% full, its limit L%"), from the machine's last status. It clears when the
+   directory is unparked.
+4. **Background work.** Only a run of chunks asks for room (`MakeRoom`), and every run of chunks is
+   asked for by a player, a stall or a step down. No other kind of job is refused for room. A run
+   no player waits on any more stays parked, costing nothing, until the status shows room; the
+   admin's item covers it.
+5. **Tests.** `TestEnsure_ANodeWithNoRoomRefusesAtOnceAndAsksAgainOnceItHasRoom`,
+   `TestChunks_AChunkOnAMachineWithNoRoomIsRefusedAtOnceUntilItHasRoom`,
+   `TestUsage_ADiskWithNoRoomIsMeasuredAgainUntilItHasRoom`,
+   `TestNeedsAttention_PagesSayAMachinesDiskIsTooFullUntilItHasRoom`, and the web's
+   `attention-lines.test.ts`, `play.test.tsx` and the player's `failure.test.ts`.

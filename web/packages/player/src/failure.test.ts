@@ -34,6 +34,12 @@ describe("a playback failure", () => {
         response: { url: "349.m4s", code: 422 },
       }),
     ).toBe("cannotMake"); // FFmpeg failed on the film at this chunk each time (toolkit.md item 12)
+    expect(
+      hlsErrorFailure({
+        type: Hls.ErrorTypes.NETWORK_ERROR,
+        response: { url: "12.m4s", code: 507 },
+      }),
+    ).toBe("diskFull"); // its machine's disk is too full to prepare it (D543)
     expect(hlsErrorFailure({ type: Hls.ErrorTypes.MEDIA_ERROR })).toBe("decode");
     expect(hlsErrorFailure({ type: Hls.ErrorTypes.OTHER_ERROR })).toBe("unknown");
     for (const failure of [

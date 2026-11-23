@@ -91,11 +91,24 @@ func (shelf *Shelf) SetStoreTiers(tiers map[string]nodeproto.KeepTier) {
 	shelf.storeTiers = tiers
 }
 
-// LastUsage is what the directory held after its last eviction, and whether there was one.
-func (shelf *Shelf) LastUsage() (Usage, bool) {
+// Usage is what the directory holds, for the node's status, and whether it is known: what its last
+// eviction left while that left the disk room, and otherwise an eviction now, which measures the disk
+// again and evicts what is no longer watched. A disk left with no room refuses every run (MakeRoom),
+// so only this sees room come back, made outside or by runs no longer watched, and the core's runs
+// that wait parked for it start again (D543). An eviction that fails says what the last one left.
+func (shelf *Shelf) Usage(ctx context.Context) (Usage, bool) {
 	shelf.mutex.Lock()
-	defer shelf.mutex.Unlock()
-	return shelf.lastUsage, shelf.lastUsage.BudgetBytes != 0
+	last := shelf.lastUsage
+	shelf.mutex.Unlock()
+	if last.BudgetBytes == 0 || last.isDiskWithin() {
+		return last, last.BudgetBytes != 0
+	}
+	usage, err := shelf.Evict(ctx)
+	if err != nil {
+		shelf.logger.WarnContext(ctx, "could not measure the prepared directory's disk again", "err", err)
+		return last, true
+	}
+	return usage, true
 }
 
 // New returns the shelf over directory, an absolute path.

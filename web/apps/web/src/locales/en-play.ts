@@ -91,6 +91,8 @@ export const enPlay = {
         "the server cannot make this quality as fast as it plays while it makes others for other viewers; try again in a while",
       cannotMake:
         "the server failed on this part of the film each time it tried to make it, and would fail the same way again",
+      diskFull:
+        "there is no room on the server, its disk too full to prepare this video. An admin has been told",
       unknown: "the browser gave no reason",
     },
     boost: "Dialogue boost",

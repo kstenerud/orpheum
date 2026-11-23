@@ -33,6 +33,10 @@ export const enAttention = {
     workFailing: "{{count}} jobs failed in the last {{hours}} hours.",
     workFailingOne: "1 job failed in the last {{hours}} hours.",
     destinationDown: "{{name}} is not answering: {{reason}}.",
+    diskFull: "{{nodeName}}'s disk is too full to prepare videos: {{room}}.",
+    diskFullFloor: "it has {{free}} GiB free and keeps at least {{floor}} GiB free",
+    diskFullPercent: "it is {{percent}}% full, its limit {{limit}}%",
+    diskFullUnsaid: "it has not said how full it is",
     certificateMissing: "The certificate for {{name}} has not been obtained.",
     unknownFailures:
       "{{count}} kinds of work failed in a way the server doesn't know how to handle.",

@@ -153,7 +153,8 @@ type Watcher interface {
 // the makings that never finished (D238 §2).
 type PreparedShelf interface {
 	Evict(ctx context.Context) (prepared.Usage, error)
-	LastUsage() (prepared.Usage, bool)
+	// Usage is what the directory holds, measured again while its disk has no room.
+	Usage(ctx context.Context) (prepared.Usage, bool)
 	EvictUnfinished() (evicted []string, err error)
 	// SetStoreTiers keeps how strongly the core's players want each chunk store kept (D309 §8).
 	SetStoreTiers(tiers map[string]nodeproto.KeepTier)

@@ -281,6 +281,7 @@
               "finding",
               "workFailing",
               "destinationDown",
+              "diskFull",
               "certificateMissing",
               "unknownFailures",
               "machineLocked",
@@ -314,6 +315,7 @@
               "finding",
               "workFailing",
               "destinationDown",
+              "diskFull",
               "certificateMissing",
               "unknownFailures",
               "machineLocked",
@@ -350,6 +352,9 @@
           },
           "nodeName": {
             "type": "string"
+          },
+          "prepared": {
+            "$ref": "#/components/schemas/PreparedBody"
           },
           "rootPath": {
             "type": "string"
@@ -6081,6 +6086,14 @@
             "format": "int64",
             "type": "integer"
           },
+          "diskAvailableBytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "diskMinFreeBytes": {
+            "format": "int64",
+            "type": "integer"
+          },
           "diskUsedLimitPercent": {
             "format": "int64",
             "type": "integer"
@@ -6098,7 +6111,9 @@
           "usedBytes",
           "budgetBytes",
           "diskUsedPercent",
-          "diskUsedLimitPercent"
+          "diskUsedLimitPercent",
+          "diskAvailableBytes",
+          "diskMinFreeBytes"
         ],
         "type": "object"
       },
@@ -6352,6 +6367,7 @@
                   "cannotConvert",
                   "tooSlowToConvert",
                   "noRoomToMake",
+                  "diskFull",
                   "playbackGone",
                   "migrating",
                   "receivingACast",
@@ -6372,6 +6388,7 @@
                   "cannotConvert",
                   "tooSlowToConvert",
                   "noRoomToMake",
+                  "diskFull",
                   "playbackGone",
                   "migrating",
                   "receivingACast",
@@ -11491,6 +11508,9 @@
           },
           "425": {
             "description": "Not made yet: the film is being read for where it can be cut, or the chunk is being made; ask again after Retry-After"
+          },
+          "507": {
+            "description": "diskFull: the machine's disk is too full to prepare the chunk, and an admin is told (D543); an ask after it has room again is made"
           }
         },
         "security": [
@@ -11623,6 +11643,9 @@
           },
           "425": {
             "description": "Not made yet: the film is being read for where it can be cut, or the chunk is being made; ask again after Retry-After"
+          },
+          "507": {
+            "description": "diskFull: the machine's disk is too full to prepare the chunk, and an admin is told (D543); an ask after it has room again is made"
           }
         },
         "security": [

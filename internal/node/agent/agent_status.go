@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"sync/atomic"
 
+	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/pkg/strictjson"
@@ -55,6 +56,11 @@ func (agent *Agent) postStatus(ctx context.Context, nodeID int64) error {
 func (agent *Agent) status(ctx context.Context) nodeproto.Status {
 	disks := agent.disks(ctx)
 	selfUse := agent.selfUse(ctx)
+	var usage prepared.Usage
+	isUsageKnown := false
+	if agent.workers.PreparedShelf != nil {
+		usage, isUsageKnown = agent.workers.PreparedShelf.Usage(ctx)
+	}
 	agent.mutex.Lock()
 	defer agent.mutex.Unlock()
 	takenCommandSeq, held := takenThenHeld(&agent.takenCommandSeq, agent.held)
@@ -70,13 +76,11 @@ func (agent *Agent) status(ctx context.Context) nodeproto.Status {
 	if agent.workers.Watcher != nil {
 		status.Watches = agent.workers.Watcher.States()
 	}
-	if agent.workers.PreparedShelf != nil {
-		if usage, known := agent.workers.PreparedShelf.LastUsage(); known {
-			status.PreparedUsage = &nodeproto.PreparedUsage{
-				UsedBytes: usage.UsedBytes, BudgetBytes: usage.BudgetBytes, DiskUsedPercent: usage.DiskUsedPercent,
-				DiskUsedLimitPercent: usage.DiskUsedLimitPercent, DiskAvailableBytes: usage.DiskAvailableBytes,
-				DiskMinFreeBytes: usage.DiskMinFreeBytes,
-			}
+	if isUsageKnown {
+		status.PreparedUsage = &nodeproto.PreparedUsage{
+			UsedBytes: usage.UsedBytes, BudgetBytes: usage.BudgetBytes, DiskUsedPercent: usage.DiskUsedPercent,
+			DiskUsedLimitPercent: usage.DiskUsedLimitPercent, DiskAvailableBytes: usage.DiskAvailableBytes,
+			DiskMinFreeBytes: usage.DiskMinFreeBytes,
 		}
 	}
 	return status

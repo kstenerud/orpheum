@@ -31,6 +31,9 @@
 //     playing does not break (the owner, 2026-10-06). TestEvict_NeverRemovesOneBeingWatched.
 //   - A run the disk has no room for is refused, with why.
 //     TestMakeRoom_RefusesWhenTheDiskIsPastItsLimitWithNothingToEvict.
+//   - While the last measure left the disk no room, each read of its usage, the node's status,
+//     measures it again and evicts what is no longer watched, so room coming back is seen and the
+//     core's parked runs start again (D543). TestUsage_ADiskWithNoRoomIsMeasuredAgainUntilItHasRoom.
 //   - A store of chunks, at <file_id>/chunks-<stream>/<grid_id>, has a manifest of its own
 //     (nodeproto.StoreManifestName), so a node holding no database knows what its disk holds after a
 //     restart (D238 §2); a chunk is put in it whole, and a run's raw files are discarded only inside

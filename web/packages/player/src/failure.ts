@@ -27,6 +27,11 @@ export type PlaybackFailure =
    * core says with its own status, 422 (cannotConvert); asking again fails the same way.
    */
   | "cannotMake"
+  /**
+   * The server's disk is too full to prepare this video, which the core says with its own status,
+   * 507 (diskFull), at once: room may take days to come back, and an admin is told (D543).
+   */
+  | "diskFull"
   /** It failed and said nothing more we know. */
   | "unknown";
 
@@ -45,6 +50,7 @@ export const playbackFailures: readonly PlaybackFailure[] = [
   "unsupported",
   "tooBusy",
   "cannotMake",
+  "diskFull",
   "unknown",
 ];
 
@@ -71,6 +77,12 @@ export const noRoomToMakeStatus = 429;
  * staging, 2026-11-03; toolkit.md item 12).
  */
 export const cannotMakeStatus = 422;
+
+/**
+ * HTTP's 507 Insufficient Storage: on a chunk's path, the core's word that its machine's disk is too
+ * full to prepare it (diskFull, D543), which asking again soon does not change.
+ */
+export const diskFullStatus = 507;
 
 /**
  * HTTP's 503: on a chunk's path, the core's word that its film cannot be read now, its machine away
@@ -102,7 +114,7 @@ export const unansweredStatus = 0;
  * Whether a fatal hls.js error only stopped its loading, which asking it to load on may mend: any but
  * the media's own (MEDIA_ERROR, MUX_ERROR), which alone end a playback, a load failing or timing out,
  * its playlist's or its chunk's, or an exception hls.js caught in its own handling; never the core's
- * 404, 422, 429 or 503, which asking again does not change and the page answers in its own way (D250 §6,
+ * 404, 422, 429, 503 or 507, which asking again does not change and the page answers in its own way (D250 §6,
  * D241 §7). A load that failed while the owner's Chrome was offline ended its playback for good,
  * though the link came back (staging, 2026-10-29; VQ125).
  */
@@ -114,15 +126,19 @@ export function isLoadStopped(data: Pick<ErrorData, "type" | "fatal" | "response
     data.type !== Hls.ErrorTypes.MUX_ERROR &&
     code !== noRoomToMakeStatus &&
     code !== cannotMakeStatus &&
+    code !== diskFullStatus &&
     code !== unreachableStatus &&
     code !== goneStatus
   );
 }
 
-/** A load's failure by the core's answer: its own 429 and 422 say why; any other, the network. */
+/** A load's failure by the core's answer: its own 429, 422 and 507 say why; any other, the network. */
 function networkFailure(code: number | undefined): PlaybackFailure {
   if (code === noRoomToMakeStatus) {
     return "tooBusy";
+  }
+  if (code === diskFullStatus) {
+    return "diskFull";
   }
   return code === cannotMakeStatus ? "cannotMake" : "network";
 }

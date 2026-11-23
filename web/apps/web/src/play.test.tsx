@@ -262,6 +262,13 @@ describe("playing a file", () => {
     expect(new Set(texts).size).toBe(texts.length);
     expect(playbackFailureText(t, "unsupported")).toBe("this browser does not play its format");
   });
+
+  it("says a server with no room on its disk as that, and that an admin has been told (D543)", () => {
+    const t = i18n.t.bind(i18n);
+    expect(t("play.ladderFailed", { reason: playbackFailureText(t, "diskFull") })).toBe(
+      "The film could not play: there is no room on the server, its disk too full to prepare this video. An admin has been told.",
+    );
+  });
 });
 
 describe("where a player moving to a lower quality goes on from", () => {

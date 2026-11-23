@@ -276,6 +276,11 @@
 //     starts no run, by TestEnsure_AnEvictedStoreGivesWhatIsMadeOrOnItsWayAndStartsNoRun. The node is
 //     then left chunkRunSpeedWindowSeconds to settle. A run cut whose job is no longer open fails
 //     nothing, and what the watch fails at is said, never the refusal of the progress that asked.
+//
+//   - While a node's prepared directory is parked for want of room, a player's ask for a chunk no
+//     run on the node is making is refused at once, ErrDiskFull, queuing nothing; once its status
+//     unparks it, the next ask queues the run (D543).
+//     TestEnsure_ANodeWithNoRoomRefusesAtOnceAndAsksAgainOnceItHasRoom.
 //     Enforced by TestKeepRunsFast_CuttingARunWhoseJobEndedFailsNothing,
 //     TestKeepRunsFast_EvictsTheNewestWhenEveryRunIsInUse,
 //     TestKeepRunsFast_CancelsTheOldestRunNoOneIsPlayingFromRefusingNoOne,

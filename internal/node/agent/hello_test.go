@@ -21,7 +21,7 @@ type fakePreparedShelf struct{ usage prepared.Usage }
 
 func (kept fakePreparedShelf) Evict(context.Context) (prepared.Usage, error) { return kept.usage, nil }
 
-func (kept fakePreparedShelf) LastUsage() (prepared.Usage, bool) { return kept.usage, true }
+func (kept fakePreparedShelf) Usage(context.Context) (prepared.Usage, bool) { return kept.usage, true }
 
 func (fakePreparedShelf) EvictUnfinished() ([]string, error) { return nil, nil }
 

@@ -52,6 +52,8 @@ func (server *Server) registerChunks() {
 		"404": {Description: "A stream the playback is not offered, or a file a stream has no place for"},
 		"425": {Description: "Not made yet: the film is being read for where it can be cut, or the chunk is " +
 			"being made; ask again after Retry-After"},
+		"507": {Description: "diskFull: the machine's disk is too full to prepare the chunk, and an admin is told " +
+			"(D543); an ask after it has room again is made"},
 	}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getChunksMasterPlaylist", Method: http.MethodGet,
@@ -364,6 +366,10 @@ func (server *Server) chunksError(ctx context.Context, action string, err error)
 		// 429, which nothing else on a chunk's path answers: the player stops, and says why (D250 §6).
 		return newError(http.StatusTooManyRequests, CodeNoRoomToMake,
 			"the machine has no room to make this quality as fast as it plays, for the other films it makes")
+	case errors.Is(err, chunks.ErrDiskFull):
+		// 507, Insufficient Storage, said at once: room may take days to come back (D543).
+		return newError(http.StatusInsufficientStorage, CodeDiskFull,
+			"the machine's disk is too full to prepare this video; an admin has been told")
 	}
 	return server.playbackError(ctx, action, err)
 }

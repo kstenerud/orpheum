@@ -2936,13 +2936,14 @@ export interface components {
             /** @description A problem, shown first and in the problem style; otherwise a notice */
             isProblem: boolean;
             /** @enum {string} */
-            kind: "folderOffline" | "diskOffline" | "folderWaiting" | "unread" | "rescanGaveUp" | "needsMatch" | "seriesReadWrongly" | "filmsWithoutSound" | "finding" | "workFailing" | "destinationDown" | "certificateMissing" | "unknownFailures" | "machineLocked" | "machineOutdated" | "machineSilent" | "keyRefused" | "keyMissing" | "secretNeedsReentry" | "updateAvailable" | "securityFix" | "updateCheckFailed" | "composePinned" | "composeNewer" | "stoodAside" | "copyRefused" | "addressesExpired" | "removed" | "deadEnds" | "protocolEnding";
+            kind: "folderOffline" | "diskOffline" | "folderWaiting" | "unread" | "rescanGaveUp" | "needsMatch" | "seriesReadWrongly" | "filmsWithoutSound" | "finding" | "workFailing" | "destinationDown" | "diskFull" | "certificateMissing" | "unknownFailures" | "machineLocked" | "machineOutdated" | "machineSilent" | "keyRefused" | "keyMissing" | "secretNeedsReentry" | "updateAvailable" | "securityFix" | "updateCheckFailed" | "composePinned" | "composeNewer" | "stoodAside" | "copyRefused" | "addressesExpired" | "removed" | "deadEnds" | "protocolEnding";
             /** Format: int64 */
             libraryId?: number;
             libraryName?: string;
             mountPath?: string;
             name?: string;
             nodeName?: string;
+            prepared?: components["schemas"]["PreparedBody"];
             rootPath?: string;
             /** Format: int64 */
             since?: number;
@@ -4999,6 +5000,10 @@ export interface components {
             /** Format: int64 */
             budgetBytes: number;
             /** Format: int64 */
+            diskAvailableBytes: number;
+            /** Format: int64 */
+            diskMinFreeBytes: number;
+            /** Format: int64 */
             diskUsedLimitPercent: number;
             /** Format: int64 */
             diskUsedPercent: number;
@@ -5085,7 +5090,7 @@ export interface components {
             message: string;
         } | {
             /** @enum {string} */
-            code: "setupRequired" | "forbidden" | "notFound" | "conflict" | "stale" | "nodeSilent" | "fileUnavailable" | "preparing" | "prepareFailed" | "cannotConvert" | "tooSlowToConvert" | "noRoomToMake" | "playbackGone" | "migrating" | "receivingACast" | "castingHere" | "internal";
+            code: "setupRequired" | "forbidden" | "notFound" | "conflict" | "stale" | "nodeSilent" | "fileUnavailable" | "preparing" | "prepareFailed" | "cannotConvert" | "tooSlowToConvert" | "noRoomToMake" | "diskFull" | "playbackGone" | "migrating" | "receivingACast" | "castingHere" | "internal";
             /**
              * @description The leg of the request that failed, for reachability errors
              * @enum {string}
@@ -6958,6 +6963,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description diskFull: the machine's disk is too full to prepare the chunk, and an admin is told (D543); an ask after it has room again is made */
+            507: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     getChunksMasterPlaylist: {
@@ -7006,6 +7018,13 @@ export interface operations {
             };
             /** @description Not made yet: the film is being read for where it can be cut, or the chunk is being made; ask again after Retry-After */
             425: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description diskFull: the machine's disk is too full to prepare the chunk, and an admin is told (D543); an ask after it has room again is made */
+            507: {
                 headers: {
                     [name: string]: unknown;
                 };

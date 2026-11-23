@@ -3,6 +3,7 @@
 import type { LoaderResponse, LoadPolicy } from "hls.js";
 
 import {
+  diskFullStatus,
   noRoomToMakeStatus,
   tooEarlyStatus,
   goneStatus,
@@ -50,6 +51,7 @@ export const unansweredAskAgainCount = 4;
 /** The core's statuses after which a chunk is never asked for again, whatever hls.js would do. */
 const neverAskedAgain: ReadonlySet<number> = new Set([
   noRoomToMakeStatus, // the core has no room to make it: asking again finds none (D250 §6)
+  diskFullStatus, // its machine's disk is too full to prepare it, which may last days (D543)
   // Its film cannot be read now: the page says why and plays again once it can, where ninety asks
   // again spun the player for minutes, saying nothing (the owner's test, 2026-10-21).
   unreachableStatus,

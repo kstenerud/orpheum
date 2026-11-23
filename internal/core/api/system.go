@@ -342,6 +342,22 @@ type PreparedBody struct {
 	BudgetBytes          int64 `json:"budgetBytes"`
 	DiskUsedPercent      int   `json:"diskUsedPercent"`
 	DiskUsedLimitPercent int   `json:"diskUsedLimitPercent"`
+	// DiskAvailableBytes is how much of its disk is free, and DiskMinFreeBytes the floor the node
+	// keeps free on it, whatever its percentage.
+	DiskAvailableBytes int64 `json:"diskAvailableBytes"`
+	DiskMinFreeBytes   int64 `json:"diskMinFreeBytes"`
+}
+
+// preparedBody is a node's prepared directory as its status said it, or nil when it has not.
+func preparedBody(usage *nodeproto.PreparedUsage) *PreparedBody {
+	if usage == nil {
+		return nil
+	}
+	return &PreparedBody{
+		UsedBytes: usage.UsedBytes, BudgetBytes: usage.BudgetBytes, DiskUsedPercent: usage.DiskUsedPercent,
+		DiskUsedLimitPercent: usage.DiskUsedLimitPercent, DiskAvailableBytes: usage.DiskAvailableBytes,
+		DiskMinFreeBytes: usage.DiskMinFreeBytes,
+	}
 }
 
 func (server *Server) registerSystem() {
@@ -587,12 +603,7 @@ func fillNodeFacts(body *SystemNodeBody, facts nodes.Facts, serverBuild build.Pr
 	if facts.Status == nil {
 		return
 	}
-	if usage := facts.Status.PreparedUsage; usage != nil {
-		body.PreparedUsage = &PreparedBody{
-			UsedBytes: usage.UsedBytes, BudgetBytes: usage.BudgetBytes, DiskUsedPercent: usage.DiskUsedPercent,
-			DiskUsedLimitPercent: usage.DiskUsedLimitPercent,
-		}
-	}
+	body.PreparedUsage = preparedBody(facts.Status.PreparedUsage)
 	for _, disk := range facts.Status.Disks {
 		body.Disks = append(body.Disks, DiskBody{
 			Path: disk.Path, TotalBytes: disk.TotalBytes, AvailableBytes: disk.AvailableBytes, Failure: disk.Failure,

@@ -62,6 +62,7 @@ const kindLines: Readonly<Record<AttentionItem["kind"], KindLine>> = {
       reason: item.destination?.reason ?? "",
     }),
   },
+  diskFull: { place: "system", values: (t, item) => ({ room: diskRoomText(t, item) }) },
   certificateMissing: { place: "system" },
   unknownFailures: { place: "system", isCounted: true },
   machineLocked: { place: "system" },
@@ -148,4 +149,31 @@ export function attentionLine(
   }
   const text = count === 1 ? t(`${key}One`, values) : t(key, { ...values, count });
   return { text, to: placeOf(kind.place, item) };
+}
+
+/** GiB in bytes, and a size in it to a tenth. */
+const gibibyte = 2 ** 30;
+function inGiB(bytes: number): number {
+  return Math.round((bytes / gibibyte) * 10) / 10;
+}
+
+/**
+ * Why a machine's disk has no room (D543), as its last status said: below the floor of free space it
+ * keeps, or past its limit, or not said.
+ */
+function diskRoomText(t: TFunction, item: AttentionItem): string {
+  const prepared = item.prepared;
+  if (prepared === undefined) {
+    return t("attention.diskFullUnsaid");
+  }
+  if (prepared.diskAvailableBytes < prepared.diskMinFreeBytes) {
+    return t("attention.diskFullFloor", {
+      free: inGiB(prepared.diskAvailableBytes),
+      floor: inGiB(prepared.diskMinFreeBytes),
+    });
+  }
+  return t("attention.diskFullPercent", {
+    percent: prepared.diskUsedPercent,
+    limit: prepared.diskUsedLimitPercent,
+  });
 }

@@ -43,6 +43,13 @@ type Queue interface {
 	Cancel(ctx context.Context, id int64) error
 }
 
+// Destinations say where work is parked: jobs.Queue.
+type Destinations interface {
+	// DestinationState is a destination's state, and whether it is parked: a node's prepared
+	// directory with no room (D543).
+	DestinationState(destination jobs.Destination) (jobs.DestinationState, bool)
+}
+
 // Loudness says the gains that level each measured sound of a file's bytes: loudness.Service.
 type Loudness interface {
 	Levels(ctx context.Context, payloadHash []byte) (decide.Levels, error)
@@ -73,6 +80,8 @@ type Parts struct {
 	Cache    *store.Cache
 	Settings Settings
 	Queue    Queue
+	// Destinations say whether a node's prepared directory is parked for want of room (D543).
+	Destinations Destinations
 	// Nodes say whether a film's node can read it now, for a run to park on (D231 §5).
 	Nodes library.NodeConnections
 	// Exchanges are how a run is given to its node and its word taken (D234 §7).
@@ -111,18 +120,19 @@ type Encoders interface {
 // playlists that list them, the runs that make them on their node, and which of a store's chunks are
 // made or on their way.
 type Service struct {
-	database    *store.Database
-	cache       *store.Cache
-	settings    Settings
-	queue       Queue
-	nodes       library.NodeConnections
-	exchanges   *nodes.Exchanges
-	loudness    Loudness
-	readThrough ReadThrough
-	logger      *slog.Logger
-	clock       clock.Clock
-	encoders    Encoders
-	absences    *library.Absences
+	database     *store.Database
+	cache        *store.Cache
+	settings     Settings
+	queue        Queue
+	destinations Destinations
+	nodes        library.NodeConnections
+	exchanges    *nodes.Exchanges
+	loudness     Loudness
+	readThrough  ReadThrough
+	logger       *slog.Logger
+	clock        clock.Clock
+	encoders     Encoders
+	absences     *library.Absences
 	// holdBack stops a node's other work while a run players want, encoded in software, is behind
 	// playback (D324 §5): the exchanges; nil holds nothing back.
 	holdBack HoldBack
@@ -148,7 +158,8 @@ func (service *Service) MovePlayersBy(move MovePlayers) { service.movePlayers = 
 // NewService returns the chunks service.
 func NewService(parts Parts) *Service {
 	service := &Service{
-		database: parts.Database, cache: parts.Cache, settings: parts.Settings, queue: parts.Queue, nodes: parts.Nodes,
+		database: parts.Database, cache: parts.Cache, settings: parts.Settings, queue: parts.Queue,
+		destinations: parts.Destinations, nodes: parts.Nodes,
 		exchanges: parts.Exchanges, loudness: parts.Loudness, readThrough: parts.ReadThrough, logger: parts.Logger,
 		clock: parts.Clock, encoders: parts.Encoders, absences: parts.Absences, runs: newRunTracker(),
 	}

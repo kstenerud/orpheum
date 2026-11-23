@@ -29,7 +29,8 @@ func (services *Services) openPlayback(parts Parts) {
 	// A discarding rescan throws out what is kept of the subtitles fetched for its files (D535 §6).
 	services.matcher.SetFetchedDiscarder(services.subtitles)
 	services.chunks = chunks.NewService(chunks.Parts{
-		Database: database, Cache: parts.Cache, Settings: parts.Settings, Queue: queue, Nodes: services.nodes,
+		Database: database, Cache: parts.Cache, Settings: parts.Settings, Queue: queue, Destinations: queue,
+		Nodes:     services.nodes,
 		Exchanges: services.Exchanges, Loudness: levels, ReadThrough: services.ReadThrough, Logger: parts.Logger,
 		Clock: parts.Clock, Encoders: services.nodes, Absences: services.ingester.Absences(),
 	})

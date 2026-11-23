@@ -47,6 +47,24 @@ type fakeQueue struct {
 	cancelledJobs   []int64
 	// released are the jobs said to be no longer wanted, in order; guarded by mutex.
 	released []jobs.Target
+	// parked are the destinations parked (park); guarded by mutex.
+	parked map[jobs.Destination]bool
+}
+
+// park parks a destination, or unparks it, as the queue would on a node's refusal or status.
+func (queue *fakeQueue) park(destination jobs.Destination, isParked bool) {
+	queue.mutex.Lock()
+	defer queue.mutex.Unlock()
+	queue.parked[destination] = isParked
+}
+
+func (queue *fakeQueue) DestinationState(destination jobs.Destination) (jobs.DestinationState, bool) {
+	queue.mutex.Lock()
+	defer queue.mutex.Unlock()
+	if !queue.parked[destination] {
+		return jobs.DestinationState{}, false
+	}
+	return jobs.DestinationState{Destination: destination, Reason: "its disk has no room", AwaitsSignal: true}, true
 }
 
 func (queue *fakeQueue) ReleaseWanted(_ context.Context, _ jobs.Kind, target jobs.Target) error {
@@ -64,7 +82,7 @@ func (queue *fakeQueue) Cancel(_ context.Context, id int64) error {
 }
 
 func newFakeQueue() *fakeQueue {
-	return &fakeQueue{progress: map[int64]float64{}, held: map[string]bool{}}
+	return &fakeQueue{progress: map[int64]float64{}, held: map[string]bool{}, parked: map[jobs.Destination]bool{}}
 }
 
 // heldKey is what a request repeats of another: its kind, target and arguments.
@@ -254,12 +272,18 @@ func (reader *fakeReadThrough) ReadForPlay(_ context.Context, fileID int64) (boo
 // seconds, chunks 0 to 119.
 const filmMinutes = 20
 
+// fixtureQueue is the job queue a fixture's runs are queued in, which also says where work is parked.
+type fixtureQueue interface {
+	Queue
+	Destinations
+}
+
 // chunksFixture is a chunks service over two films on node 1, under /m, its runs queued in queue and
 // given to node: film 1, whose 1920x1080 H.264 picture at four megabits a second is stream 0, after
 // it a 5.1 English track and a stereo one with no language, its timeline kept, a keyframe every ten
 // seconds and one busy second of 9.6 megabits; and film 2, the same with no timeline yet. The
 // segment length is two seconds.
-func chunksFixture(t *testing.T, queue Queue, node fakeNode) (*Service, *fakeReadThrough) {
+func chunksFixture(t *testing.T, queue fixtureQueue, node fakeNode) (*Service, *fakeReadThrough) {
 	t.Helper()
 	database := storetest.OpenMigrated(t)
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
@@ -308,7 +332,8 @@ func chunksFixture(t *testing.T, queue Queue, node fakeNode) (*Service, *fakeRea
 	reader := &fakeReadThrough{}
 	cache := storetest.OpenCache(t)
 	service := NewService(Parts{
-		Database: database, Cache: cache, Settings: seeded, Queue: queue, Nodes: node, Loudness: fakeLoudness{},
+		Database: database, Cache: cache, Settings: seeded, Queue: queue, Destinations: queue, Nodes: node,
+		Loudness:    fakeLoudness{},
 		ReadThrough: reader, Logger: slog.New(slog.DiscardHandler), Clock: clockSource,
 		Exchanges: nodestest.NewExchanges(t, nodes.ExchangeParts{
 			Sender: node, Rooms: node, Clock: clockSource, Cache: cache, Settings: seeded, MaxSilence: time.Hour,

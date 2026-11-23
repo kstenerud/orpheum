@@ -13,6 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -101,6 +102,55 @@ func TestNeedsAttention_PagesPutSystemsWorkFailingBeforeItsChecks(t *testing.T) 
 	if system := shellSystemPage(t, harness, admin); system == nil || system.Items[0].Kind != "workFailing" {
 		t.Errorf("GET /me?shell=true's System page = %+v; want work failing first", system)
 	}
+}
+
+// D543: a machine whose prepared directory is parked for want of room, a run refused for its disk,
+// is a problem on System, named with its disk's free space and floor as its last status said them,
+// in place of the destination down; it clears once its status shows room and unparks it.
+func TestNeedsAttention_PagesSayAMachinesDiskIsTooFullUntilItHasRoom(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.connectNode(t, "/media/films")
+	harness.nodes.prepared = &nodeproto.PreparedUsage{
+		UsedBytes: 3 << 30, BudgetBytes: 200 << 30, DiskUsedPercent: 90, DiskUsedLimitPercent: 95,
+		DiskAvailableBytes: 2 << 30, DiskMinFreeBytes: 5 << 30,
+	}
+	harness.queue.Park(t.Context(), jobs.Parking{
+		Destination: jobs.PreparedDirectoryDestination(1), Reason: "its disk has no room", AwaitsSignal: true,
+	})
+	system := attentionPages(t, harness, admin).System
+	if system == nil {
+		t.Fatal("System lists nothing; want the machine's disk too full")
+	}
+	full := diskFullOn(t, system)
+	if full == nil || !full.IsProblem || full.NodeName != "local" || full.Since == 0 || full.Prepared == nil ||
+		full.Prepared.DiskAvailableBytes != 2<<30 || full.Prepared.DiskMinFreeBytes != 5<<30 ||
+		full.Prepared.DiskUsedPercent != 90 || full.Prepared.DiskUsedLimitPercent != 95 {
+		t.Fatalf("System's disk too full = %+v; want local's, a problem, with 2 GiB free of a 5 GiB floor", full)
+	}
+	harness.queue.Unpark(t.Context(), jobs.PreparedDirectoryDestination(1))
+	if cleared := attentionPages(t, harness, admin).System; cleared != nil {
+		if item := diskFullOn(t, cleared); item != nil {
+			t.Errorf("System once the machine has room lists %+v; want it cleared", item)
+		}
+	}
+}
+
+// diskFullOn is the page's disk too full, if it lists one; a destination down beside it fails, since
+// a machine's disk too full is said in its place (D543).
+func diskFullOn(t *testing.T, page *api.AttentionPageBody) *api.AttentionItemBody {
+	t.Helper()
+	var full *api.AttentionItemBody
+	for _, item := range page.Items {
+		if item.Kind == "diskFull" {
+			full = &item
+		}
+		if item.Kind == "destinationDown" {
+			t.Errorf("System lists %+v; want the machine's disk said as too full, not as a destination down", item)
+		}
+	}
+	return full
 }
 
 // shellSystemPage is the System page of what needs the admin as an admin's shell read says it.

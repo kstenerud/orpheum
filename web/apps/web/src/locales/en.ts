@@ -119,6 +119,7 @@ const enOwn = {
       "This server can't convert this film fast enough to play it here. A device that plays the film as it is can.",
     noRoomToMake:
       "The server cannot make this quality as fast as it plays while it makes others for other viewers. Try again in a while.",
+    diskFull: "The server's disk is too full to prepare this video. An admin has been told.",
     migrating: "The server is starting up, or updating. It will answer in a moment.",
     inAnotherSession: "You are in another Watch Together session. Leave it to join this one.",
     setupRequired: "The server has not been set up yet.",

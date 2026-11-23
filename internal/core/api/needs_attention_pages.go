@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/discovery"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/providers"
@@ -50,7 +51,7 @@ type AttentionPageBody struct {
 // fields its kind names, the rest absent.
 type AttentionItemBody struct {
 	// Kind is what it is; a later server may add kinds, which a client skips (D432 §2).
-	Kind      string `enum:"folderOffline,diskOffline,folderWaiting,unread,rescanGaveUp,needsMatch,seriesReadWrongly,filmsWithoutSound,finding,workFailing,destinationDown,certificateMissing,unknownFailures,machineLocked,machineOutdated,machineSilent,keyRefused,keyMissing,secretNeedsReentry,updateAvailable,securityFix,updateCheckFailed,composePinned,composeNewer,stoodAside,copyRefused,addressesExpired,removed,deadEnds,protocolEnding" json:"kind"` //nolint:lll // one struct tag
+	Kind      string `enum:"folderOffline,diskOffline,folderWaiting,unread,rescanGaveUp,needsMatch,seriesReadWrongly,filmsWithoutSound,finding,workFailing,destinationDown,diskFull,certificateMissing,unknownFailures,machineLocked,machineOutdated,machineSilent,keyRefused,keyMissing,secretNeedsReentry,updateAvailable,securityFix,updateCheckFailed,composePinned,composeNewer,stoodAside,copyRefused,addressesExpired,removed,deadEnds,protocolEnding" json:"kind"` //nolint:lll // one struct tag
 	IsProblem bool   `doc:"A problem, shown first and in the problem style; otherwise a notice" json:"isProblem"`
 	// Count is how many: files waiting removal (folderWaiting), files and folders unread (unread),
 	// titles (needsMatch, seriesReadWrongly, filmsWithoutSound), jobs failed (workFailing), kinds
@@ -70,6 +71,9 @@ type AttentionItemBody struct {
 	Finding *FindingBody `json:"finding,omitempty"`
 	// Destination is the destination down (destinationDown), as the System page lists it.
 	Destination *DestinationBody `json:"destination,omitempty"`
+	// Prepared is the prepared directory of the machine whose disk is too full to prepare videos
+	// (diskFull), as its last status said it; absent when it has not said.
+	Prepared *PreparedBody `json:"prepared,omitempty"`
 	// Name is the outside service (keyRefused, keyMissing), the secret (secretNeedsReentry), the
 	// public name (certificateMissing), or where a copy tried to start (copyRefused).
 	Name string `json:"name,omitempty"`
@@ -98,6 +102,7 @@ const (
 	attentionFinding            = "finding"
 	attentionWorkFailing        = "workFailing"
 	attentionDestinationDown    = "destinationDown"
+	attentionDiskFull           = "diskFull"
 	attentionCertificateMissing = "certificateMissing"
 	attentionUnknownFailures    = "unknownFailures"
 	attentionMachineLocked      = "machineLocked"
@@ -257,7 +262,8 @@ func titlesAttention(body *NeedsAttentionBody) attentionPage {
 }
 
 // systemAttention is System's items: the doctor's findings not ok, the jobs failed within the job
-// health window, each destination down, the certificate not obtained, the failures of unknown cause
+// health window, each destination down, each machine whose disk is too full to prepare videos, the
+// certificate not obtained, the failures of unknown cause
 // alerting, and each machine locked, outdated or silent.
 func (server *Server) systemAttention(
 	ctx context.Context, dependencies *Dependencies, body *NeedsAttentionBody,
@@ -294,6 +300,10 @@ func (server *Server) systemAttention(
 	}
 	nodeName := server.nodeNamer(ctx, dependencies)
 	for _, state := range dependencies.Jobs.ParkedDestinations() {
+		if parts := jobs.PartsOf(state.Destination); parts.IsPreparedDirectory {
+			page = append(page, diskFullItem(dependencies, nodeName(parts.NodeID), state))
+			continue
+		}
 		down := destinationBody(state, nodeName)
 		page = append(page, AttentionItemBody{
 			Kind: attentionDestinationDown, IsProblem: true, Since: down.DownAt,
@@ -445,4 +455,17 @@ func networkAttention(status discovery.Status) attentionPage {
 		page = append(page, AttentionItemBody{Kind: attentionProtocolEnding, Until: status.DeprecatedUntil})
 	}
 	return page
+}
+
+// diskFullItem is a machine whose prepared directory is parked for want of room (D543): a node
+// refused a run for its disk, and it clears when the machine's status shows room again, which
+// unparks it (nodes.keepStatus). Its usage is the machine's last status, when it has said.
+func diskFullItem(dependencies *Dependencies, nodeName string, state jobs.DestinationState) AttentionItemBody {
+	item := AttentionItemBody{
+		Kind: attentionDiskFull, IsProblem: true, Since: state.Since.UnixMilli(), NodeName: nodeName,
+	}
+	if facts, found := dependencies.NodeReports.Facts(nodeName); found {
+		item.Prepared = preparedBody(facts.Status.PreparedUsage)
+	}
+	return item
 }

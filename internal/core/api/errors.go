@@ -42,6 +42,10 @@ const (
 	// CodeNoRoomToMake is a chunk of a quality whose run was evicted to keep its machine's other runs
 	// faster than playback (D250 §6): the player's playback stops, and says why.
 	CodeNoRoomToMake Code = "noRoomToMake"
+	// CodeDiskFull is a chunk its machine has no disk room to prepare (chunks.ErrDiskFull): the
+	// player stops at once and says so, and an admin is told on Needs attention (D543). Its next
+	// ask once the machine reports room is made.
+	CodeDiskFull Code = "diskFull"
 	// CodePlaybackGone is a playback the server no longer has: it restarted since the playback began,
 	// which ends every playback, or the playback ended. The player starts it again from where it is.
 	CodePlaybackGone Code = "playbackGone"
@@ -65,7 +69,8 @@ func codes() []Code {
 		CodeSetupRequired, CodeAuthRequired, CodeForbidden, CodeNotFound, CodeInvalidRequest, CodeConflict,
 		CodeStale, CodeRateLimited, CodeQuotaExhausted, CodeProviderError, CodeNodeSilent, CodeFileUnavailable,
 		CodeMediaUnreachable, CodePreparing, CodePrepareFailed, CodeCannotConvert, CodeTooSlowToConvert,
-		CodeNoRoomToMake, CodePlaybackGone, CodeMigrating, CodeInAnotherSession, CodeReceivingACast, CodeCastingHere,
+		CodeNoRoomToMake, CodeDiskFull,
+		CodePlaybackGone, CodeMigrating, CodeInAnotherSession, CodeReceivingACast, CodeCastingHere,
 		CodeInternal,
 	}
 }

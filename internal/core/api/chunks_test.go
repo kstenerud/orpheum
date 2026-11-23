@@ -405,6 +405,30 @@ func TestChunks_AnEvictedQualityIsRefusedWithItsOwnStatusAndCode(t *testing.T) {
 	}
 }
 
+// D543: a chunk not made on a machine whose disk has no room, its prepared directory parked by the
+// run it refused, is answered 507 diskFull at once, not 425 to wait days for room; once its status
+// unparks it, the same chunk is asked for and its run queued.
+func TestChunks_AChunkOnAMachineWithNoRoomIsRefusedAtOnceUntilItHasRoom(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	base := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	harness.keepFilmOnesTimeline(t)
+	harness.queue.Park(t.Context(), jobs.Parking{
+		Destination: jobs.PreparedDirectoryDestination(1), Reason: "its disk has no room", AwaitsSignal: true,
+	})
+	full := harness.getBytePath(t, base+"q700k432p/00001.m4s", user, true, "")
+	if full.status != http.StatusInsufficientStorage || !strings.Contains(full.body, `"code":"diskFull"`) {
+		t.Errorf("a chunk on a machine with no room: %d %s; want 507 diskFull", full.status, full.body)
+	}
+	harness.queue.Unpark(t.Context(), jobs.PreparedDirectoryDestination(1))
+	if early := harness.getBytePath(t, base+"q700k432p/00001.m4s", user, true, ""); early.status !=
+		http.StatusTooEarly {
+		t.Errorf("the chunk once the machine has room: %d %s; want 425, its run queued", early.status, early.body)
+	}
+}
+
 // A chunk whose runs FFmpeg failed on the same way each time is answered 422 cannot_convert, which
 // the player does not ask again after, not 425 for as long as it waits (file 15102 on the production NAS,
 // 2026-10-27); FFmpeg's word, which may name the film, stays in the core's log.

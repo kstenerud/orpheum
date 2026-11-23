@@ -116,6 +116,19 @@ func (tracker *runTracker) isCovered(dir string, n int) bool {
 	return tracker.storeLocked(dir).isCoveredLocked(n)
 }
 
+// isOnItsNode is whether a run of the store given to its node is still to make chunk n: one its
+// node took before its disk ran out of room, which goes on making it (D543).
+func (tracker *runTracker) isOnItsNode(dir string, n int) bool {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	for _, each := range tracker.storeLocked(dir).runByFirst {
+		if each.nodeID != 0 && each.willMake(n) {
+			return true
+		}
+	}
+	return false
+}
+
 // isMadeFromThrough is whether every chunk of the store from first through last is known made.
 func (tracker *runTracker) isMadeFromThrough(dir string, first, last int) bool {
 	tracker.mutex.Lock()
