@@ -317,17 +317,23 @@ function PersonHead(props: {
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   const { user, watchStats } = props.person;
-  const hours = tenthsText(watchStats.watchedMs / 3_600_000, i18n.language);
-  const lastWatched =
+  // "Has a password · watched 12 hours of 30 titles, last on 20 Nov 2026" (pages-spec-2); one who
+  // has never watched has only the first part.
+  const watched =
     watchStats.lastWatchedAt === undefined
-      ? t("person.neverWatched")
-      : dateText(watchStats.lastWatchedAt, i18n.language);
+      ? undefined
+      : t("person.watched", {
+          hours: tenthsText(watchStats.watchedMs / 3_600_000, i18n.language),
+          titles: watchStats.titlesWatchedCount,
+          last: dateText(watchStats.lastWatchedAt, i18n.language),
+        });
   return (
     <>
       <h1>{user.name}</h1>
       <p>
-        {registrationText(t, user)} ·{" "}
-        {t("person.watched", { hours, titles: watchStats.titlesWatchedCount, last: lastWatched })}
+        {watched === undefined
+          ? registrationText(t, user)
+          : `${registrationText(t, user)} · ${watched}`}
       </p>
       <div className="page-actions person__actions">
         <NewLinkButton person={props.person} actions={props.actions} />

@@ -26,6 +26,7 @@ import {
 import type { Services } from "./services.tsx";
 import { MeContext, type SignedInMe } from "./signed-in-me.ts";
 import { withServices } from "./test-services.tsx";
+import { dateText } from "./date-time-text.ts";
 
 let mounted: Mounted | undefined;
 
@@ -166,6 +167,29 @@ it("says on a person's page whether they have used their link", async () => {
   mounted.unmount();
   mounted = await mount(withServices(<UserPage userId={5} />, served(false)));
   expect(mounted.container.textContent).toContain("Has not used their link yet");
+});
+
+it("says on a person's page what they have watched and when last, after their status (pages-spec-2)", async () => {
+  const lastWatchedAt = Date.UTC(2026, 10, 20, 12);
+  const services = servedBy({
+    "GET /me": me(1),
+    "GET /users/5": [
+      200,
+      {
+        user: { id: 5, name: "Dan", role: "user", hasPassword: true },
+        watchStats: { watchedMs: 12 * 3_600_000, titlesWatchedCount: 30, lastWatchedAt },
+      },
+    ],
+    "GET /users/5/devices": [200, { devices: [] }],
+    "GET /roles": [200, roles],
+  });
+  mounted = await mount(withServices(<UserPage userId={5} />, services));
+  const status = [...mounted.container.querySelectorAll("p")].find((each) =>
+    each.textContent.startsWith("Has a password"),
+  );
+  expect(status?.textContent).toBe(
+    `Has a password · watched 12 hours of 30 titles, last on ${dateText(lastWatchedAt, "en")}`,
+  );
 });
 
 it("removes a person once the admin confirms, and goes back to everyone (S40)", async () => {

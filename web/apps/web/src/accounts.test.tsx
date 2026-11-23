@@ -3,7 +3,7 @@
 import "./i18n.ts";
 
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   activateDevice,
@@ -26,6 +26,7 @@ import {
   takePairedSession,
 } from "./pairing.ts";
 import { IssuedInvitationView, UsersList } from "./users.tsx";
+import { sinceText } from "./person-words.ts";
 import { QrCode, qrDataUrl, qrPath } from "./qr-code.tsx";
 import { parseRoute } from "./router.ts";
 import { Share } from "./share.tsx";
@@ -189,6 +190,46 @@ describe("accounts", () => {
     );
     expect(link).toContain('<output class="share__link">https://x/register#s</output>');
     expect(link).toContain("It works once, until");
+  });
+
+  it("says on each person's row when they last watched, or that they have not used their link yet (pages-spec-2)", () => {
+    vi.useFakeTimers({ now: Date.UTC(2026, 10, 20, 12) });
+    try {
+      const hourMs = 3_600_000;
+      const list = renderToStaticMarkup(
+        withServices(
+          <UsersList
+            accounts={[
+              {
+                id: 1,
+                name: "owner",
+                role: "admin",
+                hasPassword: true,
+                lastWatchedAt: Date.now() - 3 * hourMs,
+              },
+              { id: 2, name: "partner", role: "user", hasPassword: false },
+              { id: 3, name: "friend", role: "user", hasPassword: true },
+            ]}
+          />,
+        ),
+      );
+      expect(list).toContain("Watched 3 hours ago");
+      expect(list).toContain("Has not used their link yet");
+      // One who has a password and has never watched has no status: the spec words none for it.
+      expect(list.match(/Watched/gu)).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("says how long ago in the locale's words, in the largest whole unit", () => {
+    const dayMs = 24 * 3_600_000;
+    const now = Date.UTC(2026, 10, 20, 12);
+    expect(sinceText(now - 30_000, now, "en")).toBe("this minute");
+    expect(sinceText(now - 5 * 60_000, now, "en")).toBe("5 minutes ago");
+    expect(sinceText(now - dayMs, now, "en")).toBe("yesterday");
+    expect(sinceText(now - 15 * dayMs, now, "en")).toBe("2 weeks ago");
+    expect(sinceText(now - 400 * dayMs, now, "en")).toBe("last year");
   });
 
   it("shows a device's code again after a reload, until it expires (D288)", () => {

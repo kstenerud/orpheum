@@ -55,6 +55,7 @@ export const enPeople = {
     withdrawConfirm: "Withdraw it",
     registered: "Has a password",
     notRegistered: "Has not used their link yet",
+    watchedSince: "Watched {{when}}",
     newLink: "New link",
     newLinkQuestion: "Make {{name}} a new link?",
     newLinkConsequence:
@@ -65,8 +66,7 @@ export const enPeople = {
   },
   person: {
     devices: "Their devices",
-    watched: "Watched {{hours}} hours of {{titles}} titles; last {{last}}",
-    neverWatched: "never",
+    watched: "watched {{hours}} hours of {{titles}} titles, last on {{last}}",
     remove: "Remove {{name}}…",
     removeQuestion: "Remove {{name}}?",
     removeConsequence:

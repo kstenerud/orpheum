@@ -21,6 +21,7 @@ import { InvitationDialog, InvitationsSection } from "./invitations-section.tsx"
 import { Link } from "./link.tsx";
 import { Loaded } from "./loaded.tsx";
 import { CreateAccountDialog, InviteDialog, type RoleChoices } from "./people-dialogs.tsx";
+import { lastWatchedText } from "./person-words.ts";
 import { QrCode } from "./qr-code.tsx";
 import { listRoles, roleLabel, rolesListedOf, type RolesListed } from "./roles.ts";
 import {
@@ -253,9 +254,13 @@ export function IssuedInvitationView(props: { readonly issued: IssuedInvitation 
   );
 }
 
-/** Everyone, each leading to their page (the owner, 2026-09-27): name, the admin's note and role. */
+/**
+ * Everyone, each leading to their page (the owner, 2026-09-27): name, the admin's note, role, and
+ * when they last watched or that they have not used their link yet (pages-spec-2).
+ */
 export function UsersList(props: { readonly accounts: readonly Account[] }): JSX.Element {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const now = { nowMs: Date.now(), locale: i18n.language };
   return (
     <GridList
       rows={props.accounts}
@@ -264,6 +269,7 @@ export function UsersList(props: { readonly accounts: readonly Account[] }): JSX
         { key: "name", text: "truncate", cell: (account) => account.name },
         { key: "note", text: "wrap", cell: (account) => account.adminNote },
         { key: "role", text: "fit", cell: (account) => roleLabel(t, account.role) },
+        { key: "status", text: "wrap", cell: (account) => lastWatchedText(t, account, now) },
       ]}
       target={(account, drawn) => <Link to={{ screen: "user", userId: account.id }} {...drawn} />}
       isArrival
