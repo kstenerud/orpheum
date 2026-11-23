@@ -413,3 +413,10 @@
 .app-shell__main fieldset label {
   display: flex;
 }
+
+/* A menu place's mark while something on its page needs the admin (D538 §12): the warning icon at
+   the line's end, past its name. */
+.app-shell__attention-mark {
+  float: inline-end;
+  margin-inline-start: var(--space-2);
+}

@@ -22,35 +22,13 @@ export const enStatus = {
   },
   needsAttention: {
     heading: "Needs attention",
-    placeholder:
-      "What needs fixing is counted here. The pages linked at the bottom list each thing and say how to fix it.",
     nothing: "Nothing needs your attention.",
-    offlineFolders: "{{count}} library folders are offline.",
-    offlineFoldersOne: "1 library folder is offline.",
-    missingDisks: "{{count}} folders mounted inside library folders are missing.",
-    missingDisksOne: "1 folder mounted inside a library folder is missing.",
-    waitingFolders: "{{count}} library folders' scans wait for you before removing files.",
-    waitingFoldersOne: "1 library folder's scan waits for you before removing files.",
-    unreadPaths:
-      "{{count}} files or folders could not be read: the System page names them, and why.",
-    unreadPathsOne: "1 file or folder could not be read: the System page names it, and why.",
-    waitingMatches: "{{count}} films and series need you to choose their match.",
-    waitingMatchesOne: "1 film or series needs you to choose its match.",
     seriesReadWrongly:
       ": {{count}} of its episodes have no number, though no specials or extras folder holds them. Their file names may have been read wrongly; renaming them as S01E04 places them.",
     filmWithoutSound:
       ": its video has no sound track, so it plays in silence. The file may be a video-only download whose sound was never merged in.",
     moreSeriesReadWrongly: "And {{count}} more series whose file names may have been read wrongly.",
     moreFilmsWithoutSound: "And {{count}} more films with no sound track.",
-    rescanGaveUp:
-      ": its rescan gave up, because the library changed every time it was read. This stays here until a rescan of it finishes.",
-    copyRefused: "A copy of this server tried to start from {{from}} at {{at}}, and was refused.",
-    stoodAside:
-      "Another copy of this server serves. This one stopped asking and serves only at home. Asking again takes over only once the other copy has stopped.",
-    askAgainOnSystem: "Ask again on the System page",
-    toSystem: "The System page",
-    toLibraries: "The Libraries",
-    toIdentify: "Needs a match",
   },
   unknownFailures: {
     heading: "Failures of unknown cause",

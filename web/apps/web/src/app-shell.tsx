@@ -21,6 +21,7 @@ import { DropDown } from "./drop-down.tsx";
 import { ProblemReportDialog } from "./problem-report.tsx";
 import { ConfirmDialog } from "./confirm-button.tsx";
 import { FilmsIcon, LibrariesIcon, MenuIcon, SeriesIcon } from "./icons.tsx";
+import { AppShellMenuPlace } from "./app-shell-menu-place.tsx";
 import { ListNote, ListOption } from "./list-box.tsx";
 import { laurelMark } from "./laurel.ts";
 import { StatusTray } from "./status-tray.tsx";
@@ -43,7 +44,7 @@ import type { Route } from "./router.ts";
 import { useRoute } from "./services.tsx";
 import { ShellReadContext, useShellPart } from "./shell-read.ts";
 import { CanStartTogetherContext } from "./together-can-start.ts";
-import { isUpdateKnown, UpdateProvider, useUpdate } from "./update.tsx";
+import { UpdateProvider } from "./update.tsx";
 
 /**
  * The places for watching: the way home, which stays put, and the other places beside it in the room
@@ -526,29 +527,22 @@ function Place(props: {
   );
 }
 
-/** One of the menu's places: a choice of its list (list-box.tsx), by its name. */
+/** One of the menu's places, a choice of its list, by its name (app-shell-menu-place.tsx). */
 function MenuPlace(props: {
   readonly destination: Destination;
   readonly isCurrent: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
+  const { destination } = props;
   return (
-    <ListOption to={props.destination.route} isCurrent={props.isCurrent}>
-      {props.destination.labelKey === "update" ? (
-        <UpdateName />
-      ) : (
-        t(`nav.${props.destination.labelKey}`)
-      )}
-    </ListOption>
+    <AppShellMenuPlace
+      route={destination.route}
+      name={t(`nav.${destination.labelKey}`)}
+      isUpdate={destination.labelKey === "update"}
+      isAdmins={destination.audience === "admin"}
+      isCurrent={props.isCurrent}
+    />
   );
-}
-
-/** Update's name in the menu: "! Update" while an update is known, else "Update" (D462 §8). */
-function UpdateName(): JSX.Element {
-  const { t } = useTranslation();
-  const update = useUpdate(true);
-  const isKnown = isUpdateKnown(update.state === "loaded" ? update.value : undefined);
-  return <>{isKnown ? t("nav.updateKnown") : t("nav.update")}</>;
 }
 
 /** A place as a link to its route, by its icon where it has one, else its name. */

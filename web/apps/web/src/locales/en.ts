@@ -9,6 +9,7 @@ import { enOrderings } from "./en-orderings.ts";
 import { enNavigation } from "./en-navigation.ts";
 import { enUpdate } from "./en-update.ts";
 import { enFind } from "./en-find.ts";
+import { enAttention } from "./en-attention.ts";
 
 /** The words that are this module's own, the rest coming from the modules it spreads in. */
 const enOwn = {
@@ -634,6 +635,7 @@ export const en: typeof enTogether &
   ...enNavigation,
   ...enUpdate,
   ...enFind,
+  ...enAttention,
   ...enOwn,
 };
 

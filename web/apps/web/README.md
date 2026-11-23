@@ -113,6 +113,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `NeedsAttentionSign`, `src/status-tray.tsx`): while any kind's alert is raised, GET /needs-attention
   says `unknownFailureAlertCount` above 0 and the sign shows, leading to Needs attention, which
   lists them below. `src/status-tray.test.tsx`.
+- **Needs attention lists what needs the admin by the page it is fixed on** (D538 §12;
+  `src/needs-attention.tsx`, `src/attention-lines.ts`): GET /needs-attention's `pages`, one
+  section to a page in the menu's order, named as the menu names it, with the way to it, then one
+  line to each item, a link to the exact place, a problem with the warning icon. A kind this app
+  does not know is skipped; with nothing, it says "Nothing needs your attention." The admin's sign
+  lights from the pages where the server sends them, and each Manage place in the menu is marked
+  while its page has anything, the icon at its end and ", needs attention" in its name, no number
+  (`src/app-shell-menu-place.tsx`). `src/status-tray.test.tsx`, `src/app-shell-menu-place.test.tsx`.
 - **Needs attention lists the failures of unknown cause in full** (D509 §4, D511 §6;
   `src/unknown-failures.tsx`): one entry per kind, its count in the last hour and since the start,
   when one last failed and whether its alert is raised, opening on each failure's subject, times,

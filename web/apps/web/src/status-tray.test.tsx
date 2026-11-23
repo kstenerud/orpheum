@@ -6,6 +6,7 @@ import "./i18n.ts";
 import { act } from "react";
 import { afterEach, expect, it } from "vitest";
 
+import type { AttentionItem, AttentionPageKey } from "./attention-pages.ts";
 import { hostedDetailsKey } from "./hosted-details.ts";
 import { heldAnswer } from "./use-resource.ts";
 import { LiveProvider } from "./live.tsx";
@@ -54,8 +55,30 @@ const nothingWrong = {
   stoodAsideAt: 0,
 };
 const somethingWrong = { ...nothingWrong, waitingRootCount: 1, unreadCount: 2 };
-/** The server's word of updates where it knows of none, which Needs attention reads too. */
-const noUpdate = { "GET /system/update": [200, { version: "v0.3.1", checkedAt: 1 }] } as const;
+/** A page's line of what needs the admin that says the text given. */
+function lineSaying(container: Element, text: string): Element | undefined {
+  return [...container.querySelectorAll("li")].find((each) => each.textContent.includes(text));
+}
+
+/** A link's words and where it leads. */
+function linkOf(link: Element | null): readonly (string | null | undefined)[] {
+  return [link?.textContent, link?.getAttribute("href")];
+}
+
+/**
+ * The server's pages of what needs the admin (D538 §12): each page named with its items, as the
+ * server lists them, the rest with none.
+ */
+function pagesOf(
+  given: Readonly<Partial<Record<AttentionPageKey, readonly AttentionItem[]>>>,
+): object {
+  return Object.fromEntries(
+    Object.entries(given).map(([page, items]) => [
+      page,
+      { isProblem: items.some((item) => item.isProblem), itemCount: items.length, items },
+    ]),
+  );
+}
 const hostedSession = {
   sessionId: 7,
   nextRights: { canPlayPause: true, canSeek: true },
@@ -468,102 +491,154 @@ it("shows an admin the yellow sign when something needs them, leading to the pag
   ).toBeNull();
 });
 
-it("the page of what needs the admin counts each kind, a placeholder until it is designed", async () => {
+it("lists what needs the admin by the page it is fixed on, in the menu's order, each line leading to its place, the problems marked (D538 §12)", async () => {
+  const counts = {
+    ...nothingWrong,
+    pages: pagesOf({
+      system: [{ kind: "workFailing", isProblem: true, count: 4, windowHours: 24 }],
+      librarySetup: [
+        {
+          kind: "folderWaiting",
+          isProblem: true,
+          count: 2,
+          libraryId: 3,
+          libraryName: "Films",
+          rootPath: "/media/films",
+        },
+      ],
+      titlesToCheck: [{ kind: "needsMatch", isProblem: false, count: 1 }],
+    }),
+  };
   mounted = await mount(
-    withServices(
-      <NeedsAttention />,
-      servedBy({ "GET /needs-attention": [200, somethingWrong], ...noUpdate }),
-    ),
+    withServices(<NeedsAttention />, servedBy({ "GET /needs-attention": [200, counts] })),
   );
-  const text = mounted.container.textContent;
-  expect(text).toContain("1 library folder's scan waits for you");
-  expect(text).toContain("2 files or folders could not be read: the System page names them");
-  expect(text).not.toContain("offline");
+  const { container } = mounted;
+  expect(container.querySelector(".page__job")?.textContent).toBe(
+    "What needs you, and where to fix it.",
+  );
+  const sections = [...container.querySelectorAll("section")];
+  expect(sections.map((each) => each.querySelector("h2")?.textContent.trim())).toEqual([
+    "Needs a match",
+    "Libraries",
+    "System",
+  ]);
+  expect(sections.every((each) => each.querySelector("h2 .warning-icon") !== null)).toBe(true);
+  expect(sections.map((each) => linkOf(each.querySelector("a")))).toEqual([
+    ["Go to Needs a match", "/identify"],
+    ["Go to Libraries", "/libraries"],
+    ["Go to System", "/system"],
+  ]);
+  const waiting = lineSaying(container, "waits for you");
+  expect(linkOf(waiting?.querySelector("a") ?? null)).toEqual([
+    "Films: the scan of /media/films waits for you before removing 2 files.",
+    "/libraries/3",
+  ]);
+  expect(waiting?.querySelector(".warning-icon")).not.toBeNull();
+  const match = lineSaying(container, "choose its match");
+  expect(linkOf(match?.querySelector("a") ?? null)[1]).toBe("/identify");
+  expect(match?.querySelector(".warning-icon")).toBeNull();
+  const failing = lineSaying(container, "4 jobs failed in the last 24 hours.");
+  expect(linkOf(failing?.querySelector("a") ?? null)[1]).toBe("/jobs");
 });
 
-// The first beta install, 2026-11-19, #32: the intro was garbled, one was "1 files or folders", and
-// what could not be read was named nowhere it led to.
-it("says one in the singular, and leads from what could not be read to the System page", async () => {
-  const one = { ...nothingWrong, unreadCount: 1, matchCount: 1 };
-  mounted = await mount(
-    withServices(<NeedsAttention />, servedBy({ "GET /needs-attention": [200, one], ...noUpdate })),
-  );
-  const text = mounted.container.textContent;
-  expect(text).toContain("What needs fixing is counted here.");
-  expect(text).toContain("1 file or folder could not be read: the System page names it");
-  expect(text).toContain("1 film or series needs you to choose its match.");
-  expect(text).not.toContain("1 files");
-  const unread = [...mounted.container.querySelectorAll("li")].find((item) =>
-    item.textContent.includes("could not be read"),
-  );
-  expect(unread?.querySelector("a")?.textContent).toBe("The System page");
+it("says nothing needs the admin while no page has anything of a kind it knows (D432 §2)", async () => {
+  // A kind a newer server sends, which this app's types do not name.
+  const newer = {
+    system: { isProblem: true, itemCount: 1, items: [{ kind: "newerKind", isProblem: true }] },
+  };
+  for (const pages of [pagesOf({}), newer]) {
+    mounted = await mount(
+      withServices(
+        <NeedsAttention />,
+        servedBy({ "GET /needs-attention": [200, { ...nothingWrong, pages }] }),
+      ),
+    );
+    expect(mounted.container.textContent).toContain("Nothing needs your attention.");
+    expect(mounted.container.querySelector("section")).toBeNull();
+    mounted.unmount();
+    mounted = undefined;
+  }
+});
+
+it("lights the admin's sign from the pages where the server says them, whatever its counts say (D538 §12)", async () => {
+  const signOf = async (counts: object): Promise<Element | null> => {
+    mounted = await mount(
+      withServices(
+        <StatusTray isAdmin canHostWatchTogether={false} />,
+        servedBy({ "GET /needs-attention": [200, counts] }),
+      ),
+    );
+    const found = mounted.container.querySelector('[aria-label="Something needs your attention"]');
+    mounted.unmount();
+    mounted = undefined;
+    return found;
+  };
+  expect(
+    await signOf({
+      ...nothingWrong,
+      pages: pagesOf({
+        update: [{ kind: "updateAvailable", isProblem: false, version: "v0.4.0" }],
+      }),
+    }),
+  ).not.toBeNull();
+  expect(await signOf({ ...somethingWrong, pages: pagesOf({}) })).toBeNull();
 });
 
 it("reads what needs the admin once for the tray's sign and the page of it together (D478)", async () => {
   const heard: Heard[] = [];
+  const counts = {
+    ...somethingWrong,
+    pages: pagesOf({
+      librarySetup: [
+        { kind: "unread", isProblem: true, count: 2, libraryId: 3, libraryName: "Films" },
+      ],
+    }),
+  };
   mounted = await mount(
     withServices(
       <>
         <StatusTray isAdmin canHostWatchTogether={false} />
         <NeedsAttention />
       </>,
-      servedBy({ "GET /needs-attention": [200, somethingWrong], ...noUpdate }, heard),
+      servedBy({ "GET /needs-attention": [200, counts] }, heard),
     ),
   );
-  expect(mounted.container.textContent).toContain("2 files or folders could not be read:");
+  expect(mounted.container.textContent).toContain("Films: 2 files or folders could not be read.");
   expect(
     mounted.container.querySelector('[aria-label="Something needs your attention"]'),
   ).not.toBeNull();
   expect(heard.filter((each) => each.methodAndPath === "GET /needs-attention")).toHaveLength(1);
 });
 
-it("tells an admin of a series whose episodes were likely read wrongly, leading to it (D306 §6)", async () => {
+it("tells an admin of a series whose episodes were likely read wrongly, by name, leading to it (D306 §6)", async () => {
   const readWrongly = {
     ...nothingWrong,
     seriesReadWrongly: [{ seriesId: 606, name: "Greywolf", unplacedCount: 24 }],
     seriesReadWronglyCount: 1,
+    pages: pagesOf({ titlesToCheck: [{ kind: "seriesReadWrongly", isProblem: true, count: 1 }] }),
   };
   mounted = await mount(
-    withServices(
-      <StatusTray isAdmin canHostWatchTogether={false} />,
-      servedBy({ "GET /needs-attention": [200, readWrongly] }),
-    ),
+    withServices(<NeedsAttention />, servedBy({ "GET /needs-attention": [200, readWrongly] })),
   );
-  expect(
-    mounted.container.querySelector('[aria-label="Something needs your attention"]'),
-  ).not.toBeNull();
-  mounted.unmount();
-  mounted = await mount(
-    withServices(
-      <NeedsAttention />,
-      servedBy({ "GET /needs-attention": [200, readWrongly], ...noUpdate }),
-    ),
+  expect(mounted.container.textContent).toContain(
+    "1 series may have had its file names read wrongly.",
   );
   expect(mounted.container.querySelector('a[href="/series/606"]')?.textContent).toBe("Greywolf");
   expect(mounted.container.textContent).toContain(": 24 of its episodes have no number");
 });
 
-it("tells an admin of a film whose video has no sound, leading to it (the owner, 2026-11-02)", async () => {
+it("tells an admin of a film whose video has no sound, by name, leading to it (the owner, 2026-11-02)", async () => {
   const silent = {
     ...nothingWrong,
     filmsWithoutSound: [{ itemId: 880, name: "Mister 517" }],
     filmsWithoutSoundCount: 1,
+    pages: pagesOf({ titlesToCheck: [{ kind: "filmsWithoutSound", isProblem: true, count: 1 }] }),
   };
   mounted = await mount(
-    withServices(
-      <StatusTray isAdmin canHostWatchTogether={false} />,
-      servedBy({ "GET /needs-attention": [200, silent] }),
-    ),
+    withServices(<NeedsAttention />, servedBy({ "GET /needs-attention": [200, silent] })),
   );
-  expect(
-    mounted.container.querySelector('[aria-label="Something needs your attention"]'),
-  ).not.toBeNull();
-  mounted.unmount();
-  mounted = await mount(
-    withServices(
-      <NeedsAttention />,
-      servedBy({ "GET /needs-attention": [200, silent], ...noUpdate }),
-    ),
+  expect(mounted.container.textContent).toContain(
+    "1 film has no sound track, so it plays in silence.",
   );
   expect(mounted.container.querySelector('a[href="/titles/880"]')?.textContent).toBe("Mister 517");
   expect(mounted.container.textContent).toContain(": its video has no sound track");
@@ -581,53 +656,46 @@ it("shows an admin the yellow sign while failures of unknown cause pile up, with
   expect(link?.getAttribute("href")).toBe("/needs-attention");
 });
 
-it("tells an admin of a library whose rescan gave up, leading to it (the owner, 2026-11-13)", async () => {
+it("tells an admin of a library whose rescan gave up, leading to the library (the owner, 2026-11-13)", async () => {
   const gaveUp = {
     ...nothingWrong,
     rescansGivenUp: [{ libraryId: 3, name: "Films", givenUpAt: 9000 }],
+    pages: pagesOf({
+      librarySetup: [{ kind: "rescanGaveUp", isProblem: true, libraryId: 3, libraryName: "Films" }],
+    }),
   };
   mounted = await mount(
-    withServices(
-      <StatusTray isAdmin canHostWatchTogether={false} />,
-      servedBy({ "GET /needs-attention": [200, gaveUp] }),
-    ),
+    withServices(<NeedsAttention />, servedBy({ "GET /needs-attention": [200, gaveUp] })),
   );
-  expect(
-    mounted.container.querySelector('[aria-label="Something needs your attention"]'),
-  ).not.toBeNull();
-  mounted.unmount();
-  mounted = await mount(
-    withServices(
-      <NeedsAttention />,
-      servedBy({ "GET /needs-attention": [200, gaveUp], ...noUpdate }),
-    ),
-  );
-  expect(mounted.container.querySelector('a[href="/libraries/3"]')?.textContent).toBe("Films");
-  expect(mounted.container.textContent).toContain(
-    ": its rescan gave up, because the library changed every time it was read.",
+  expect(mounted.container.querySelector('li a[href="/libraries/3"]')?.textContent).toBe(
+    "Films: its rescan gave up, because the library changed every time it was read.",
   );
   expect(mounted.container.textContent).not.toContain("Nothing needs your attention.");
 });
 
-it("says how many more there are than Needs attention lists (D432 §4)", async () => {
+it("says how many more there are than Needs attention lists by name (D432 §4)", async () => {
   const many = {
     ...nothingWrong,
     seriesReadWrongly: [{ seriesId: 606, name: "Greywolf", unplacedCount: 24 }],
     seriesReadWronglyCount: 3,
     filmsWithoutSound: [{ itemId: 880, name: "Mister 517" }],
     filmsWithoutSoundCount: 101,
+    pages: pagesOf({
+      titlesToCheck: [
+        { kind: "seriesReadWrongly", isProblem: true, count: 3 },
+        { kind: "filmsWithoutSound", isProblem: true, count: 101 },
+      ],
+    }),
   };
   mounted = await mount(
-    withServices(
-      <NeedsAttention />,
-      servedBy({ "GET /needs-attention": [200, many], ...noUpdate }),
-    ),
+    withServices(<NeedsAttention />, servedBy({ "GET /needs-attention": [200, many] })),
   );
   expect(mounted.container.textContent).toContain(
     "And 2 more series whose file names may have been read wrongly.",
   );
   expect(mounted.container.textContent).toContain("And 100 more films with no sound track.");
   mounted.unmount();
+  // A server before the pages lights the sign from its counts.
   const countedOnly = { ...nothingWrong, filmsWithoutSoundCount: 1 };
   mounted = await mount(
     withServices(
@@ -640,85 +708,53 @@ it("says how many more there are than Needs attention lists (D432 §4)", async (
   ).not.toBeNull();
 });
 
-// ui-audit-2026-11-04.md §3, How to update: no menu leads to it; Needs attention does.
-it("tells an admin of a newer version, leading to How to update, and says nothing needs them only without one", async () => {
-  const newer = { version: "v0.3.1", latest: "v0.4.0", checkedAt: 1 };
+it("tells an admin of a newer version, leading to Update", async () => {
+  const newer = {
+    ...nothingWrong,
+    pages: pagesOf({ update: [{ kind: "updateAvailable", isProblem: false, version: "v0.4.0" }] }),
+  };
   mounted = await mount(
-    withServices(
-      <NeedsAttention />,
-      servedBy({
-        "GET /needs-attention": [200, nothingWrong],
-        "GET /system/update": [200, newer],
-      }),
-    ),
+    withServices(<NeedsAttention />, servedBy({ "GET /needs-attention": [200, newer] })),
   );
-  const howTo = mounted.container.querySelector('li a[href="/update"]');
-  expect(howTo?.textContent).toBe("How to update");
-  expect(howTo?.closest("li")?.textContent).toContain("v0.4.0 is available.");
+  const line = mounted.container.querySelector('li a[href="/update"]');
+  expect(line?.textContent).toBe("v0.4.0 is available.");
+  expect(line?.closest("li")?.querySelector(".warning-icon")).toBeNull();
   expect(mounted.container.textContent).not.toContain("Nothing needs your attention.");
-  mounted.unmount();
-  mounted = await mount(
-    withServices(
-      <NeedsAttention />,
-      servedBy({ "GET /needs-attention": [200, nothingWrong], ...noUpdate }),
-    ),
-  );
-  expect(mounted.container.querySelector('a[href="/update"]')).toBeNull();
-  expect(mounted.container.textContent).toContain("Nothing needs your attention.");
 });
 
-it("tells the serving copy's admin that a copy of the server was refused, from where (D437 §4)", async () => {
+it("tells the serving copy's admin that a copy of the server was refused, from where, leading to Network (D437 §4)", async () => {
   const refused = {
     ...nothingWrong,
     copyRefusedAt: 1_790_000_000_000,
     copyRefusedFrom: "203.0.113.9",
+    pages: pagesOf({
+      network: [
+        { kind: "copyRefused", isProblem: true, name: "203.0.113.9", since: 1_790_000_000_000 },
+      ],
+    }),
   };
   mounted = await mount(
-    withServices(
-      <StatusTray isAdmin canHostWatchTogether={false} />,
-      servedBy({ "GET /needs-attention": [200, refused] }),
-    ),
+    withServices(<NeedsAttention />, servedBy({ "GET /needs-attention": [200, refused] })),
   );
-  expect(
-    mounted.container.querySelector('[aria-label="Something needs your attention"]'),
-  ).not.toBeNull();
-  mounted.unmount();
-  mounted = await mount(
-    withServices(
-      <NeedsAttention />,
-      servedBy({ "GET /needs-attention": [200, refused], ...noUpdate }),
-    ),
-  );
-  const text = mounted.container.textContent;
-  expect(text).toContain("A copy of this server tried to start from 203.0.113.9 at");
-  expect(text).toContain("and was refused.");
-  expect(text).not.toContain("Nothing needs your attention.");
+  const line = mounted.container.querySelector('li a[href="/network"]');
+  expect(line?.textContent).toContain("A copy of this server tried to start from 203.0.113.9 at");
+  expect(line?.textContent).toContain("and was refused.");
 });
 
-it("tells a refused copy's admin that another copy serves, leading to the System page to ask again (D437 §3, §4)", async () => {
-  const stoodAside = { ...nothingWrong, stoodAsideAt: 1_790_000_000_000 };
+it("tells a refused copy's admin that another copy serves, leading to Network to ask again (D437 §3, §4)", async () => {
+  const stoodAside = {
+    ...nothingWrong,
+    stoodAsideAt: 1_790_000_000_000,
+    pages: pagesOf({
+      network: [{ kind: "stoodAside", isProblem: true, since: 1_790_000_000_000 }],
+    }),
+  };
   mounted = await mount(
-    withServices(
-      <StatusTray isAdmin canHostWatchTogether={false} />,
-      servedBy({ "GET /needs-attention": [200, stoodAside] }),
-    ),
+    withServices(<NeedsAttention />, servedBy({ "GET /needs-attention": [200, stoodAside] })),
   );
-  expect(
-    mounted.container.querySelector('[aria-label="Something needs your attention"]'),
-  ).not.toBeNull();
-  mounted.unmount();
-  mounted = await mount(
-    withServices(
-      <NeedsAttention />,
-      servedBy({ "GET /needs-attention": [200, stoodAside], ...noUpdate }),
-    ),
-  );
-  const item = Array.from(mounted.container.querySelectorAll("li")).find((each) =>
-    each.textContent.includes("Another copy of this server serves."),
-  );
-  expect(item?.textContent).toContain(
+  const line = mounted.container.querySelector('li a[href="/network"]');
+  expect(line?.textContent).toContain("Another copy of this server serves.");
+  expect(line?.textContent).toContain(
     "Asking again takes over only once the other copy has stopped.",
   );
-  const toSystem = item?.querySelector('a[href="/system"]');
-  expect(toSystem?.textContent).toBe("Ask again on the System page");
 });

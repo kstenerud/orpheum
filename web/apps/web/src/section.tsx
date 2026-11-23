@@ -4,6 +4,8 @@ import "./section.css";
 
 import { useId, type JSX, type ReactNode } from "react";
 
+import { WarningIcon } from "./icons.tsx";
+
 /**
  * A named block of a page (standards/ui.md, the parts; D538 §1): its `h2` heading, the block's
  * actions at the end of the heading's line ("See all", "Back up now"), then its content. The heading
@@ -18,6 +20,11 @@ export function Section(props: {
   readonly actions?: ReactNode;
   /** The section's own id, where a link lands on it (`settings-section-<section>`). */
   readonly id?: string | undefined;
+  /**
+   * What its heading says beside its words, where it says anything: "warning", the warning icon
+   * before them, as Needs attention's page sections have (D538 §12); the words say it too.
+   */
+  readonly mark?: "warning" | undefined;
   readonly children?: ReactNode;
 }): JSX.Element {
   const headingId = useId();
@@ -25,6 +32,11 @@ export function Section(props: {
     <section className="section" id={props.id} aria-labelledby={headingId}>
       <div className="section__header">
         <h2 id={headingId} className="section__heading">
+          {props.mark === "warning" ? (
+            <>
+              <WarningIcon />{" "}
+            </>
+          ) : null}
           {props.heading}
         </h2>
         {props.actions === undefined ? null : (

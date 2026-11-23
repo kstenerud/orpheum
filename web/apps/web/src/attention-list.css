@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* What needs an admin on a page (attention-list.tsx): one line to an item, a fingertip apart, its
+   warning icon leading where it is a problem. */
+.attention-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

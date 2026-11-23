@@ -16,6 +16,7 @@ import { hasCopyWarning } from "./copy-warning.ts";
 import { useEndsTheCastSessionWithItsCast } from "./google-cast.ts";
 import { useLive } from "./live.tsx";
 import { readNeedsAttention, needsAttentionKey } from "./needs-attention-read.ts";
+import { isAnythingNeeded } from "./attention-pages.ts";
 import { routeHref } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { useShellPart } from "./shell-read.ts";
@@ -236,13 +237,16 @@ function CastDialogLoaded(props: { readonly onClose: () => void }): JSX.Element 
  * of their own (D517 §2).
  */
 function NeedsAttentionSign(): JSX.Element | null {
-  const { t } = useTranslation();
   const { api } = useServices();
   const [counts] = useResource(needsAttentionKey, async () => await readNeedsAttention(api), {
     given: useShellPart((shell) => shell.needsAttention),
   });
   if (counts.state !== "loaded") {
     return null;
+  }
+  // Said by page (D538 §12), the sign counts from the pages; a server before them, from its counts.
+  if (counts.value.pages !== undefined) {
+    return isAnythingNeeded(counts.value.pages) ? <NeedsAttentionLink /> : null;
   }
   const {
     rootCount,
@@ -270,6 +274,12 @@ function NeedsAttentionSign(): JSX.Element | null {
   ) {
     return null;
   }
+  return <NeedsAttentionLink />;
+}
+
+/** The warning sign itself, leading to the page that lists what needs the admin. */
+function NeedsAttentionLink(): JSX.Element {
+  const { t } = useTranslation();
   return (
     <Link
       to={{ screen: "needs-attention" }}
