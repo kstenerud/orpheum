@@ -31012,7 +31012,26 @@ casting here, "Getting ready to play" and reopening notes are Pills
 at most in the player spec's order, Lost the connection alone showing over a film that fills the
 window (`web/apps/web/src/shell-banners.test.tsx`,
 `web/apps/web/src/overlay-parts.browser.test.tsx`). "Orpheum was updated" has no notice yet. §11 is built: Network at `/network`, the old address
-leading there. §12 is built: the Needs attention page lists by page what the server sends, each
+leading there. With it, Settings is as pages-spec-3 lays it out: an index at `/settings` whose
+Needs you leads each key's line to Keys and passwords and the settings this release does not read
+to their fold on the index, whose one search finds every setting and key, advanced ones too, each
+leading to its row; a page to each section at `/settings/<section>`, up to the index by its trail,
+"Show advanced settings" remembered in the browser, each setting a Switch, a Stepper or a field
+saved as it changes, a field on Enter or on leaving it and never as the page closes, with its
+What it is for dialog; and Keys and passwords at `/settings/keys` (`web/apps/web/src/settings.test.tsx`:
+"leads each key's Needs you line to Keys and passwords, at the key a line names";
+`web/apps/web/src/settings-unread.test.tsx`; `web/apps/web/src/settings-pages.browser.test.tsx`,
+by mouse, touch, keyboard and remote at each width; the gallery's Settings' pages,
+`web/apps/web/src/ui-gallery.test.tsx` and `web/apps/web/src/ui-gallery-overlay.test.tsx`; the
+remote's walk of `/settings/keys` and `/settings/general`,
+`web/apps/web/src/page-walk-manage.browser.test.tsx`; on devices, VQ381). People's rows say when
+each person last watched or that their link is unused, and a person's page what they watched
+(`web/apps/web/src/accounts.test.tsx`: "says on each person's row when they last watched, or that
+they have not used their link yet" and "says how long ago in the locale's words, in the largest
+whole unit"; `web/apps/web/src/remove-and-reach.test.tsx`: "says on a person's page what they have
+watched and when last, after their status"); Jobs' Needs you says how many jobs failed, leading to
+`/jobs?state=failed` (`web/apps/web/src/jobs.test.tsx`: "says in Needs you how many jobs failed,
+leading to the ended ones with State set to Failed"). About's versions await the owner. §12 is built: the Needs attention page lists by page what the server sends, each
 Manage place in the menu marked while its page has anything, and the API's side:
 GET /needs-attention lists, beside
 its counts, everything that needs an admin by page with where each item links
@@ -31058,7 +31077,7 @@ Data use choice, Play the original file last in it for a person showing debug to
 - 7: `web/apps/web/src/player-overlay-signs.test.tsx`, `web/apps/web/src/cast-remote.test.tsx`, `web/apps/web/src/icon-button.test.tsx`: Cast's and Watch Together's signs follow the menus in the buttons row, before full screen, and leave the top row; VQ380
 - 8: `web/apps/web/src/sound-menu.test.tsx`, `web/apps/web/src/player-menus.test.tsx`: every sound setting in the Sound menu, ⁝ ordered as the spec does with none; VQ379
 - 10: `web/apps/web/src/player-menus.test.tsx`: Quality lists Automatic, then the rungs in GB per hour, the original last and only while debug tools show, played for one playback; `web/apps/web/src/player-menus-input.browser.test.tsx`; VQ379
-- 11: `web/apps/web/src/navigation.test.ts`, `web/apps/web/src/app.test.tsx`: Network opens at `/remote-access` and replaces it with `/network`
+- 11: `web/apps/web/src/navigation.test.ts`, `web/apps/web/src/app.test.tsx`: Network opens at `/remote-access` and replaces it with `/network`; Settings' pages (pages-spec-3): `web/apps/web/src/settings.test.tsx`, `web/apps/web/src/settings-unread.test.tsx`, `web/apps/web/src/settings-pages.browser.test.tsx`: the index leads to each page and back up its trail, a search to a setting's row with focus there, a Stepper and a field save as they change and never as the page closes, by mouse, touch, keyboard and remote at 360, 1280 and 1920 px; VQ381
 - 12: `TestNeedsAttention_PagesListEachPlaceOfflineWithItsMachineAndPath`, `TestNeedsAttention_PagesPutSystemsWorkFailingBeforeItsChecks`, `TestJobs_TheViewCountsTheJobsFailedWithinTheHealthWindow`, `TestPeople_TheListSaysWhenEachLastWatched`, `TestLibraries_TheHoursBetweenChecksAreAWeekAtMost` (internal/core/api), the API side; `web/apps/web/src/status-tray.test.tsx`: Needs attention lists each page's items in the menu's order, each leading to its place, a problem marked; `web/apps/web/src/app-shell-menu-place.test.tsx`: the menu marks a Manage place while its page has anything
 
 ## D539 — One file browser chooses a folder and browses every library by its folders

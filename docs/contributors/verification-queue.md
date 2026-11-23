@@ -3831,3 +3831,39 @@ An item is ticked only by the person who did it, and only with what they saw.
       left for about five seconds, and whether Stop casting here, pressed with OK, ends the cast.
   13. Open the menu that says who is signed in, choose Report a problem, and send one saying
       "VQ380". Report that you sent it.
+- [ ] **VQ381** — Settings as D538 §11 and pages-spec-3 lay it out: an index whose search finds any
+  setting, a page to each section and Keys and passwords, each change saved as it is made, walked
+  on a phone, a laptop and a TV's remote. Only real devices say whether a finger's taps, a phone's
+  keyboard and a TV remote's own navigation reach and save them, which no test's browser does. On
+  staging, with "feat(web): Settings is an index, a page to each section and Keys and passwords,
+  each change saved as made", signed in as an admin:
+  1. On your phone, open Settings from the menu. Report whether Keys and passwords comes first,
+     saying which keys are set, then each section with its one line, and whether nothing is cut off
+     at the screen's edges.
+  2. On the phone, tap General. Report whether its page opens with "‹ Settings" above its heading,
+     and whether tapping that brings you back to the index.
+  3. On the phone, type "time" in Search settings. Report whether the list gives way to Time zone
+     with its section's name beside it, and whether tapping it opens General with Time zone in
+     view.
+  4. On a laptop, in Chrome, open Settings, then General, and press + on a number setting's
+     stepper once. Report whether "Saved" shows under it at once, then press − to put it back.
+  5. On the laptop, on General, change Time zone's text by one letter and press Enter. Report
+     whether "Saved" shows; put it back, then click elsewhere on the page and report whether
+     "Saved" shows again.
+  6. On the laptop, change Time zone by one letter and, without pressing Enter or leaving the
+     field, go back with the browser's Back button. Open General again and report whether Time
+     zone kept its old value (nothing saved as the page closed).
+  7. On the laptop, press the info button (ⓘ) beside a setting you changed and put back. Report
+     whether its dialog says its name in the configuration and its default, with Done alone at its
+     foot.
+  8. On the laptop, open Keys and passwords. Report whether each key says Not set, Set, or Set,
+     ending in its last four characters, and whether Remove… shows only beside a key that is set.
+  9. On the Fire TV in Silk, open Settings. Press Down from the search to General and press OK.
+     Report whether focus shows its white ring at each step, and whether it never vanishes.
+  10. On the Fire TV, on General, press Down to a stepper's + and press OK. Report whether "Saved"
+      shows, then press Up to "‹ Settings" and OK, and report whether the index comes back with
+      focus on something.
+  11. On the Fire TV, on the index, type "time" in the search with the remote's keyboard, press
+      Down to Time zone and OK. Report whether General opens with focus on Time zone's field.
+  12. Open the menu that says who is signed in, choose Report a problem, and send one saying
+      "VQ381". Report that you sent it.
