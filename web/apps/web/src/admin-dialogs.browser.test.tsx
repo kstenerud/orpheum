@@ -125,6 +125,13 @@ describe("People's Invite someone", () => {
       await page.viewport(width, 800);
       button("Invite someone").focus();
       await userEvent.keyboard("{Enter}");
+      // Measured once it has risen: mid-rise, a fractional translate leaves the button's box a
+      // float's error short of its height (43.99994 px under load).
+      await Promise.all(
+        dialog()
+          ?.getAnimations()
+          .map((animation) => animation.finished) ?? [],
+      );
       const box = dialog()?.getBoundingClientRect();
       expect(box?.left, `${String(width)} px`).toBeGreaterThanOrEqual(0);
       expect(box?.right, `${String(width)} px`).toBeLessThanOrEqual(width);

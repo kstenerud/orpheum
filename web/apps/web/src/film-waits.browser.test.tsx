@@ -48,9 +48,10 @@ async function stalledFilm(wait?: LinkWait): Promise<Mounted> {
     video.dispatchEvent(new Event("waiting"));
     await new Promise((resolve) => setTimeout(resolve, spinnerAfterMs + 100));
   });
+  // The sign shows with its words, "Getting ready to play", a Pill under it (D538 §1).
   await expect
-    .poll(() => mounted.container.querySelector('[aria-label="Getting ready to play"]'))
-    .not.toBeNull();
+    .poll(() => mounted.container.querySelector(".film-waits:not([hidden])")?.textContent)
+    .toContain("Getting ready to play");
   return mounted;
 }
 
