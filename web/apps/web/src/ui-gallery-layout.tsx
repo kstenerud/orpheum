@@ -4,17 +4,22 @@ import "./ui-gallery.css";
 import "./gallery-words.ts";
 import "./play-words.ts";
 import "./cast-words.ts";
+import "./player-overlay.css";
 
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ActionRow } from "./action-row.tsx";
+import type { UpNext } from "./around-file.ts";
 import { OfferCard } from "./offer-card.tsx";
 import { Page } from "./page.tsx";
 import { CornerNotes } from "./corner-notes.tsx";
+import { OverThePicture } from "./over-the-picture.tsx";
 import { ActionPill, Pill } from "./pill.tsx";
+import type { PlayerSource } from "./player-controls.tsx";
 import { SoundOnPill } from "./sound-on-pill.tsx";
 import { Section } from "./section.tsx";
+import { UpNextCard } from "./up-next.tsx";
 
 /** Writes down a press, by the key of the words of what was pressed. */
 type Press = (key: string) => () => void;
@@ -80,22 +85,83 @@ function GalleryPage(props: { readonly press: Press }): JSX.Element {
   );
 }
 
-/** The offer cards over a film: Up next, put away by its ✕, and Still watching with its buttons. */
+/** The episode the gallery's Up next offers. */
+function galleryUpNext(name: string): UpNext {
+  return {
+    episode: { itemId: 3, fileId: 3, groupNumber: 1, numberInGroup: 3, isPartway: false, name },
+    ordering: "aired",
+  };
+}
+
+/** A film playing at 70 %, as the gallery's centre Pill says it. */
+const placesSource: PlayerSource = {
+  atMs: 0,
+  durationMs: 0,
+  isPaused: false,
+  isReady: true,
+  playOrPause: () => undefined,
+  seekTo: () => undefined,
+  sound: {
+    volume: 0.7,
+    isMuted: false,
+    canSetVolume: true,
+    setVolume: () => undefined,
+    setMuted: () => undefined,
+  },
+};
+
+/**
+ * A film with each of its places over it (player-spec, the three places; D538 §1): the sound-on
+ * Pill at its top centre; the centre's one Pill, the volume, and a double tap's "+10" in the third
+ * tapped; the offer, Up next counting, in the top-right corner; and the notes at the bottom-left,
+ * the newest lowest. Each part is the player's own, placed by its own rules.
+ */
+function GalleryPlaces(props: { readonly press: Press }): JSX.Element {
+  const { t } = useTranslation();
+  const { press } = props;
+  return (
+    <div className="ui-gallery__film ui-gallery__places">
+      <SoundOnPill onPress={press("gallery.layoutParts.soundOn")} />
+      <OverThePicture
+        state={{ shown: "hidden", shownBy: "pointer" }}
+        source={placesSource}
+        isVolumeShown
+        seekFeedback={{ direction: 1, seconds: 10, isShown: true }}
+        isStartRefused={false}
+      />
+      <div className="ui-gallery__offer-place">
+        <UpNextCard
+          upNext={galleryUpNext(t("gallery.layoutParts.episodeName"))}
+          secondsLeft={8}
+          play={{ onPlay: press("upNext.playNow"), onDismiss: press("upNext.dismiss") }}
+        />
+      </div>
+      <CornerNotes
+        notes={[
+          { id: 0, text: t("gallery.layoutParts.joined") },
+          { id: 1, text: t("gallery.layoutParts.left") },
+          { id: 2, text: t("cast.controlledFrom", { name: t("gallery.layoutParts.device") }) },
+        ]}
+        onGone={() => undefined}
+      />
+    </div>
+  );
+}
+
+/**
+ * The offer cards' other states: Up next with no count, as it stops or on a cast's remote, put away
+ * by its ✕; Skip, the card itself the button, with no ✕; and Still watching with its buttons.
+ */
 function GalleryOffers(props: { readonly press: Press }): JSX.Element {
   const { t } = useTranslation();
   const { press } = props;
   return (
     <div className="ui-gallery__offers">
-      <OfferCard
-        words={t("gallery.layoutParts.upNext")}
-        detail={t("gallery.layoutParts.upNextDetail")}
-        still={<span className="ui-gallery__poster--medium ui-gallery__still" />}
-        onTake={press("gallery.layoutParts.upNext")}
-        dismissal={{
-          label: t("gallery.layoutParts.dismissUpNext"),
-          onDismiss: press("gallery.layoutParts.dismissUpNext"),
-        }}
+      <UpNextCard
+        upNext={galleryUpNext(t("gallery.layoutParts.episodeName"))}
+        play={{ onPlay: press("upNext.playNow"), onDismiss: press("upNext.dismiss") }}
       />
+      <OfferCard words={t("playerControls.skipIntro")} onTake={press("playerControls.skipIntro")} />
       <OfferCard
         words={t("gallery.layoutParts.stillWatching")}
         buttons={
@@ -109,50 +175,40 @@ function GalleryOffers(props: { readonly press: Press }): JSX.Element {
   );
 }
 
-/** The pills and the offer cards, on a film's ground. */
+/** The film's places, then each pill and offer card in its states, on a film's ground. */
 function GalleryOverFilm(props: { readonly press: Press }): JSX.Element {
   const { t } = useTranslation();
   const { press } = props;
   return (
-    <div className="ui-gallery__film ui-gallery__over-film">
-      <div className="ui-gallery__pills">
-        <Pill>{t("gallery.layoutParts.seeked")}</Pill>
-        <Pill voice="volume">{t("gallery.layoutParts.volume")}</Pill>
-        <Pill voice="silent">{t("gallery.layoutParts.seekForward")}</Pill>
-        <Pill>{t("gallery.layoutParts.joined")}</Pill>
-        <Pill>
-          {t("skipped.told", {
-            stretches: "42:10–42:28",
-          })}
-        </Pill>
-        <ActionPill onPress={press("gallery.layoutParts.soundOn")}>
-          {t("gallery.layoutParts.soundOn")}
-        </ActionPill>
-        <ActionPill isDangerous onPress={press("cast.stopHere")}>
-          {t("cast.stopHere")}
-        </ActionPill>
-        <ActionPill isDangerous isDisabled onPress={press("cast.stopHere")}>
-          {t("cast.stopHere")}
-        </ActionPill>
-        <Pill>{t("playerControls.gettingReady")}</Pill>
-        <Pill>{t("play.reopening")}</Pill>
+    <>
+      <GalleryPlaces press={press} />
+      <div className="ui-gallery__film ui-gallery__over-film">
+        <div className="ui-gallery__pills">
+          <Pill>{t("gallery.layoutParts.seeked")}</Pill>
+          <Pill>{t("gallery.layoutParts.joined")}</Pill>
+          <Pill>
+            {t("skipped.told", {
+              stretches: "42:10–42:28",
+            })}
+          </Pill>
+          <ActionPill onPress={press("gallery.layoutParts.soundOn")}>
+            {t("gallery.layoutParts.soundOn")}
+          </ActionPill>
+          <ActionPill isDangerous onPress={press("cast.stopHere")}>
+            {t("cast.stopHere")}
+          </ActionPill>
+          <ActionPill isDangerous isDisabled onPress={press("cast.stopHere")}>
+            {t("cast.stopHere")}
+          </ActionPill>
+          <Pill>{t("playerControls.gettingReady")}</Pill>
+          <Pill>{t("play.reopening")}</Pill>
+        </div>
+        <div className="ui-gallery__prompts">
+          <SoundOnPill isForVoices onPress={press("together.voice.tapToHear")} />
+          <SoundOnPill />
+        </div>
+        <GalleryOffers press={press} />
       </div>
-      <div className="ui-gallery__prompts">
-        <SoundOnPill onPress={press("gallery.layoutParts.soundOn")} />
-        <SoundOnPill isForVoices onPress={press("together.voice.tapToHear")} />
-        <SoundOnPill />
-      </div>
-      <div className="ui-gallery__corner">
-        <CornerNotes
-          notes={[
-            { id: 0, text: t("gallery.layoutParts.joined") },
-            { id: 1, text: t("gallery.layoutParts.left") },
-            { id: 2, text: t("cast.controlledFrom", { name: t("gallery.layoutParts.device") }) },
-          ]}
-          onGone={() => undefined}
-        />
-      </div>
-      <GalleryOffers press={press} />
-    </div>
+    </>
   );
 }

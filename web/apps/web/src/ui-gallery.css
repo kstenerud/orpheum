@@ -106,8 +106,28 @@
   border-radius: var(--radius-card);
 }
 
-/* The pills and offer cards on a film's ground, side by side where there is room; where each sits
-   over a real film is the player's (D538 §1). */
+/* A film with each part in its place over it (ui-gallery-layout.tsx's GalleryPlaces, D538 §1): the
+   sound-on Pill, the centre's Pills and the corner's notes are placed by their own rules; the offer
+   as the overlay's convenience area places it (player-overlay.css). */
+.ui-gallery__places {
+  overflow: hidden;
+  margin-block-end: var(--space-4);
+}
+
+.ui-gallery__offer-place {
+  position: absolute;
+  z-index: var(--layer-video-offer);
+  inset-block-start: var(--space-5);
+  inset-inline-end: var(--space-5);
+  max-width: min(26rem, calc(100% - 2 * var(--space-5)));
+}
+
+.ui-gallery__offer-place .offer-card {
+  max-width: none;
+}
+
+/* The pills and offer cards in each of their states, on a film's ground, side by side where there
+   is room. */
 .ui-gallery__over-film {
   display: flex;
   flex-wrap: wrap;
@@ -117,16 +137,13 @@
   padding: var(--space-4);
 }
 
-/* The sound-on prompts and the corner's notes, drawn in the gallery's flow rather than at a film's
-   top and bottom-left, so each state shows (D538 §1). */
-.ui-gallery__prompts .sound-on-pill,
-.ui-gallery__corner .corner-notes {
+/* The sound-on prompts' other states, drawn in the gallery's flow rather than at a film's top. */
+.ui-gallery__prompts .sound-on-pill {
   position: static;
 }
 
 .ui-gallery__pills,
 .ui-gallery__prompts,
-.ui-gallery__corner,
 .ui-gallery__offers {
   display: flex;
   flex-direction: column;

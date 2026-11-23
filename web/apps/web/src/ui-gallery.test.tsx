@@ -212,6 +212,27 @@ it("shows a page's layout parts, drawn by the parts themselves: Page, Section, A
   expect(parts).toContain("Still watching?");
 });
 
+it("draws each part in its place over a film, and each offer in its states (D538 §1, player-spec's three places)", () => {
+  const markup = renderToStaticMarkup(withServices(<UiGallery />));
+  const places = markup.slice(
+    markup.indexOf('class="ui-gallery__film ui-gallery__places"'),
+    markup.indexOf('class="ui-gallery__film ui-gallery__over-film"'),
+  );
+  expect(places).toContain('class="sound-on-pill"');
+  expect(places).toMatch(
+    /class="player-overlay-centre player-overlay-volume">(?:<[^>]+>)*Volume 70 %/u,
+  );
+  expect(places).toMatch(/class="player-overlay-seeked" data-side="right" data-shown=""/u);
+  expect(places).toMatch(/class="ui-gallery__offer-place"(?:(?!corner-notes).)*Plays in 8 s/u);
+  expect(places).toContain("Dismiss Up next");
+  expect(places).toContain('class="corner-notes"');
+  const states = markup.slice(markup.indexOf('class="ui-gallery__offers"'));
+  expect(states).toMatch(/Up next: [^<]+ · Cat/u);
+  expect(states).toContain("Play now");
+  expect(states).toMatch(/class="offer-card__content offer-card__take">(?:<[^>]+>)*Skip intro/u);
+  expect(states).toContain("Still watching?");
+});
+
 it("shows the file browser loading, empty, with a count not finished, unreadable and with a machine not answering (D539 §1)", () => {
   const markup = renderToStaticMarkup(withServices(<UiGallery />));
   const states = markup.slice(markup.indexOf('id="gallery-file-browser"'));
