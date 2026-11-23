@@ -25,11 +25,8 @@ describe("the focus ring where the browser asks for more contrast", () => {
         .filter((declaration) => declaration.text === "outline: none")
         .map(() => name),
     );
-    expect(removals.toSorted()).toEqual([
-      "modal-dialog.css",
-      "player-overlay.css",
-      "volume-row.css",
-    ]);
+    // The scrub bar keeps the ring every control has (D538 §6), so the overlay takes none away.
+    expect(removals.toSorted()).toEqual(["modal-dialog.css", "volume-row.css"]);
     expect(ringsTakenAway(sheets)).toEqual([]);
   });
 

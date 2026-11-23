@@ -2,6 +2,7 @@
 
 import "./ui-gallery.css";
 import "./gallery-words.ts";
+import "./play-words.ts";
 
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
