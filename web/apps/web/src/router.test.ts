@@ -46,6 +46,9 @@ describe("parseRoute and routeHref", () => {
       { screen: "welcome", step: "discovery" },
       { screen: "this-device" },
       { screen: "settings" },
+      { screen: "settings", page: "keys" },
+      { screen: "settings", page: "slowLinks" },
+      { screen: "settings", page: "remoteAccess", setting: "shouldMapPorts" },
       { screen: "together" },
       { screen: "watch-together" },
       { screen: "casting" },
@@ -63,6 +66,18 @@ describe("parseRoute and routeHref", () => {
       const url = new URL(routeHref(route), "http://orpheum.test");
       expect(parseRoute(url.pathname, url.search)).toEqual(route);
     }
+  });
+
+  it("gives each of Settings' pages its own address, landing on a setting where one is named (D538 §11)", () => {
+    expect(routeHref({ screen: "settings", page: "keys" })).toBe("/settings/keys");
+    expect(routeHref({ screen: "settings", page: "slowLinks", setting: "maxBitrate" })).toBe(
+      "/settings/slow-links?setting=maxBitrate",
+    );
+    expect(parseRoute("/settings/remote-access/", "?setting=")).toEqual({
+      screen: "settings",
+      page: "remoteAccess",
+    });
+    expect(parseRoute("/settings/elsewhere", "")).toEqual({ screen: "not-found" });
   });
 
   it("names nothing it does not know, and never guesses an id", () => {

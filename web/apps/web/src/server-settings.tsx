@@ -14,6 +14,7 @@ import { ResetIcon } from "./icons.tsx";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { dataOrThrow, fieldProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { sectionOrder, type SettingsSection } from "./settings-pages.ts";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
 import { shownSaveTold, StatusNote } from "./status-note.tsx";
@@ -21,27 +22,10 @@ import { HelpButton } from "./help-button.tsx";
 
 /** A server setting, with its value and its starting value. */
 export type Setting = components["schemas"]["SettingBody"];
-/** The part of the page a setting is listed in. */
-type Section = Setting["section"];
+/** The part of Settings a setting is listed in. */
+type Section = SettingsSection;
 /** A setting's value, by its kind. */
 type SettingValue = string | number | boolean;
-
-/** The sections in the server's order (settings.Sections), which a test holds to the API document's. */
-export const sectionOrder: readonly Section[] = [
-  "general",
-  "accounts",
-  "libraries",
-  "metadata",
-  "playback",
-  "slowLinks",
-  "upload",
-  "together",
-  "nodes",
-  "jobs",
-  "remoteAccess",
-  "backups",
-  "diagnostics",
-];
 
 /** A setting's value as a person reads it. */
 export function settingText(value: unknown): string {
@@ -508,7 +492,6 @@ function useSettingChanges(loaded: readonly Setting[]): {
   const save = useCallback(
     (key: string, value: SettingValue): void => {
       void settle(key, async () => {
-        // Kept alive, so a save the page's leaving sends outlives the page.
         const body = { valuesByKey: { [key]: value } };
         const answer = dataOrThrow(await api.PUT("/config", { body }));
         return answer.settings?.find((each) => each.key === key);

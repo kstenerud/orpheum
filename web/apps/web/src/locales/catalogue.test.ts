@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { camelKey } from "../catalogue-key.ts";
-import { sectionOrder } from "../server-settings.tsx";
+import { sectionOrder } from "../settings-pages.ts";
 import { settingsWords } from "../settings-words.ts";
 import { en } from "./en.ts";
 import { enCast } from "./en-cast.ts";

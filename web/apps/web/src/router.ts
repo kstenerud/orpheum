@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { settingsPagePath, settingsPages, type SettingsPage } from "./settings-pages.ts";
+
 /** A device's QR code as the phone scanned it: its code and its key's hash (D321). */
 export interface Scanned {
   readonly code: string;
@@ -120,7 +122,15 @@ export type Route =
    * discovery (step "discovery"). No menu leads to them.
    */
   | { readonly screen: "welcome"; readonly step?: WelcomeStep }
-  | { readonly screen: "settings" }
+  | {
+      /**
+       * Settings (D538 §11): its index, or one of its pages beneath, landing on one setting or key
+       * where one is named, as a search's result or a Needs you line leads to it.
+       */
+      readonly screen: "settings";
+      readonly page?: SettingsPage;
+      readonly setting?: string;
+    }
   | { readonly screen: "jobs" }
   | { readonly screen: "system" }
   /**
@@ -210,6 +220,13 @@ const shapes: readonly Shape[] = [
     toRoute: (): Route => ({ screen: "welcome", step }),
   })),
   { pattern: /^\/settings\/?$/u, toRoute: () => ({ screen: "settings" }) },
+  ...settingsPages.map((page) => ({
+    pattern: new RegExp(`^/settings/${settingsPagePath(page)}/?$`, "u"),
+    toRoute: (_: number, search: URLSearchParams): Route => {
+      const setting = search.get("setting") ?? "";
+      return setting === "" ? { screen: "settings", page } : { screen: "settings", page, setting };
+    },
+  })),
   { pattern: /^\/jobs\/?$/u, toRoute: () => ({ screen: "jobs" }) },
   { pattern: /^\/system\/?$/u, toRoute: () => ({ screen: "system" }) },
   { pattern: /^\/network\/?$/u, toRoute: () => ({ screen: "network" }) },
@@ -441,9 +458,20 @@ function welcomeRouteHref(route: Route): string | undefined {
   return route.step === undefined ? "/welcome" : `/welcome/${route.step}`;
 }
 
-/** The address of a first-time page or of one of the device lab's, or undefined for another. */
+/** The address of one of Settings' pages, or undefined for another route or its index. */
+function settingsRouteHref(route: Route): string | undefined {
+  if (route.screen !== "settings" || route.page === undefined) {
+    return undefined;
+  }
+  const path = `/settings/${settingsPagePath(route.page)}`;
+  return route.setting === undefined
+    ? path
+    : `${path}?${new URLSearchParams({ setting: route.setting }).toString()}`;
+}
+
+/** The address of a first-time page, of Settings' or of the device lab's, or undefined for another. */
 function pageRouteHref(route: Route): string | undefined {
-  return welcomeRouteHref(route) ?? labRouteHref(route);
+  return welcomeRouteHref(route) ?? settingsRouteHref(route) ?? labRouteHref(route);
 }
 
 /** The address of one of the device lab's routes, or undefined for another. */
