@@ -5064,3 +5064,42 @@ have weird gaps between them that were not present in the mock-ups."
   - The gallery's side-by-side goes, and VQ382 is answered.
 - **The watched library's scan** (`watchedLibraryScanEveryHours`) is capped at 168 hours too (the
   owner: "yes").
+
+## Overnight, 2026-11-23: test metrics, and the page-arrival test (the owner, 2026-11-23)
+
+The owner, 2026-11-23: "My goal for overnight tonight is to have solid metrics for the tests such
+that we can quickly diagnose which tests are slowing things down whenever a slow run happens. And
+also for any slowness you discover, options to improve test performance." And: "We'll schedule the
+test fixes for you to run overnight tonight, because it's already taken up more than half the day."
+
+Why: `make gate-times` says how long each gate ran and its longest step, but not which test inside
+a step took the time. Over the week to 2026-11-23, passing `make check` runs had a median of 167 s
+against a 90 s budget. In the runs over budget, the browser tier was most often the longest step,
+and nothing says which of its files.
+
+1. **Per-test durations, kept for every run.** Every run of `make check`, `make spot`, check-pr and
+   revert-red records each test unit's time, beside what `.claude/.cache/gate-runs.jsonl` keeps:
+   - each browser test file, per browser;
+   - each vitest file, Go package and Python test module.
+
+   A report then names the units that made a run slow: each unit against its own median, with the
+   load and the FFmpeg jobs running as the run started. This lives under `scripts/` and changes a
+   gate, so it needs the owner's `Gate-Changed:` trailer.
+2. **A quiet baseline.** Run `make check` with nothing else running, three times. Record each
+   browser test file's time per browser, the Go packages' and vitest's slowest units, and the
+   machine's load.
+3. **Options, not changes.** For each slow unit found, give the owner options to speed it up, each
+   with its expected saving, for the owner to choose from. Examples: a wait that polls a timer it
+   could step, a file walking more cases than its claim needs, a file better in check-pr's tier.
+   No test is weakened or moved without the owner's go (AGENTS.md rule 5).
+4. **The page-arrival test** (the focus on every page; the owner, 2026-11-23: "All pages should get
+   the focus fix").
+   - The owner approved the arrivals (2026-11-23, "OK on those three"):
+     - the Settings index arrives on its first row;
+     - Keys and passwords on the first key's field;
+     - the Lab and the player on nothing.
+   - Its unfinished work is parked outside the repository. Known so far, in Chromium:
+     - Opened at its address, each page arrives right except `/welcome`.
+     - Every case opened from Home hits the 10 s test timeout.
+     - The file runs over 15 minutes.
+   - It lands passing in both browsers, short enough for `make check`.
