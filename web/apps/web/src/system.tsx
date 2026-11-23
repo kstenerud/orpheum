@@ -26,7 +26,6 @@ import { SystemBackups } from "./system-backups.tsx";
 import { SystemProblemReports } from "./system-problem-reports.tsx";
 import { SystemContents, type ContentsEntry } from "./system-contents.tsx";
 import { SystemResourceUse } from "./system-resource-use.tsx";
-import { SystemUnusedSettings } from "./system-unused-settings.tsx";
 import { SystemFilingReports } from "./filing-report.tsx";
 import { UpdateSystem } from "./update-page.tsx";
 import { SystemNetwork } from "./system-network.tsx";
@@ -114,7 +113,6 @@ export function System(): JSX.Element {
       <SystemResourceUse />
       <SystemBackups />
       <SystemProblemReports />
-      <SystemUnusedSettings />
       <SystemFilingReports />
       <SystemReachability />
       <SystemRemoteAccess />

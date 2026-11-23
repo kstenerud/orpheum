@@ -7,6 +7,20 @@
  * (en.ts). A Go test holds a description here for every setting the server has.
  */
 export const enSettingsCatalogue = {
+  /** The settings this release does not read, folded on the index (settings-unread.tsx). */
+  unread: {
+    line: "{{count}} settings are not read by this release.",
+    lineOne: "1 setting is not read by this release.",
+    heading: "Settings this release does not read",
+    what: "These were left by an earlier release, or mistyped. The server ignores them, so deleting one changes nothing it does.",
+    retired: "{{key}} = {{value}}: retired in {{release}}, {{reason}}",
+    typo: "{{key}} = {{value}}: no release has read it, so probably a typo",
+    delete: "Delete",
+    deleteFor: "Delete {{key}}",
+    question: "Delete {{key}}?",
+    consequence: "{{key}} is deleted for good.",
+    confirm: "Delete it",
+  },
   sections: {
     general: "General",
     accounts: "Accounts and sign-in",

@@ -41,6 +41,16 @@
   font-size: var(--font-size-small);
 }
 
+/* The settings this release does not read, folded under their summary at the index's end. */
+.settings__fold {
+  margin-block-start: var(--space-4);
+}
+
+.settings__fold > summary {
+  min-block-size: var(--size-control);
+  padding-block: var(--space-2);
+}
+
 /* "Show advanced settings", at the top of a section's page. */
 .settings__advanced {
   margin-block-end: var(--space-3);

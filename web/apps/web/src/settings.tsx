@@ -7,7 +7,8 @@ import type { TFunction } from "i18next";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { pageNeedsYou, usePageAttention } from "./attention-list.tsx";
+import { AttentionList, pageNeedsYou, usePageAttention } from "./attention-list.tsx";
+import type { AttentionItem } from "./attention-pages.ts";
 import { browserStorage } from "./browser-storage.ts";
 import { camelKey } from "./catalogue-key.ts";
 import { Field } from "./field.tsx";
@@ -34,6 +35,7 @@ import {
   type Secret,
 } from "./settings-keys.tsx";
 import { sectionOrder, type SettingsPage, type SettingsSection } from "./settings-pages.ts";
+import { UnreadLine, UnreadSettingsFold, useUnreadSettings } from "./settings-unread.tsx";
 import { Switch } from "./switch.tsx";
 import type { Upward } from "./upward.ts";
 
@@ -194,13 +196,33 @@ function SectionList(props: {
 }
 
 /**
- * Settings' index (pages-spec-3): Needs you while a key needs the admin; one search over every
- * setting and key, advanced ones included, whose results replace the list; then the pages.
+ * The index's Needs you: each key's line, then the settings this release does not read, leading to
+ * their fold; undefined while nothing needs the admin.
+ */
+function indexNeedsYou(
+  items: readonly AttentionItem[],
+  unreadCount: number,
+): JSX.Element | undefined {
+  if (items.length === 0 && unreadCount === 0) {
+    return undefined;
+  }
+  return (
+    <AttentionList items={items}>
+      <UnreadLine count={unreadCount} />
+    </AttentionList>
+  );
+}
+
+/**
+ * Settings' index (pages-spec-3): Needs you while a key needs the admin or a setting is one this
+ * release does not read; one search over every setting and key, advanced ones included, whose
+ * results replace the list; then the pages, and the unread settings, folded.
  */
 function SettingsIndex(): JSX.Element {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const attention = usePageAttention("settings");
+  const unread = useUnreadSettings();
   const settings = useServerSettings();
   const [secrets] = useSecrets();
   const loadedSecrets = secrets.state === "loaded" ? secrets.value : undefined;
@@ -208,7 +230,7 @@ function SettingsIndex(): JSX.Element {
     <Page
       heading={t("settings.heading")}
       job={t("settings.job")}
-      needsYou={pageNeedsYou(attention)}
+      needsYou={indexNeedsYou(attention, unread.listed.length)}
     >
       <search className="settings__filters">
         <Field label={t("settings.search")}>
@@ -236,6 +258,7 @@ function SettingsIndex(): JSX.Element {
           )}
         />
       )}
+      <UnreadSettingsFold unread={unread} />
     </Page>
   );
 }

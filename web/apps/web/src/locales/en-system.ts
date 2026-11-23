@@ -207,17 +207,6 @@ export const enSystem = {
       notReady: "{{name}}: not made yet",
       rebuild: "Make them again",
     },
-    unusedSettings: {
-      heading: "Settings this release does not read",
-      what: "These were left by an earlier release, or mistyped. The server ignores them, so deleting one changes nothing it does.",
-      retired: "{{key}} = {{value}}: retired in {{release}}, {{reason}}",
-      typo: "{{key}} = {{value}}: no release has read it, so probably a typo",
-      delete: "Delete",
-      deleteFor: "Delete {{key}}",
-      question: "Delete {{key}}?",
-      consequence: "{{key}} is deleted for good.",
-      confirm: "Delete it",
-    },
     discovery: {
       heading: "Network",
       movedWhat:

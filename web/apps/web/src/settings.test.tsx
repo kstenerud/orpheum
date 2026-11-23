@@ -460,6 +460,7 @@ describe("Settings' index (pages-spec-3)", () => {
     const services = servedBy({
       "GET /config": [200, { settings: [] }],
       "GET /needs-attention": [200, { items: [] }],
+      "GET /config/unused": [200, { unusedSettings: [] }],
       "GET /secrets": [
         200,
         {
@@ -495,6 +496,7 @@ describe("Settings' index (pages-spec-3)", () => {
     const services = servedBy({
       "GET /config": [200, { settings: [] }],
       "GET /secrets": [200, { secrets: [] }],
+      "GET /config/unused": [200, { unusedSettings: [] }],
       "GET /needs-attention": [
         200,
         {
