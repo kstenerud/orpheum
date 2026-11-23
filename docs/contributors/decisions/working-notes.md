@@ -31134,3 +31134,63 @@ panel (the server sends neither), and a file's size.
 - 5: `web/apps/web/src/file-browser.test.tsx`
 - 6: `web/apps/web/src/file-browser.test.tsx`, `web/apps/web/src/ui-gallery.test.tsx`
 - 7: `TestServeFolders_CountsEachFoldersVideosAsAScanWouldReadThem`, `TestServeFolders_AFolderNotCountedWithinTheBudgetCarriesNoCount` (internal/node/byteserver), `TestKindOf_ReadsAsAVideoWhatVideofileCallsOne` (internal/core/library), `TestLibraries_ANodesFoldersCarryTheirVideoCounts`, `TestBrowse_EveryKindOfLibrarysFolderListsItsVideoFiles` (internal/core/api), `TestProtocolVersion_IsRaisedWithAnyChangeToTheWire` (internal/nodeproto)
+
+## D540 — A claimed job is never left running: a record that wrote nothing is a cancel, and any failure gives the job back
+
+**Decided** (2026-11-23), by the project owner, approving the fixes of the queue audit of
+2026-11-23 ("OK, sounds good": the plan's "The 11-24 batch", in
+`design/plans/navigation-and-widgets-answers-2026-10-27.md`). **Amends** D231 §5 and §6 (an
+outcome the storage cannot write is kept and written later; a parked destination's work waits for
+its signal) and D234 (an assigned job's work is sent once it is recorded assigned).
+
+**Status:** decided. Its code is in `internal/platform/jobqueue` (`runner.go`, `held.go`, `destination.go`),
+`internal/core/jobs` (the queue's sweep), `internal/store` (`jobs.go`, `queries/job.sql`) and
+`internal/core/nodes` (`assign.go`).
+
+1. **Why.** The audit found work that is dropped or waits forever between a claim and its record.
+   A cancel that came after a handler gave its job to a node, before the assignment was recorded,
+   was not seen: the record wrote nothing and said nothing, and the work was handed over after the
+   cancel hook had run. A record that failed for a cause not the storage's (a cancelled context, a
+   busy database), or a policy that could not be read after the claim, left the job running, and a
+   running job covers every request for its target until a restart. Outcomes the storage could not
+   write were kept in one field, which a second replaced. A slot freed between a handler's look and
+   its parking was a signal given before the parking, which then waited for one already given.
+2. **A record says whether it wrote.** `Storage.Record` answers false for a job no longer open
+   (cancelled meanwhile), and writes an assigned outcome only over a running job. When nothing was
+   written, the runner hands nothing over, counts no success or failure, records no item's failure
+   and parks nothing, and tells the queue's cancel hook again: the hook may hear of a job more
+   than once.
+3. **No claimed job is left running.** The attempt limit and the first retry delay are read before
+   the claim (and before an assigned job is taken back), so nothing between a claim and its record
+   reads them. A record that fails for any cause not the storage's gives the job back to the queue,
+   written whatever became of the context, `GivenBackDelay` (30 s) later and keeping the attempt
+   its claim counted, so a job whose outcome is never written still ends at its limit.
+4. **The outcomes the storage could not write are a guarded list on the queue,** oldest first,
+   each written once the storage's probe finds room (D231 §5): every runner and every Resolve may
+   add to it.
+5. **An assignment the storage cannot write hands no work over.** It is kept as the job's return
+   to the queue, at no cost of an attempt; the queue's overdue hook forgets the machine's attempt,
+   and the job is given again once there is room. Handed over, the machine's word could come before
+   the assignment was written, find the job running and be dropped, and the job then waited out its
+   assigned time.
+6. **A backstop sweep gives back running jobs no runner holds.** The queue knows the jobs its
+   runners hold (claimed, taken back from a machine, or with an outcome kept unwritten); its own
+   sweep, `jobs.SweepUnheldRunning`, every five minutes, gives back each job cache.db marks running
+   that two looks `jobqueue.UnheldRunningGrace` (a minute) apart found none holds. A write that
+   fails in a way none of the above foresees costs minutes, not a restart.
+7. **A signal that comes before its parking is kept for it.** An unpark of a destination not
+   parked is remembered; a parking that awaits a signal, from a handler that looked before the
+   signal came, is not kept, and its work is tried again at once.
+8. **An attempt kept as its job is cancelled is forgotten.** The node exchanges keep an attempt
+   whole whatever becomes of the job's context, and when the context was cancelled as it was kept
+   they forget it and answer the cancel, as the chunks' handler does: kept, it was never sent and
+   filled the node's window until a status judged it lost.
+
+**Proven by:**
+- 2: `TestRunDue_ACancelLandingBeforeTheAssignIsRecordedHandsNoWorkOver` (internal/platform/jobqueue)
+- 3: `TestResolve_AnOutcomeWhoseRecordFailsLeavesNoJobRunning`, `TestRunDue_AnAttemptLimitThatCannotBeReadLeavesNoProbeRunning`, `TestRunDue_AStorageProbeThatCannotReadTheAttemptLimitStopsNoQueue` (internal/platform/jobqueue)
+- 4: `TestRunDue_TwoOutcomesTheStorageCouldNotWriteAreBothWrittenOnceItCan` (internal/platform/jobqueue, also under `-race`)
+- 5: `TestRunDue_AnAssignmentTheStorageCannotWriteHandsNoWorkOver` (internal/platform/jobqueue)
+- 6: `TestGiveBackUnheld_GivesBackOnlyARunningJobNoneHolds` (internal/platform/jobqueue), `TestSweepUnheldRunning_GivesBackAJobNoRunnerHolds` (internal/core/jobs)
+- 7: `TestPark_RoomMadeBetweenTheLookAndTheParkIsNotLost` (internal/core/nodes)
+- 8: `TestAssign_AnAttemptKeptAsItsJobIsCancelledIsForgotten` (internal/core/nodes)

@@ -117,13 +117,16 @@ func (queue *Queue) Health(ctx context.Context) ([]KindHealth, error) {
 }
 
 // OnOverdue has the queue tell overdue each assigned job whose time, assignedJobLimitHours, ran
-// out: its node is told to stop the work it still holds (nodes.Exchanges.Overdue).
+// out, and each whose assignment cache.db refused for want of room, given again once there is
+// room: its node is told to stop the work it holds, and its attempt is forgotten
+// (nodes.Exchanges.Overdue, D540).
 func (queue *Queue) OnOverdue(overdue func(ctx context.Context, id int64)) {
 	queue.queue.OnOverdue(overdue)
 }
 
 // OnCancel has the queue tell cancelled each job a cancel ended: an assigned job's node is told to
-// stop its work (D234 §6).
+// stop its work (D234 §6). A job is told again when an outcome recorded after finds it cancelled,
+// so the hook may hear of one more than once (D540).
 func (queue *Queue) OnCancel(cancelled func(ctx context.Context, id int64)) {
 	queue.queue.OnCancel(cancelled)
 }

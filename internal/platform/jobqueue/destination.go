@@ -101,6 +101,10 @@ type destinations struct {
 	// finding the destination up (D531 §3): their answers park nothing again. Guarded by mutex;
 	// a job leaves it when it succeeds, and the set ends with the program.
 	failedAlone map[int64]bool
+	// signalledAt is when each destination not parked was last unparked: a signal given before the
+	// parking it answers, as room made between a handler's look and its parking, which brings that
+	// parking back at once (D540). Guarded by mutex; a parking it answers takes it.
+	signalledAt map[Destination]time.Time
 }
 
 // probeContextKey carries, in a handler's context, the destination its job is the probe of.
@@ -126,15 +130,31 @@ func IsInJob(ctx context.Context) bool {
 // Park marks a destination down, or, if it is down, notes the failure. A failed probe backs the
 // next one off a step and says why it is down now; any other failure of a parked destination (a
 // job that ran before it was parked, or one that names none) changes nothing of how it comes
-// back, unless it names a later time to look. It wakes nothing: parked work waits.
+// back, unless it names a later time to look. It wakes nothing: parked work waits. A parking that
+// awaits a signal, given while the destination was not parked, is the signal's to answer: the
+// destination is not parked, and its work is tried again at once (D540).
 func (queue *Queue[T]) Park(ctx context.Context, parking Parking) {
+	queue.park(ctx, parking, time.Time{})
+}
+
+// park is Park of a parking its job's handler looked for after lookedAt: a signal given before
+// then answers nothing it found, and is passed over. Zero is a look of unknown time, which every
+// signal not yet taken answers.
+func (queue *Queue[T]) park(ctx context.Context, parking Parking, lookedAt time.Time) {
 	if parking.Destination == "" {
 		return
 	}
 	now := queue.clock.Now()
 	queue.destinations.mutex.Lock()
-	defer queue.destinations.mutex.Unlock()
 	parked, isParked := queue.destinations.parkedBy[parking.Destination]
+	if !isParked && queue.takeSignalFor(parking, lookedAt) {
+		queue.destinations.mutex.Unlock()
+		queue.logger.DebugContext(ctx, "a destination's signal came before its parking; its work goes on",
+			"destination", parking.Destination, "reason", parking.Reason)
+		queue.Wake()
+		return
+	}
+	defer queue.destinations.mutex.Unlock()
 	if isParked && !parking.IsProbeFailure {
 		if !parked.state.AwaitsSignal && parking.ProbeAt.After(parked.state.NextProbeAt) {
 			parked.state.NextProbeAt = parking.ProbeAt
@@ -188,14 +208,29 @@ func (queue *Queue[T]) probeDelay(ctx context.Context, step int64) time.Duration
 	return backoff.Doubled(first, longest, step)
 }
 
+// takeSignalFor takes the signal a parking that awaits one answers: one given to its destination
+// at or after lookedAt. Its caller holds the destinations' mutex.
+func (queue *Queue[T]) takeSignalFor(parking Parking, lookedAt time.Time) bool {
+	if !parking.AwaitsSignal {
+		return false
+	}
+	signalledAt, isSignalled := queue.destinations.signalledAt[parking.Destination]
+	delete(queue.destinations.signalledAt, parking.Destination)
+	return isSignalled && !signalledAt.Before(lookedAt)
+}
+
 // Unpark marks a destination up and wakes every runner, so its work resumes, highest priority
 // first. One that was down asks for every sweep too, so work lost while it was down is derived again
 // (D231 §3); one that only had no room lost nothing, since its jobs waited in the queue, and asks for
-// none: a node frees a slot every few seconds. A destination not parked is left as it is.
+// none: a node frees a slot every few seconds. A destination not parked is left as it is, but for
+// the signal it was given, which answers a parking that awaits one and comes after it (D540).
 func (queue *Queue[T]) Unpark(ctx context.Context, destination Destination) {
 	queue.destinations.mutex.Lock()
 	parked, wasParked := queue.destinations.parkedBy[destination]
 	delete(queue.destinations.parkedBy, destination)
+	if !wasParked && destination != "" {
+		queue.destinations.signalledAt[destination] = queue.clock.Now()
+	}
 	queue.destinations.mutex.Unlock()
 	if wasParked {
 		queue.Wake()
@@ -214,6 +249,7 @@ func (queue *Queue[T]) Forget(destination Destination) {
 	queue.destinations.mutex.Lock()
 	defer queue.destinations.mutex.Unlock()
 	delete(queue.destinations.parkedBy, destination)
+	delete(queue.destinations.signalledAt, destination)
 }
 
 // ProbeNow looks at a parked destination at once, for a person waiting on its work (D231 §6): its

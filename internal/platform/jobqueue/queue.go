@@ -110,12 +110,17 @@ type Queue[T comparable] struct {
 	// cancelled is told each job a cancel ended, by its id: an assigned job's machine is told to
 	// stop its work there (D234 §6). Guarded by mutex.
 	cancelled func(ctx context.Context, id int64)
-	// overdue is told each assigned job whose time ran out, by its id, once its end is recorded: its
-	// machine is told to stop the work it still holds. Guarded by mutex.
+	// overdue is told each assigned job whose time ran out, by its id, once its end is recorded, and
+	// each whose assignment could not be written, given back to be tried again: its machine is told
+	// to stop the work it still holds (D540). Guarded by mutex.
 	overdue func(ctx context.Context, id int64)
 	// unknownFailures are told each job given up for an unknown cause, and each that succeeded; nil
 	// tells nothing. Guarded by mutex.
 	unknownFailures UnknownFailures[T]
+
+	// held are the running jobs a runner here holds, and the outcomes the storage could not write
+	// yet (held.go).
+	held held
 }
 
 // TellUnknownFailures has the queue tell unknownFailures each job it gives up for an unknown cause,
@@ -133,14 +138,17 @@ func (queue *Queue[T]) unknownFailuresTold() UnknownFailures[T] {
 }
 
 // OnOverdue has the queue tell overdue each assigned job whose time ran out, after its end is
-// recorded.
+// recorded, and each whose assignment the storage refused for want of room, whose work is not
+// handed over and which is given again once there is room (D540).
 func (queue *Queue[T]) OnOverdue(overdue func(ctx context.Context, id int64)) {
 	queue.mutex.Lock()
 	defer queue.mutex.Unlock()
 	queue.overdue = overdue
 }
 
-// OnCancel has the queue tell cancelled each job a cancel ended, after it is recorded.
+// OnCancel has the queue tell cancelled each job a cancel ended, after it is recorded, and again
+// when an outcome its runner records after finds it cancelled: the first word may have come while
+// the job's handler still gave its work away (D540). A job may be told more than once.
 func (queue *Queue[T]) OnCancel(cancelled func(ctx context.Context, id int64)) {
 	queue.mutex.Lock()
 	defer queue.mutex.Unlock()
@@ -156,9 +164,11 @@ func New[T comparable](storage Storage[T], clockSource clock.Clock, config Confi
 		isPassingFailure: orNever(config.IsPassingFailure),
 		destinations: destinations{
 			parkedBy: map[Destination]*parkedDestination{}, failedAlone: map[int64]bool{},
+			signalledAt: map[Destination]time.Time{},
 		},
 		sweeps:               sweeps{wake: make(chan struct{}, 1)},
 		cancelByRunningJobID: map[int64]context.CancelCauseFunc{}, wakeupsByKind: map[Kind][]chan struct{}{},
+		held: held{countByID: map[int64]int{}, unheldSince: map[int64]time.Time{}},
 	}
 }
 

@@ -60,11 +60,29 @@
 //   - A person's request for a job whose destination is parked probes it at once; a destination
 //     only a signal brings back is never probed, and resumes when unparked.
 //     TestEnqueue_APersonsRequestLooksAtAParkedDestinationAtOnce,
-//     TestRunDue_ADestinationThatAwaitsASignalIsNeverProbedAndResumesWhenUnparked.
+//     TestRunDue_ADestinationThatAwaitsASignalIsNeverProbedAndResumesWhenUnparked. A signal that
+//     comes before the parking it answers, from a handler that looked before it, is kept for it:
+//     the parking is not kept, and the work is tried again (D540).
+//     TestPark_RoomMadeBetweenTheLookAndTheParkIsNotLost (internal/core/nodes).
 //   - The program's own storage is a destination: a claim, a record or an answer it refuses for
 //     want of room parks it, no runner claims until one claim finds room, and an outcome it could
-//     not write is written then, so no job is left running (S77).
-//     TestRunDue_AFullStorageStopsEveryClaimUntilAProbeFindsRoomAndNothingIsLeftRunning.
+//     not write is written then, so no job is left running (S77). Every outcome it refused is
+//     kept, in a guarded list on the queue, whichever runner or Resolve recorded it (D540 §4).
+//     TestRunDue_AFullStorageStopsEveryClaimUntilAProbeFindsRoomAndNothingIsLeftRunning,
+//     TestRunDue_TwoOutcomesTheStorageCouldNotWriteAreBothWrittenOnceItCan.
+//   - No claimed job is left running (D540 §3, §6). The retry policy is read before a claim and
+//     before an assigned job is taken back, so nothing between a claim and its record reads it; a
+//     record that fails for a cause not the storage's gives the job back to the queue, keeping its
+//     counted attempt; and the queue's sweep gives back a running job none of its runners holds,
+//     once two looks UnheldRunningGrace apart found it so.
+//     TestResolve_AnOutcomeWhoseRecordFailsLeavesNoJobRunning,
+//     TestRunDue_AnAttemptLimitThatCannotBeReadLeavesNoProbeRunning,
+//     TestRunDue_AStorageProbeThatCannotReadTheAttemptLimitStopsNoQueue,
+//     TestGiveBackUnheld_GivesBackOnlyARunningJobNoneHolds,
+//     TestSweepUnheldRunning_GivesBackAJobNoRunnerHolds (internal/core/jobs).
+//   - A record that finds its job cancelled writes nothing and says so: the runner hands nothing
+//     over, counts nothing and parks nothing, and tells the cancel hook again (D540 §2).
+//     TestRunDue_ACancelLandingBeforeTheAssignIsRecordedHandsNoWorkOver.
 //   - Parked state is held in memory: after a restart the first job for a destination probes it
 //     again (D231 §6). Enforced by review: nothing here writes it.
 //   - A bumped job costs no attempt and goes back to the head of its priority's queue: a claim takes
@@ -89,7 +107,10 @@
 //     its node (D234 §7). ResolveBy decides the outcome from the job as assigned, and a cancel is
 //     told to the queue's cancel hook (OnCancel), so the node can be told to stop. Work given with
 //     AssignThen is handed over only once its job is recorded assigned, so the node's word, however
-//     soon, finds it assigned. TestAssignThen_HandsTheWorkOverOnceTheJobIsRecordedAssigned,
+//     soon, finds it assigned; an assignment the storage refuses for want of room hands nothing
+//     over, tells the overdue hook (OnOverdue) and gives the job again once there is room (D540
+//     §5). TestAssignThen_HandsTheWorkOverOnceTheJobIsRecordedAssigned,
+//     TestRunDue_AnAssignmentTheStorageCannotWriteHandsNoWorkOver,
 //     TestResolveBy_DecidesFromTheJobAndACancelIsHeardByTheHook,
 //     TestAssign_AJobGivenToANodeFreesItsRunnerAndItsOutcomeIsTakenOnce,
 //     TestResolve_TakesTheNodesOutcomeAsAHandlersAnswer,
@@ -138,6 +159,7 @@
 //   - D231 §5, §6: destinations, what counts as down, parking and probing.
 //   - D233 §6: a panic is the tool's failure, and a claim checks the attempt count.
 //   - D234 §7: the core never blocks on a node; a job given to one is assigned.
+//   - D540: a record that wrote nothing, a claimed job given back, a signal before its parking.
 //   - D170: provider rate limits and back-off.
 //   - docs/contributors/design/plans/jobs-rebuild.md: the phases.
 //
@@ -147,7 +169,8 @@
 //     what a claim passes over. answers.go: what a handler can answer, Assign among them. queue.go: enqueue and its
 //     merge, cancel, progress, the listing. runner.go: claiming, probing, running and recording
 //     each outcome, resolving an assigned job and failing one past its time, and a kind's failure
-//     recorder. destination.go: parked destinations, their
+//     recorder. held.go: the running jobs the runners hold, the outcomes not written yet, and
+//     giving back a job none holds. destination.go: parked destinations, their
 //     probes and their state. sweep.go: the sweeps, and cancelling what is retired.
 //     backoff.go: the back-off and its jitter.
 //   - internal/store/jobs.go: the storage on cache.db. jobqueuetest: the storage in memory.

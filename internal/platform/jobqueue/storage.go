@@ -13,6 +13,7 @@ type Storage[T comparable] interface {
 	Queueing[T]
 	Cancelling[T]
 	Working[T]
+	GivingBack
 	Listing[T]
 }
 
@@ -58,8 +59,10 @@ type Working[T comparable] interface {
 	// whose destination is not one the claim passes over, then the earliest RunnableAt, then the
 	// lowest id. It reports false when none is due.
 	Claim(ctx context.Context, claim Claim) (Row[T], bool, error)
-	// Record writes a claimed job's outcome, unless the job was cancelled meanwhile.
-	Record(ctx context.Context, outcome Outcome) error
+	// Record writes a claimed job's outcome, unless the job was cancelled meanwhile, and says
+	// whether it wrote one: false is a job no longer open, whose outcome no one waits for (D540).
+	// An assigned outcome is written only over a running job.
+	Record(ctx context.Context, outcome Outcome) (bool, error)
 	// TakeAssigned returns an assigned job to running, so its outcome can be recorded, and reports
 	// false when it is not assigned: cancelled, or already taken by its outcome or its time running
 	// out. Only one of those takes it.
@@ -73,6 +76,16 @@ type Working[T comparable] interface {
 	// and says how many there were: what a stop left running. An assigned job stays assigned: the
 	// machine it was given to still has it.
 	RequeueRunning(ctx context.Context) (int64, error)
+}
+
+// GivingBack is the part of Storage that returns to the queue a running job none will record (D540).
+type GivingBack interface {
+	// GiveBack returns a running job to the queue at runnableAt, keeping the attempt its claim
+	// counted, and says whether it was running: a job whose outcome could not be written, or one
+	// no runner holds. One no longer running is left as it is.
+	GiveBack(ctx context.Context, id int64, runnableAt time.Time, lastFailure string) (bool, error)
+	// RunningIDs are the jobs marked running, for the sweep that gives back those no runner holds.
+	RunningIDs(ctx context.Context) ([]int64, error)
 }
 
 // Listing is the part of Storage that reads jobs for a person, and the open ones for a cancel.

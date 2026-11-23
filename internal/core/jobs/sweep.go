@@ -18,6 +18,25 @@ type Sweep = jobqueue.Sweep
 // AddSweep adds a sweep. Add them before Sweeping runs.
 func (queue *Queue) AddSweep(sweep Sweep) { queue.queue.AddSweep(sweep) }
 
+// SweepUnheldRunning is the queue's own sweep, which gives back to the queue each job cache.db marks
+// running that no runner holds (D540).
+const SweepUnheldRunning = "unheld running jobs"
+
+// unheldRunningSweepEvery is how often the queue looks for running jobs no runner holds: a backstop
+// for a write that failed and left one so, which every request it covers waits on. Each look is one
+// read of an index; five minutes bounds the wait for such a job to minutes, where it was a restart,
+// and a job is given back only once two looks a minute or more apart both found it unheld
+// (jobqueue.UnheldRunningGrace).
+const unheldRunningSweepEvery = 5 * time.Minute
+
+// unheldRunningSweep is the sweep of SweepUnheldRunning.
+func unheldRunningSweep(queue *jobqueue.Queue[Target]) Sweep {
+	return Sweep{
+		Name: SweepUnheldRunning, Derive: queue.GiveBackUnheld,
+		Every: func(context.Context) time.Duration { return unheldRunningSweepEvery },
+	}
+}
+
 // RequestSweeps asks for the named sweeps to run soon, or all of them when none is named: after
 // an identification pass, and whenever a destination comes back, which the queue asks itself.
 func (queue *Queue) RequestSweeps(names ...string) { queue.queue.RequestSweeps(names...) }

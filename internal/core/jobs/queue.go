@@ -255,6 +255,7 @@ func newQueue(storage jobqueue.Storage[Target], parts QueueParts) *Queue {
 	if parts.UnknownFailures != nil {
 		queue.TellUnknownFailures(unknownFailures{recorder: parts.UnknownFailures, logger: parts.Logger})
 	}
+	queue.AddSweep(unheldRunningSweep(queue))
 	return &Queue{clock: parts.Clock, settings: parts.Settings, queue: queue, unknownFailures: parts.UnknownFailures}
 }
 

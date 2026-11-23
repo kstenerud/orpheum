@@ -108,6 +108,12 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 	if err := all.keep(ctx, attempt); err != nil {
 		return err
 	}
+	// A cancel that came as the attempt was kept looked for it before it was: its job's runner hands
+	// nothing over, so the attempt, never sent, is forgotten here (D540).
+	if cause := context.Cause(ctx); errors.Is(cause, jobs.ErrCancelled) {
+		cancelled := fmt.Errorf("%w: %w", ctx.Err(), cause)
+		return errors.Join(cancelled, all.forgetAttempt(context.WithoutCancel(ctx), token))
+	}
 	return jobs.AssignThen(now.Add(limit), func(context.Context) { all.sender.Enqueue(nodeID, command) })
 }
 
@@ -201,12 +207,14 @@ func (all *Exchanges) unparkRoomFor(ctx context.Context, attempt Attempt) {
 	}
 }
 
-// keep records an attempt, in cache.db and in memory.
+// keep records an attempt, in cache.db and in memory: whole, whatever becomes of the job's context
+// meanwhile, so a cancel that comes as it is kept finds it in both or forgets it in both.
 func (all *Exchanges) keep(ctx context.Context, attempt Attempt) error {
 	workJSON, err := json.Marshal(attempt.Work)
 	if err != nil {
 		return fmt.Errorf("encode job %d's work: %w", attempt.JobID, err)
 	}
+	ctx = context.WithoutCancel(ctx)
 	err = all.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		return queries.InsertNodeAttempt(ctx, cachegen.InsertNodeAttemptParams{
 			AttemptToken: attempt.Token, JobID: attempt.JobID, JobKind: string(attempt.Kind), NodeID: attempt.NodeID,

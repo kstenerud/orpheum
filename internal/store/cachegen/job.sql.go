@@ -9,7 +9,7 @@ import (
 	"context"
 )
 
-const assignJob = `-- name: AssignJob :exec
+const assignJob = `-- name: AssignJob :execrows
 UPDATE job SET state = 'assigned', assigned_until = ?1, attempt_count = ?2
 WHERE id = ?3 AND state = 'running'
 `
@@ -22,9 +22,12 @@ type AssignJobParams struct {
 
 // A running job whose work a node now does: no runner waits for it, until its outcome is taken or
 // assigned_until passes (D234 section 7).
-func (q *Queries) AssignJob(ctx context.Context, arg AssignJobParams) error {
-	_, err := q.db.ExecContext(ctx, assignJob, arg.AssignedUntil, arg.AttemptCount, arg.ID)
-	return err
+func (q *Queries) AssignJob(ctx context.Context, arg AssignJobParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, assignJob, arg.AssignedUntil, arg.AttemptCount, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const cancelJob = `-- name: CancelJob :execrows
@@ -93,7 +96,7 @@ func (q *Queries) CountJobsByKind(ctx context.Context, failedSince *int64) ([]Co
 	return items, nil
 }
 
-const deferJob = `-- name: DeferJob :exec
+const deferJob = `-- name: DeferJob :execrows
 UPDATE job SET state = 'queued', runnable_at = ?1, last_failure = ?2,
                attempt_count = ?3, is_snoozed = ?4,
                last_attempt_tool_failed = ?5, destination = ?6,
@@ -113,8 +116,8 @@ type DeferJobParams struct {
 
 // Back to the queue until runnable_at: a snooze, a park, a retry's back-off (D170, D231). A wait
 // that is not the job's fault gives back the attempt StartJob counted.
-func (q *Queries) DeferJob(ctx context.Context, arg DeferJobParams) error {
-	_, err := q.db.ExecContext(ctx, deferJob,
+func (q *Queries) DeferJob(ctx context.Context, arg DeferJobParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deferJob,
 		arg.RunnableAt,
 		arg.LastFailure,
 		arg.AttemptCount,
@@ -123,7 +126,10 @@ func (q *Queries) DeferJob(ctx context.Context, arg DeferJobParams) error {
 		arg.Destination,
 		arg.ID,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const deleteFinishedJobs = `-- name: DeleteFinishedJobs :execrows
@@ -181,7 +187,7 @@ func (q *Queries) DemoteUnwantedJobs(ctx context.Context, arg DemoteUnwantedJobs
 	return items, nil
 }
 
-const finishJob = `-- name: FinishJob :exec
+const finishJob = `-- name: FinishJob :execrows
 UPDATE job SET state = ?1, progress_fraction = ?2, last_failure = ?3,
                attempt_count = ?4, finished_at = ?5, assigned_until = NULL
 WHERE id = ?6 AND state <> 'cancelled'
@@ -198,8 +204,8 @@ type FinishJobParams struct {
 
 // A cancelled job stays cancelled, whatever its handler answers after. A claim that refuses a
 // job at its attempt limit gives back the attempt it counted.
-func (q *Queries) FinishJob(ctx context.Context, arg FinishJobParams) error {
-	_, err := q.db.ExecContext(ctx, finishJob,
+func (q *Queries) FinishJob(ctx context.Context, arg FinishJobParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, finishJob,
 		arg.State,
 		arg.ProgressFraction,
 		arg.LastFailure,
@@ -207,7 +213,33 @@ func (q *Queries) FinishJob(ctx context.Context, arg FinishJobParams) error {
 		arg.FinishedAt,
 		arg.ID,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const giveBackRunningJob = `-- name: GiveBackRunningJob :execrows
+UPDATE job SET state = 'queued', runnable_at = ?1, last_failure = ?2,
+               assigned_until = NULL
+WHERE id = ?3 AND state = 'running'
+`
+
+type GiveBackRunningJobParams struct {
+	RunnableAt  int64
+	LastFailure *string
+	ID          int64
+}
+
+// A running job back to the queue at runnable_at, keeping the attempt its claim counted (S86):
+// one whose outcome could not be written, or that no runner holds (D540). A job no longer running
+// (recorded, cancelled) is left as it is.
+func (q *Queries) GiveBackRunningJob(ctx context.Context, arg GiveBackRunningJobParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, giveBackRunningJob, arg.RunnableAt, arg.LastFailure, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const insertJob = `-- name: InsertJob :one
@@ -569,6 +601,34 @@ func (q *Queries) ListOpenReadThroughs(ctx context.Context) ([]ListOpenReadThrou
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRunningJobIDs = `-- name: ListRunningJobIDs :many
+SELECT id FROM job WHERE state = 'running' ORDER BY id
+`
+
+// The jobs marked running, for the sweep that gives back those no runner holds (D540).
+func (q *Queries) ListRunningJobIDs(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listRunningJobIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

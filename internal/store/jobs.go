@@ -331,13 +331,16 @@ func (jobStorage *JobStorage) claimNext(
 	return claimed, found, nil
 }
 
-// Record writes a claimed job's outcome, unless it was cancelled meanwhile.
-func (jobStorage *JobStorage) Record(ctx context.Context, outcome jobqueue.Outcome) error {
+// Record writes a claimed job's outcome, unless it was cancelled meanwhile, and says whether it
+// wrote one (D540).
+func (jobStorage *JobStorage) Record(ctx context.Context, outcome jobqueue.Outcome) (bool, error) {
 	lastFailure := ptr.NilIfZero(outcome.LastFailure)
-	return jobStorage.cache.Write(ctx, func(queries *cachegen.Queries) error {
+	var written int64
+	err := jobStorage.cache.Write(ctx, func(queries *cachegen.Queries) error {
+		var err error
 		switch outcome.State {
 		case jobqueue.StateQueued:
-			err := queries.DeferJob(ctx, cachegen.DeferJobParams{
+			written, err = queries.DeferJob(ctx, cachegen.DeferJobParams{
 				RunnableAt: outcome.At.UnixMilli(), LastFailure: lastFailure, AttemptCount: outcome.AttemptCount,
 				IsSnoozed: columnFlag(outcome.IsSnoozed), LastAttemptToolFailed: columnFlag(outcome.ToolFailed),
 				Destination: destinationColumn(outcome.Destination), ID: outcome.ID,
@@ -354,12 +357,12 @@ func (jobStorage *JobStorage) Record(ctx context.Context, outcome jobqueue.Outco
 			if outcome.State == jobqueue.StateDone {
 				params.ProgressFraction = new(1.0)
 			}
-			if err := queries.FinishJob(ctx, params); err != nil {
+			if written, err = queries.FinishJob(ctx, params); err != nil {
 				return fmt.Errorf("finish job %d: %w", outcome.ID, err)
 			}
 			return nil
 		case jobqueue.StateAssigned:
-			err := queries.AssignJob(ctx, cachegen.AssignJobParams{
+			written, err = queries.AssignJob(ctx, cachegen.AssignJobParams{
 				AssignedUntil: new(outcome.At.UnixMilli()), AttemptCount: outcome.AttemptCount, ID: outcome.ID,
 			})
 			if err != nil {
@@ -370,6 +373,35 @@ func (jobStorage *JobStorage) Record(ctx context.Context, outcome jobqueue.Outco
 		}
 		return fmt.Errorf("job %d: an outcome cannot leave it %s", outcome.ID, outcome.State)
 	})
+	return written > 0, err
+}
+
+// GiveBack returns a running job to the queue at runnableAt, keeping the attempt its claim
+// counted, and says whether it was running (D540).
+func (jobStorage *JobStorage) GiveBack(
+	ctx context.Context, id int64, runnableAt time.Time, lastFailure string,
+) (bool, error) {
+	var givenBack int64
+	err := jobStorage.cache.Write(ctx, func(queries *cachegen.Queries) error {
+		var err error
+		givenBack, err = queries.GiveBackRunningJob(ctx, cachegen.GiveBackRunningJobParams{
+			RunnableAt: runnableAt.UnixMilli(), LastFailure: ptr.NilIfZero(lastFailure), ID: id,
+		})
+		if err != nil {
+			return fmt.Errorf("give job %d back to the queue: %w", id, err)
+		}
+		return nil
+	})
+	return givenBack > 0, err
+}
+
+// RunningIDs are the jobs marked running, lowest id first.
+func (jobStorage *JobStorage) RunningIDs(ctx context.Context) ([]int64, error) {
+	ids, err := jobStorage.cache.Read().ListRunningJobIDs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list the running jobs: %w", err)
+	}
+	return ids, nil
 }
 
 // TakeAssigned returns an assigned job to running, and reports false when it is not assigned.

@@ -81,7 +81,10 @@
 //     TestLoad_AnAttemptKeptThroughARestartIsResolvedByItsNodesWord,
 //     TestDeliver_AResultBeforeItsKindIsResolvedIsNotTaken,
 //     TestWatch_ASilentAttemptIsUnansweredAndProgressKeepsItHeard,
-//     TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode.
+//     TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode. An attempt is kept whole whatever
+//     becomes of its job's context, and one kept as its job is cancelled, after the cancel looked
+//     for it, is forgotten and the cancel answered: never sent, it filled the node's window (D540
+//     §8). TestAssign_AnAttemptKeptAsItsJobIsCancelledIsForgotten.
 //   - A job that ends while its command waits for the node's next poll has the command withdrawn,
 //     its work and its cancel, and never sent (S27, G4); a stop of work the node never took sends
 //     nothing. TestWithdraw_TakesAnEndedAttemptsCommandsOutBeforeTheNodeTakesThem,

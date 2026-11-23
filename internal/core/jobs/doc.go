@@ -88,6 +88,9 @@
 //     cache.db can be discarded at any moment, losing only timing: the matches owed, a person's
 //     refresh and a recheck are derived again, and a failure of the item's own is not retried.
 //     TestScenario_S78_DiscardingCacheDBLosesOnlyTiming (internal/core/assembly).
+//   - The queue's own sweep, SweepUnheldRunning, gives back to the queue a job cache.db marks
+//     running that no runner holds, as a failed write leaves one (D540 §6).
+//     TestSweepUnheldRunning_GivesBackAJobNoRunnerHolds.
 //   - A retire cancels the queued, parked and running work of what it took out, by target or by
 //     the destination it waits on, and forgets those destinations (D231 §7, §9).
 //     TestCancelRetired_CancelsTheWorkOfWhatWasRetiredByTargetOrDestinationAndForgetsTheDestinations.

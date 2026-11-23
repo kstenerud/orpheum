@@ -217,15 +217,16 @@ func claimsFirst[T comparable](a, b jobqueue.Row[T]) bool {
 }
 
 // Record writes a claimed job's outcome unless it was cancelled.
-func (memory *Memory[T]) Record(_ context.Context, outcome jobqueue.Outcome) error {
+func (memory *Memory[T]) Record(_ context.Context, outcome jobqueue.Outcome) (bool, error) {
 	memory.mutex.Lock()
 	defer memory.mutex.Unlock()
 	if memory.writeFailure != nil {
-		return memory.writeFailure
+		return false, memory.writeFailure
 	}
 	row := memory.find(outcome.ID)
-	if row == nil || row.State == jobqueue.StateCancelled {
-		return nil
+	if row == nil || row.State == jobqueue.StateCancelled ||
+		(outcome.State == jobqueue.StateAssigned && row.State != jobqueue.StateRunning) {
+		return false, nil
 	}
 	row.State, row.LastFailure, row.AttemptCount = outcome.State, outcome.LastFailure, outcome.AttemptCount
 	row.AssignedUntil = nil
@@ -240,7 +241,35 @@ func (memory *Memory[T]) Record(_ context.Context, outcome jobqueue.Outcome) err
 	case jobqueue.StateFailed, jobqueue.StateRunning, jobqueue.StateCancelled:
 		row.FinishedAt = &outcome.At
 	}
-	return nil
+	return true, nil
+}
+
+// GiveBack returns a running job to the queue at runnableAt, keeping its counted attempt.
+func (memory *Memory[T]) GiveBack(_ context.Context, id int64, runnableAt time.Time, lastFailure string) (bool, error) {
+	memory.mutex.Lock()
+	defer memory.mutex.Unlock()
+	if memory.writeFailure != nil {
+		return false, memory.writeFailure
+	}
+	row := memory.find(id)
+	if row == nil || row.State != jobqueue.StateRunning {
+		return false, nil
+	}
+	row.State, row.RunnableAt, row.LastFailure, row.AssignedUntil = jobqueue.StateQueued, runnableAt, lastFailure, nil
+	return true, nil
+}
+
+// RunningIDs are the jobs marked running, lowest id first.
+func (memory *Memory[T]) RunningIDs(context.Context) ([]int64, error) {
+	memory.mutex.Lock()
+	defer memory.mutex.Unlock()
+	var ids []int64
+	for _, row := range memory.rows {
+		if row.State == jobqueue.StateRunning {
+			ids = append(ids, row.ID)
+		}
+	}
+	return ids, nil
 }
 
 // TakeAssigned returns an assigned job to running.

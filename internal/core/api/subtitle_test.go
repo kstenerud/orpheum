@@ -122,7 +122,7 @@ func (harness testHarness) finishJobs(t *testing.T) {
 	err = harness.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		for _, job := range all {
 			finished := cachegen.FinishJobParams{State: "done", AttemptCount: job.AttemptCount, ID: job.ID}
-			if finishErr := queries.FinishJob(t.Context(), finished); finishErr != nil {
+			if _, finishErr := queries.FinishJob(t.Context(), finished); finishErr != nil {
 				return fmt.Errorf("finish job %d: %w", job.ID, finishErr)
 			}
 		}

@@ -39,9 +39,9 @@ func (disk *fillingDisk) Claim(ctx context.Context, claim jobqueue.Claim) (jobqu
 	return disk.Storage.Claim(ctx, claim)
 }
 
-func (disk *fillingDisk) Record(ctx context.Context, outcome jobqueue.Outcome) error {
+func (disk *fillingDisk) Record(ctx context.Context, outcome jobqueue.Outcome) (bool, error) {
 	if disk.isFull.Load() {
-		return fmt.Errorf("record: %w", disk.fullErr)
+		return false, fmt.Errorf("record: %w", disk.fullErr)
 	}
 	return disk.Storage.Record(ctx, outcome)
 }

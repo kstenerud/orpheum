@@ -60,14 +60,14 @@ RETURNING id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, s
           runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
           created_at, finished_at, assigned_until, wanted_until;
 
--- name: FinishJob :exec
+-- name: FinishJob :execrows
 -- A cancelled job stays cancelled, whatever its handler answers after. A claim that refuses a
 -- job at its attempt limit gives back the attempt it counted.
 UPDATE job SET state = sqlc.arg(state), progress_fraction = sqlc.arg(progress_fraction), last_failure = sqlc.arg(last_failure),
                attempt_count = sqlc.arg(attempt_count), finished_at = sqlc.arg(finished_at), assigned_until = NULL
 WHERE id = sqlc.arg(id) AND state <> 'cancelled';
 
--- name: DeferJob :exec
+-- name: DeferJob :execrows
 -- Back to the queue until runnable_at: a snooze, a park, a retry's back-off (D170, D231). A wait
 -- that is not the job's fault gives back the attempt StartJob counted.
 UPDATE job SET state = 'queued', runnable_at = sqlc.arg(runnable_at), last_failure = sqlc.arg(last_failure),
@@ -76,7 +76,7 @@ UPDATE job SET state = 'queued', runnable_at = sqlc.arg(runnable_at), last_failu
                assigned_until = NULL
 WHERE id = sqlc.arg(id) AND state <> 'cancelled';
 
--- name: AssignJob :exec
+-- name: AssignJob :execrows
 -- A running job whose work a node now does: no runner waits for it, until its outcome is taken or
 -- assigned_until passes (D234 section 7).
 UPDATE job SET state = 'assigned', assigned_until = sqlc.arg(assigned_until), attempt_count = sqlc.arg(attempt_count)
@@ -125,6 +125,18 @@ WHERE id = sqlc.arg(id) AND state = 'running';
 -- assigned: its node still has it.
 UPDATE job SET state = 'queued'
 WHERE state = 'running';
+
+-- name: GiveBackRunningJob :execrows
+-- A running job back to the queue at runnable_at, keeping the attempt its claim counted (S86):
+-- one whose outcome could not be written, or that no runner holds (D540). A job no longer running
+-- (recorded, cancelled) is left as it is.
+UPDATE job SET state = 'queued', runnable_at = sqlc.arg(runnable_at), last_failure = sqlc.arg(last_failure),
+               assigned_until = NULL
+WHERE id = sqlc.arg(id) AND state = 'running';
+
+-- name: ListRunningJobIDs :many
+-- The jobs marked running, for the sweep that gives back those no runner holds (D540).
+SELECT id FROM job WHERE state = 'running' ORDER BY id;
 
 -- name: ListJobs :many
 -- The job view, newest first: a page of those before before_id (0 for the first).

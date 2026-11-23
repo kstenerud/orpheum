@@ -129,7 +129,7 @@ func TestJobStorage_RecordsAWaitWithItsFlagsAndNeverUndoesACancel(t *testing.T) 
 	storage.insert("read_through", JobTarget{FileID: 3}, 0, jobStart)
 	running, _ := storage.claim("fetch_metadata", jobStart)
 	snoozeUntil := jobStart.Add(time.Hour)
-	if err := storage.jobs.Record(t.Context(), jobqueue.Outcome{
+	if _, err := storage.jobs.Record(t.Context(), jobqueue.Outcome{
 		ID: running.ID, State: jobqueue.StateQueued, At: snoozeUntil, AttemptCount: 0, IsSnoozed: true,
 		ToolFailed: true, LastFailure: "stalled",
 	}); err != nil {
@@ -145,7 +145,7 @@ func TestJobStorage_RecordsAWaitWithItsFlagsAndNeverUndoesACancel(t *testing.T) 
 		t.Fatalf("Cancel = %t, %v; want it open", wasOpen, err)
 	}
 	outcome := jobqueue.Outcome{ID: next.ID, State: jobqueue.StateDone, At: jobStart, AttemptCount: 1}
-	if err := storage.jobs.Record(t.Context(), outcome); err != nil {
+	if _, err := storage.jobs.Record(t.Context(), outcome); err != nil {
 		t.Fatal(err)
 	}
 	if cancelled := storage.byID()[next.ID]; cancelled.State != jobqueue.StateCancelled {
@@ -168,7 +168,7 @@ func TestJobStorage_RequeuesWithTheAttemptCountedAndKnowsATargetByItsColumn(t *t
 	storage.insert("read_through", JobTarget{FileID: 8}, 0, jobStart)
 	measure, _ := storage.claim("read_through", jobStart)
 	done := jobqueue.Outcome{ID: measure.ID, State: jobqueue.StateDone, At: jobStart, AttemptCount: 1}
-	if err := storage.jobs.Record(t.Context(), done); err != nil {
+	if _, err := storage.jobs.Record(t.Context(), done); err != nil {
 		t.Fatal(err)
 	}
 	open, err := storage.jobs.ListOpen(t.Context())
@@ -270,7 +270,7 @@ func TestJobStorage_AClaimPassesOverAParkedDestinationAndAWaitKeepsWhereItWasPar
 		t.Fatalf("with tmdbApi parked, the claim took %+v (found %v); want item 2's job, which names none",
 			first, found)
 	}
-	err := fixed.jobs.Record(ctx, jobqueue.Outcome{
+	_, err := fixed.jobs.Record(ctx, jobqueue.Outcome{
 		ID: first.ID, State: jobqueue.StateQueued, At: jobStart, AttemptCount: 0, Destination: "node:9",
 	})
 	if err != nil {
@@ -296,7 +296,7 @@ func (fixed jobStorageFixture) assign(kind jobqueue.Kind, target JobTarget, unti
 	fixed.insert(kind, target, 0, jobStart)
 	row, _ := fixed.claim(kind, jobStart)
 	assigned := jobqueue.Outcome{ID: row.ID, State: jobqueue.StateAssigned, At: until, AttemptCount: 1}
-	if err := fixed.jobs.Record(fixed.t.Context(), assigned); err != nil {
+	if _, err := fixed.jobs.Record(fixed.t.Context(), assigned); err != nil {
 		fixed.t.Fatal(err)
 	}
 	return row.ID
