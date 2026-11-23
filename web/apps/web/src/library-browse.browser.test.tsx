@@ -85,8 +85,9 @@ describe("the Libraries page's bar in a real browser", () => {
     const fingertip = 2.75 * Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
     for (const [index, box] of buttons.entries()) {
       expect(box.top, `tool ${String(index)}`).toBeCloseTo(buttons[0]?.top ?? 0, 0);
-      // An icon is a fingertip square; the Sort and filter is as wide as its summary (D417).
-      if (tools[index]?.classList.contains("list-criteria__button") !== true) {
+      // An icon is a fingertip square; the Sort and filter is as wide as its summary (D417), and
+      // the view's chooser, which every single library has (D539 §3), as wide as its choice.
+      if (!isWorded(tools[index])) {
         expect(box.width, `tool ${String(index)}`).toBeCloseTo(fingertip, 0);
       }
       expect(box.height, `tool ${String(index)}`).toBeCloseTo(fingertip, 0);
@@ -99,6 +100,18 @@ describe("the Libraries page's bar in a real browser", () => {
     }
   });
 });
+
+/** Whether a tool says its choice in words, as wide as them: the Sort and filter, a view's chooser. */
+function isWorded(tool: Element | undefined): boolean {
+  if (tool === undefined) {
+    return false;
+  }
+  const classes = tool.classList;
+  return (
+    classes.contains("list-criteria__button") ||
+    (classes.contains("route-chooser__button") && !classes.contains("icon-button"))
+  );
+}
 
 /** A server with one films library holding one film, as the Libraries page asks it. */
 const oneLibrary = {

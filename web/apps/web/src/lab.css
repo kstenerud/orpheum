@@ -256,6 +256,13 @@
   padding: 0;
 }
 
+/* The text field test's label beside its field, so the field shares the controls' row at a TV's
+   height (lab-input.browser.test.tsx). */
+.lab__controls .field {
+  grid-auto-flow: column;
+  align-items: center;
+}
+
 /* The button test's text field: a control's height, narrow enough to share its row. */
 .lab__type {
   width: 12rem;
