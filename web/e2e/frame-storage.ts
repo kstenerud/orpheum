@@ -22,7 +22,7 @@ export function giveTheFrameItsOwnStorage(view: Window): void {
       kept.delete(key);
     },
     setItem: (key, value) => {
-      kept.set(key, String(value));
+      kept.set(key, value);
     },
   };
   Object.defineProperty(view, "sessionStorage", { configurable: true, get: () => own });
