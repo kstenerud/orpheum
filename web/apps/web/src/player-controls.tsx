@@ -12,6 +12,7 @@ import { FullScreenButton } from "./full-screen-button.tsx";
 import { isPausedAsAsked } from "./film-waits.tsx";
 import { useIsVolumeSettable } from "./film-volume-slider.tsx";
 import { IconButton } from "./icon-button.tsx";
+import { useSideTapsOf } from "./phone-side-taps.tsx";
 import { answerPlayerCommand } from "./player-commands.ts";
 import {
   MutedIcon,
@@ -186,9 +187,11 @@ function ControlButtons(props: ButtonsParts): JSX.Element {
     <div className="player-controls__buttons">
       <span className="player-controls__leading">
         {move(false)}
-        {step(false)}
-        {play}
-        {step(true)}
+        <span className="player-controls__centre">
+          {step(false)}
+          {play}
+          {step(true)}
+        </span>
         {move(true)}
       </span>
       {asideSpan}
@@ -269,12 +272,14 @@ export function SequenceMoveButton(props: {
   readonly onMove: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
+  const { buttonRef, onClick } = useSideTapsOf(props.isForward, props.onMove);
   return (
     <IconButton
+      ref={buttonRef}
       isOverVideo={props.isOverVideo}
       label={props.isForward ? t("playerControls.next") : t("playerControls.previous")}
       icon={props.isForward ? <NextIcon /> : <PreviousIcon />}
-      onClick={props.onMove}
+      onClick={onClick}
     />
   );
 }

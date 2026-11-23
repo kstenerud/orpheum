@@ -5,15 +5,25 @@ import { useLayoutEffect, useState, type RefObject } from "react";
 import { isTouchPointer } from "./input-mode.ts";
 
 /**
- * The widest an overlay's stage lays it out as a phone's, in CSS px, where the pointer is a finger
- * (player-spec, on a touch phone): under it, play and the steps stand in the picture's middle. A
- * justified constant, a layout's breakpoint.
+ * The shorter side under which an overlay's stage is laid out as a phone's, in CSS px, where the
+ * pointer is a finger (player-spec, on a touch phone): under it, previous, the steps, play and next
+ * stand in the picture's middle. The shorter side, so a phone on its side, whose overlay row would
+ * not fit at its width either, keeps the phone's layout and a tablet does not. A justified
+ * constant, a layout's breakpoint.
  */
-export const phoneOverlayWidthPx = 600;
+export const phoneOverlaySidePx = 600;
 
-/** Whether an overlay whose stage is widthPx wide is laid out as a phone's (phoneOverlayWidthPx). */
-export function isPhoneLayout(widthPx: number, isTouch: boolean = isTouchPointer()): boolean {
-  return isTouch && widthPx > 0 && widthPx < phoneOverlayWidthPx;
+/**
+ * Whether an overlay whose stage is widthPx by heightPx is laid out as a phone's
+ * (phoneOverlaySidePx); a stage of no height yet is read by its width alone.
+ */
+export function isPhoneLayout(
+  widthPx: number,
+  heightPx: number,
+  isTouch: boolean = isTouchPointer(),
+): boolean {
+  const shortPx = heightPx > 0 ? Math.min(widthPx, heightPx) : widthPx;
+  return isTouch && shortPx > 0 && shortPx < phoneOverlaySidePx;
 }
 
 /** The custom property the overlay's measured height sets on its stage, which lifts what lies above it. */
@@ -44,7 +54,8 @@ export function useOverlayMeasured(
       if (liftPx > 0) {
         stage.style.setProperty(overlayLiftProperty, `${String(Math.ceil(liftPx))}px`);
       }
-      setIsPhone(isPhoneLayout(stage.getBoundingClientRect().width));
+      const box = stage.getBoundingClientRect();
+      setIsPhone(isPhoneLayout(box.width, box.height));
     };
     measure();
     if (typeof ResizeObserver !== "function") {

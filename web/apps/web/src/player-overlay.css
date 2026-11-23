@@ -56,6 +56,43 @@
    control leaves it as it is (D538 §6, amending the owner's 2026-11-03 look and D410's fade): a fade
    alone said where focus was by opacity. */
 
+/* A touch phone's overlay (data-layout="phone", overlay-measure.ts; player-spec, on a touch phone,
+   the owner's decision 1, 2026-11-22): previous, back 10 s, play, forward 10 s and next stand in
+   the picture's middle, the three between larger, as phone players lay them out, so the bottom keeps
+   the scrub bar and one row of menus and full screen that fits at 360px. The overlay then spans the
+   picture, as with an offer, its ground letting a tap through to the film. */
+.player-overlay[data-layout="phone"] {
+  inset-block-start: 0;
+  align-content: end;
+  pointer-events: none;
+}
+
+.player-overlay[data-layout="phone"] > .player-overlay__row {
+  pointer-events: auto;
+}
+
+.player-overlay[data-layout="phone"] .player-controls__leading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  gap: var(--space-4);
+  transform: translate(-50%, -50%);
+}
+
+.player-overlay[data-layout="phone"] .player-controls__centre {
+  gap: var(--space-4);
+}
+
+.player-overlay[data-layout="phone"] .player-controls__centre .icon-button {
+  width: calc(var(--size-control) + var(--space-3));
+  min-width: calc(var(--size-control) + var(--space-3));
+  height: calc(var(--size-control) + var(--space-3));
+}
+
+.player-overlay[data-layout="phone"] .player-controls__trailing {
+  margin-inline: auto;
+}
+
 /* An offer stays through a seek's scrub bar and the pause sign (Q3). */
 .player-overlay[data-offer] .convenience-area {
   visibility: visible;

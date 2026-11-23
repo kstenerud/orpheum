@@ -50,6 +50,7 @@ import { useAnswersPictureTaps, useOpensAtThePointer } from "./player-taps.ts";
 import { OverlayShield } from "./overlay-shield.tsx";
 import { OverThePicture, useVolumeShown, type PictureSigns } from "./over-the-picture.tsx";
 import { useOverlayMeasured } from "./overlay-measure.ts";
+import { SideTapsContext, type SideTaps } from "./phone-side-taps.tsx";
 import { useStartRefused } from "./start-refused-shown.tsx";
 import { StopCastingHere } from "./stop-casting-here.tsx";
 import { Timeline } from "./timeline.tsx";
@@ -96,8 +97,7 @@ export function PlayerOverlay(
     videoRef: film.videoRef,
     convenienceRef,
   };
-  const told = { hasOffer, isMenuOpen };
-  const overlay = useOverlay(refs, told);
+  const overlay = useOverlay(refs, { hasOffer, isMenuOpen });
   const { state, source, isTv } = overlay;
   const isPhone = useOverlayMeasured(overlayRef, state.shown);
   const convenience = {
@@ -120,14 +120,16 @@ export function PlayerOverlay(
         data-focus-container=""
         data-player-controls=""
       >
-        <OverlayRows
-          source={source}
-          isTv={isTv}
-          refs={refs}
-          convenience={convenience}
-          moves={moves}
-          onMenuOpenChange={setIsMenuOpen}
-        />
+        <SideTapsContext value={isPhone ? overlay.sideTaps : undefined}>
+          <OverlayRows
+            source={source}
+            isTv={isTv}
+            refs={refs}
+            convenience={convenience}
+            moves={moves}
+            onMenuOpenChange={setIsMenuOpen}
+          />
+        </SideTapsContext>
         <OverlayShield isShown={isRowsShown(state.shown)} />
       </div>
     </>
@@ -157,6 +159,7 @@ function useOverlay(
   readonly source: PlayerSource;
   readonly isTv: boolean;
   readonly signs: PictureSigns;
+  readonly sideTaps: SideTaps;
 } {
   const { hasOffer, isMenuOpen } = told;
   const isTv = isOnTelevision();
@@ -173,7 +176,7 @@ function useOverlay(
   });
   const stateRef = useLatest(state);
   const isMenuOpenRef = useLatest(isMenuOpen);
-  const { onPictureTap, feedback } = useAnswersPictureTaps(refs.videoRef, () => {
+  const { onPictureTap, feedback, seekBySide } = useAnswersPictureTaps(refs.videoRef, () => {
     setState(afterPictureTap(stateRef.current));
     notePress();
   });
@@ -192,7 +195,7 @@ function useOverlay(
     setState({ shown: "full", shownBy: isTv ? "remote" : "pointer" });
   });
   const signs = { isVolumeShown: volume.isShown, seekFeedback: feedback, isStartRefused };
-  return { state, source, isTv, signs };
+  return { state, source, isTv, signs, sideTaps: { seekBySide } };
 }
 
 /**

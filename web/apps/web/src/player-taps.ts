@@ -302,6 +302,8 @@ export function useAnswersPictureTaps(
 ): {
   readonly onPictureTap: (tap: PictureTap) => void;
   readonly feedback: SeekFeedback | undefined;
+  /** A double-tap seek by a side's taps made off the picture (phone-side-taps.tsx): the run's count. */
+  readonly seekBySide: (direction: -1 | 1, tapsInRun: number) => void;
 } {
   const [feedback, noteSeek] = useSeekFeedback();
   const toggleRef = useLatest(toggle);
@@ -339,5 +341,12 @@ export function useAnswersPictureTaps(
       }, doubleTapWaitMs);
     }
   };
-  return { onPictureTap, feedback };
+  const seekBySide = (direction: -1 | 1, tapsInRun: number): void => {
+    const video = videoRef.current;
+    if (video !== null) {
+      seekByTap(video, direction);
+      noteSeek(direction, (tapsInRun - 1) * (doubleTapSeekMs / 1000));
+    }
+  };
+  return { onPictureTap, feedback, seekBySide };
 }
