@@ -3,6 +3,7 @@
 package agent
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -55,6 +56,7 @@ type fakeCore struct {
 	statusesToRefuse int                // the first statuses it refuses, as a core that went away would
 	postsToRefuse    map[resultKind]int // by kind, the first results it refuses, as a busy core would
 	refusedPosts     chan struct{}      // sent on, while it has room, at each result it refuses
+	refusalStatus    int                // what it answers a result it refuses, 503 when 0. Guarded by mutex.
 	stopped          chan struct{}      // closed at teardown: a handler stops handing on what it heard
 	// endSession, sent on, ends the session it reaches: the open long-poll answers 503, as a core
 	// that went away does.
@@ -320,7 +322,10 @@ func (core *fakeCore) receiveResult(t *testing.T) http.HandlerFunc {
 			return
 		}
 		if core.refusesNextPost(kind) {
-			http.Error(writer, "the core is busy", http.StatusServiceUnavailable)
+			core.mutex.Lock()
+			status := cmp.Or(core.refusalStatus, http.StatusServiceUnavailable)
+			core.mutex.Unlock()
+			http.Error(writer, "the core is busy", status)
 			select {
 			case core.refusedPosts <- struct{}{}:
 			default:

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -49,6 +50,37 @@ func TestAgent_AResultIsSentUntilTheCoreAcknowledgesIt(t *testing.T) {
 		echoed.EncodeArtwork.Images[0].Shape != nodeproto.ShapePortrait ||
 		echoed.EncodeArtwork.Images[0].SourceImage != nil {
 		t.Errorf("the answer echoed %+v, want job 5's work without its image", echoed)
+	}
+}
+
+// A result the core refuses for what it is, answered nodeproto.StatusResultRejected, is not sent
+// again: the core failed its attempt, and it would be refused at every send, as it was before (the
+// queue audit, 2026-11-23). It ends as one acknowledged, so the node's status no longer holds it.
+func TestAgent_AResultTheCoreRejectsIsNotSentAgain(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	logged := &testutil.Log{}
+	var node *Agent
+	startAgentWithWorkers(t, socket, Workers{Scanner: fakeScanner{}, Artworker: fakeArtworker{}},
+		func(started *Agent) {
+			node = started
+			node.answerRetry = answerRetry{firstWait: time.Millisecond, longestWait: 2 * time.Millisecond}
+			node.logger = slog.New(slog.NewTextHandler(logged, nil))
+		})
+	core.mutex.Lock()
+	core.refusalStatus = nodeproto.StatusResultRejected
+	core.mutex.Unlock()
+	core.refuseFirstPosts(artworkResult, 100)
+	core.commands <- artworkCommand(1, 5, "abc")
+	logged.AwaitLine(t, "not sent again", "jobId=5")
+	if listed := node.ended.awaitingAcknowledgement(); len(listed) != 0 {
+		t.Errorf("the node still holds %+v as awaiting the core; want the rejected attempt ended", listed)
+	}
+	core.mutex.Lock()
+	left := core.postsToRefuse[artworkResult]
+	core.mutex.Unlock()
+	if left != 99 {
+		t.Errorf("the node posted the rejected result %d times, want once", 100-left)
 	}
 }
 

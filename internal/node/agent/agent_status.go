@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -114,6 +115,20 @@ func (agent *Agent) held() []nodeproto.HeldAttempt {
 	return append(held, agent.ended.awaitingAcknowledgement()...)
 }
 
+// answeredError is a request the core answered with another status than 200.
+type answeredError struct {
+	status int
+	text   string
+}
+
+func (answered *answeredError) Error() string { return answered.text }
+
+// isAnsweredWith says whether err is the core's answer with status.
+func isAnsweredWith(err error, status int) bool {
+	var answered *answeredError
+	return errors.As(err, &answered) && answered.status == status
+}
+
 // exchange makes one request and decodes its JSON answer.
 func (agent *Agent) exchange(ctx context.Context, method, path string, nodeID int64, body io.Reader, into any) error {
 	request, err := http.NewRequestWithContext(ctx, method, coreURL+path, body)
@@ -130,7 +145,10 @@ func (agent *Agent) exchange(ctx context.Context, method, path string, nodeID in
 	defer func() { _ = response.Body.Close() }() //nolint:errcheck // read-only, and decoded below
 	if response.StatusCode != http.StatusOK {
 		text, _ := io.ReadAll(io.LimitReader(response.Body, outbound.BodyExcerptBytes)) //nolint:errcheck // best effort
-		return fmt.Errorf("%s %s: %s: %s", method, path, response.Status, bytes.TrimSpace(text))
+		return &answeredError{
+			status: response.StatusCode,
+			text:   fmt.Sprintf("%s %s: %s: %s", method, path, response.Status, bytes.TrimSpace(text)),
+		}
 	}
 	if err := strictjson.Decode(response.Body, into); err != nil {
 		return fmt.Errorf("%s %s: the answer is not JSON: %w", method, path, err)

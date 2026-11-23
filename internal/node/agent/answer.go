@@ -181,6 +181,14 @@ func (agent *Agent) postUntilAcknowledged(ctx context.Context, nodeID int64, job
 			agent.ended.acknowledge(token, agent.clock.Now(), agent.workers.EndedWorkKept)
 			return
 		}
+		if isAnsweredWith(err, nodeproto.StatusResultRejected) {
+			// Refused for what it is, it would be refused at every send: the core failed its attempt,
+			// so it ends here, as one acknowledged (the queue audit, 2026-11-23).
+			agent.ended.acknowledge(token, agent.clock.Now(), agent.workers.EndedWorkKept)
+			agent.logger.WarnContext(ctx, "the core refused a job's answer for what it is and failed its attempt; "+
+				"it is not sent again", "jobKind", jobKind, "jobId", result.JobID, "err", err)
+			return
+		}
 		if ctx.Err() != nil {
 			return
 		}

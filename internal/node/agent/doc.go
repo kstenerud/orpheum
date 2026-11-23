@@ -74,7 +74,9 @@
 //     TestAgent_SaysHelloAgainAfterLosingTheCore. Only the session's own requests, a status and
 //     the command poll, end it. A job's result is posted beside the node's other work,
 //     holding no slot, until the core acknowledges it, with a doubling wait and at once at the next
-//     hello, and never given up while the node runs (D234 §5); it never stops the session or the
+//     hello, and never given up while the node runs (D234 §5), but for one the core rejects for what
+//     it is (nodeproto.StatusResultRejected), whose attempt it failed: that one ends at once, as if
+//     acknowledged, TestAgent_AResultTheCoreRejectsIsNotSentAgain; it never stops the session or the
 //     work running beside it. A session that ends stops none of the node's work: a run of chunks,
 //     extraction, read-through or re-encode runs on the node's lifetime and posts its result to the
 //     next session's core (D233 §2). TestAgent_ASessionThatEndsStopsNoWorkAndItsResultReachesTheNextSession,
