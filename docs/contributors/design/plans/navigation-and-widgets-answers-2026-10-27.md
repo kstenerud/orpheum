@@ -5035,3 +5035,32 @@ have weird gaps between them that were not present in the mock-ups."
 - The forms spec bars `type=number` everywhere: "Native `<select>` and `type=number` are not used
   anywhere". The owner's walk of the two side by side decides between the spec and the
   browser's own control.
+
+### The owner's second answers (2026-11-23)
+
+- **No room is an error, never a wait.** The owner: "Lack of disk space is a real error and must be
+  handled as such. We can't wait for space to clear up because that could take days." A run of
+  chunks refused for lack of disk room no longer parks waiting for space (the chunks audit's 6b).
+  - The player's ask gets a "no room" refusal of its own type, and the player says so in words of
+    its own.
+  - The admin is alerted that the disk is too full, in Needs attention.
+- **The disk's floor of free space is 5 GiB.** The owner: "I believe that we use up to a max of 95%
+  of the disk space, but I think that's too aggressive because other processes could fill up the
+  remaining space before we can react. Maybe a hybrid max that ensures there's at least 5gb free or
+  something like that?"
+  - The hybrid exists already: the node stops at `node.prepared_disk_used_limit_percent` (95) or
+    at `node.prepared_disk_min_free_mib`, whichever comes first.
+  - The floor's default goes from 100 MiB to 5120 MiB (5 GiB). The 95% stays.
+- **Every page puts the focus on its first control when it opens**, not Settings' section pages
+  alone (the owner: "All pages should get the focus fix"). The pages that marked no arrival: About,
+  Account, Jobs, Needs attention, Network, People and a person's page, Watch Together, Update,
+  Welcome, Settings' front page. For lab and play, which start at their first arrow, see whether
+  they need it.
+- **The number control is the Stepper everywhere.** The owner: "The OS stepper component is
+  inconsistent, so we can't use it. On phones and on the fire TV it renders as a text box that
+  accepts only numeric input. We'll use the one designed by the agent instead."
+  - Settings draws a Stepper for every whole number, wide bounds too, and no `type=number`
+    anywhere (forms-spec.md's bar).
+  - The gallery's side-by-side goes, and VQ382 is answered.
+- **The watched library's scan** (`watchedLibraryScanEveryHours`) is capped at 168 hours too (the
+  owner: "yes").
