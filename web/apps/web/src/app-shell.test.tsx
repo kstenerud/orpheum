@@ -695,7 +695,7 @@ describe("AppShell", () => {
       tell(true);
     });
     await settleUntil(() => shown.container.textContent.includes(asking));
-    await click(buttonWithText(shown.container, "Dismiss"));
+    await click(buttonNamed(shown.container, "Dismiss"));
     expect(shown.container.textContent).not.toContain(asking);
     shown.unmount();
   });
@@ -728,7 +728,7 @@ describe("AppShell", () => {
     try {
       const first = await mount(shell());
       await settleUntil(() => first.container.textContent.includes(asking));
-      await click(buttonWithText(first.container, "Dismiss"));
+      await click(buttonNamed(first.container, "Dismiss"));
       first.unmount();
       // The page loaded again, the browser still asking.
       const again = await mount(shell());

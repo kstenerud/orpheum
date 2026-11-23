@@ -3,10 +3,12 @@
 
 import "./i18n.ts";
 
+import type { JSX } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DebugToolsContext } from "./debug-tools.tsx";
-import { LinkCapBadge, LinkDebugTools } from "./link-debug-tools.tsx";
+import { Banners } from "./banner.tsx";
+import { LinkDebugTools, useLinkCapNotice } from "./link-debug-tools.tsx";
 import { LinkDebug } from "./link-debug.ts";
 import { buttonWithText, chooseIn, click, mount, type Mounted } from "./test-dom.tsx";
 import { testServices, withServices } from "./test-services.tsx";
@@ -29,6 +31,12 @@ function aLinkDebug(): LinkDebug {
   });
 }
 
+/** The cap's note as the shell draws it, a warning Banner (D538 §1). */
+function LinkCapBadge(): JSX.Element {
+  const notice = useLinkCapNotice();
+  return <Banners notices={notice === undefined ? [] : [notice]} />;
+}
+
 /** The player's debug link tools and the shell's badge, shown to a person who shows debug tools or not. */
 async function shown(linkDebug: LinkDebug, isShown: boolean): Promise<Mounted> {
   mounted = await mount(
@@ -49,17 +57,17 @@ describe("the debug link's tools (D380)", () => {
     const linkDebug = aLinkDebug();
     const dropFor = vi.spyOn(linkDebug, "dropFor");
     const page = (await shown(linkDebug, true)).container;
-    expect(page.textContent).not.toContain("Throttled");
+    expect(page.textContent).not.toContain("throttled");
     await chooseIn(page, "Cap this tab's download rate", "1 Mb/s");
     expect(linkDebug.capKbps()).toBe(1000);
     // The page says so the whole time a cap is on (D380 §4).
-    expect(page.textContent).toContain("Throttled to 1 Mb/s");
+    expect(page.textContent).toContain("For testers: throttled to 1 Mb/s.");
     await click(buttonWithText(page, "Drop the connection for 30 s"));
     expect(dropFor).toHaveBeenCalledWith(30_000);
     expect(page.textContent).toContain("Connection dropped for testing: back in 30 s");
     await chooseIn(page, "Cap this tab's download rate", "No cap");
     expect(linkDebug.capKbps()).toBeUndefined();
-    expect(page.textContent).not.toContain("Throttled");
+    expect(page.textContent).not.toContain("throttled");
   });
 
   it("are hidden from a person who does not show debug tools, though a cap they left on is still said", async () => {
@@ -67,6 +75,6 @@ describe("the debug link's tools (D380)", () => {
     linkDebug.setCap(500);
     const page = (await shown(linkDebug, false)).container;
     expect(page.querySelector(".play__link-debug")).toBeNull();
-    expect(page.textContent).toBe("Throttled to 0.5 Mb/s");
+    expect(page.textContent).toBe("For testers: throttled to 0.5 Mb/s.");
   });
 });

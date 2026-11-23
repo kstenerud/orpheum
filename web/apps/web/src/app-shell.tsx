@@ -32,13 +32,10 @@ import {
   useLibrariesRead,
   useLibrariesReached,
 } from "./libraries-reached.ts";
-import { LocalNetworkNote } from "./local-network-note.tsx";
 import { NoticeNote } from "./notice-note.tsx";
-import { PlainHttpNote } from "./plain-http-note.tsx";
-import { SecurityUpdateNote } from "./security-update-note.tsx";
-import { WorkerBypassedNote } from "./worker-bypassed-note.tsx";
+import { ShellBanners } from "./shell-banners.tsx";
 import { useShowsDebugTools } from "./debug-tools.tsx";
-import { LinkCapBadge } from "./link-debug-tools.tsx";
+
 import { productName } from "./product-name.ts";
 import type { Route } from "./router.ts";
 import { useRoute } from "./services.tsx";
@@ -382,8 +379,8 @@ function isShownTo(
 export const InShellContext: Context<boolean> = createContext(false);
 
 /**
- * The screen, under any word the page has about what the browser is doing, an admin's banner of a
- * security update pending, and the tab's notice.
+ * The screen, under its banners (ShellBanners: what the browser is doing, an admin's security update
+ * pending) and the tab's notice.
  */
 function ShellMain(props: {
   readonly isAdmin: boolean;
@@ -391,11 +388,7 @@ function ShellMain(props: {
 }): JSX.Element {
   return (
     <main className="app-shell__main" data-focus-memory="">
-      <SecurityUpdateNote isAdmin={props.isAdmin} />
-      <PlainHttpNote />
-      <WorkerBypassedNote />
-      <LinkCapBadge />
-      <LocalNetworkNote />
+      <ShellBanners isAdmin={props.isAdmin} />
       <NoticeNote />
       <InShellContext value={true}>{props.children}</InShellContext>
     </main>

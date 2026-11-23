@@ -3,12 +3,15 @@
 
 import "./i18n.ts";
 
+import type { JSX } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "./app-shell.tsx";
-import { SecurityUpdateNote } from "./security-update-note.tsx";
+import { Banners } from "./banner.tsx";
+import { useSecurityUpdateNotice } from "./security-update-note.tsx";
 import {
   bodyField,
+  buttonNamed,
   buttonWithText,
   click,
   isSwitchOn,
@@ -57,6 +60,12 @@ const plain: Update = {
   checkedAt: 1_793_000_000_000,
 };
 
+/** The banner as the shell draws it, a Banner (D538 §1). */
+function SecurityUpdateNote(props: { readonly isAdmin: boolean }): JSX.Element {
+  const notice = useSecurityUpdateNotice(props.isAdmin);
+  return <Banners notices={notice === undefined ? [] : [notice]} />;
+}
+
 const banner = "A security update is available (v0.3.2): A sign-in could be guessed.";
 
 async function mountNote(isAdmin: boolean, update: Update, heard: Heard[] = []): Promise<Mounted> {
@@ -71,23 +80,18 @@ async function mountNote(isAdmin: boolean, update: Update, heard: Heard[] = []):
 // security-updates.md Part B: an admin is shown a security fix pending on every page, with the
 // command and the way to How to update; nobody else sees it, and a plain release is no banner.
 describe("SecurityUpdateNote", () => {
-  it("shows an admin the fix pending, the command and the way to How to update", async () => {
+  it("shows an admin the fix pending and the way to How to update, a warning Banner whose command is the Update page's (D538 §1)", async () => {
     mounted = await mountNote(true, pending);
     const text = mounted.container.textContent;
     expect(text).toContain(banner);
-    expect(text).toContain(command);
-    expect(mounted.container.querySelector('a[href="/update"]')?.textContent).toBe("Update now");
-    expect(buttonWithText(mounted.container, "Snooze for a day")).toBeDefined();
-  });
-
-  it("gives a server run from its compose file the compose file's command (D450 §2)", async () => {
-    mounted = await mountNote(true, { ...pending, installRoute: "omv" });
-    const text = mounted.container.textContent;
-    expect(text).toContain(banner);
-    expect(mounted.container.querySelector("code")?.textContent).toBe(
-      "docker compose pull && docker compose up -d",
-    );
     expect(text).not.toContain(command);
+    expect(mounted.container.querySelector(".banner--warning")).not.toBeNull();
+    expect(mounted.container.querySelector('a[href="/update"]')?.textContent).toBe("Update now");
+    // Its link and its button are not inside an output, whose words alone a screen reader says.
+    expect(mounted.container.querySelector("output")).toBeNull();
+    // Remind me tomorrow in place of a Dismiss: it cannot be put away for good while pending.
+    expect(buttonWithText(mounted.container, "Remind me tomorrow")).toBeDefined();
+    expect(buttonNamed(mounted.container, "Dismiss")).toBeUndefined();
   });
 
   it("shows anyone but an admin nothing, and asks the server nothing for them", async () => {
@@ -104,7 +108,7 @@ describe("SecurityUpdateNote", () => {
 
   it("snoozed, is hidden in this browser for a day, and then shown again", async () => {
     mounted = await mountNote(true, pending);
-    await click(buttonWithText(mounted.container, "Snooze for a day"));
+    await click(buttonWithText(mounted.container, "Remind me tomorrow"));
     expect(mounted.container.textContent).toBe("");
     mounted.unmount();
     // The page loaded again within the day: still hidden.
@@ -120,7 +124,7 @@ describe("SecurityUpdateNote", () => {
 
   it("shows a new fix at once, whatever an earlier one's snooze", async () => {
     mounted = await mountNote(true, pending);
-    await click(buttonWithText(mounted.container, "Snooze for a day"));
+    await click(buttonWithText(mounted.container, "Remind me tomorrow"));
     mounted.unmount();
     const newer: Update = {
       ...pending,

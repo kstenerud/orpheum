@@ -3,10 +3,18 @@
 
 import "./i18n.ts";
 
+import type { JSX } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { PlainHttpNote, plainHttpNoteDismissedKey } from "./plain-http-note.tsx";
-import { buttonWithText, click, mount, type Mounted } from "./test-dom.tsx";
+import { Banners } from "./banner.tsx";
+import { plainHttpNoteDismissedKey, usePlainHttpNotice } from "./plain-http-note.tsx";
+import { buttonNamed, click, mount, type Mounted } from "./test-dom.tsx";
+
+/** The note as the shell draws it, an information Banner (D538 §1). */
+function PlainHttpNote(props: { readonly isSecure: boolean }): JSX.Element {
+  const notice = usePlainHttpNotice(props.isSecure);
+  return <Banners notices={notice === undefined ? [] : [notice]} />;
+}
 
 let mounted: Mounted | undefined;
 
@@ -23,13 +31,13 @@ describe("PlainHttpNote", () => {
     mounted = await mount(<PlainHttpNote isSecure={false} />);
     expect(mounted.container.textContent).toContain("plain http");
     expect(mounted.container.textContent).toContain("voice");
-    await click(buttonWithText(mounted.container, "Dismiss"));
+    await click(buttonNamed(mounted.container, "Dismiss"));
     expect(mounted.container.textContent).toBe("");
   });
 
   it("stays dismissed when the page is loaded again", async () => {
     mounted = await mount(<PlainHttpNote isSecure={false} />);
-    await click(buttonWithText(mounted.container, "Dismiss"));
+    await click(buttonNamed(mounted.container, "Dismiss"));
     expect(localStorage.getItem(plainHttpNoteDismissedKey)).toBe("1");
     mounted.unmount();
     mounted = await mount(<PlainHttpNote isSecure={false} />);

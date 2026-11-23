@@ -10,7 +10,7 @@ export const enUpdate = {
     banner: "A security update is available ({{version}}): {{summary}}.",
     updateNow: "Update now",
     runOnServer: "On the server's machine, run:",
-    snooze: "Snooze for a day",
+
     heading: "How to update",
     runs: "This server runs {{version}}.",
     latestKnown: "It is the latest version its discovery knows of.",

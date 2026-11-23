@@ -4,10 +4,21 @@
 import "./i18n.ts";
 
 import { sendFailuresTo } from "@orpheum/sdk";
+import type { JSX } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mount, settleAnswers, type Mounted } from "./test-dom.tsx";
-import { probeWorker, suspectWorker, WorkerBypassedNote } from "./worker-bypassed-note.tsx";
+import { Banners } from "./banner.tsx";
+import { probeWorker, suspectWorker, useWorkerBypassedNotice } from "./worker-bypassed-note.tsx";
+
+/** The note as the shell draws it, a warning Banner (D538 §1). */
+function WorkerBypassedNote(props: {
+  readonly probe: () => Promise<boolean>;
+  readonly workers?: EventTarget;
+}): JSX.Element {
+  const notice = useWorkerBypassedNotice(props);
+  return <Banners notices={notice === undefined ? [] : [notice]} />;
+}
 
 let mounted: Mounted | undefined;
 
@@ -23,7 +34,7 @@ describe("WorkerBypassedNote", () => {
     mounted = await mount(<WorkerBypassedNote probe={() => Promise.resolve(true)} />);
     await settleAnswers();
     expect(mounted.container.textContent).toBe(
-      "Developer tools are bypassing the service worker; media won't load.",
+      "For testers: media won't load while developer tools bypass the service worker.",
     );
   });
 
@@ -36,7 +47,7 @@ describe("WorkerBypassedNote", () => {
     suspectWorker();
     await settleAnswers();
     expect(mounted.container.textContent).toBe(
-      "Developer tools are bypassing the service worker; media won't load.",
+      "For testers: media won't load while developer tools bypass the service worker.",
     );
   });
 

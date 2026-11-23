@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { isPageWorkerBypassed, reportFailure } from "@orpheum/sdk";
-import { useEffect, useState, type JSX } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import type { BannerNotice } from "./banner.tsx";
 import { pageWorkerOf, type PageWorker } from "./screen-load.tsx";
 
 /**
@@ -84,16 +85,16 @@ export async function probeWorker(
  * does not know the probe and sends it to the network, and the note said the worker was bypassed
  * while media played (the owner's Mac, Firefox, production, 2026-10-31). probe and workers (the
  * page's service worker container, whose controllerchange says so) are the page's own unless a test
- * gives them.
+ * gives them. A warning Banner "For testers", said as it comes and put away by nothing: it goes as
+ * the bypass ends (D538 §1).
  */
-export function WorkerBypassedNote(props: {
-  readonly probe?: () => Promise<boolean>;
-  readonly workers?: EventTarget;
-}): JSX.Element | null {
+export function useWorkerBypassedNotice(
+  given: { readonly probe?: () => Promise<boolean>; readonly workers?: EventTarget } = {},
+): BannerNotice | undefined {
   const { t } = useTranslation();
   const [isBypassed, setIsBypassed] = useState(false);
-  const probe = props.probe ?? isThisPageWorkerBypassed;
-  const workers = props.workers ?? pageWorkers();
+  const probe = given.probe ?? isThisPageWorkerBypassed;
+  const workers = given.workers ?? pageWorkers();
   useEffect(() => {
     let isShown = true;
     const ask = (): void => {
@@ -115,11 +116,15 @@ export function WorkerBypassedNote(props: {
       workers?.removeEventListener("controllerchange", ask);
     };
   }, [probe, workers]);
-  return isBypassed ? (
-    <p className="app-shell__note" role="alert">
-      {t("discovery.workerBypassed")}
-    </p>
-  ) : null;
+  return isBypassed
+    ? {
+        key: "worker bypassed",
+        tone: "warning",
+        isAnnounced: true,
+        text: t("discovery.workerBypassed"),
+        putAway: { kind: "none" },
+      }
+    : undefined;
 }
 
 /**

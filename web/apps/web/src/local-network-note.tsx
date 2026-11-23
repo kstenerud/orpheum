@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { useEffect, useState, type JSX } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import type { BannerNotice } from "./banner.tsx";
 import { browserStorage } from "./browser-storage.ts";
 import { useServices } from "./services.tsx";
 import { isFireTv } from "./input-mode.ts";
@@ -18,9 +19,10 @@ export const localNetworkNoteDismissedKey = "orpheum.localNetwork.noteDismissed"
  * prompt, so the note came back at every reload until dismissed again (the owner, 2026-10-29). The
  * browser's storage refused keeps the dismissal for the page's life alone. Never shown on a Fire TV,
  * whose Silk asks nothing however long the permission waits, so the note spoke of a prompt that never
- * came (the owner, 2026-10-28; idiosyncrasies.md).
+ * came (the owner, 2026-10-28; idiosyncrasies.md). An information Banner, dismissed by its ✕ (D538
+ * §1).
  */
-export function LocalNetworkNote(): JSX.Element | null {
+export function useLocalNetworkNotice(): BannerNotice | undefined {
   const { t } = useTranslation();
   const { onLocalNetworkAsking } = useServices();
   const [isAsking, setIsAsking] = useState(false);
@@ -29,20 +31,18 @@ export function LocalNetworkNote(): JSX.Element | null {
   );
   useEffect(() => onLocalNetworkAsking?.(setIsAsking), [onLocalNetworkAsking]);
   if (!isAsking || isDismissed || isFireTv(globalThis.navigator.userAgent)) {
-    return null;
+    return undefined;
   }
-  return (
-    <output className="app-shell__note">
-      {t("discovery.localNetwork.asking")}{" "}
-      <button
-        type="button"
-        onClick={() => {
-          browserStorage().setItem(localNetworkNoteDismissedKey, "1");
-          setIsDismissed(true);
-        }}
-      >
-        {t("discovery.localNetwork.dismiss")}
-      </button>
-    </output>
-  );
+  return {
+    key: "local network",
+    tone: "information",
+    text: t("discovery.localNetwork.asking"),
+    putAway: {
+      kind: "dismiss",
+      onDismiss: () => {
+        browserStorage().setItem(localNetworkNoteDismissedKey, "1");
+        setIsDismissed(true);
+      },
+    },
+  };
 }

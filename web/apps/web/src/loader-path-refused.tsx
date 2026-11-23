@@ -14,6 +14,8 @@ import "./loader-path-refused.css";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Banner } from "./banner.tsx";
+
 /** The note, with its two ways on. */
 export function PathRefusedNote(props: {
   readonly onReload: () => void;
@@ -21,14 +23,26 @@ export function PathRefusedNote(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <div className="loader-path-refused" role="alert">
-      <p>{t("loader.pathRefused.text")}</p>
-      <button type="button" onClick={props.onReload}>
-        {t("loader.pathRefused.reload")}
-      </button>
-      <button type="button" onClick={props.onSignInAgain}>
-        {t("loader.pathRefused.signIn")}
-      </button>
+    <div className="loader-path-refused">
+      <Banner
+        notice={{
+          key: "path refused",
+          tone: "warning",
+          isAnnounced: true,
+          text: t("loader.pathRefused.text"),
+          actions: (
+            <>
+              <button type="button" onClick={props.onReload}>
+                {t("loader.pathRefused.reload")}
+              </button>
+              <button type="button" onClick={props.onSignInAgain}>
+                {t("loader.pathRefused.signIn")}
+              </button>
+            </>
+          ),
+          putAway: { kind: "none" },
+        }}
+      />
     </div>
   );
 }

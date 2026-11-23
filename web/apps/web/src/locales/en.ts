@@ -219,7 +219,7 @@ const enOwn = {
     linkCapRate: "{{rate}} Mb/s",
     drop: "Drop the connection for {{seconds}} s",
     dropped: "Connection dropped for testing: back in {{seconds}} s",
-    throttled: "Throttled to {{rate}} Mb/s",
+    throttled: "For testers: throttled to {{rate}} Mb/s.",
   },
   activate: {
     heading: "Activate a device",

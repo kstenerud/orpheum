@@ -180,7 +180,7 @@ function GalleryBanners(): JSX.Element {
       key: "information",
       tone: "information",
       text: t("gallery.bannerInformation"),
-      link: { label: t("gallery.bannerLink"), href: "#gallery-overlays" },
+      actions: <a href="#gallery-overlays">{t("gallery.bannerLink")}</a>,
       putAway: {
         kind: "dismiss",
         onDismiss: () => {

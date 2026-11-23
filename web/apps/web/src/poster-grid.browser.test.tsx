@@ -238,10 +238,10 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
     await expect.poll(() => isDrawn(".alphabet-rail__letter")).toBe(true);
     // A note as the shell draws one before the page, as the plain-http note is.
     const note = document.createElement("div");
-    note.className = "app-shell__note";
+    note.className = "banners";
     note.textContent = "A note of the shell's";
     document.querySelector(".app-shell__main")?.prepend(note);
-    expect(boxOf(".app-shell__note").right).toBeLessThanOrEqual(boxOf(".alphabet-rail").left);
+    expect(boxOf(".banners").right).toBeLessThanOrEqual(boxOf(".alphabet-rail").left);
     note.remove();
   });
 

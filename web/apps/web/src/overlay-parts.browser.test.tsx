@@ -9,6 +9,7 @@
 import "./i18n.ts";
 import "./tokens.css";
 import "./base.css";
+import "./player-overlay.css";
 
 import { useState, type JSX } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -17,6 +18,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { Banners, type BannerNotice } from "./banner.tsx";
 import { DropDown } from "./drop-down.tsx";
+import { PathRefusedNote } from "./loader-path-refused.tsx";
 import { ListOption, ListSubmenu, PickerScreen } from "./list-box.tsx";
 import { StatusNote } from "./status-note.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
@@ -160,7 +162,7 @@ function PageWithBanners(): JSX.Element {
       key: "plain",
       tone: "information",
       text: "Plain words",
-      link: { label: "Read more", href: "#after" },
+      actions: <a href="#after">Read more</a>,
       putAway: putAway("plain"),
     },
     { key: "lost", tone: "warning", text: "Lost the connection", putAway: { kind: "none" } },
@@ -199,11 +201,69 @@ describe("a page's banners (D538)", () => {
     it(`puts the link under the words in a narrow banner only, at ${String(width)}px`, async () => {
       await page.viewport(width, 720);
       mounted = await mount(withServices(<PageWithBanners />));
-      const link = drawn(".banner--information .banner__link").getBoundingClientRect();
+      const link = drawn(".banner--information .banner__actions > a").getBoundingClientRect();
       const text = drawn(".banner--information .banner__words > span").getBoundingClientRect();
       const isUnder = link.top >= text.bottom - 1;
       expect(isUnder).toBe(drawn(".banner--information").clientWidth < 36 * 16);
     });
+  }
+});
+
+describe("the banners while a film fills the window (D538 §1)", () => {
+  for (const width of widths) {
+    for (const way of ways) {
+      it(`shows Lost the connection alone, fixed at the top over the film, its Reload pressed by ${way} at ${String(width)}px`, async () => {
+        await page.viewport(width, 720);
+        let reloads = 0;
+        mounted = await mount(
+          withServices(
+            <>
+              <div className="shell">
+                <Banners
+                  notices={[
+                    {
+                      key: "plain",
+                      tone: "information",
+                      text: "Plain words",
+                      putAway: { kind: "none" },
+                    },
+                  ]}
+                />
+              </div>
+              <div className="film-player__stage film-player__stage--fills-window" />
+              <PathRefusedNote
+                onReload={() => {
+                  reloads += 1;
+                }}
+                onSignInAgain={() => undefined}
+              />
+            </>,
+          ),
+        );
+        // The shell's wait, with the page beneath the film, until the film leaves the window.
+        expect(getComputedStyle(drawn(".shell .banner")).visibility).toBe("hidden");
+        const lost = drawn(".loader-path-refused .banner--warning");
+        expect(lost.getAttribute("role")).toBe("alert");
+        const box = lost.getBoundingClientRect();
+        expect(box.top).toBeLessThanOrEqual(16);
+        // Over the film: what is at its middle is the banner's.
+        const atItsMiddle = document.elementFromPoint(
+          box.left + box.width / 2,
+          box.top + box.height / 2,
+        );
+        expect(lost.contains(atItsMiddle)).toBe(true);
+        const reload = page.getByRole("button", { name: "Reload" }).element();
+        if (!(reload instanceof HTMLElement)) {
+          throw new Error("no Reload");
+        }
+        expect(reload.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+        await press(reload, way);
+        expect(reloads).toBe(1);
+        // The film leaves the window: the shell's banners come back.
+        drawn(".film-player__stage").classList.remove("film-player__stage--fills-window");
+        expect(getComputedStyle(drawn(".shell .banner")).visibility).toBe("visible");
+      });
+    }
   }
 });
 

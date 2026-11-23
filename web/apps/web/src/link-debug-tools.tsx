@@ -3,6 +3,7 @@
 import { useEffect, useState, useSyncExternalStore, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import type { BannerNotice } from "./banner.tsx";
 import { DebugTool } from "./debug-tools.tsx";
 import { dropChoicesS, linkCapChoicesKbps, type LinkDebug } from "./link-debug.ts";
 import { useServices } from "./services.tsx";
@@ -104,15 +105,19 @@ function useDropLeftS(linkDebug: LinkDebug | undefined): number {
 /**
  * The page's word, above every screen, that this tab's download rate is capped, the whole time it is
  * (D380 §4): a DevTools box left ticked once cost an afternoon (agent-failures A51). Shown whether or
- * not the person shows debug tools, as a cap outlives the screen it was set on.
+ * not the person shows debug tools, as a cap outlives the screen it was set on. A warning Banner "For
+ * testers", put away by nothing: it goes as the cap is lifted (D538 §1).
  */
-export function LinkCapBadge(): JSX.Element | null {
+export function useLinkCapNotice(): BannerNotice | undefined {
   const { t } = useTranslation();
   const { linkDebug } = useServices();
   const capKbps = useCapKbps(linkDebug);
-  return capKbps === undefined ? null : (
-    <output className="app-shell__note">
-      {t("debugTools.throttled", { rate: capRateText(capKbps) })}
-    </output>
-  );
+  return capKbps === undefined
+    ? undefined
+    : {
+        key: "link cap",
+        tone: "warning",
+        text: t("debugTools.throttled", { rate: capRateText(capKbps) }),
+        putAway: { kind: "none" },
+      };
 }

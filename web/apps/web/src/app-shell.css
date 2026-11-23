@@ -369,10 +369,7 @@
   padding: var(--space-4) var(--space-page) var(--space-7);
 }
 
-/*
- * A word from the page above the screen, about something the browser is doing: the local-network
- * prompt (local-network-note.tsx). In the status blue, which says what is going on (D280).
- */
+/* The menu's note to an admin away from home (D297 §6), in the status blue (D280). */
 .app-shell__note {
   display: flex;
   flex-wrap: wrap;
@@ -383,23 +380,6 @@
   border: 1px solid var(--color-status);
   border-radius: var(--radius-card);
   max-width: none;
-}
-
-/*
- * The banner of a security update pending (security-updates.md Part B), an admin's alone: in the
- * warning yellow, which asks for something to be done (D280), and the update's command on a line
- * of its own.
- */
-.app-shell__note--security {
-  border-color: var(--color-warning);
-}
-
-.app-shell__note-command {
-  flex-basis: 100%;
-}
-
-.app-shell__note-command code {
-  overflow-wrap: anywhere;
 }
 
 /* A label and its control sit side by side with room between them; a theme restyles this. */

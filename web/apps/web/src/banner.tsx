@@ -30,8 +30,8 @@ export interface BannerNotice {
   readonly isAnnounced?: boolean;
   /** Its words, a line or two. */
   readonly text: ReactNode;
-  /** A link after its words: its words and where it goes. */
-  readonly link?: { readonly label: string; readonly href: string };
+  /** What it offers after its words: a link or a button or two ("Update now", "Reload"). */
+  readonly actions?: ReactNode;
   readonly putAway: BannerPutAway;
 }
 
@@ -68,7 +68,7 @@ export function Banners(props: { readonly notices: readonly BannerNotice[] }): J
 
 /**
  * A standing note across the top of a page (D538), not the answer to something the person just did:
- * its icon, so its tone is never told by colour alone, its words, a link after them, and its one
+ * its icon, so its tone is never told by colour alone, its words, what it offers after them, and its one
  * way to be put away. Put away, focus moves to the next thing in the page after it, never to
  * nothing.
  */
@@ -86,10 +86,8 @@ export function Banner(props: { readonly notice: BannerNotice }): JSX.Element {
       </span>
       <span className="banner__words">
         <span>{notice.text}</span>
-        {notice.link === undefined ? null : (
-          <a className="banner__link" href={notice.link.href}>
-            {notice.link.label}
-          </a>
+        {notice.actions === undefined ? null : (
+          <span className="banner__actions">{notice.actions}</span>
         )}
       </span>
       <PutAway
