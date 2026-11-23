@@ -14,7 +14,7 @@ export { apiPrefix, artPathPrefix, artUrl, createApi } from "./client.ts";
 export type { Api, ApiOptions, ArtSize } from "./client.ts";
 export type { components, operations, paths } from "./gen/api.ts";
 export { allPages, pageLimitMax } from "./pages.ts";
-export { isNearItsEnd, upNextLeadMs } from "./up-next-lead.ts";
+export { creditsStartOf, isNearItsEnd, upNextLeadMs } from "./up-next-lead.ts";
 export type { Ending } from "./up-next-lead.ts";
 export type { ListPage, PageQuery } from "./pages.ts";
 export { browserPlayableFormats, playableFormatsFrom } from "./playable-formats.ts";

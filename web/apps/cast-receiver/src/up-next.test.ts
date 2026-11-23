@@ -98,4 +98,36 @@ describe("a Chromecast's Up next card (D471)", () => {
     card.remove();
     expect(document.querySelector(".receiver__up-next")).toBeNull();
   });
+
+  it("shows it from the film's credits where it has a credits segment, as the player does (D546)", async () => {
+    const api = createApi({
+      origin: "https://core.example",
+      getToken: () => "token",
+      fetch: () => Promise.resolve(Response.json({ upNext: { episode: bag, ordering: "aired" } })),
+    });
+    const { video, at } = videoAt(1200);
+    const card = new UpNextCard(video, api, () => undefined);
+    const shown = (): boolean =>
+      document.querySelector<HTMLElement>(".receiver__up-next")?.hidden === false;
+    card.plays(7, [
+      { type: "intro", startMs: 0, endMs: 60_000 },
+      { type: "credits", startMs: 900_000, endMs: 1_000_000 },
+      { type: "credits", startMs: 1_100_000, endMs: 1_200_000 },
+    ]);
+    at(1100);
+    await vi.waitFor(() => {
+      expect(shown()).toBe(true);
+    });
+    at(1099);
+    expect(shown()).toBe(false);
+    // The next film, with no credits segment, is back on the fixed lead.
+    card.plays(8);
+    at(1200 - upNextLeadMs / 1000 + 1);
+    await vi.waitFor(() => {
+      expect(shown()).toBe(true);
+    });
+    at(1100);
+    expect(shown()).toBe(false);
+    card.remove();
+  });
 });

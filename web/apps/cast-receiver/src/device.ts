@@ -528,7 +528,7 @@ export class CastDevice {
         fetch: reached.fetch,
       });
       this.together?.reportState();
-      this.upNext.plays(fileId);
+      this.upNext.plays(fileId, decision.segments ?? []);
       return positionMs;
     } catch (cause) {
       note(`could not start file ${String(fileId)}: ${failureText(cause)}`);

@@ -291,7 +291,8 @@ function isAtItsCredits(ending: Ending): boolean {
  * convenience area it is told where it is (OfferPlace). As it shows, the next episode is warmed up
  * (useWarmsUpNext), so its start is fetched before it plays (the owner's request, 2026-11-11). It
  * shows and counts from the credits where the file has a credits segment (SegmentsContext; D139),
- * but on a cast's receiver, whose remote and Chromecast twin know no segments (D471).
+ * on a cast's receiver too, whose remote and Chromecast twin read the same segments, so all three
+ * show and go together, as the player does locally (D546).
  */
 export function UpNextOver(props: FilmParts & OfferPlace): JSX.Element | null {
   const offered = use(UpNextContext);
@@ -308,7 +309,7 @@ export function UpNextOver(props: FilmParts & OfferPlace): JSX.Element | null {
       key={upNext.episode.fileId}
       upNext={upNext}
       isAutoplayOn={offered?.isAutoplayOn ?? false}
-      creditsStartMs={isHere ? creditsStartOf(segments) : undefined}
+      creditsStartMs={creditsStartOf(segments)}
       videoRef={props.videoRef}
       isOverlayFull={props.isOverlayFull}
       onOffered={props.onOffered}

@@ -1,18 +1,29 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { dataOrThrow, failureText, isNearItsEnd, type Api, type components } from "@orpheum/sdk";
+import {
+  creditsStartOf,
+  dataOrThrow,
+  failureText,
+  isNearItsEnd,
+  type Api,
+  type components,
+} from "@orpheum/sdk";
 
 /**
  * A Chromecast's Up next (D471, the cells' table: a Google Cast device without a remote): near the
  * film's end it shows the next episode and that it is chosen on the phone or computer casting, with
  * nothing to press, as the device takes nothing. It shows by the rule the caster's remote shows its
- * own Up next by (the web client's cast-remote.tsx), isNearItsEnd, the film's
- * position being the session's, which the receiver leads, and only where the next episode can be
- * read now; so the two show and go together, from the one session, with no message of their own.
+ * own Up next by (the web client's cast-remote.tsx), isNearItsEnd, from the credits where the film
+ * has a credits segment, as the player does locally (D546), the film's position being the
+ * session's, which the receiver leads, and only where the next episode can be read now; so the two
+ * show and go together, from the one session, with no message of their own.
  */
 
 /** What plays after a file, as the server offers it (GET /files/{id}/up-next). */
 type UpNext = components["schemas"]["UpNextBody"];
+
+/** A typed range of the film, as its playback's decision gives it (POST /playback). */
+type Segment = components["schemas"]["SegmentBody"];
 
 /** The place of the episode, in the web client's English words for it (its episode-place.ts). */
 function placeOf(upNext: UpNext): string {
@@ -47,6 +58,7 @@ const shownAgainAfter = ["timeupdate", "seeked", "ended", "durationchange", "emp
 /** The Up next drawn over the receiver's video, for the film it plays now. */
 export class UpNextCard {
   private fileId = 0;
+  private creditsStartMs: number | undefined;
   private lines: readonly string[] | undefined;
   private card: HTMLElement | undefined;
 
@@ -62,12 +74,16 @@ export class UpNextCard {
     }
   }
 
-  /** Asks what plays after fileId, the film the receiver plays now, 0 for none, and shows it then. */
-  plays(fileId: number): void {
+  /**
+   * Asks what plays after fileId, the film the receiver plays now, 0 for none, and shows it then:
+   * from the credits, where its segments, as its playback gave them, have a credits segment.
+   */
+  plays(fileId: number, segments: readonly Segment[] = []): void {
     if (fileId === this.fileId) {
       return;
     }
     this.fileId = fileId;
+    this.creditsStartMs = creditsStartOf(segments);
     this.lines = undefined;
     this.draw();
     if (fileId === 0) {
@@ -98,17 +114,23 @@ export class UpNextCard {
   /** Takes the card away, the receiver no cast's now. */
   remove(): void {
     this.fileId = 0;
+    this.creditsStartMs = undefined;
     this.lines = undefined;
     this.card?.remove();
     this.card = undefined;
   }
 
   private draw(): void {
-    const { video, lines } = this;
+    const { video, lines, creditsStartMs } = this;
     const durationMs = Number.isFinite(video.duration) ? video.duration * 1000 : 0;
     const isShown =
       lines !== undefined &&
-      isNearItsEnd({ atMs: video.currentTime * 1000, durationMs, hasEnded: video.ended });
+      isNearItsEnd({
+        atMs: video.currentTime * 1000,
+        durationMs,
+        hasEnded: video.ended,
+        creditsStartMs,
+      });
     if (!isShown) {
       if (this.card !== undefined) {
         this.card.hidden = true;

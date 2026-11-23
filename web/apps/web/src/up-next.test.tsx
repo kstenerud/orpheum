@@ -24,6 +24,7 @@ import { overlayUpClass } from "./play-up.tsx";
 import { PlayerControls, useVideoSource } from "./player-controls.tsx";
 import { OpenedAsContext, useAroundFile, type Previous, type UpNext } from "./around-file.ts";
 import type { Services } from "./services.tsx";
+import { SegmentsContext } from "./segments.tsx";
 import { forgetAutoplays, stillWatchingAfterAutoplays } from "./still-watching.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 import {
@@ -743,5 +744,26 @@ describe("the next episode warmed up as Up next shows (the owner's request, 2026
     video.stand(1185);
     expect(mounted?.container.textContent).toContain("Up next: S1E3 · Bag");
     expect(await settled(heard)).toEqual(["POST /playback"]);
+  });
+
+  it("on a cast's receiver, shows from the credits of its film, as here, so its remote and Chromecast go with it (D546)", async () => {
+    const video = fakeVideo();
+    const videoRef = createRef<HTMLVideoElement>();
+    Reflect.set(videoRef, "current", video);
+    const receiving = { cast: castHere, onLeave: () => undefined };
+    mounted = await mount(
+      withServices(
+        <SegmentsContext value={[{ type: "credits", startMs: 900_000, endMs: 1_000_000 }]}>
+          <UpNextContext value={{ upNext: bag, isAutoplayOn: true, receiving }}>
+            <UpNextOver videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
+          </UpNextContext>
+        </SegmentsContext>,
+        served([]),
+      ),
+    );
+    video.stand(899);
+    expect(mounted.container.textContent).not.toContain("Up next");
+    video.stand(900);
+    expect(mounted.container.textContent).toContain("Up next: S1E3 · Bag");
   });
 });
