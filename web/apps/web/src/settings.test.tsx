@@ -73,6 +73,59 @@ async function paragraphsFor(key: string): Promise<readonly (string | null)[]> {
   return [...mounted.container.querySelectorAll("dialog p")].map((p) => p.textContent);
 }
 
+describe("settings' saving (D538 §9)", () => {
+  it("saves nothing typed and left unsaved as the page closes or the person moves away", async () => {
+    const saved: string[] = [];
+    const record = (key: string): void => {
+      saved.push(key);
+    };
+    mounted = await mount(
+      withServices(
+        <>
+          <SettingsView
+            isAdvanced
+            search=""
+            problems={new Map()}
+            resetting={new Set()}
+            onSave={record}
+            onReset={ignore}
+            settings={[
+              {
+                key: "logLevel",
+                kind: "string",
+                description: "log",
+                value: "info",
+                startingValue: "info",
+                isModified: false,
+                isImportant: true,
+                section: "diagnostics",
+                setAt: 1,
+              },
+            ]}
+          />
+          <SecretsView
+            search=""
+            problems={new Map()}
+            onSave={record}
+            onRemove={ignore}
+            secrets={[
+              { name: "tmdbApiKey", description: "key", isSet: false, needsReentry: false },
+            ]}
+          />
+        </>,
+      ),
+    );
+    const fields = mounted.container.querySelectorAll("input");
+    expect(fields).toHaveLength(2);
+    await enter(fields[0], "debug");
+    await enter(fields[1], "a new key");
+    window.dispatchEvent(new Event("pagehide"));
+    mounted.unmount();
+    mounted = undefined;
+    expect(saved).toEqual([]);
+  });
+});
+
 describe("settings", () => {
   it("shows whether a secret is set and its last characters, never its value, and when it must be entered again", () => {
     const markup = renderToStaticMarkup(

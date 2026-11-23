@@ -5,7 +5,7 @@ import "./settings-words.ts";
 
 import type { components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
-import { memo, useCallback, useEffect, useRef, useState, type JSX } from "react";
+import { memo, useCallback, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
@@ -49,9 +49,9 @@ export function secretState(t: TFunction, secret: Secret): string {
 }
 
 /**
- * A secret's field and what saves it: what is typed is sent on Enter or on leaving the field, the
- * page included (a move to another screen unmounts the row; a reload or a closed tab only hides the
- * page), and the field is emptied, never showing it again.
+ * A secret's field and what saves it: what is typed is sent on Enter or on leaving the field, and the
+ * field is emptied, never showing it again. Nothing is sent as the page closes or the person moves
+ * to another (D538 §9).
  */
 function useSecretField(
   name: string,
@@ -75,16 +75,6 @@ function useSecretField(
     typedRef.current = "";
     setFieldText("");
   }, [name, onSave]);
-  useEffect(() => {
-    const onPageHide = (): void => {
-      commit();
-    };
-    window.addEventListener("pagehide", onPageHide);
-    return () => {
-      window.removeEventListener("pagehide", onPageHide);
-      commit();
-    };
-  }, [commit]);
   return { text: fieldText, setText, commit };
 }
 
@@ -349,13 +339,8 @@ function Secrets(props: { readonly search: string }): JSX.Element {
   );
   const save = useCallback(
     (name: string, value: string): void => {
-      // Kept alive, so a save the page's leaving sends outlives the page.
       void settle(name, () =>
-        api.PUT("/secrets/{name}", {
-          params: { path: { name } },
-          body: { value },
-          keepalive: true,
-        }),
+        api.PUT("/secrets/{name}", { params: { path: { name } }, body: { value } }),
       );
     },
     [api, settle],

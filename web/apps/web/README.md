@@ -16,7 +16,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `confirm-button.browser.test.tsx` drive the confirm by every input; `your-devices.test.tsx`,
   `system-waiting.test.tsx`, `watch-together.test.tsx`.
 - **Every setting saves at once, the admin's too** (the owner, 2026-11-04, Q5): no page has a Save
-  for a setting; a choice saves as it is made, typing on Enter or on leaving its field, and
+  for a setting; a choice saves as it is made, typing on Enter or on leaving its field, and nothing as the page closes or the person moves away (D538 §9), and
   its `StatusNote` (`src/status-note.tsx`, `useSaveState`) says "Saved" beside it, or the refusal in its place. A creation
   (a library, an invitation) keeps its one Create. Settings shows each setting in one column, its
   name in the person's words above its key (`locales/en-setting-labels.ts`, every setting's held by

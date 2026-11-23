@@ -144,9 +144,9 @@ export function bySection(settings: readonly Setting[]): [Section, Setting[]][] 
 
 /**
  * A setting's field and what saves it: the text in the field, and commit, which saves it when it
- * differs from the server's. The server's value, saved or reset, becomes the field's; leaving the
- * page saves what was typed: a move to another screen unmounts the row, and a reload or a closed
- * tab hides the page without unmounting anything.
+ * differs from the server's. The server's value, saved or reset, becomes the field's. Nothing saves
+ * as the page closes or the person moves to another (D538 §9): what is typed and left unsaved is
+ * dropped, as a form's is.
  */
 function useSavedField(
   setting: Setting,
@@ -163,7 +163,7 @@ function useSavedField(
     setShownValue(valueText);
     setFieldText(valueText);
   }
-  // What the field holds and what the server holds, for the saves the field's leaving makes.
+  // What the field holds and what the server holds, for the save the field's commit makes.
   const typedRef = useRef(valueText);
   const savedRef = useRef(valueText);
   useEffect(() => {
@@ -185,16 +185,6 @@ function useSavedField(
     },
     [onSave, key, kind],
   );
-  useEffect(() => {
-    const onPageHide = (): void => {
-      commit();
-    };
-    window.addEventListener("pagehide", onPageHide);
-    return () => {
-      window.removeEventListener("pagehide", onPageHide);
-      commit();
-    };
-  }, [commit]);
   return { text: fieldText, setText, commit };
 }
 
@@ -520,7 +510,7 @@ function useSettingChanges(loaded: readonly Setting[]): {
       void settle(key, async () => {
         // Kept alive, so a save the page's leaving sends outlives the page.
         const body = { valuesByKey: { [key]: value } };
-        const answer = dataOrThrow(await api.PUT("/config", { body, keepalive: true }));
+        const answer = dataOrThrow(await api.PUT("/config", { body }));
         return answer.settings?.find((each) => each.key === key);
       });
     },
