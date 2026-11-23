@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/nodes/nodestest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -191,6 +192,68 @@ func TestLoad_AnAttemptKeptThroughARestartKeepsTheStartOfItsNode(t *testing.T) {
 	}
 	if count := restarted.BrokenInvariants(1); count != 1 {
 		t.Errorf("%d broken invariants after the node started again, want still 1: a restart is not one", count)
+	}
+}
+
+// A kept attempt whose work no longer reads as this core's, a field whose type an upgrade changed, is forgotten,
+// and the core starts all the same with the others: one such row stopped every start until cache.db's
+// attempts were cleared (the queue audit, 2026-11-23). Its job fails when its time runs out.
+func TestLoad_AnAttemptWhoseWorkNoLongerReadsIsForgottenAndTheRestAreLoaded(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	kept := bench.assign(t)
+	ctx := t.Context()
+	err := bench.cache.Write(ctx, func(queries *cachegen.Queries) error {
+		return queries.InsertNodeAttempt(ctx, cachegen.InsertNodeAttemptParams{
+			AttemptToken: "0123456789abcdef0123456789abcdef", JobID: 8, JobKind: string(jobs.KindMakeChunks),
+			NodeID: 1, NodeStartID: "first start",
+			WorkJSON: `{"type":"makeChunks","makeChunks":"an object before an upgrade"}`,
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	restarted := nodestest.NewExchanges(t, nodes.ExchangeParts{
+		Sender: bench.sender, Rooms: bench.sender, Clock: bench.now, Cache: bench.cache,
+	})
+	if err := restarted.Load(ctx); err != nil {
+		t.Fatalf("Load = %v; want the core to start, the unreadable attempt forgotten", err)
+	}
+	if rows, err := bench.cache.Read().ListNodeAttempts(ctx); err != nil || len(rows) != 1 ||
+		rows[0].AttemptToken != kept.AttemptToken {
+		t.Errorf("cache.db keeps %+v, %v; want only job 7's readable attempt", rows, err)
+	}
+	resolved := make(answers, 1)
+	restarted.Handle(jobs.KindMakeChunks, assignedRun(resolved, nil))
+	deliver(t, restarted, 1, nodeproto.Result{
+		JobID: 7, AttemptToken: kept.AttemptToken, MakeChunks: &nodeproto.MakeChunksReport{State: nodeproto.RunDone},
+	})
+	if answer := testutil.Receive(t, resolved, "job 7's answer"); answer != nil {
+		t.Errorf("the readable attempt, loaded beside the unreadable one, was resolved with %v, want done", answer)
+	}
+}
+
+// An attempt whose kind no assignee resolves, a kind this core no longer runs, is forgotten once the
+// assignees are named, and its node told to stop: kept, it was never resolved, and filled its node's
+// window for good (the queue audit, 2026-11-23).
+func TestWatch_AnAttemptWhoseKindNoAssigneeResolvesIsForgottenAndItsNodeToldToStop(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	ctx := t.Context()
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(make(answers, 1), nil))
+	err := bench.exchanges.Assign(ctx, 1, jobs.Job{ID: 7, Kind: jobs.Kind("retired_in_an_upgrade")}, runCommand)
+	jobqueue.HandOver(ctx, err)
+	sent := testutil.Receive(t, bench.sender.sent, "the work's command")
+	tick := make(chan time.Time)
+	go bench.exchanges.Watch(ctx, tick)
+	tick <- time.Time{}
+	bench.wantToldToStop(t, sent)
+	tick <- time.Time{} // taken once the first tick's work is done
+	if rows, err := bench.cache.Read().ListNodeAttempts(ctx); err != nil || len(rows) != 0 {
+		t.Errorf("cache.db keeps %+v, %v; want the attempt no kind resolves forgotten", rows, err)
+	}
+	if !strings.Contains(bench.logged.String(), `"level":"WARN"`) {
+		t.Errorf("logged %s; want a warning naming the attempt forgotten", bench.logged)
 	}
 }
 

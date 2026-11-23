@@ -71,14 +71,19 @@
 //     by token, with its job, kind, work and the start of its node (D238 §3), in cache.db, and is
 //     the handler's answer, the job assigned until assignedJobLimitHours; the command is sent
 //     once the job is recorded assigned.
-//     A job whose time ran out tells its node to stop the work, and its attempt is forgotten
-//     (Overdue, G4, D244 §6). TestExchange_AJobWhoseTimeRanOutTellsTheNodeToStop.
+//     A job whose time ran out, or whose assignment was not written, tells its node to stop the
+//     work and its kind that it is overdue (Assignee.Overdue, which may hear of it twice), and its
+//     attempt is forgotten (Overdue, G4, D244 §6). TestExchange_AJobWhoseTimeRanOutTellsTheNodeToStop.
 //     The node's word on how it ended resolves it, by the token, with its kind's answers (Assignee),
 //     after a restart too (Load); an attempt said nothing of for the silence limit, or whose node
 //     started again, is unanswered, and its node told to stop; a cancel tells its node to stop and
-//     its kind (Cancelled); progress its kind refuses ends it.
+//     its kind (Cancelled); progress its kind refuses ends it. A kept attempt whose work no longer
+//     reads is forgotten with a warning, and the core starts; one whose kind no assignee resolves is
+//     forgotten at Watch's tick, its node told to stop; each one's job fails when its time runs out.
 //     TestAssign_AJobGivenToANodeIsResolvedByItsWordAndForgotten,
 //     TestLoad_AnAttemptKeptThroughARestartIsResolvedByItsNodesWord,
+//     TestLoad_AnAttemptWhoseWorkNoLongerReadsIsForgottenAndTheRestAreLoaded,
+//     TestWatch_AnAttemptWhoseKindNoAssigneeResolvesIsForgottenAndItsNodeToldToStop,
 //     TestDeliver_AResultBeforeItsKindIsResolvedIsNotTaken,
 //     TestWatch_ASilentAttemptIsUnansweredAndProgressKeepsItHeard,
 //     TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode. An attempt is kept whole whatever
@@ -126,11 +131,13 @@
 //   - The core gives a node only as many jobs of a slot as it runs at once, and as many reading a
 //     device as may read it, each with nodeJobsBeyondFreeSlots more; work beyond waits, parked at no
 //     cost on the slot or device that is full, brought back when one of the node's jobs there ends
-//     or the node says hello (D240 §5); play-driven work is never held back for its device's
-//     readers, the node pausing background work for it (D240 §6).
+//     or the node says hello (D240 §5), a hello that no longer names a device bringing back its
+//     work too; play-driven work is never held back for its device's readers, the node pausing
+//     background work for it (D240 §6).
 //     TestAssign_WorkBeyondANodesWindowWaitsForTheSlotOrDeviceThatIsFull,
 //     TestAssign_PlayDrivenWorkIsNotHeldBackForItsDevicesReaders,
-//     TestHello_BringsBackTheWorkParkedOnTheNodeAndOnAnyNode.
+//     TestHello_BringsBackTheWorkParkedOnTheNodeAndOnAnyNode,
+//     TestHello_BringsBackTheWorkParkedOnADeviceTheNodeNoLongerNames.
 //   - Work is in one of three tiers (D255 §1): a person's, by its job's priority; slow, reading whole
 //     films or encoding them; and fast, the rest, as a scan's examining. Where a slot or device is
 //     full, work of a higher tier bumps the lowest held there, the lowest priority of it, then the
@@ -194,8 +201,9 @@
 //     TestStatus_ShowingRoomBringsBackTheRunsParkedOnThePreparedDirectory. Room is the disk
 //     within its fullness limit and keeping its floor of free space.
 //   - A node an admin retired is removed and forgotten: it is told to say hello first, and its
-//     name, saying hello again, enrols a new node (D231 §7).
-//     TestRemoveNode_ARetiredNodeIsToldToSayHelloAgainAndItsNameEnrolsANewNode.
+//     name, saying hello again, enrols a new node (D231 §7); a long-poll it holds open is told so
+//     at once. TestRemoveNode_ARetiredNodeIsToldToSayHelloAgainAndItsNameEnrolsANewNode,
+//     TestRemoveNode_ALongPollWaitingForTheRetiredNodeIsToldAtOnceToSayHelloFirst.
 //   - A node watcher's notice of a change is handed to what scans it, and each root's watch its
 //     last status said is kept for the libraries page (D272 §9).
 //     TestChanged_AWatchersNoticeIsHandedOnAndItsRootsWatchesKept. The hello's reply and each poll's

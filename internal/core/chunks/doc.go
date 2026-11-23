@@ -189,10 +189,12 @@
 //     TestChunks_AChunkTheNodeHasNotMadeIsAskedForAndRelayedOnceItIs (internal/core/api).
 //
 //   - A run stands as on a node only while its job is given to one: one its node ended to be tried
-//     again, parked, or not given waits as one queued (runTracker.requeued), and an ask for its chunks
-//     asks the queue for it again, which wakes it from a retry's wait, or queues it again when its job
-//     is gone, an admin's cancel telling the tracker nothing. Enforced by
-//     TestEnsure_AnAskForARunWaitingOutItsRetryReachesTheQueue and
+//     again, parked, or not given, or whose job the queue ended as overdue (Assignee.Overdue), waits
+//     as one queued (runTracker.requeued), and an ask for its chunks asks the queue for it again,
+//     which wakes it from a retry's wait, or queues it again when its job is gone, an admin's cancel
+//     telling the tracker nothing. Enforced by
+//     TestEnsure_AnAskForARunWaitingOutItsRetryReachesTheQueue,
+//     TestEnsure_AnAskForARunWhoseJobRanOutOfTimeReachesTheQueue and
 //     TestEnsure_ARunWhoseQueuedJobAnAdminCancelsIsAskedForAgain. A run cancelled while given holds its
 //     job as cancelled for cancelledMarkKeptFor, past its end, so no progress of it, one already past its
 //     attempt as the cancel came included, takes it as on its way again; one cancelled holding no

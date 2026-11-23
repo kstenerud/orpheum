@@ -45,7 +45,13 @@ func (service *Service) serveCommands(writer http.ResponseWriter, request *http.
 		})
 	}
 	for {
-		pending, wake := service.dropAckedAndListPending(nodeID, ackedSeq)
+		pending, wake, isKnown := service.dropAckedAndListPending(nodeID, ackedSeq)
+		if !isKnown {
+			// The node was forgotten while it waited (removed, locked, or speaking another protocol):
+			// it is told at once what its next request would be (the queue audit, 2026-11-23).
+			answerSayHelloFirst(writer)
+			return
+		}
 		// The folders it watches changed: it is answered at once, so a folder added is watched, and one
 		// retired is not, within a poll's round trip, not its hold.
 		areWatchedFoldersChanged := service.takeWatchedFoldersChanged(nodeID)
@@ -65,11 +71,15 @@ func (service *Service) serveCommands(writer http.ResponseWriter, request *http.
 }
 
 // dropAckedAndListPending drops the commands a node has acknowledged and returns those after
-// ackedSeq, with the channel that is closed when another is queued.
-func (service *Service) dropAckedAndListPending(nodeID, ackedSeq int64) ([]nodeproto.Command, <-chan struct{}) {
+// ackedSeq, with the channel that is closed when another is queued or the node is forgotten, and
+// false for a node the core no longer knows.
+func (service *Service) dropAckedAndListPending(nodeID, ackedSeq int64) ([]nodeproto.Command, <-chan struct{}, bool) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	node := service.nodesHeardSinceStart[nodeID]
+	node, isKnown := service.nodesHeardSinceStart[nodeID]
+	if !isKnown {
+		return nil, nil, false
+	}
 	kept := node.commands[:0]
 	for _, command := range node.commands {
 		if command.CommandSeq > ackedSeq {
@@ -80,7 +90,7 @@ func (service *Service) dropAckedAndListPending(nodeID, ackedSeq int64) ([]nodep
 	if len(kept) > 0 {
 		node.deliveredThrough = max(node.deliveredThrough, kept[len(kept)-1].CommandSeq)
 	}
-	return append([]nodeproto.Command(nil), kept...), node.wake
+	return append([]nodeproto.Command(nil), kept...), node.wake, true
 }
 
 // maxStatusBytes bounds a status: a few hundred bytes, and a hundred more for each attempt the node

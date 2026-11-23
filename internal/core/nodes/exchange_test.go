@@ -276,16 +276,22 @@ func TestExchange_ACancelUnderARequestThatOnlyReadsForgetsTheAttemptAsItMay(t *t
 }
 
 // A job whose time ran out (assignedJobLimitHours) tells its node to stop the work, and its
-// attempt is forgotten: the queue ended the job, and nothing of its kind is told, as for a cancel
-// (G4, D244 §6).
+// attempt is forgotten: the queue ended the job, and its kind is told it is overdue, not cancelled,
+// so it lets go of what it keeps of the attempt (G4, D244 §6; the queue audit, 2026-11-23).
 func TestExchange_AJobWhoseTimeRanOutTellsTheNodeToStop(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
 	cancelled := make(chan nodes.Attempt, 1)
-	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(make(answers, 1), cancelled))
+	overdue := make(chan nodes.Attempt, 1)
+	assignee := assignedRun(make(answers, 1), cancelled)
+	assignee.Overdue = func(_ context.Context, attempt nodes.Attempt) { overdue <- attempt }
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignee)
 	sent := bench.assign(t)
 	bench.exchanges.Overdue(t.Context(), 7)
 	bench.wantToldToStop(t, sent)
+	if told := testutil.Receive(t, overdue, "the kind told of the overdue attempt"); told.Token != sent.AttemptToken {
+		t.Errorf("the kind was told attempt %s was overdue, want %s", told.Token, sent.AttemptToken)
+	}
 	select {
 	case attempt := <-cancelled:
 		t.Errorf("the kind was told attempt %s was cancelled; the queue already ended its job", attempt.Token)

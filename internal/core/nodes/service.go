@@ -206,10 +206,24 @@ func (service *Service) knownNodeIDOf(writer http.ResponseWriter, request *http.
 	_, known := service.nodesHeardSinceStart[id]
 	service.mutex.Unlock()
 	if !known {
-		http.Error(writer, "say hello first: the core does not know this node", http.StatusConflict)
+		answerSayHelloFirst(writer)
 		return 0, false
 	}
 	return id, true
+}
+
+// answerSayHelloFirst answers a request from a node the core does not know: it says hello again.
+func answerSayHelloFirst(writer http.ResponseWriter) {
+	http.Error(writer, "say hello first: the core does not know this node", http.StatusConflict)
+}
+
+// forgetNodeLocked forgets a node's channel: its queued commands are dropped, and a long-poll it
+// holds open is answered at once, telling it to say hello first. Locked by its caller.
+func (service *Service) forgetNodeLocked(nodeID int64) {
+	if node, isKnown := service.nodesHeardSinceStart[nodeID]; isKnown {
+		close(node.wake)
+		delete(service.nodesHeardSinceStart, nodeID)
+	}
 }
 
 func (service *Service) fail(ctx context.Context, writer http.ResponseWriter, action string, err error) {

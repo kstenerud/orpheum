@@ -9,7 +9,9 @@ import (
 	"errors"
 	"maps"
 	"net/http"
+	"runtime"
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -143,6 +145,22 @@ func TestHello_BringsBackTheWorkParkedOnTheNodeAndOnAnyNode(t *testing.T) {
 	}
 }
 
+// A device the node's last hello named and its next does not is gone: the work parked on its
+// readers is brought back to go elsewhere, where it waited for good (the queue audit, 2026-11-23).
+func TestHello_BringsBackTheWorkParkedOnADeviceTheNodeNoLongerNames(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	first := harness.hello(t, nodeproto.Hello{
+		Name: "local", Devices: nodeproto.Devices{{Key: "zfs:tank"}, {Key: "usb:spare"}},
+	})
+	gone := jobs.ReaderDestination(first.NodeID, "usb:spare")
+	unparkedBefore := len(harness.destinations.all())
+	harness.hello(t, nodeproto.Hello{Name: "local", Devices: nodeproto.Devices{{Key: "zfs:tank"}}})
+	if unparked := harness.destinations.all()[unparkedBefore:]; !slices.Contains(unparked, gone) {
+		t.Errorf("a hello no longer naming a device unparked %q; want %q among them", unparked, gone)
+	}
+}
+
 func TestStatus_ShowingRoomBringsBackTheRunsParkedOnThePreparedDirectory(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
@@ -188,6 +206,53 @@ func TestRemoveNode_ARetiredNodeIsToldToSayHelloAgainAndItsNameEnrolsANewNode(t 
 	if enrolled := harness.hello(t, nodeproto.Hello{Name: "local"}).NodeID; enrolled == retired {
 		t.Errorf("its name said hello again as node %d, the retired one; want a new node", enrolled)
 	}
+}
+
+// A node retired while its long-poll waits is answered at once, told to say hello first, as its next
+// request would be: neither held for the poll's hold nor read as a node the core still knows, which
+// failed the poll with a panic (the queue audit, 2026-11-23).
+func TestRemoveNode_ALongPollWaitingForTheRetiredNodeIsToldAtOnceToSayHelloFirst(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Hour)
+	settingstest.Set(t, harness.settings, settings.ShouldScanOnNodeHello, "false")
+	retired := harness.hello(t, nodeproto.Hello{Name: "local"}).NodeID
+	answered := make(chan int, 1)
+	go func() {
+		url := harness.server.URL + nodeproto.PathCommands + "?" + nodeproto.QueryAfterCommandSeq + "=0"
+		request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, http.NoBody)
+		if err != nil {
+			answered <- 0
+			return
+		}
+		request.Header.Set(NodeIDHeader, strconv.FormatInt(retired, 10))
+		// On a connection of its own: one reused would be tried again, unseen, once the handler failed.
+		client := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}}
+		response, err := client.Do(request)
+		if err != nil {
+			answered <- 0 // the poll failed: the core's handler panicked
+			return
+		}
+		_ = response.Body.Close() //nolint:errcheck // read-only
+		answered <- response.StatusCode
+	}()
+	for !harness.isPolling(retired) {
+		runtime.Gosched()
+	}
+	if err := harness.service.RemoveNode(t.Context(), retired); err != nil {
+		t.Fatal(err)
+	}
+	if status := testutil.Receive(t, answered, "the waiting long-poll's answer"); status != http.StatusConflict {
+		t.Errorf("the long-poll of a node retired as it waited answered %d, want %d: say hello first", status,
+			http.StatusConflict)
+	}
+}
+
+// isPolling is whether a node holds a long-poll for its commands open.
+func (harness *fixture) isPolling(nodeID int64) bool {
+	harness.service.mutex.Lock()
+	defer harness.service.mutex.Unlock()
+	node, isKnown := harness.service.nodesHeardSinceStart[nodeID]
+	return isKnown && node.openPollCount > 0
 }
 
 // A node that says hello in another version of the node protocol is refused, shown as needing

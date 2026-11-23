@@ -311,6 +311,15 @@ func (service *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
 			service.forgetRun(attempt)
 			return nil
 		},
+		// A run whose job the queue ended without its node's word, its time run out or its
+		// assignment not written, waits in the queue again: left standing as on its node, an ask
+		// for its chunks never asked for it again (the queue audit, 2026-11-23). Told twice, it is
+		// the same.
+		Overdue: func(_ context.Context, attempt nodes.Attempt) {
+			if command := attempt.Work.MakeChunks; command != nil {
+				service.runs.requeued(command.StoreDir, command.FirstChunk)
+			}
+		},
 	}
 }
 

@@ -669,6 +669,35 @@ func TestEnsure_AnAskForARunWaitingOutItsRetryReachesTheQueue(t *testing.T) {
 	}
 }
 
+// A run whose job the queue ended without its node's word (its time ran out, or its assignment was
+// not written) stood as on its node: Exchanges.Overdue forgot the attempt and told the kind nothing,
+// so a player's ask only kept it wanted and never asked the queue for it again (the queue audit,
+// 2026-11-23). Told twice, it is the same.
+func TestEnsure_AnAskForARunWhoseJobRanOutOfTimeReachesTheQueue(t *testing.T) {
+	t.Parallel()
+	fixture := runsOnAFakeNode(t)
+	service := fixture.service
+	grid := mustGrid(t, service)
+	quality := Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 1200, Height: 480}}
+	dir := testStoreDir(t, service, quality, grid.ID())
+	wantedBy(service).say(Interest{StreamName: "q1200k480p", PositionMs: 30_000})
+	fixture.start(t, 7, testRun{"q1200k480p", grid.ID(), runArgs{FirstChunk: 3, LastChunk: 32}})
+	testutil.Receive(t, fixture.node.sent, "the run's command")
+	service.runs.knowGrid(dir, grid)
+	service.exchanges.Overdue(t.Context(), 7)
+	if stop := testutil.Receive(t, fixture.node.sent, "the stop"); stop.Type != nodeproto.CommandCancel {
+		t.Fatalf("the node was sent %+v, want told to stop the overdue run", stop)
+	}
+	service.exchanges.Overdue(t.Context(), 7)
+	if err := service.askedFor(t.Context(), 1, OnKeyframes, quality, 3); err != nil {
+		t.Fatal(err)
+	}
+	if service.runs.isCovered(dir, 3) && len(fixture.queue.runs(t, service)) == 0 {
+		t.Error("chunk 3 stands as on its way after its job ran out of time, and the player's ask never " +
+			"reached the queue")
+	}
+}
+
 // a run cut while its job holds no attempt (waiting out a retry, or parked with its node away)
 // leaves its job marked cancelled for good: Exchanges.Cancelled finds no attempt, so nothing calls
 // ended.

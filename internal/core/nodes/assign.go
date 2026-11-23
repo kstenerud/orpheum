@@ -53,6 +53,11 @@ type Assignee struct {
 	Progress func(ctx context.Context, attempt Attempt, progress nodeproto.Progress) error
 	// Cancelled, when set, is told of a job cancelled while its node held its work.
 	Cancelled func(ctx context.Context, attempt Attempt) error
+	// Overdue, when set, is told of an attempt the queue ended without its node's word: its job's
+	// time ran out, or its assignment could not be written. The job is failed or given again, so
+	// what the kind keeps of the attempt is to be let go. It may be told of one attempt more than
+	// once.
+	Overdue func(ctx context.Context, attempt Attempt)
 }
 
 // heldAttempt is an attempt a node holds, and when the core last heard of it.
@@ -280,19 +285,26 @@ func (all *Exchanges) forgetAttempt(ctx context.Context, token string) error {
 
 // Load takes back the attempts cache.db kept through a restart: each, heard of now, is resolved by
 // its node's word, or by its silence (D234 §7, S82), or, given to a start of its node that its next
-// hello does not name, as interrupted (Interrupt, D238 §3).
+// hello does not name, as interrupted (Interrupt, D238 §3). One whose work no longer reads as this
+// core's (a field whose type an upgrade changed) is forgotten, with a warning, and the core starts:
+// its job, assigned until assignedJobLimitHours after it was given, is failed as overdue by its
+// kind's runner at that time, as one whose node never answered is (the queue audit, 2026-11-23).
 func (all *Exchanges) Load(ctx context.Context) error {
 	rows, err := all.cache.Read().ListNodeAttempts(ctx)
 	if err != nil {
 		return fmt.Errorf("list the attempts given to nodes: %w", err)
 	}
 	now := all.clock.Now()
+	var unreadable []string
 	all.mutex.Lock()
-	defer all.mutex.Unlock()
 	for _, row := range rows {
 		var work nodeproto.Work
 		if err := strictjson.Unmarshal([]byte(row.WorkJSON), &work); err != nil {
-			return fmt.Errorf("read attempt %s's work: %w", row.AttemptToken, err)
+			all.logger.WarnContext(ctx, "forgot an attempt given to a node whose work this core cannot read; "+
+				"its job fails when its time runs out", "jobKind", row.JobKind, "jobId", row.JobID,
+				"nodeId", row.NodeID, "attemptToken", row.AttemptToken, "err", err)
+			unreadable = append(unreadable, row.AttemptToken)
+			continue
 		}
 		all.attempts[row.AttemptToken] = &heldAttempt{
 			Attempt: Attempt{
@@ -300,6 +312,13 @@ func (all *Exchanges) Load(ctx context.Context) error {
 				NodeStartID: row.NodeStartID, Work: work, SentAt: time.UnixMilli(row.SentAt),
 			},
 			lastHeard: now,
+		}
+	}
+	all.mutex.Unlock()
+	for _, token := range unreadable {
+		if err := all.forgetAttempt(ctx, token); err != nil {
+			all.logger.WarnContext(ctx, "could not forget an attempt whose work this core cannot read; the next "+
+				"start reads it again", "attemptToken", token, "err", err)
 		}
 	}
 	return nil
@@ -443,13 +462,16 @@ func (all *Exchanges) assigneeOf(kind jobs.Kind) (Assignee, bool) {
 
 // Watch settles, at each tick until ctx ends, every attempt the core has not heard of for the silence
 // limit: its node went away, which parks the job, or it is the job's own failure (D234 §6). A node
-// says where each attempt it holds is at every status tick, so only a silence ends one.
+// says where each attempt it holds is at every status tick, so only a silence ends one. It starts once
+// every kind's assignee is named (Handle), so at each tick it forgets the attempts whose kind none
+// resolves (forgetUnresolvable).
 func (all *Exchanges) Watch(ctx context.Context, tick <-chan time.Time) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-tick:
+			all.forgetUnresolvable(ctx)
 			now := all.clock.Now()
 			all.unanswered(ctx, func(held heldAttempt) bool { return now.Sub(held.lastHeard) >= all.maxSilence },
 				func(attempt Attempt) error {
@@ -457,6 +479,30 @@ func (all *Exchanges) Watch(ctx context.Context, tick <-chan time.Time) {
 						attempt.Kind, attempt.JobID, all.maxSilence, ErrNodeSilent)
 					return all.sender.Unanswered(ctx, attempt.NodeID, silent)
 				}, true)
+		}
+	}
+}
+
+// forgetUnresolvable forgets, with a warning, each attempt whose kind no assignee resolves, and tells
+// its node to stop: a kind this core no longer runs, its attempts kept in cache.db through an upgrade.
+// Kept, none would ever be resolved, and each would fill its node's window for good (heldOn; the queue
+// audit, 2026-11-23). Its job, if its kind still has a runner, fails when its time runs out.
+func (all *Exchanges) forgetUnresolvable(ctx context.Context) {
+	all.mutex.Lock()
+	var picked []Attempt
+	for _, held := range all.attempts {
+		if _, isHandled := all.assignees[held.Kind]; !isHandled {
+			picked = append(picked, held.Attempt)
+		}
+	}
+	all.mutex.Unlock()
+	for _, attempt := range picked {
+		all.logger.WarnContext(ctx, "forgot an attempt given to a node whose kind of job this core does not resolve",
+			"jobKind", attempt.Kind, "jobId", attempt.JobID, "nodeId", attempt.NodeID, "attemptToken", attempt.Token)
+		all.stop(ctx, attempt)
+		if err := all.forgetAttempt(ctx, attempt.Token); err != nil {
+			all.logger.WarnContext(ctx, "could not forget an attempt no kind resolves", "jobId", attempt.JobID,
+				"err", err)
 		}
 	}
 }
@@ -474,13 +520,18 @@ func (all *Exchanges) attemptsOfJob(jobID int64) []Attempt {
 	return held
 }
 
-// Overdue tells the node holding the work of a job whose time ran out (assignedJobLimitHours)
-// to stop it, and forgets the attempt: the queue has ended it, failed or to be tried again, and a
-// word from the node on it after is a word on work no job waits for (G4, D244 §6). The queue's
-// overdue hook (jobs.Queue.OnOverdue).
+// Overdue tells the node holding the work of a job whose time ran out (assignedJobLimitHours), or
+// whose assignment could not be written, to stop it, tells its kind (Assignee.Overdue), and forgets
+// the attempt: the queue has ended it, failed or to be tried again, and a word from the node on it
+// after is a word on work no job waits for (G4, D244 §6). Its kind told, what it keeps of the
+// attempt is let go, and asked for again (the queue audit, 2026-11-23). The queue's overdue hook
+// (jobs.Queue.OnOverdue).
 func (all *Exchanges) Overdue(ctx context.Context, jobID int64) {
 	for _, attempt := range all.attemptsOfJob(jobID) {
 		all.stop(ctx, attempt)
+		if assignee, isHandled := all.assigneeOf(attempt.Kind); isHandled && assignee.Overdue != nil {
+			assignee.Overdue(ctx, attempt)
+		}
 		if err := all.forgetAttempt(ctx, attempt.Token); err != nil {
 			all.logger.WarnContext(ctx, "could not forget an overdue job's work", "jobId", jobID, "err", err)
 		}

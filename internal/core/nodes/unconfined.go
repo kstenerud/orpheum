@@ -64,7 +64,7 @@ func (service *Service) takeLocked(writer http.ResponseWriter, request *http.Req
 	service.mutex.Lock()
 	_, wasLocked := service.lockedByNodeID[node.ID]
 	service.lockedByNodeID[node.ID] = lockedNode{report: report, lastHeard: service.clock.Now()}
-	delete(service.nodesHeardSinceStart, node.ID)
+	service.forgetNodeLocked(node.ID)
 	service.mutex.Unlock()
 	if !wasLocked {
 		service.logger.WarnContext(ctx, "a node started locked: its kernel lacks confinement its config requires, "+

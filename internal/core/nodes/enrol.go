@@ -56,6 +56,7 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		service.fail(ctx, writer, "keep the node's FFmpeg build", buildErr)
 		return
 	}
+	previousDevices := service.devicesOf(node.ID)
 	service.accept(ctx, node.ID, hello)
 	service.logger.InfoContext(ctx, "a node said hello",
 		slogx.EventKey, "nodeHello",
@@ -63,17 +64,7 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		"startId", hello.StartID, "build", hello.Build.String(), "ffmpegVersion", hello.FFmpegVersion,
 		"rootPaths", hello.RootPaths, "byteSocket", hello.ByteSocketPath,
 		"confinement", hello.Confinement, "capacity", hello.Capacity, "devices", hello.Devices)
-	// A hello is the node's probe: the work parked on it, and on any node, resumes (D231 §6).
-	service.destinations.Unpark(ctx, jobs.NodeDestination(node.ID))
-	service.destinations.Unpark(ctx, jobs.DestinationAnyNode)
-	// Its slots and devices may be more than its last hello said, or its limits since raised: the work
-	// waiting for room on it is looked at again (D240 §5).
-	for _, slot := range hello.Capacity.Slots() {
-		service.destinations.Unpark(ctx, jobs.SlotDestination(node.ID, string(slot)))
-	}
-	for _, device := range hello.Devices {
-		service.destinations.Unpark(ctx, jobs.ReaderDestination(node.ID, device.Key))
-	}
+	service.unparkOnHello(ctx, node.ID, hello, previousDevices)
 	if scanOnHello {
 		if scansErr := service.askForScans(ctx, node.ID, hello.RootPaths); scansErr != nil {
 			service.fail(ctx, writer, "ask for the roots' scans", scansErr)
@@ -96,6 +87,32 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		DeviceReaderLimits: limits, Tuning: service.tuning(ctx),
 		WatchFolders: service.watchFoldersNow(ctx, node.ID),
 	})
+}
+
+// unparkOnHello brings back the work a node's hello may let go on, previousDevices being the
+// devices its last hello since the core started named.
+func (service *Service) unparkOnHello(
+	ctx context.Context, nodeID int64, hello nodeproto.Hello, previousDevices []nodeproto.Device,
+) {
+	// A hello is the node's probe: the work parked on it, and on any node, resumes (D231 §6).
+	service.destinations.Unpark(ctx, jobs.NodeDestination(nodeID))
+	service.destinations.Unpark(ctx, jobs.DestinationAnyNode)
+	// Its slots and devices may be more than its last hello said, or its limits since raised: the work
+	// waiting for room on it is looked at again (D240 §5).
+	for _, slot := range hello.Capacity.Slots() {
+		service.destinations.Unpark(ctx, jobs.SlotDestination(nodeID, string(slot)))
+	}
+	for _, device := range hello.Devices {
+		service.destinations.Unpark(ctx, jobs.ReaderDestination(nodeID, device.Key))
+	}
+	// A device its last hello named and this one does not is gone: the work parked on its readers is
+	// looked at again, to go elsewhere, instead of waiting for a device that will not come back (the
+	// queue audit, 2026-11-23).
+	for _, device := range previousDevices {
+		if !slices.ContainsFunc(hello.Devices, func(named nodeproto.Device) bool { return named.Key == device.Key }) {
+			service.destinations.Unpark(ctx, jobs.ReaderDestination(nodeID, device.Key))
+		}
+	}
 }
 
 // accept connects a node whose hello was taken, no longer locked, and interrupts the work given to
@@ -237,7 +254,7 @@ func (service *Service) speaksThisProtocol(nodeID int64, protocol int) bool {
 		return true
 	}
 	service.protocolByNodeID[nodeID] = protocol
-	delete(service.nodesHeardSinceStart, nodeID)
+	service.forgetNodeLocked(nodeID)
 	return false
 }
 
@@ -263,7 +280,7 @@ func (service *Service) RemoveNode(ctx context.Context, nodeID int64) error {
 	}
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	delete(service.nodesHeardSinceStart, nodeID)
+	service.forgetNodeLocked(nodeID)
 	delete(service.lockedByNodeID, nodeID)
 	return nil
 }
