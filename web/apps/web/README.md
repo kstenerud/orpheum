@@ -1155,9 +1155,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   or where it shows its value in a unit of its own (`shownIn`) one with a fraction, as the
   subtitles' timing is kept in ms and shown and typed in seconds to a tenth; below zero it shows
   the minus sign, and above zero a + where asked (`isPlusShown`). Its caption is an `output` describing the group, said at each
-  change and shown under the control while the value is not 0. `src/stepper.test.tsx`,
-  `src/stepper.browser.test.tsx`, "reaches ⁝'s sound timing by a remote" and "reaches ⁝'s
-  subtitle timing's Later by a remote's Right" in `src/player-menus.browser.test.tsx`, and the gallery's "shows a stepper among the buttons" in
+  change and shown under the control while the value is not 0. It is drawn as the design
+  system's mock-up (components/Stepper; the owner, 2026-11-23): − and + the same square, the
+  field and its unit between dividers abutting both, the field as wide as its widest value, and
+  the frame as wide as its parts, never stretched by its caption, which runs under the whole row.
+  The gallery's Form parts draw one number both as a stepper and as the browser's number field,
+  for the owner's walk (VQ382). `src/stepper.test.tsx`,
+  `src/stepper.browser.test.tsx` (its look in "draws − and + the same square"), "reaches ⁝'s sound timing by a remote" and "reaches ⁝'s
+  subtitle timing's Later by a remote's Right" in `src/player-menus.browser.test.tsx`, and the gallery's "shows a stepper among the buttons" and "shows one number as a stepper and as the browser's number field" in
   `src/ui-gallery.test.tsx`.
 - **A form is made of the parts, never of what they replace** (D538, interface rules 1 and 14): no
   native `<select>`, no `type="number"`, no `placeholder=` but a search box's, no `<p role="alert">`

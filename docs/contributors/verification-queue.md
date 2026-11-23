@@ -3873,3 +3873,34 @@ An item is ticked only by the person who did it, and only with what they saw.
       Down to Time zone and OK. Report whether General opens with focus on Time zone's field.
   12. Open the menu that says who is signed in, choose Report a problem, and send one saying
       "VQ381". Report that you sent it.
+- [ ] **VQ382** — The number control (revamp question 21): the Stepper redrawn as the design
+  system's mock-up draws it, − and + the same square and the field between them with no gap the
+  mock-up lacks, and beside it the browser's own number field, which Settings draws for a setting
+  whose bounds are wide, so you can choose between them. Only real devices say how a finger, a
+  phone's keyboard and a TV remote's own keys work each, which no test's browser does. One risk to
+  walk on a TV: in a focused number field, Up and Down may change the number instead of moving the
+  focus. On staging, with "fix(web): the Stepper is drawn as the design system's mock-up, beside the
+  browser's number field in the gallery", open the UI gallery (`/ui-gallery`) and go to Form parts,
+  "One number, drawn two ways":
+  1. On your phone, upright, report whether "The stepper" and "The browser's number field" each
+     show their name above them, whether − and + are the same size, and whether − and + touch the
+     number's box with no gap and no empty space after +.
+  2. On the phone, tap + three times and − once on the stepper. Report whether the number becomes
+     22. Then tap the stepper's number, type 50 on the keyboard and tap Done. Report whether the
+     phone gave you a number pad and whether it shows 50.
+  3. On the phone, tap the browser's number field, type 50 and tap Done. Report whether the phone
+     gave you a number pad, whether it shows 50, and whether the field shows arrows of its own (and
+     if it does, whether tapping them changes the number).
+  4. On a laptop, in Chrome, click + and − on the stepper, then click into the browser's number
+     field and press Up and Down on the keyboard. Report what each does, and whether the field
+     shows arrows of its own at its end.
+  5. On the Fire TV in Silk, move the focus with the remote's Down to the stepper. Report whether −,
+     the number and + each carry the white ring as you press Left and Right, whether OK on + raises
+     the number, and whether Down then leaves the stepper.
+  6. On the Fire TV, move the focus to the browser's number field. Press Up, then Down. Report
+     whether the focus moved to the line above and below, or whether the number changed instead.
+     Then press OK, and report whether a keyboard opens to type a number in.
+  7. On the TCL TV, do steps 5 and 6 again with its remote, and report the same.
+  8. Report which of the two you would rather have for a whole number on each device.
+  9. Open the menu that says who is signed in, choose Report a problem, and send one saying
+     "VQ382". Report that you sent it.

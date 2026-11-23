@@ -44,6 +44,56 @@ function Column(): JSX.Element {
   );
 }
 
+/**
+ * A setting's stepper as Settings draws one: a long label, no unit, a caption wider than the control,
+ * and a narrow range, its field the narrowest.
+ */
+function LongWorded(): JSX.Element {
+  const [value, setValue] = useState(6);
+  return (
+    <main>
+      <Stepper
+        label="Most hours between a library's checks, when it is checked on a schedule"
+        fieldLabel="Most hours, from 1 to 168"
+        valueText={`Most hours between a library's checks: ${String(value)}`}
+        value={value}
+        min={1}
+        max={168}
+        step={1}
+        unit=""
+        stepDownLabel="One hour less"
+        stepUpLabel="One hour more"
+        onChange={setValue}
+      />
+    </main>
+  );
+}
+
+/** The box of the element selector names, which must be on the page. */
+function boxOf(selector: string): DOMRect {
+  const found = document.querySelector(selector);
+  if (found === null) {
+    throw new Error(`no ${selector}`);
+  }
+  return found.getBoundingClientRect();
+}
+
+/** How wide text is drawn in font, a field's text being no element of its own to measure. */
+function widthOfText(text: string, font: string): number {
+  const context = document.createElement("canvas").getContext("2d");
+  if (context === null) {
+    throw new Error("no canvas to measure with");
+  }
+  context.font = font;
+  return context.measureText(text).width;
+}
+
+/** How wide the field's widest value, its bound's, is drawn, a figure to each of its characters. */
+function widestFigures(): number {
+  const looks = getComputedStyle(field());
+  return Math.max(widthOfText("−200", looks.font), widthOfText("168", looks.font));
+}
+
 let input: Input | undefined;
 let mounted: Mounted | undefined;
 
@@ -211,6 +261,54 @@ describe("a stepper, by a keyboard, a mouse and a finger", () => {
       expect(control?.right ?? Infinity).toBeLessThanOrEqual(width);
       expect(words.top).toBeGreaterThanOrEqual(control?.bottom ?? Infinity);
       expect(Math.abs(words.right - (control?.right ?? 0))).toBeLessThan(1);
+    }
+  });
+});
+
+describe("a stepper's look, as the design system's mock-up draws it", () => {
+  // The owner, 2026-11-23: "The - and + buttons are different sizes and have weird gaps between
+  // them that were not present in the mock-ups"; and the empty space after + (revamp question 21).
+  it("draws − and + the same square, abutting the middle, the frame no wider than its parts", async () => {
+    mounted?.unmount();
+    for (const shown of [<Column key="ms" />, <LongWorded key="hours" />]) {
+      mounted = await mount(shown);
+      for (const width of partWidths) {
+        await page.viewport(width, 800);
+        const at = `${String(width)} px`;
+        const [less, more] = [...document.querySelectorAll(".stepper__control > button")].map(
+          (button) => button.getBoundingClientRect(),
+        );
+        if (less === undefined || more === undefined) {
+          throw new Error("no − and +");
+        }
+        const control = boxOf(".stepper__control");
+        const middle = boxOf(".stepper__middle");
+        const typed = field().getBoundingClientRect();
+        expect(Math.abs(less.width - more.width), at).toBeLessThan(0.5);
+        expect(Math.abs(less.height - more.height), at).toBeLessThan(0.5);
+        expect(less.width, at).toBeGreaterThanOrEqual(44);
+        expect(Math.abs(less.width - less.height), at).toBeLessThan(0.5);
+        // Inside the frame's 1 px edge, − then the middle then +, with nothing between them.
+        expect(Math.abs(less.left - (control.left + 1)), at).toBeLessThan(0.5);
+        expect(Math.abs(less.right - middle.left), at).toBeLessThan(0.5);
+        expect(Math.abs(middle.right - more.left), at).toBeLessThan(0.5);
+        expect(Math.abs(more.right - (control.right - 1)), at).toBeLessThan(0.5);
+        expect(Math.abs(less.top - (control.top + 1)), at).toBeLessThan(0.5);
+        expect(Math.abs(less.bottom - (control.bottom - 1)), at).toBeLessThan(0.5);
+        // The field no wider than a sign or its widest value: no blank between − and the figures.
+        expect(typed.width, at).toBeLessThanOrEqual(Math.max(44, widestFigures()) + 0.5);
+        // Its own edge and padding none (base.css's field's would win a weaker rule), its figures
+        // whole within it.
+        const looks = getComputedStyle(field());
+        expect([looks.borderInlineStartWidth, looks.paddingInlineStart], at).toEqual([
+          "0px",
+          "0px",
+        ]);
+        expect(widthOfText(field().value, looks.font), at).toBeLessThanOrEqual(field().clientWidth);
+        expect(control.right, at).toBeLessThanOrEqual(width);
+      }
+      mounted.unmount();
+      mounted = undefined;
     }
   });
 });

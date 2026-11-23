@@ -1,25 +1,31 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/* A stepper (stepper.tsx, D538 §9): its label leading its row; then one joined control,
-   − then the field and its unit then +, framed by the control's edge; its caption under it, at its
-   end, while the value is not 0. */
+/* A stepper (stepper.tsx, D538 §9), drawn as the design system's mock-up (components/Stepper; the
+   owner, 2026-11-23): its label leading its row; then one joined control, − then the field and its
+   unit then +, framed by the control's edge, each sign a fingertip square, the three abutting with a
+   divider between, the frame as wide as they are; its caption under it, at its end, while the value
+   is not 0. */
 
-/* The label on the control's middle line, not its caption's, which has a line of its own. */
+/* The label on the control's middle line, not its caption's, which has a line of its own. The label
+   wraps before the control narrows: the control is always as wide as its parts. */
 .stepper {
   display: grid;
   justify-content: start;
-  grid-template-columns: auto auto;
+  grid-template-columns: minmax(0, max-content) max-content;
   align-items: center;
   gap: var(--space-1) var(--space-2);
 }
 
-/* Not clipped, so a part's focus ring shows whole; the part focused sits above its neighbours. */
+/* Not clipped, so a part's focus ring shows whole; the part focused sits above its neighbours. Never
+   stretched to the caption's width, which left a blank after + (revamp question 21). */
 .stepper__control {
   display: inline-flex;
   grid-column: 2;
+  justify-self: end;
   align-items: stretch;
+  box-sizing: border-box;
   min-height: var(--size-control);
-  min-inline-size: 0;
+  min-inline-size: max-content;
   margin: 0;
   padding: 0;
   border: 1px solid var(--color-control-edge);
@@ -27,26 +33,53 @@
   background: var(--color-surface);
 }
 
-.stepper__control > :focus-visible {
+/* − and +: one square each, the frame's height inside its edge, square where they meet the middle
+   and rounded only at the frame's own corners. */
+.stepper__control > .icon-button {
+  position: relative;
+  inline-size: var(--size-control);
+  min-inline-size: var(--size-control);
+  block-size: var(--size-control);
+  min-block-size: var(--size-control);
+  border-radius: 0;
+}
+
+.stepper__control > .icon-button:first-child {
+  border-start-start-radius: calc(var(--radius-control) - 1px);
+  border-end-start-radius: calc(var(--radius-control) - 1px);
+}
+
+.stepper__control > .icon-button:last-child {
+  border-start-end-radius: calc(var(--radius-control) - 1px);
+  border-end-end-radius: calc(var(--radius-control) - 1px);
+}
+
+.stepper__control > :focus-visible,
+.stepper__field:focus-visible {
   position: relative;
   z-index: var(--layer-raised);
 }
 
+/* The field and its unit, between the dividers that join it to − and +. */
 .stepper__middle {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: var(--space-1);
-  padding: 0 var(--space-2);
+  padding-inline: var(--space-2);
   border-inline: 1px solid var(--color-border);
 }
 
-/* The field is the frame's middle, its edge the frame's own; its digits line up at its end. */
-.stepper__field {
-  min-width: var(--size-control);
+/* The field is the frame's middle, its edge the frame's own, as wide as its widest value (its inline
+   size, stepper.tsx) and no narrower than a sign; its digits line up at its end. Two classes, so a
+   field's own edge and padding (base.css's input rule, whose :not() outweighs one class) are gone. */
+.stepper .stepper__field {
+  min-inline-size: var(--size-control);
   min-height: 0;
   padding: 0;
   border: 0;
   background: none;
+  font-size: var(--font-size-body);
   text-align: end;
   font-variant-numeric: tabular-nums;
 }
@@ -56,8 +89,11 @@
   color: var(--color-muted);
 }
 
+/* Under the whole row, its words ending at the control's end: a caption wider than the control runs
+   under the label, never widening the control's column (its own width counts for nothing). */
 .stepper__caption {
-  grid-column: 2;
+  grid-column: 1 / -1;
+  contain: inline-size;
   font-size: var(--font-size-small);
   font-variant-numeric: tabular-nums;
   text-align: end;

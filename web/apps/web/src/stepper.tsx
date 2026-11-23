@@ -139,7 +139,7 @@ export function Stepper(props: StepperProps): JSX.Element {
         <span className="stepper__middle">
           <NumberField
             label={props.fieldLabel}
-            unitId={unitId}
+            unitId={props.unit === "" ? undefined : unitId}
             value={value}
             min={min}
             max={max}
@@ -147,9 +147,11 @@ export function Stepper(props: StepperProps): JSX.Element {
             isPlusShown={props.isPlusShown === true}
             onApply={moveTo}
           />
-          <span id={unitId} className="stepper__unit">
-            {props.unit}
-          </span>
+          {props.unit === "" ? null : (
+            <span id={unitId} className="stepper__unit">
+              {props.unit}
+            </span>
+          )}
         </span>
         <Sign
           label={props.stepUpLabel}
@@ -204,7 +206,8 @@ function Sign(props: {
  */
 function NumberField(props: {
   readonly label: string;
-  readonly unitId: string;
+  /** The unit's element, which describes the field; undefined where the stepper shows none. */
+  readonly unitId: string | undefined;
   readonly value: number;
   readonly min: number;
   readonly max: number;
@@ -213,6 +216,7 @@ function NumberField(props: {
   readonly onApply: (typed: number) => void;
 }): JSX.Element {
   const { min, max, shownIn, isPlusShown } = props;
+  const widest = widestShown({ min, max }, shownIn, isPlusShown);
   // What is being typed, until it is applied; undefined shows the value.
   const [typing, setTyping] = useState<string | undefined>(undefined);
   const applyTyping = (): void => {
@@ -231,10 +235,11 @@ function NumberField(props: {
       className="stepper__field"
       inputMode={inputModeOf(min, shownIn)}
       enterKeyHint="done"
-      size={Math.max(
-        numberShown(min, shownIn, isPlusShown).length,
-        numberShown(max, shownIn, isPlusShown).length,
-      )}
+      size={widest}
+      // As wide as its longest value's figures, so no blank stands between them and − (the
+      // owner, 2026-11-23: "weird gaps"): a figure is 1ch, as they are tabular, where size's
+      // characters are wider.
+      style={{ inlineSize: `${String(widest)}ch` }}
       aria-label={props.label}
       aria-describedby={props.unitId}
       value={typing ?? numberShown(props.value, shownIn, isPlusShown)}
@@ -248,6 +253,18 @@ function NumberField(props: {
         }
       }}
     />
+  );
+}
+
+/** How many characters the longest value between min and max is shown in. */
+function widestShown(
+  range: { readonly min: number; readonly max: number },
+  shownIn: ShownIn,
+  isPlusShown: boolean,
+): number {
+  return Math.max(
+    numberShown(range.min, shownIn, isPlusShown).length,
+    numberShown(range.max, shownIn, isPlusShown).length,
   );
 }
 

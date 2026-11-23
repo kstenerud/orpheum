@@ -252,8 +252,11 @@ function SettingTextField(props: {
   );
 }
 
-/** A setting's control, by its kind: a Switch, a Stepper, or a Field. */
-function SettingControl(props: {
+/**
+ * A setting's control, by its kind: a Switch, a Stepper, or a Field. The UI gallery draws a wide
+ * whole number's Field with it, as Settings does (ui-gallery-forms.tsx).
+ */
+export function SettingControl(props: {
   readonly setting: Setting;
   readonly label: string;
   readonly onSave: (key: string, value: SettingValue) => void;

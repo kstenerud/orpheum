@@ -10,6 +10,8 @@ import { missingText, TextField, useFormFields } from "./field.tsx";
 import { HelpButton } from "./help-button.tsx";
 import { PasswordField } from "./password-field.tsx";
 import { submitWith } from "./form-row.tsx";
+import { SettingControl, type Setting } from "./server-settings.tsx";
+import { Stepper } from "./stepper.tsx";
 import { SubmitButton } from "./submit-button.tsx";
 import { Switch } from "./switch.tsx";
 
@@ -25,6 +27,7 @@ export function FormParts(): JSX.Element {
       <GallerySwitches />
       <GalleryChoices />
       <GalleryFields />
+      <GalleryNumbers />
       <GallerySubmit />
     </section>
   );
@@ -109,6 +112,75 @@ function GalleryFields(): JSX.Element {
         onChange={setPassword}
       />
     </div>
+  );
+}
+
+/** The bounds of the number drawn both ways: wider than Settings draws a Stepper for. */
+const galleryNumberBounds = { min: 1, max: 1000 } as const;
+
+/** Where the number drawn both ways starts. */
+const galleryNumberStart = 20;
+
+/**
+ * One whole number drawn both ways, side by side and each labelled, for the owner to walk on each
+ * device before one is chosen (the plan's "The number control", revamp question 21; VQ382): the
+ * Stepper, and the browser's own number field, which Settings draws for a setting whose bounds are
+ * wide (server-settings.tsx's SettingControl, drawn here as there).
+ */
+function GalleryNumbers(): JSX.Element {
+  const { t } = useTranslation();
+  const [stepped, setStepped] = useState<number>(galleryNumberStart);
+  const [typed, setTyped] = useState<number>(galleryNumberStart);
+  const { min, max } = galleryNumberBounds;
+  const label = t("gallery.numberLabel");
+  const setting: Setting = {
+    key: "galleryMostTitles",
+    kind: "integer",
+    section: "general",
+    description: label,
+    isImportant: true,
+    isModified: typed !== galleryNumberStart,
+    minimum: min,
+    maximum: max,
+    setAt: 0,
+    startingValue: galleryNumberStart,
+    value: typed,
+  };
+  return (
+    <section aria-labelledby="gallery-numbers">
+      <h3 id="gallery-numbers">{t("gallery.numbers")}</h3>
+      <p>{t("gallery.numbersNote")}</p>
+      <div className="ui-gallery__numbers">
+        <div className="ui-gallery__forms">
+          <h4 id="gallery-number-stepper">{t("gallery.numberStepper")}</h4>
+          <Stepper
+            label={label}
+            fieldLabel={t("gallery.numberStepperField")}
+            valueText={t("gallery.numberStepperWords", { value: stepped })}
+            value={stepped}
+            min={min}
+            max={max}
+            step={1}
+            unit=""
+            stepDownLabel={t("gallery.numberLess")}
+            stepUpLabel={t("gallery.numberMore")}
+            onChange={setStepped}
+          />
+        </div>
+        <div className="ui-gallery__forms">
+          <h4 id="gallery-number-field">{t("gallery.numberField")}</h4>
+          <SettingControl
+            setting={setting}
+            label={label}
+            onSave={(_key, value) => {
+              if (typeof value === "number" && Number.isInteger(value)) {
+                setTyped(Math.min(Math.max(value, min), max));
+              }
+            }}
+          />
+        </div>
+      </div>
+    </section>
   );
 }
 
