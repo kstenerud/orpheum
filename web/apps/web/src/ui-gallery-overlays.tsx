@@ -201,10 +201,47 @@ function GalleryBanners(): JSX.Element {
       putAway: { kind: "remind tomorrow", onRemind: () => undefined },
     },
   ];
+  // Each of the shell's banners as it shows (D538 §1), one at a time so each is seen.
+  const each: BannerNotice[] = [
+    {
+      key: "lost",
+      tone: "warning",
+      text: t("loader.pathRefused.text"),
+      actions: (
+        <>
+          <button type="button">{t("loader.pathRefused.reload")}</button>
+          <button type="button">{t("loader.pathRefused.signIn")}</button>
+        </>
+      ),
+      putAway: { kind: "none" },
+    },
+    {
+      key: "security",
+      tone: "warning",
+      text: t("update.banner", { version: "v0.9.1", summary: t("gallery.bannerFix") }),
+      actions: <a href="#gallery-overlays">{t("update.updateNow")}</a>,
+      putAway: { kind: "remind tomorrow", onRemind: () => undefined },
+    },
+    {
+      key: "testers",
+      tone: "warning",
+      text: t("discovery.workerBypassed"),
+      putAway: { kind: "none" },
+    },
+    {
+      key: "plain http",
+      tone: "information",
+      text: t("discovery.plainHttp.note"),
+      putAway: { kind: "dismiss", onDismiss: () => undefined },
+    },
+  ];
   return (
     <>
       <h3>{t("gallery.banners")}</h3>
       <Banners notices={notices.filter((notice) => !isDismissed || notice.key !== "information")} />
+      {each.map((notice) => (
+        <Banners key={notice.key} notices={[notice]} />
+      ))}
     </>
   );
 }

@@ -221,3 +221,32 @@ it("shows the file browser loading, empty, with a count not finished, unreadable
   expect(states).toContain("Orpheum can&#x27;t read media");
   expect(states).toContain("attic isn&#x27;t answering");
 });
+
+it("draws the player's new Pills and every shell Banner in each state (D538 §1)", () => {
+  const markup = renderToStaticMarkup(withServices(<UiGallery />));
+  const overFilm = markup.slice(markup.indexOf('id="gallery-layout-parts"'));
+  // Stop casting here, and disabled while its end is asked for.
+  expect(overFilm).toMatch(
+    /<button type="button" class="pill pill--action" data-dangerous-action="">(?:<[^>]+>)*Stop casting here/u,
+  );
+  expect(overFilm).toMatch(
+    /<button type="button" class="pill pill--action" data-dangerous-action="" disabled="">(?:<[^>]+>)*Stop casting here/u,
+  );
+  // The sound-on prompt: as an action, for the voices, and a receiver's notice.
+  expect(overFilm.match(/class="sound-on-pill"/gu)).toHaveLength(3);
+  expect(overFilm).toContain("Tap to hear everyone&#x27;s voices");
+  // The corner's stack of three.
+  expect(overFilm).toMatch(
+    /class="corner-notes"(?:(?!<\/div>).)*Sam joined(?:(?!<\/div>).)*Alex left(?:(?!<\/div>).)*Controlled from/u,
+  );
+  const overlays = markup.slice(markup.indexOf('id="gallery-overlays"'));
+  for (const words of [
+    "This page lost its connection to your server",
+    "A security update is available (v0.9.1)",
+    "For testers: media won",
+    "This page is open over plain http",
+  ]) {
+    expect(overlays).toContain(words);
+  }
+  expect(overlays).toContain("Remind me tomorrow");
+});

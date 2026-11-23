@@ -117,7 +117,16 @@
   padding: var(--space-4);
 }
 
+/* The sound-on prompts and the corner's notes, drawn in the gallery's flow rather than at a film's
+   top and bottom-left, so each state shows (D538 §1). */
+.ui-gallery__prompts .sound-on-pill,
+.ui-gallery__corner .corner-notes {
+  position: static;
+}
+
 .ui-gallery__pills,
+.ui-gallery__prompts,
+.ui-gallery__corner,
 .ui-gallery__offers {
   display: flex;
   flex-direction: column;

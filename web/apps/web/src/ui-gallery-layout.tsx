@@ -3,6 +3,7 @@
 import "./ui-gallery.css";
 import "./gallery-words.ts";
 import "./play-words.ts";
+import "./cast-words.ts";
 
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
@@ -10,7 +11,9 @@ import { useTranslation } from "react-i18next";
 import { ActionRow } from "./action-row.tsx";
 import { OfferCard } from "./offer-card.tsx";
 import { Page } from "./page.tsx";
+import { CornerNotes } from "./corner-notes.tsx";
 import { ActionPill, Pill } from "./pill.tsx";
+import { SoundOnPill } from "./sound-on-pill.tsx";
 import { Section } from "./section.tsx";
 
 /** Writes down a press, by the key of the words of what was pressed. */
@@ -96,6 +99,29 @@ function GalleryOverFilm(props: { readonly press: Press }): JSX.Element {
         <ActionPill onPress={press("gallery.layoutParts.soundOn")}>
           {t("gallery.layoutParts.soundOn")}
         </ActionPill>
+        <ActionPill isDangerous onPress={press("cast.stopHere")}>
+          {t("cast.stopHere")}
+        </ActionPill>
+        <ActionPill isDangerous isDisabled onPress={press("cast.stopHere")}>
+          {t("cast.stopHere")}
+        </ActionPill>
+        <Pill>{t("playerControls.gettingReady")}</Pill>
+        <Pill>{t("play.reopening")}</Pill>
+      </div>
+      <div className="ui-gallery__prompts">
+        <SoundOnPill onPress={press("gallery.layoutParts.soundOn")} />
+        <SoundOnPill isForVoices onPress={press("together.voice.tapToHear")} />
+        <SoundOnPill />
+      </div>
+      <div className="ui-gallery__corner">
+        <CornerNotes
+          notes={[
+            { id: 0, text: t("gallery.layoutParts.joined") },
+            { id: 1, text: t("gallery.layoutParts.left") },
+            { id: 2, text: t("cast.controlledFrom", { name: t("gallery.layoutParts.device") }) },
+          ]}
+          onGone={() => undefined}
+        />
       </div>
       <div className="ui-gallery__offers">
         <OfferCard

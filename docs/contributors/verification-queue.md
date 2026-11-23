@@ -3791,7 +3791,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   phone's previous, −10, play, +10 and next in the picture's middle, a tap of previous or next
   waiting a moment so two quick taps seek instead; the scrub bar ringed and never faded; Cast's and
   Watch Together's signs at the end of the buttons row; the subtitles lifted by the rows as drawn;
-  and a long stretch skipped told in a Pill, not a dialog. Only real devices say whether a finger's
+  a long stretch skipped told in a Pill, not a dialog; and the notes and prompts over the film as
+  Pills (D538 §1). Only real devices say whether a finger's
   taps, a TV remote's own navigation and a real subtitle track behave, which no test's browser
   does. On staging, with "feat(web): a touch phone's overlay stands previous, the steps, play and
   next in the picture's middle" and "feat(web): a long stretch skipped is a Pill over the film,
@@ -3820,5 +3821,13 @@ An item is ticked only by the person who did it, and only with what they saw.
      skip this step), play it in full screen and let it play into that stretch. Report whether a
      line saying the player skipped over it shows in the picture's middle for about five seconds,
      with nothing to press, and then goes.
-  10. Open the menu that says who is signed in, choose Report a problem, and send one saying
+  10. On the phone, join a Watch Together session as a guest whose film starts muted. Report
+      whether one pill at the top of the picture asks you to tap to turn the sound on (or to hear
+      everyone's voices), and whether tapping it brings the sound.
+  11. On the phone, with the session playing, have two people join and leave. Report whether each
+      shows as its own pill at the bottom left, newest lowest, at most three, each gone after about
+      five seconds, and whether the pills rise above the bottom rows while the controls show.
+  12. Cast a film to the Fire TV. Report whether "Controlled from" shows as a pill at the bottom
+      left for about five seconds, and whether Stop casting here, pressed with OK, ends the cast.
+  13. Open the menu that says who is signed in, choose Report a problem, and send one saying
       "VQ380". Report that you sent it.

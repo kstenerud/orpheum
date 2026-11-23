@@ -31003,8 +31003,15 @@ the scrub bar has every control's ring and no fade, Cast's and Watch Together's 
 buttons row, and the subtitles rise by the rows as drawn; of §1's parts the player's overlay has
 Pill (the notes over the film, "Part skipped" among them) and a touch phone's centre cluster
 (`web/apps/web/src/player-widgets.browser.test.tsx`,
-`web/apps/web/src/player-overlay-layout.browser.test.tsx`; on devices, VQ380); its offers are not
-yet OfferCards nor its banners one part. §11 is built: Network at `/network`, the old address
+`web/apps/web/src/player-overlay-layout.browser.test.tsx`; on devices, VQ380); Skip, Up next (the
+remote's too) and Still watching are OfferCards (`web/apps/web/src/up-next.test.tsx`,
+`web/apps/web/src/cast-remote.test.tsx`); the joined, left and "Controlled from" notes stack as
+Pills at the film's bottom-left, three at most, each gone by its own timer, and the sound-on, Stop
+casting here, "Getting ready to play" and reopening notes are Pills
+(`web/apps/web/src/over-the-film-pills.test.tsx`); and every notice above a page is a Banner, two
+at most in the player spec's order, Lost the connection alone showing over a film that fills the
+window (`web/apps/web/src/shell-banners.test.tsx`,
+`web/apps/web/src/overlay-parts.browser.test.tsx`). "Orpheum was updated" has no notice yet. §11 is built: Network at `/network`, the old address
 leading there. §12 is built: the Needs attention page lists by page what the server sends, each
 Manage place in the menu marked while its page has anything, and the API's side:
 GET /needs-attention lists, beside
