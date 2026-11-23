@@ -1167,10 +1167,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   system's mock-up (components/Stepper; the owner, 2026-11-23): − and + the same square, the
   field and its unit between dividers abutting both, the field as wide as its widest value, and
   the frame as wide as its parts, never stretched by its caption, which runs under the whole row.
-  The gallery's Form parts draw one number both as a stepper and as the browser's number field,
-  for the owner's walk (VQ382). `src/stepper.test.tsx`,
+  Every whole number is one, Settings' too however far apart its bounds, never the browser's number
+  field (the owner, 2026-11-23: "The OS stepper component is inconsistent, so we can't use it";
+  VQ382): the gallery's Form parts draw a wide one as Settings does. `src/stepper.test.tsx`,
+  "steps a whole number, narrow or wide" in `src/settings.test.tsx`,
   `src/stepper.browser.test.tsx` (its look in "draws − and + the same square"), "reaches ⁝'s sound timing by a remote" and "reaches ⁝'s
-  subtitle timing's Later by a remote's Right" in `src/player-menus.browser.test.tsx`, and the gallery's "shows a stepper among the buttons" and "shows one number as a stepper and as the browser's number field" in
+  subtitle timing's Later by a remote's Right" in `src/player-menus.browser.test.tsx`, and the gallery's "shows a stepper among the buttons" and "shows a number with wide bounds as a stepper alone" in
   `src/ui-gallery.test.tsx`.
 - **A form is made of the parts, never of what they replace** (D538, interface rules 1 and 14): no
   native `<select>`, no `type="number"`, no `placeholder=` but a search box's, no `<p role="alert">`

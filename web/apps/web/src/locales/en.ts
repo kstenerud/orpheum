@@ -570,7 +570,6 @@ const enOwn = {
     resetQuestion: "Put {{label}} back to its default?",
     resetConsequence:
       "It goes from {{value}} to {{start}}, its default. Setting it again puts it back.",
-    range: "From {{min}} to {{max}}",
     stepperField: "{{label}}, from {{min}} to {{max}}",
     stepperValue: "{{label}}: {{value}}",
     stepperLess: "{{label}}: one less",

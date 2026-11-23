@@ -13,7 +13,8 @@ import { sourcesHere } from "./test-sources.ts";
  */
 const banned = {
   nativeSelect: /<select\b/gu,
-  numberField: /type="number"/gu,
+  // As text, or chosen in an expression, as a setting's control once chose it.
+  numberField: /type=(?:"number"|\{[^}]*["']number["'])/gu,
   placeholder: /\bplaceholder=/gu,
   alertParagraph: /<p\s+role="alert"/gu,
   disabledSubmit: /<button[^>]*type="submit"[^>]*disabled=\{/gu,
@@ -85,6 +86,12 @@ describe("a form is made of the parts, never of what they replace (D538, interfa
           '<button type="submit" disabled={name === ""}>Add</button></select>',
       ],
     ] as const;
+    // A number field chosen in an expression is one too.
+    expect(
+      sitesOf([["b.tsx", '<input type={isNumber ? "number" : "text"} />']], banned.numberField),
+    ).toEqual({
+      "b.tsx": 1,
+    });
     for (const kind of Object.keys(banned) as Banned[]) {
       expect(sitesOf(made, banned[kind]), kind).toEqual({ "a.tsx": 1 });
     }

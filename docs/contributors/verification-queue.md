@@ -3875,7 +3875,7 @@ An item is ticked only by the person who did it, and only with what they saw.
       Down to Time zone and OK. Report whether General opens with focus on Time zone's field.
   12. Open the menu that says who is signed in, choose Report a problem, and send one saying
       "VQ381". Report that you sent it.
-- [ ] **VQ382** — The number control (revamp question 21): the Stepper redrawn as the design
+- [x] **VQ382** — The number control (revamp question 21): the Stepper redrawn as the design
   system's mock-up draws it, − and + the same square and the field between them with no gap the
   mock-up lacks, and beside it the browser's own number field, which Settings draws for a setting
   whose bounds are wide, so you can choose between them. Only real devices say how a finger, a
@@ -3905,4 +3905,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   7. On the TCL TV, do steps 5 and 6 again with its remote, and report the same.
   8. Report which of the two you would rather have for a whole number on each device.
   9. Open the menu that says who is signed in, choose Report a problem, and send one saying
-     "VQ382". Report that you sent it.
+     "VQ382". Report that you sent it. — done 2026-11-23 by the owner, answering
+  without the walk: *"The OS stepper component is inconsistent, so we can't use it. On phones and on
+  the fire TV it renders as a text box that accepts only numeric input. We'll use the one designed
+  by the agent instead."* Every whole number is now a stepper, Settings' wide ones too, and the
+  gallery shows the stepper alone.

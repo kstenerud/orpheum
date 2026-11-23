@@ -25,6 +25,7 @@ import {
   buttonWithText,
   click,
   enter,
+  fire,
   isSwitchOn,
   mount,
   servedBy,
@@ -183,7 +184,7 @@ describe("a setting's control (D538 §1, the owner, 2026-11-22)", () => {
     expect(saved).toEqual([["shouldCheckForUpdates", true]]);
   });
 
-  it("steps a narrow whole number, saving each step, and types a wide one, its range its hint", async () => {
+  it("steps a whole number, narrow or wide, saving each step and a number typed, never in the browser's number field (the owner, 2026-11-23)", async () => {
     const saved: [string, unknown][] = [];
     mounted = await mount(
       withServices(
@@ -222,17 +223,27 @@ describe("a setting's control (D538 §1, the owner, 2026-11-22)", () => {
     expect(backup.querySelector(".stepper")).not.toBeNull();
     await click(buttonNamed(backup, "Back up every (hours): one more"));
     expect(saved).toEqual([["backupEveryHours", 25]]);
+    // Bounds 36500 apart are a Stepper too, its number typed in its field.
     const refresh = rowOf(container, "tmdbRefreshAfterDays");
-    expect(refresh.querySelector(".stepper")).toBeNull();
-    const field = refresh.querySelector("input");
-    expect(field?.type).toBe("number");
-    expect(refresh.textContent).toContain("From 0 to 36500");
+    expect(refresh.querySelector(".stepper")).not.toBeNull();
+    expect(container.querySelector('input[type="number"]')).toBeNull();
+    const field = refresh.querySelector<HTMLInputElement>("input.stepper__field");
+    expect(field?.type).toBe("text");
+    expect(field?.getAttribute("aria-label")).toBe(
+      "Refresh details from TMDB after (days), from 0 to 36500",
+    );
     await enter(field, "30");
     expect(saved).toHaveLength(1);
-    await submit(refresh.querySelector("form"));
+    await fire(field, new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(saved).toEqual([
       ["backupEveryHours", 25],
       ["tmdbRefreshAfterDays", 30],
+    ]);
+    await click(buttonNamed(refresh, "Refresh details from TMDB after (days): one less"));
+    expect(saved).toEqual([
+      ["backupEveryHours", 25],
+      ["tmdbRefreshAfterDays", 30],
+      ["tmdbRefreshAfterDays", 89],
     ]);
   });
 
@@ -333,10 +344,11 @@ describe("a setting's control (D538 §1, the owner, 2026-11-22)", () => {
     expect(container.querySelectorAll('button[aria-label^="Use the default for"]')).toHaveLength(1);
   });
 
-  it("is a Stepper only for a whole number whose bounds are no more than 200 apart", () => {
+  it("is a Stepper for every whole number whose bounds the server sends, however far apart", () => {
     expect(isStepped(setting({ key: "a", minimum: 1, maximum: 168 }))).toBe(true);
     expect(isStepped(setting({ key: "a", minimum: 0, maximum: 200 }))).toBe(true);
-    expect(isStepped(setting({ key: "a", minimum: 0, maximum: 201 }))).toBe(false);
+    expect(isStepped(setting({ key: "a", minimum: 0, maximum: 201 }))).toBe(true);
+    expect(isStepped(setting({ key: "a", minimum: 1, maximum: 100_000 }))).toBe(true);
     expect(isStepped(setting({ key: "a", minimum: 1 }))).toBe(false);
     expect(isStepped(setting({ key: "a", kind: "string", minimum: 1, maximum: 2 }))).toBe(false);
   });

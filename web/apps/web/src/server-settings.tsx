@@ -125,26 +125,19 @@ function useSavedField(
   return { text: fieldText, setText, commit };
 }
 
-/**
- * The most steps of one a whole number is a Stepper over: past it, typing the number is quicker than
- * stepping to it, and it is a number field (the owner, 2026-11-22: "a Stepper only where stepping it
- * makes sense"). A week in hours, 168, is stepped, as a library's hours between checks are.
- */
-const mostSteps = 200;
-
-/** A whole-number setting with both its bounds, which the server sends where it has them. */
+/** A whole-number setting with both its bounds, which the server sends for every one. */
 type RangedSetting = Setting & { readonly minimum: number; readonly maximum: number };
 
 /**
- * Whether a setting is a Stepper: a whole number whose bounds the server sends, no more than
- * mostSteps apart, its step one (the server sends none).
+ * Whether a setting is a Stepper: a whole number whose bounds the server sends, however far apart,
+ * its step one (the server sends none). A number past a few steps is typed into the Stepper's field
+ * (the owner, 2026-11-23: "The OS stepper component is inconsistent, so we can't use it. On phones
+ * and on the fire TV it renders as a text box that accepts only numeric input"): no setting is the
+ * browser's number field.
  */
 export function isStepped(setting: Setting): setting is RangedSetting {
   return (
-    setting.kind === "integer" &&
-    setting.minimum !== undefined &&
-    setting.maximum !== undefined &&
-    setting.maximum - setting.minimum <= mostSteps
+    setting.kind === "integer" && setting.minimum !== undefined && setting.maximum !== undefined
   );
 }
 
@@ -168,7 +161,7 @@ function SettingSwitch(props: {
   );
 }
 
-/** A narrow whole number's Stepper (isStepped), saving at each step and at a number typed. */
+/** A whole number's Stepper (isStepped), saving at each step and at a number typed. */
 function SettingStepper(props: {
   readonly setting: RangedSetting;
   readonly value: number;
@@ -202,23 +195,16 @@ function SettingStepper(props: {
 }
 
 /**
- * A text or wide whole number's Field: typing is saved on Enter or on leaving the field; a number's
- * arrows, which no one types, as they are let go. Its bounds, where the server sends them, are its
- * hint. Nothing is saved as the page closes (D538 §9).
+ * A text setting's Field: typing is saved on Enter or on leaving the field. Nothing is saved as the
+ * page closes (D538 §9).
  */
 function SettingTextField(props: {
   readonly setting: Setting;
   readonly label: string;
   readonly onSave: (key: string, value: SettingValue) => void;
 }): JSX.Element {
-  const { t } = useTranslation();
   const { setting } = props;
   const { text, setText, commit } = useSavedField(setting, props.onSave);
-  const isNumber = setting.kind === "integer";
-  const hint =
-    isNumber && setting.minimum !== undefined && setting.maximum !== undefined
-      ? t("settings.range", { min: setting.minimum, max: setting.maximum })
-      : undefined;
   return (
     <form
       className="settings__text"
@@ -228,23 +214,20 @@ function SettingTextField(props: {
         commit();
       }}
     >
-      <Field label={props.label} hint={hint}>
+      <Field label={props.label}>
         {(control) => (
           <input
             {...control}
             className="settings__value"
-            type={isNumber ? "number" : "text"}
-            inputMode={isNumber ? "numeric" : undefined}
-            min={setting.minimum}
-            max={setting.maximum}
+            type="text"
+            // A whole number the server sent no bounds for, which it sends for every one, is typed
+            // here on a number pad, never in the browser's number field.
+            inputMode={setting.kind === "integer" ? "numeric" : undefined}
             value={text}
             onChange={(event) => {
               setText(event.target.value);
             }}
             onBlur={() => {
-              commit();
-            }}
-            onPointerUp={() => {
               commit();
             }}
           />
@@ -256,7 +239,7 @@ function SettingTextField(props: {
 
 /**
  * A setting's control, by its kind: a Switch, a Stepper, or a Field. The UI gallery draws a wide
- * whole number's Field with it, as Settings does (ui-gallery-forms.tsx).
+ * whole number's Stepper with it, as Settings does (ui-gallery-forms.tsx).
  */
 export function SettingControl(props: {
   readonly setting: Setting;

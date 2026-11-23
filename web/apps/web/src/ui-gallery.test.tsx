@@ -301,20 +301,18 @@ it("draws Settings' pages by their own views: the index, a search found and not,
   expect(settings.match(/>Remove…</gu)).toHaveLength(2);
 });
 
-it("shows one number as a stepper and as the browser's number field side by side, each named (revamp question 21; VQ382)", () => {
+it("shows a number with wide bounds as a stepper alone, as Settings draws it, never the browser's number field (the owner, 2026-11-23; VQ382)", () => {
   const markup = renderToStaticMarkup(withServices(<UiGallery />));
   const forms = markup.slice(markup.indexOf('id="gallery-forms"'));
-  const numbers = forms.slice(forms.indexOf('id="gallery-numbers"'));
-  const stepper = numbers.slice(
-    numbers.indexOf('id="gallery-number-stepper"'),
-    numbers.indexOf('id="gallery-number-field"'),
+  const numbers = forms.slice(
+    forms.indexOf('id="gallery-numbers"'),
+    forms.indexOf("</section>", forms.indexOf('id="gallery-numbers"')),
   );
-  const field = numbers.slice(numbers.indexOf('id="gallery-number-field"'));
-  expect(stepper).toContain(">The stepper</h4>");
-  expect(stepper).toMatch(/<input type="text" class="stepper__field"[^>]*value="20"/u);
-  expect(stepper).toContain('aria-label="One title more"');
-  expect(field).toContain(">The browser&#x27;s number field</h4>");
-  // Drawn as Settings draws a wide whole number: its own number field, with its bounds as its hint.
-  expect(field).toMatch(/<input[^>]*type="number"[^>]*min="1" max="1000"[^>]*value="20"/u);
-  expect(field).toContain("Most titles in Continue watching");
+  expect(numbers).toContain(">A number with wide bounds</h3>");
+  expect(numbers).toContain("Most titles in Continue watching");
+  expect(numbers).toMatch(/<input type="text" class="stepper__field"[^>]*value="20"/u);
+  expect(numbers).toContain('aria-label="Most titles in Continue watching, from 1 to 1000"');
+  expect(numbers).toContain('aria-label="Most titles in Continue watching: one more"');
+  expect(numbers).not.toContain('type="number"');
+  expect(markup).not.toContain('type="number"');
 });

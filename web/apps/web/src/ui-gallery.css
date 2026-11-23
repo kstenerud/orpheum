@@ -166,20 +166,6 @@
   max-inline-size: var(--size-reading);
 }
 
-/* One number drawn two ways, side by side where the width allows, else one under the other. */
-.ui-gallery__numbers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4) var(--space-6);
-  align-items: start;
-}
-
-.ui-gallery__numbers h4 {
-  margin: 0;
-  color: var(--color-muted);
-  font-size: var(--font-size-small);
-}
-
 /* A field with its help button beside its control's end. */
 .ui-gallery__field-with-help {
   display: flex;
