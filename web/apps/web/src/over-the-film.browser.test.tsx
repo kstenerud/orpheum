@@ -4,7 +4,7 @@
 // three places; brief-common's browser tests): the notes at the bottom-left stack there without
 // covering a control or each other, on a cast's receiver too; the sound-on Pill stands at the film's
 // top centre and takes every press; and the offers in the top-right corner, Skip, Up next and Still
-// watching, are reached and taken by a mouse, a finger, the keyboard and a remote, their ✕ too.
+// watching, are reached and taken by a mouse, a finger, the keyboard and a remote; none has a ✕.
 
 import "./tokens.css";
 import "./base.css";
@@ -401,12 +401,11 @@ function offerOf(card: (onOffered: OfferPieceProps["onOffered"]) => JSX.Element)
 
 type OfferPieceProps = ComponentProps<OfferPiece>;
 
-/** Each offer, by the button that takes it, the ✕ that puts it away where it has one. */
+/** Each offer, by the button that takes it. */
 interface Offered {
   readonly name: string;
   readonly piece: (pressed: Pressed) => OfferPiece;
   readonly take: string;
-  readonly dismiss?: string;
 }
 
 const offers: readonly Offered[] = [
@@ -426,14 +425,12 @@ const offers: readonly Offered[] = [
   {
     name: "Up next, counting",
     take: "Up next",
-    dismiss: "Dismiss Up next",
     piece: (pressed) =>
       offerOf(() => <UpNextCard upNext={nextEpisode} secondsLeft={8} play={playing(pressed)} />),
   },
   {
     name: "the remote's Up next, with no count",
     take: "Up next",
-    dismiss: "Dismiss Up next",
     piece: (pressed) => offerOf(() => <UpNextCard upNext={nextEpisode} play={playing(pressed)} />),
   },
   {
@@ -453,14 +450,11 @@ const offers: readonly Offered[] = [
   },
 ];
 
-/** Up next's press and ✕, written down. */
+/** Up next's press, written down. */
 function playing(pressed: Pressed): Parameters<typeof UpNextCard>[0]["play"] {
   return {
     onPlay: () => {
       pressed.push("Up next");
-    },
-    onDismiss: () => {
-      pressed.push("Dismiss Up next");
     },
   };
 }
@@ -470,12 +464,8 @@ function offerButton(name: string): HTMLElement {
   const found = [
     ...document.querySelectorAll<HTMLElement>(".convenience-area .offer-card button"),
   ].find((each) =>
-    // A take button's words follow its still; a ✕ is named by its label alone.
-    (
-      each.getAttribute("aria-label") ??
-      each.querySelector(".offer-card__offer")?.textContent ??
-      each.textContent
-    ).startsWith(name),
+    // A take button's words follow its still.
+    (each.querySelector(".offer-card__offer")?.textContent ?? each.textContent).startsWith(name),
   );
   if (found === undefined) {
     throw new Error(`no ${name} in the corner`);
@@ -487,7 +477,7 @@ describe("the offers in the film's top-right corner (D538 §1, player-spec's Off
   for (const screen of screens) {
     const at = `${String(screen.width)}×${String(screen.height)}`;
     for (const offer of offers) {
-      const named = [offer.take, ...(offer.dismiss === undefined ? [] : [offer.dismiss])];
+      const named = [offer.take];
 
       it(`draws ${offer.name} in the corner, taken by a mouse's press and a finger's tap, at ${at}`, async () => {
         const pressed: Pressed = [];
@@ -525,12 +515,9 @@ describe("the offers in the film's top-right corner (D538 §1, player-spec's Off
           for (const name of named) {
             await shown();
             overlay().querySelector<HTMLElement>('button[aria-label="Play"]')?.focus();
-            await reachedBy(
-              // Up lands on the card's nearest button, Up next's ✕ where it has one, its take
-              // button to the ✕'s left.
-              ["{ArrowUp}", "{ArrowRight}", "{ArrowLeft}"],
-              () => document.activeElement === offerButton(name),
-            );
+            // Up alone reaches the card's first button, the one that takes it: Up next's, with no
+            // ✕ before it (the owner, 2026-11-23).
+            await reachedBy(["{ArrowUp}"], () => document.activeElement === offerButton(name));
             expect(isRingShown()).toBe(true);
             await userEvent.keyboard("{Enter}");
           }

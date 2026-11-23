@@ -468,26 +468,15 @@ function RemoteTop(props: {
     { isDismissed: false, isCancelled: false },
     false,
   ).isNearTheEnd;
-  // Put away by its ✕, it comes again as the film nears its end once more: adjusted as it renders.
-  const [isDismissed, setIsDismissed] = useState(false);
-  if (isDismissed && !isAtTheEnd) {
-    setIsDismissed(false);
-  }
   return (
     <>
       <div className="cast-remote__sign">
         <h2 id="cast-remote-heading">{sent.itemName === "" ? t("cast.aFilm") : sent.itemName}</h2>
         <p>{t("cast.playingOn", { name: sent.receiverName })}</p>
       </div>
-      {isAtTheEnd && !isDismissed ? (
+      {isAtTheEnd ? (
         <div className="convenience-area">
-          <RemoteUpNext
-            sent={sent}
-            upNext={props.upNext}
-            onDismiss={() => {
-              setIsDismissed(true);
-            }}
-          />
+          <RemoteUpNext sent={sent} upNext={props.upNext} />
         </div>
       ) : null}
     </>
@@ -511,13 +500,13 @@ function useHostedPanel(): WorkedSession | undefined {
 
 /**
  * The remote's Up next: the cast's film's next episode, the Up next card with no count (UpNextCard,
- * D538 §1), which moves the cast on to it, the receiver handed it (plans/up-next.md), and whose ✕
- * puts it away; nothing where none can play next.
+ * D538 §1), which moves the cast on to it, the receiver handed it (plans/up-next.md), with no ✕ to
+ * put it away (the owner, 2026-11-23): on the remote's own page it covers no film, and it goes as
+ * the cast moves on or the film is moved back from its end; nothing where none can play next.
  */
 function RemoteUpNext(props: {
   readonly sent: CastSending;
   readonly upNext: UpNext | undefined;
-  readonly onDismiss: () => void;
 }): JSX.Element | null {
   const { api } = useServices();
   const { sent, upNext } = props;
@@ -531,7 +520,6 @@ function RemoteUpNext(props: {
         onPlay: () => {
           moveCastOn(api, sent.castId).catch(() => undefined); // the cast goes on as it was
         },
-        onDismiss: props.onDismiss,
       }}
     />
   );

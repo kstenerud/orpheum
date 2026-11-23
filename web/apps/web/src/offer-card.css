@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
 /* An offer over a film (offer-card.tsx): a card on the film's card ground, at most 26rem wide, or
-   the film's width less 3rem where that is less; the still, the words and the buttons, then its ✕. */
+   the film's width less 3rem where that is less; the still, the words and the buttons. */
 .offer-card {
   display: flex;
   align-items: flex-start;

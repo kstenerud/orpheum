@@ -3832,9 +3832,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   13. On the Fire TV, show the controls, press Right along the bottom row to full screen, then press
       Up twice and Down twice. Report whether focus goes to the scrub bar, then to the top row's
       back link, then back down to the scrub bar and the bottom row, its ring showing each time.
-  14. On the Fire TV, let an episode play into its end so Up next shows in the top-right corner.
-      Press Up or Right until the card is ringed, then Right to its ✕, and press OK. Report whether
-      the card and the ✕ each carry the ring, and whether OK on the ✕ puts the card away.
+  14. On the Fire TV, let an episode play into its end so Up next shows in the top-right corner,
+      with no ✕ on it. Press Up until the card is ringed. Report whether Up reaches the card's play
+      (not another button), and whether it carries the ring. Press Back until the controls hide,
+      then Back once more. Report whether the card goes and the film keeps playing. Press Back again
+      and report whether you leave the film.
   15. Open the menu that says who is signed in, choose Report a problem, and send one saying
       "VQ380". Report that you sent it.
 - [ ] **VQ381** — Settings as D538 §11 and pages-spec-3 lay it out: an index whose search finds any

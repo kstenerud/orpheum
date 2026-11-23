@@ -133,7 +133,7 @@ function GalleryPlaces(props: { readonly press: Press }): JSX.Element {
         <UpNextCard
           upNext={galleryUpNext(t("gallery.layoutParts.episodeName"))}
           secondsLeft={8}
-          play={{ onPlay: press("upNext.playNow"), onDismiss: press("upNext.dismiss") }}
+          play={{ onPlay: press("upNext.playNow") }}
         />
       </div>
       <CornerNotes
@@ -149,8 +149,8 @@ function GalleryPlaces(props: { readonly press: Press }): JSX.Element {
 }
 
 /**
- * The offer cards' other states: Up next with no count, as it stops or on a cast's remote, put away
- * by its ✕; Skip, the card itself the button, with no ✕; and Still watching with its buttons.
+ * The offer cards' other states: Up next with no count, as it stops or on a cast's remote, with no
+ * ✕ (Back puts it away); Skip, the card itself the button; and Still watching with its buttons.
  */
 function GalleryOffers(props: { readonly press: Press }): JSX.Element {
   const { t } = useTranslation();
@@ -159,7 +159,7 @@ function GalleryOffers(props: { readonly press: Press }): JSX.Element {
     <div className="ui-gallery__offers">
       <UpNextCard
         upNext={galleryUpNext(t("gallery.layoutParts.episodeName"))}
-        play={{ onPlay: press("upNext.playNow"), onDismiss: press("upNext.dismiss") }}
+        play={{ onPlay: press("upNext.playNow") }}
       />
       <OfferCard words={t("playerControls.skipIntro")} onTake={press("playerControls.skipIntro")} />
       <OfferCard

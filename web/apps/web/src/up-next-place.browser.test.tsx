@@ -163,4 +163,83 @@ describe("Up next over a television's film", () => {
       .poll(() => routeHref(services.navigation.route()))
       .toBe(routeHref({ screen: "play", fileId: 1040, itemId: 104 }));
   });
+
+  /** A Fire TV's film ten seconds from its end, Up next shown in its corner alone. */
+  async function offerShown(): Promise<ReturnType<typeof walkServices>> {
+    vi.spyOn(Navigator.prototype, "userAgent", "get").mockReturnValue(fireTvSilk);
+    vi.spyOn(Element.prototype, "requestFullscreen").mockRejectedValue(new Error("refused"));
+    await page.viewport(960, 480);
+    const heard: string[] = [];
+    const services = walkServices(filmToPlay, "/play/1030", heard);
+    walking = await mountApp(services);
+    const video = await theVideoAt(590);
+    await expect
+      .poll(() => {
+        video.dispatchEvent(new Event("playing"));
+        return heard.includes("GET /files/1030/up-next");
+      })
+      .toBe(true);
+    await expect
+      .poll(() => {
+        video.dispatchEvent(new Event("timeupdate"));
+        return shown();
+      })
+      .toBe("convenience");
+    return services;
+  }
+
+  /** The Up next card's own button, the one that plays it. */
+  function upNextPlay(): Element | null {
+    return document.querySelector(".player-overlay .offer-card .offer-card__take");
+  }
+
+  // Up landed on the card's ✕, so OK put the offer away rather than playing the next episode (the
+  // owner, 2026-11-23): the card has no ✕, and Up reaches its play first.
+  it("has no ✕, and a remote's Up from the overlay's buttons reaches its play first, which OK plays", async () => {
+    const services = await offerShown();
+    expect(document.querySelectorAll(".player-overlay .offer-card button")).toHaveLength(1);
+    await press("{ArrowUp}");
+    await expect.poll(shown).toBe("full");
+    document
+      .querySelector<HTMLElement>('.player-overlay button[aria-label="Full screen"]')
+      ?.focus();
+    const walked: string[] = [];
+    for (let step = 0; step < 4 && document.activeElement !== upNextPlay(); step += 1) {
+      await press("{ArrowUp}");
+      walked.push(document.activeElement?.className ?? "");
+    }
+    expect(document.activeElement, walked.join(", ")).toBe(upNextPlay());
+    await press("{Enter}");
+    await expect
+      .poll(() => routeHref(services.navigation.route()))
+      .toBe(routeHref({ screen: "play", fileId: 1040, itemId: 104 }));
+  });
+
+  it("is put away by a remote's Back, the film playing on, and the next Back leaves the film", async () => {
+    const pause = vi.spyOn(HTMLMediaElement.prototype, "pause");
+    const services = await offerShown();
+    pause.mockClear(); // the film as it came to its end; from here it plays on
+    await press("{Escape}");
+    await expect.poll(upNextPlay).toBeNull();
+    expect(services.navigation.route().screen).toBe("play");
+    expect(pause).not.toHaveBeenCalled();
+    await press("{Escape}");
+    await expect.poll(() => services.navigation.route().screen).not.toBe("play");
+  });
+
+  // On a device with no Back key the player's own Back does it (the owner, 2026-11-23).
+  it("is put away by the player's own Back, the film playing on, whose next press leaves the film", async () => {
+    const pause = vi.spyOn(HTMLMediaElement.prototype, "pause");
+    const services = await offerShown();
+    pause.mockClear();
+    await press("{ArrowUp}");
+    await expect.poll(shown).toBe("full");
+    const up = document.querySelector<HTMLElement>(".player-overlay .player-overlay__up");
+    await userEvent.click(up!);
+    await expect.poll(upNextPlay).toBeNull();
+    expect(services.navigation.route().screen).toBe("play");
+    expect(pause).not.toHaveBeenCalled();
+    await userEvent.click(up!);
+    await expect.poll(() => services.navigation.route().screen).not.toBe("play");
+  });
 });

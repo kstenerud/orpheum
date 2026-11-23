@@ -224,7 +224,7 @@ it("draws each part in its place over a film, and each offer in its states (D538
   );
   expect(places).toMatch(/class="player-overlay-seeked" data-side="right" data-shown=""/u);
   expect(places).toMatch(/class="ui-gallery__offer-place"(?:(?!corner-notes).)*Plays in 8 s/u);
-  expect(places).toContain("Dismiss Up next");
+  expect(places).not.toContain("Dismiss Up next"); // no ✕: Back puts it away (the owner, 2026-11-23)
   expect(places).toContain('class="corner-notes"');
   const states = markup.slice(markup.indexOf('class="ui-gallery__offers"'));
   expect(states).toMatch(/Up next: [^<]+ · Cat/u);

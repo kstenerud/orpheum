@@ -19,7 +19,6 @@ export const enPlay = {
     countdown: "Plays in {{seconds}} s",
     countdownSaid: "Plays in {{seconds}} seconds",
     playNow: "Play now",
-    dismiss: "Dismiss Up next",
     stillWatching: "Still watching?",
     continue: "Continue",
     stop: "Stop",

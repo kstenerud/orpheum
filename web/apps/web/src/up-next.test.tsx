@@ -20,6 +20,7 @@ import {
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
+import { overlayUpClass } from "./play-up.tsx";
 import { PlayerControls, useVideoSource } from "./player-controls.tsx";
 import { OpenedAsContext, useAroundFile, type Previous, type UpNext } from "./around-file.ts";
 import type { Services } from "./services.tsx";
@@ -542,16 +543,37 @@ describe("the Up next offer over the film", () => {
     expect(played).toBe(1);
   });
 
-  it("is dismissed by its ×, and comes again once the film is moved back from the end", async () => {
-    const page = await offer(true);
-    video.stand(1185);
-    act(() => {
-      page.querySelector<HTMLButtonElement>('button[aria-label="Dismiss Up next"]')?.click();
+  // It has no ✕: the player's own Back puts it away, then leaves at its next press (the owner,
+  // 2026-11-23), for a device with no Back key.
+  it("has no ✕, is put away by the player's own Back, whose next press leaves, and comes again once the film is moved back from the end", async () => {
+    const page = await offer(true, true, { isOverlayFull: true });
+    const up = document.createElement("a");
+    up.className = overlayUpClass;
+    up.href = "#up";
+    const left: string[] = [];
+    up.addEventListener("click", (event) => {
+      event.preventDefault();
+      left.push("left");
     });
-    expect(page.textContent).toBe("");
-    video.stand(600);
-    video.stand(1190);
-    expect(page.textContent).toContain("Up next: S1E3 · Bag");
+    document.body.append(up);
+    try {
+      video.stand(1185);
+      expect(page.querySelectorAll(".offer-card button")).toHaveLength(1);
+      act(() => {
+        up.click();
+      });
+      expect(page.textContent).toBe("");
+      expect(left).toEqual([]);
+      act(() => {
+        up.click();
+      });
+      expect(left).toEqual(["left"]);
+      video.stand(600);
+      video.stand(1190);
+      expect(page.textContent).toContain("Up next: S1E3 · Bag");
+    } finally {
+      up.remove();
+    }
   });
 
   it("after three episodes autoplayed with no press, asks Still watching? instead of counting (D339)", async () => {

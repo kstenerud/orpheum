@@ -758,15 +758,16 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(upNextCard(mounted!.container, "Up next: S1E2 · Cat")).toBeUndefined();
   });
 
-  it("puts its Up next away at the card's ✕, offering it again once the film nears its end anew (D538 §1)", async () => {
+  // The card has no ✕ (the owner, 2026-11-23): on the remote's page it covers no film.
+  it("offers its Up next with no ✕, gone as the film is moved back from its end and offered again as it nears it anew (D538 §1)", async () => {
     const { sockets } = await casting({
       "GET /files/4/up-next": [200, catNext],
     });
     await sockets.session.say({ type: "group", seq: 4, group: pausedAt(575_000) });
     expect(mounted!.container.textContent).toContain("Play now"); // no count on a remote
-    await click(buttonNamed(mounted!.container, "Dismiss Up next"));
-    expect(upNextCard(mounted!.container, "Up next: S1E2 · Cat")).toBeUndefined();
+    expect(mounted!.container.querySelectorAll(".offer-card button")).toHaveLength(1);
     await sockets.session.say({ type: "group", seq: 5, group: pausedAt(100_000) });
+    expect(upNextCard(mounted!.container, "Up next: S1E2 · Cat")).toBeUndefined();
     await sockets.session.say({ type: "group", seq: 6, group: pausedAt(575_000) });
     expect(upNextCard(mounted!.container, "Up next: S1E2 · Cat")).toBeDefined();
   });

@@ -99,19 +99,13 @@ function Everything(props: {
         onTake={() => {
           press("Up next");
         }}
-        dismissal={{
-          label: "Dismiss",
-          onDismiss: () => {
-            press("Dismiss");
-          },
-        }}
       />
     </Page>
   );
 }
 
 /** The names of every control Tab meets, in the order it meets them. */
-const tabOrder = ["Add", "Rescan", "Cancel", "Save", "Sound on", "Up next", "Dismiss"];
+const tabOrder = ["Add", "Rescan", "Cancel", "Save", "Sound on", "Up next"];
 
 /** The element the selector finds, which must be drawn. */
 function found(selector: string): HTMLElement {
@@ -309,7 +303,7 @@ describe.each(widths)("the layout parts at %ipx (D538 §1)", (width) => {
     input = startInput({ goBack: () => false, isNavigating: () => true });
     // Each arrow and where it goes: down the column a phone's page is; on a wider one, down the
     // actions at the end of each heading's line, then along the action row, the way back before the
-    // main action; and across an offer card, from what it offers to its ✕.
+    // main action; and onto an offer card, which has no ✕ (the owner, 2026-11-23).
     const walk: readonly (readonly [string, string])[] = isNarrow
       ? [
           ["{ArrowDown}", "Rescan"],
@@ -317,8 +311,6 @@ describe.each(widths)("the layout parts at %ipx (D538 §1)", (width) => {
           ["{ArrowDown}", "Save"],
           ["{ArrowDown}", "Sound on"],
           ["{ArrowDown}", "Up next"],
-          ["{ArrowRight}", "Dismiss"],
-          ["{ArrowLeft}", "Up next"],
           ["{ArrowUp}", "Sound on"],
         ]
       : [
@@ -338,8 +330,6 @@ describe.each(widths)("the layout parts at %ipx (D538 §1)", (width) => {
       button("Sound on").focus();
       for (const [key, name] of [
         ["{ArrowDown}", "Up next"],
-        ["{ArrowRight}", "Dismiss"],
-        ["{ArrowLeft}", "Up next"],
         ["{ArrowUp}", "Sound on"],
       ] as const) {
         await userEvent.keyboard(key);

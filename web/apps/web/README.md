@@ -720,7 +720,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   screen, a button a mouse, a remote's OK or a controller presses; with autoplay on (the person's own
   switch, on until turned off, on their account) it counts `upNextCountdownMs` (10 s) down from the
   credits, else from the end, and plays it (a cast's receiver keeps the fixed lead, as its remote
-  does; plans/up-next.md §9); any press stops the count, Back, Escape or its × dismisses it; it
+  does; plans/up-next.md §9); any press stops the count. It has no ✕ (the owner, 2026-11-23): Back
+  or Escape puts it away, the film playing on (where all of the overlay shows, its first Back hides
+  that, D407 §5), and so does the player's own Back's first press, for a device with no Back key;
+  the next Back leaves the film. Its play is the card's one button, so Up reaches it first. It
   takes focus as the film ends, and a television's overlay leaves OK on it to it. Over the film
   without the rest of the overlay (alone, or through a seek's scrub bar and the pause sign) it sits
   in the film's top-right corner, clear of the action, at row 0's end only while all of the overlay

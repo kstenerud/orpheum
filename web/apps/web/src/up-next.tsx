@@ -29,7 +29,7 @@ import { useCommands } from "./input-layer.tsx";
 import { useAtTheEndWithNothingNext } from "./film-end.ts";
 import { useLatest } from "./latest.ts";
 import { OverTheFilm, PageControls } from "./page-controls.tsx";
-import { PlayUpwardContext } from "./play-up.tsx";
+import { overlayUpClass, PlayUpwardContext } from "./play-up.tsx";
 import type { SequenceMoves } from "./player-controls.tsx";
 import { Still } from "./poster.tsx";
 import {
@@ -419,9 +419,11 @@ interface UpNextOfferParts extends OfferPlace {
 /**
  * The offer itself: "Up next: S1E3 · ‹name›" with its still, a button that plays it, near the end and
  * on the end screen; with autoplay on, counting down from the end and then playing it. Any press
- * stops the count and leaves the offer; Back or Escape dismisses it, as does its ×, but where all of
- * the overlay shows, whose first Back hides it (D407 §5); a click elsewhere stops the count. It takes
- * focus as the film ends, and as it shows where nothing else has it, so OK presses it.
+ * stops the count and leaves the offer; Back or Escape puts it away, the film playing on, but where
+ * all of the overlay shows, whose first Back hides it (D407 §5); so does the player's own Back's
+ * first press, its next leaving (it has no ✕: the owner, 2026-11-23); a click elsewhere stops the
+ * count. It takes focus as the film ends, and as it shows where nothing else has it, so OK presses
+ * it.
  */
 export function UpNextOffer(props: UpNextOfferParts): JSX.Element | null {
   const ending = useEnding(props.videoRef, props.creditsStartMs);
@@ -461,7 +463,7 @@ export function UpNextOffer(props: UpNextOfferParts): JSX.Element | null {
     <UpNextCard
       upNext={props.upNext}
       secondsLeft={isCounting ? secondsLeft : undefined}
-      play={isPressable ? { onPlay: props.onPlay, playRef, onDismiss: dismiss } : undefined}
+      play={isPressable ? { onPlay: props.onPlay, playRef } : undefined}
     />
   );
 }
@@ -515,19 +517,19 @@ function useAutoplay(
 /**
  * The Up next card (OfferCard, D538 §1): the next episode's still, "Up next: S1E3 · ‹name›", then
  * "Plays in 10 s" while the count runs, said once as it starts and not at each second, or "Play now"
- * where it is pressed; the card plays it, and its ✕ puts it away. Where nothing here presses it (a
- * cast's receiver), its words alone. The cast's remote's Up next is this card, playing it there.
+ * where it is pressed; the card plays it, and has no ✕ (Back puts it away: UpNextOffer). Where
+ * nothing here presses it (a cast's receiver), its words alone. The cast's remote's Up next is this
+ * card, playing it there.
  */
 export function UpNextCard(props: {
   readonly upNext: UpNext;
   /** The count's seconds left while it runs; none, no count. */
   readonly secondsLeft?: number | undefined;
-  /** Its press and its ✕, where it is pressed here. */
+  /** Its press, where it is pressed here. */
   readonly play?:
     | {
         readonly onPlay: () => void;
         readonly playRef?: RefObject<HTMLButtonElement | null>;
-        readonly onDismiss: () => void;
       }
     | undefined;
 }): JSX.Element {
@@ -551,9 +553,6 @@ export function UpNextCard(props: {
       }
       onTake={play?.onPlay}
       takeRef={play?.playRef}
-      dismissal={
-        play === undefined ? undefined : { label: t("upNext.dismiss"), onDismiss: play.onDismiss }
-      }
     />
   );
 }
@@ -570,8 +569,9 @@ function useTellsShown(isShown: boolean, onShown: (() => void) | undefined): voi
 
 /**
  * The presses the offer hears while it shows: Back dismisses it, before anything else hears it,
- * unless isBackLeft, where all of the overlay shows and Back hides it (D407 §5); any other, OK on
- * its own button aside, stops its countdown; so does a click or tap anywhere but there.
+ * unless isBackLeft, where all of the overlay shows and Back hides it (D407 §5); a press of the
+ * player's own Back (OverlayUp) dismisses it in place of leaving, so the next one leaves; any other,
+ * OK on its own button aside, stops its countdown; so does a click or tap anywhere but there.
  */
 function useChoiceOfPresses(parts: {
   readonly isShown: boolean;
@@ -600,6 +600,22 @@ function useChoiceOfPresses(parts: {
     },
     { isCapture: true },
   );
+  useEffect(() => {
+    if (!isShown) {
+      return undefined;
+    }
+    const onClick = (event: MouseEvent): void => {
+      if (event.target instanceof Element && event.target.closest(`.${overlayUpClass}`) !== null) {
+        event.preventDefault();
+        event.stopPropagation();
+        onChoice(() => ({ isDismissed: true, isCancelled: true }));
+      }
+    };
+    document.addEventListener("click", onClick, true);
+    return () => {
+      document.removeEventListener("click", onClick, true);
+    };
+  }, [isShown, onChoice]);
   useEffect(() => {
     if (!isCounting) {
       return undefined;

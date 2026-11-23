@@ -185,9 +185,16 @@ function UpByTheRemote(props: { readonly up: Route }): null {
 }
 
 /**
+ * The class of the player's own Back (OverlayUp), by which an offer over the film hears its press
+ * and is put away by it before it leaves (up-next.tsx).
+ */
+export const overlayUpClass = "player-overlay__up";
+
+/**
  * The full-screen overlay's way out and what plays (D367 §6, §8; D407 §1): Up, "‹ S1E1 Pilot", the
  * page above a Play page being what plays; the on-screen Back goes, a remote's Back hiding the
- * overlay first (D407 §5, Q5). Nothing on a cast's receiver.
+ * overlay first (D407 §5, Q5), and while Up next shows, its first press puts that away instead (the
+ * owner, 2026-11-23). Nothing on a cast's receiver.
  */
 export function OverlayUp(): JSX.Element | null {
   const upward = use(PlayUpwardContext);
@@ -196,7 +203,7 @@ export function OverlayUp(): JSX.Element | null {
     return null;
   }
   return (
-    <UpLink crumb={parent} className="player-overlay__up">
+    <UpLink crumb={parent} className={overlayUpClass}>
       <BackIcon />
       <span className="player-overlay__title">{parent.label}</span>
     </UpLink>
