@@ -4913,3 +4913,109 @@ owner's answers to that review, each recorded in D538:
   on change"), not when the page closes or the field goes.
 - **A library's hours between checks has no starting value in the client** (D200): the owner asked
   for it again at the end, with why it is so and what the hours are for.
+
+## The 11-24 batch: the queue audit's fixes and the revamp's answers (the owner, 2026-11-23)
+
+The owner, 2026-11-23: "I have answers to your previous questions and would like to get the plan
+for these done along with those fixes you just mentioned, together in the next batch." The answers
+are to the six revamp questions put first (1, 13, 14, 16, 20 and 21 of the 31); the other 25 stay
+open.
+
+### The queue audit's fixes (the owner: "OK, sounds good")
+
+An independent audit of the queueing (2026-11-23) found work that is dropped or waits forever,
+each proven by a test that fails because of it; no deadlock. The three causes, fixed in this order,
+each fix committed with its proof test:
+
+1. **The queue** (`internal/platform/jobqueue`, `internal/core/jobs`). The queue cannot tell that
+   its record wrote nothing, and it keeps a claimed job as its own whatever goes wrong.
+   - `Record` says whether it wrote; when it did not, the runner sends, counts and parks nothing,
+     and calls the cancel hook again.
+   - Any error after a claim gives the job back to the queue.
+   - Unwritten outcomes are kept in a guarded list, not one field.
+   - The attempt limit is read before the claim, and every early return ends its probe.
+   - The backstop is a sweep that requeues `running` rows no runner holds.
+   - A destination's signal that comes before its parking is remembered.
+   - This is recorded as a new decision amending the queue's.
+2. **The nodes** (`internal/core/nodes`, `internal/node/agent`).
+   - An attempt kept as its job is cancelled is forgotten.
+   - "Assigned" is written before the work is sent.
+   - Paused work that becomes play-driven continues beside another's play (D240 §6).
+   - A result the core always refuses resolves the job as failed.
+   - A long-poll meeting a removed node, an attempt whose kind has no handler, and a kept attempt
+     that no longer decodes are each resolved, not left.
+3. **The chunks** (`internal/core/chunks`).
+   - An ask covered by a run whose job is not running on a node sends its request to the queue
+     again.
+   - Cancelled marks are pruned later, not cleared at once.
+   - The capacity watch takes "no such job" as done.
+   - A seek cuts a queued run only when its own plan queues one, under one lock.
+   - `StopUnwanted` goes on past a cancel error.
+   - Two cases are checked while there: a run picked up after a restart with no store id, and a
+     run parked for disk room with no probe.
+
+### Up next's ✕ (question 1)
+
+The owner: "Why does the Up Next thing even require a close gadget on the card? I don't think
+anyone else does this? Check."
+
+What others do (2026-11-23):
+- **Netflix** shows two text buttons, Watch Credits and Next Episode.
+- **Apple TV** and **Emby** put the offer away with the remote's Back.
+- **PBS's Android TV app** has a text Dismiss.
+
+None puts a ✕ on the card. The proposal:
+- The ✕ goes.
+- The play button takes the focus.
+- Back or Escape puts the offer away.
+- Where there is no Back key, a text "Watch the credits" button does it. The owner chooses.
+
+### A library's checks (questions 13 and 14)
+
+The owner, on 13: "We should have an enumeration deciding how a library is checked, and make a
+default of once every 6 hours for the periodic check value (minimum 1, and a guard making any value
+< 1 effectively equal 1 in case a weird value gets into the database somehow), which is not used
+unless the enumeration is set to periodic. We also need to ensure that a new scan doesn't get
+enqueued when an old scan is still running. If it can't queue because one is already running, it
+drops it and lets the next periodic scan try again later."
+
+On 14: "Max time between scans should be a round number that's near a week, and all parts should
+agree on that."
+
+- **The enumeration** exists: `changeDetection` is `watch`, `interval` or `manual` (D184).
+- **The hours** are kept for every library, whatever its enumeration, and used only for `interval`.
+  - A new library starts at 6.
+  - The least is 1, and a stored value below 1 is read as 1. That reading is the owner's exception
+    to D200 for this field, recorded in a decision.
+- **The most is 168 hours (7 days)** for every part: the library's field, the API, and
+  `newLibraryDefaultScanEveryHours` (now 8760), whose default becomes 6.
+- **A scan asked for while the same scan runs is dropped.** The queue already drops a request a
+  running job covers. This batch checks that the scan kind's cover holds for a periodic scan, and
+  proves it with a test.
+  - The queue fix above (a job left `running`) is what keeps a stuck scan from absorbing every
+    later one.
+
+### Putting a setting back (question 16)
+
+The owner: "No. We should have a button beside each one for resetting it, with a confirmation."
+- Each setting's row gets a "Use the default" button beside it, which asks first.
+- The dialog's "Use the default" goes.
+
+### The focus on a section page (question 20)
+
+The owner: "yes". A section page opened without naming a setting puts the focus on its first
+setting.
+
+### The number control (question 21)
+
+The owner: "I only see an OS stepper control (two arrow buttons aligned vertically near the end of
+the text area of the box). If we can leverage the operating system's controls for this, that might
+work better. I'd need to verify on the various devices though."
+
+- Settings → General's "Most titles in Continue watching" is a browser number field, because its
+  bounds are more than 200 apart (`mostSteps`). The Stepper with − and + is drawn only for narrower
+  bounds.
+- The proposal is to put the browser's number field and the Stepper side by side in the gallery,
+  for the owner to walk on each device before one is chosen.
+- One risk to walk on a TV: in a focused number field, Up and Down change the number instead of
+  moving the focus.
