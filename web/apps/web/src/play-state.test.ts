@@ -266,7 +266,7 @@ describe("play state", () => {
       () =>
         mounted?.container
           .querySelector(reopening)
-          ?.textContent?.includes("Opening the film again where you were") ?? false,
+          ?.textContent.includes("Opening the film again where you were") ?? false,
     );
     expect(videoOf(mounted)).toBe(lost);
     expect(mounted.container.querySelector(reopening)?.textContent).toContain(
