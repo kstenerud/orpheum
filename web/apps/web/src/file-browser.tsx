@@ -4,6 +4,7 @@ import "./file-browser.css";
 
 import { allPages, type Api } from "@orpheum/sdk";
 import {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -16,7 +17,10 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
+import { DropDown } from "./drop-down.tsx";
+import { arrivalMark } from "./focus-navigation.ts";
 import { FolderIcon, MachineIcon, VideoFileIcon, WatchedIcon } from "./icons.tsx";
+import { ListOption } from "./list-box.tsx";
 import { MoreActions, type MoreAction } from "./more-actions.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { StatusNote, type StatusNoteTold } from "./status-note.tsx";
@@ -277,34 +281,34 @@ function useRest(onRested: (row: FileRow | undefined) => void): (row: FileRow) =
 }
 
 /**
- * The path bar (D539 §1): on a wide browser its crumbs, each a button but the folder it is in; on
- * a narrow one a Back to the folder above, "‹ Films", and the folder's name. Both are drawn, the
- * browser's own width choosing one (file-browser.css).
+ * The path bar (D539 §1): on a wide browser its crumbs, each a button but the folder it is in, the
+ * middle ones folded into one "…" that opens a menu of them where they do not fit on one line, the
+ * place and the last two always shown; on a narrow one a Back to the folder above, "‹ Films", and
+ * the folder's name, a button opening a menu of every folder above, the nearest first. Both are
+ * drawn, the browser's own width choosing one (file-browser.css).
  */
 function PathBar(props: { readonly crumbs: readonly Crumb[] }): JSX.Element {
   const { t } = useTranslation();
-  const here = props.crumbs.at(-1);
-  const above = props.crumbs.at(-2);
+  const { crumbs } = props;
+  const listRef = useRef<HTMLOListElement>(null);
+  const isFolded = useIsFolded(listRef, crumbs.map((crumb) => crumb.key).join("/"), crumbs.length);
+  const here = crumbs.at(-1);
+  const above = crumbs.at(-2);
+  const shown: readonly (Crumb | undefined)[] = isFolded
+    ? [crumbs[0], undefined, ...crumbs.slice(-2)]
+    : crumbs;
   return (
     <>
       <nav className="file-browser__crumbs" aria-label={t("fileBrowser.path")}>
-        <ol>
-          {props.crumbs.map((crumb, index) =>
-            index === props.crumbs.length - 1 ? (
-              <li key={crumb.key} aria-current="page" className="file-browser__here">
-                {crumb.name}
-              </li>
-            ) : (
-              <li key={crumb.key}>
-                <button type="button" className="file-browser__crumb" onClick={crumb.onOpen}>
-                  {crumb.name}
-                </button>
-                <span className="file-browser__chevron" aria-hidden="true">
-                  ›
-                </span>
-              </li>
-            ),
-          )}
+        <ol ref={listRef}>
+          {shown.map((crumb, index) => (
+            <PathEntry
+              key={crumb?.key ?? "folded"}
+              crumb={crumb}
+              folded={crumbs.slice(1, -2)}
+              isHere={index === shown.length - 1}
+            />
+          ))}
         </ol>
       </nav>
       <div className="file-browser__narrow-bar">
@@ -318,9 +322,147 @@ function PathBar(props: { readonly crumbs: readonly Crumb[] }): JSX.Element {
             <span aria-hidden="true">‹ {above.name}</span>
           </button>
         )}
-        <span className="file-browser__narrow-here">{here?.name}</span>
+        {above === undefined || here === undefined ? (
+          <span className="file-browser__narrow-here">{here?.name}</span>
+        ) : (
+          <CrumbMenu
+            label={t("fileBrowser.above", { folder: here.name })}
+            opener={here.name}
+            crumbs={crumbs.slice(0, -1).toReversed()}
+            isHere
+          />
+        )}
       </div>
     </>
+  );
+}
+
+/**
+ * One entry of the wide path bar: the folder here, named; a folder above, a button opening it; or,
+ * where crumb is undefined, the "…" opening a menu of the folded folders.
+ */
+function PathEntry(props: {
+  readonly crumb: Crumb | undefined;
+  readonly folded: readonly Crumb[];
+  readonly isHere: boolean;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { crumb } = props;
+  if (crumb === undefined) {
+    return (
+      <li>
+        <CrumbMenu label={t("fileBrowser.folded")} opener="…" crumbs={props.folded} />
+        <Chevron />
+      </li>
+    );
+  }
+  if (props.isHere) {
+    return (
+      <li aria-current="page" className="file-browser__here">
+        {crumb.name}
+      </li>
+    );
+  }
+  return (
+    <li>
+      <button type="button" className="file-browser__crumb" onClick={crumb.onOpen}>
+        {crumb.name}
+      </button>
+      <Chevron />
+    </li>
+  );
+}
+
+/** The chevron between two crumbs, which a screen reader does not read. */
+function Chevron(): JSX.Element {
+  return (
+    <span className="file-browser__chevron" aria-hidden="true">
+      ›
+    </span>
+  );
+}
+
+/** A crumb opening a menu of crumbs, each opening its folder: the folded "…", or a narrow name. */
+function CrumbMenu(props: {
+  readonly label: string;
+  readonly opener: string;
+  readonly crumbs: readonly Crumb[];
+  readonly isHere?: boolean;
+}): JSX.Element {
+  return (
+    <DropDown
+      label={props.label}
+      opener={props.opener}
+      openerClassName={
+        props.isHere === true
+          ? "file-browser__crumb file-browser__narrow-here"
+          : "file-browser__crumb"
+      }
+      openerNaming={{ "aria-label": props.label }}
+      isFromItsTop
+    >
+      {props.crumbs.map((crumb) => (
+        <ListOption key={crumb.key} onChoose={crumb.onOpen}>
+          {crumb.name}
+        </ListOption>
+      ))}
+    </DropDown>
+  );
+}
+
+/**
+ * Whether the crumbs in listRef fold their middle ones: where there are more than three and, drawn
+ * unfolded, they are wider than the bar. Their width unfolded is measured each time they are drawn
+ * so, a new path drawn unfolded once to be measured; a change of the bar's width alone, as a dialog
+ * opening hides the page's scroll bar, decides again from it, so the "…" stays drawn, its menu open,
+ * unless the answer changes.
+ */
+function useIsFolded(
+  listRef: RefObject<HTMLOListElement | null>,
+  where: string,
+  count: number,
+): boolean {
+  const [folded, setFolded] = useState({ where: "", isFolded: false });
+  // A fold decided for another path is no fold: a new path is drawn unfolded, to be measured.
+  const isFolded = folded.where === where && folded.isFolded;
+  const isFoldedRef = useRef(false);
+  const naturalWidthRef = useRef(0);
+  useLayoutEffect(() => {
+    isFoldedRef.current = isFolded;
+  });
+  const decide = useCallback((): void => {
+    const list = listRef.current;
+    if (list === null) {
+      return;
+    }
+    if (!isFoldedRef.current) {
+      naturalWidthRef.current = naturalWidthOf(list);
+    }
+    setFolded({ where, isFolded: count > 3 && naturalWidthRef.current > list.clientWidth });
+  }, [listRef, where, count]);
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (list === null || typeof ResizeObserver === "undefined") {
+      return undefined;
+    }
+    // An observer tells its first size at once, so a new path, a new decide, is measured as drawn.
+    const watch = new ResizeObserver(decide);
+    watch.observe(list);
+    return () => {
+      watch.disconnect();
+    };
+  }, [listRef, decide]);
+  return isFolded;
+}
+
+/** How wide list's entries are side by side on one line, with the gaps between them. */
+function naturalWidthOf(list: HTMLElement): number {
+  const entries = [...list.children].filter((each) => each instanceof HTMLElement);
+  const columnGap = Number.parseFloat(getComputedStyle(list).columnGap);
+  const gap = Number.isNaN(columnGap) ? 0 : columnGap;
+  return (
+    entries.reduce((sum, each) => sum + each.getBoundingClientRect().width, 0) +
+    gap * Math.max(0, entries.length - 1)
   );
 }
 
@@ -347,7 +489,9 @@ function Shown(props: {
     return <StatusNote told={shown.empty} />;
   }
   return (
-    <div className="file-browser__groups" data-focus-container="">
+    // Marked as where focus arrives, so a dialog around it opens on its first row (D539 §4), not on
+    // the path bar above it, which comes first.
+    <div className="file-browser__groups" data-focus-container="" {...arrivalMark}>
       {shown.groups.map((group) => (
         <section
           key={group.key}

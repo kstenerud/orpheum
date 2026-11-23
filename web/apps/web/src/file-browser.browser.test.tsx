@@ -97,7 +97,10 @@ describe("the file browser's Choose, in a real browser", () => {
 
   it("moves among its rows by the arrows, opens one by Enter, and goes up by Escape onto it", async () => {
     await userEvent.click(opener());
-    row("media").focus();
+    // Choose opens on its first row (D539 §4), not on the path bar's Go to… above it.
+    await expect.poll(focusedName).toBe("films");
+    await userEvent.keyboard("{ArrowDown}");
+    expect(focusedName()).toBe("media");
     await userEvent.keyboard("{Enter}");
     await settleAnswers();
     expect(focusedName()).toBe("music");

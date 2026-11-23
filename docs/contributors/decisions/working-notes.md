@@ -31060,9 +31060,11 @@ the second handoff's `file-browser-spec.md`; the standard gains the part in its 
 
 **Status:** decided; built: the server side (§7), and the client's file browser (§1–§6:
 `file-browser.tsx`, its Choose in `file-browser-choose.tsx`, its Browse in `library-folders.tsx`).
-Not built yet: the remote's menu key on a row, a letter jump and Home/End in the list, the
-path bar's "…" fold and a narrow menu of a long name, a folder's watched count and a video's
-watched flag in the side panel (the server sends neither), and a file's size.
+The path bar's "…" fold and the narrow name's menu of the folders above are built too
+(`file-browser.tsx`'s PathBar). Not built yet: the remote's menu key on a row (the d-pad's input
+has no menu key to take: a row's More opens from its ⋯, a right click or a long press), a letter
+jump and Home/End in the list, a folder's watched count and a video's watched flag in the side
+panel (the server sends neither), and a file's size.
 
 1. **One part, FileBrowser, has two uses:** Choose picks a folder on a machine (Create a library, Add
    a folder, A folder moved), and Browse lists a library's folders and videos. They share the path
@@ -31087,7 +31089,7 @@ watched flag in the side panel (the server sends neither), and a file's size.
    point.
 
 **Proven by:**
-- 1: `web/apps/web/src/file-browser.test.tsx`, `web/apps/web/src/file-browser.browser.test.tsx`
+- 1: `web/apps/web/src/file-browser.test.tsx`, `web/apps/web/src/file-browser.browser.test.tsx`, `web/apps/web/src/file-browser-path.browser.test.tsx`
 - 2: `web/apps/web/src/file-browser.test.tsx`, `web/apps/web/src/form-rules.test.ts`
 - 3: `web/apps/web/src/library-browse.test.tsx`
 - 4: `web/apps/web/src/file-browser.test.tsx`, `web/apps/web/src/file-browser.browser.test.tsx`

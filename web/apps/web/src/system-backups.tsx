@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 
 import { idempotent } from "./idempotent.ts";
 import { dateTimeText } from "./date-time-text.ts";
+import { arrivalMark } from "./focus-navigation.ts";
 import { i18n } from "./i18n.ts";
 import { byteSizeText } from "./number-text.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
@@ -99,8 +100,23 @@ function AskForBackup(props: {
     });
   };
   return (
-    <ModalDialog label={t("system.backups.make")} isWide onClose={props.onClose}>
-      <h2>{t("system.backups.make")}</h2>
+    <ModalDialog
+      label={t("system.backups.make")}
+      heading={t("system.backups.make")}
+      isWide
+      onClose={props.onClose}
+      footer={
+        <>
+          <button type="button" onClick={props.onClose}>
+            {t("dialog.cancel")}
+          </button>
+          {/* Its main action, where focus arrives, not the box above it (dialogs-spec). */}
+          <button type="button" disabled={isBusy} {...arrivalMark} onClick={makeBackup}>
+            {t("system.backups.create")}
+          </button>
+        </>
+      }
+    >
       <label>
         <input
           type="checkbox"
@@ -113,9 +129,6 @@ function AskForBackup(props: {
       </label>
       {shouldIncludeKey ? <p>{t("system.backups.includeKeyWarning")}</p> : null}
       {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
-      <button type="button" disabled={isBusy} onClick={makeBackup}>
-        {t("system.backups.create")}
-      </button>
     </ModalDialog>
   );
 }

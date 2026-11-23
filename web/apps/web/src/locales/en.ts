@@ -300,6 +300,8 @@ const enOwn = {
     path: "Folder path",
     places: "Places",
     up: "Up one folder",
+    folded: "Folders between",
+    above: "Folders above {{folder}}",
     opened: "{{folder}}, {{count}} items",
     videos: "{{count}} videos",
     notMatched: "Not matched",
