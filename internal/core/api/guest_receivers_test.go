@@ -456,3 +456,30 @@ func TestGuestReceiver_AWatchTogetherGuestsCastDeviceIsRefusedACastOfItsOwn(t *t
 		http.StatusForbidden, api.CodeForbidden)
 	grantOf(t, harness.togetherGuestGranted(t, membership.Body.MembershipCredential))
 }
+
+// A guest receiver reads its cast's film's segments, by which it shows Up next from the credits as
+// its caster's remote does (D546), as it reads what plays after it (D471 §1): any other film's stay
+// refused it.
+func TestGuestReceiver_ReadsItsCastsFilmsSegmentsAlone(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.shelveSegments(t)
+	guest := tradedGuest(t, harness.tradeGuestGrant(t, harness.guestGranted(t, phoneToken))).Body
+	wantError(t, harness.do(t, http.MethodGet, "/files/1/segments", guest.Token, nil), http.StatusForbidden,
+		api.CodeForbidden)
+	guestSocket := harness.dialLive(t, guest.Token)
+	guestSocket.awaitConnected()
+	phoneSocket := harness.dialLive(t, phoneToken)
+	phoneSocket.awaitDevices(harness.thisDevice(t, phoneToken))
+	started := startedCast(t, harness.startCast(t, phoneToken, guest.DeviceID, 0))
+	guestSocket.await(live.MessageReceive, func(each live.Outbound) bool {
+		return each.Receive.CastID == started.CastID
+	})
+	if seen := harness.segmentsSeen(t, guest.Token, 1); len(seen) != 2 || seen[1].Type != "credits" {
+		t.Errorf("the guest receiver's segments of its cast's film = %+v; want its intro and credits", seen)
+	}
+	wantError(t, harness.do(t, http.MethodGet, "/files/2/segments", guest.Token, nil), http.StatusForbidden,
+		api.CodeForbidden)
+}

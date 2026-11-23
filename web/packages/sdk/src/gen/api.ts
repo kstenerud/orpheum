@@ -382,6 +382,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/files/{id}/segments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A file's segments, its intro, recap, preview, credits and commercials, for a player that does not start its playback: a cast's remote and its receivers (D546) */
+        get: operations["getFileSegments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/files/{id}/sound-offset": {
         parameters: {
             query?: never;
@@ -3721,6 +3738,10 @@ export interface components {
             height: number;
             /** Format: int64 */
             width: number;
+        };
+        FileSegmentsOutputBody: {
+            /** @description The file's segments in order, as POST /playback gives them; empty for a file with none */
+            segments: components["schemas"]["SegmentBody"][] | null;
         };
         FileSoundBody: {
             /** Format: int64 */
@@ -7714,6 +7735,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RetiredOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getFileSegments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileSegmentsOutputBody"];
                 };
             };
             /** @description Error */

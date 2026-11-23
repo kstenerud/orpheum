@@ -90,6 +90,7 @@ func TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere(t *testing.T) {
 		{"the libraries", get("/libraries"), contains(`"name":"Films"`)},
 		{"whether a file can be read", get("/files/1/availability"), served},
 		{"how long a file's work will take", get("/files/1/waits"), served},
+		{"a file's segments", get("/files/1/segments"), served},
 		{"subtitle candidates", get("/files/2/subtitle-candidates?language=de"), served},
 		{"a new playback", send(http.MethodPost, "/playback", chrome(1)), served},
 		{"the playing film's bytes", func() response {
@@ -203,6 +204,9 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"getUpNext",
 		// A file's key frame (TestFrame_IsRelayedForAPersonReachingTheFileAndNoOneElse).
 		"getFileFrame",
+		// A file's segments, which reaches the file as getUpNext does
+		// (TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere).
+		"getFileSegments",
 		// An other library's folders (TestBrowse_OneLibrarysListAndALibraryNotReached).
 		"getLibraryFolder",
 		// A viewer's playback is reach-checked against the host's libraries

@@ -2416,6 +2416,24 @@
         ],
         "type": "object"
       },
+      "FileSegmentsOutputBody": {
+        "properties": {
+          "segments": {
+            "description": "The file's segments in order, as POST /playback gives them; empty for a file with none",
+            "items": {
+              "$ref": "#/components/schemas/SegmentBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "segments"
+        ],
+        "type": "object"
+      },
       "FileSoundBody": {
         "properties": {
           "audioTrackIndex": {
@@ -12828,6 +12846,54 @@
           "Libraries"
         ],
         "x-orpheum-capability": "admin"
+      }
+    },
+    "/files/{id}/segments": {
+      "get": {
+        "operationId": "getFileSegments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileSegmentsOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "A file's segments, its intro, recap, preview, credits and commercials, for a player that does not start its playback: a cast's remote and its receivers (D546)",
+        "tags": [
+          "Playback"
+        ],
+        "x-orpheum-capability": "signedInOrGuest"
       }
     },
     "/files/{id}/sound-offset": {
