@@ -77,8 +77,9 @@ const config: ViteUserConfig = defineConfig({
   },
   test: {
     include: ["{packages,apps}/*/src/**/*.browser.test.{ts,tsx}", "e2e/*.browser.test.ts"],
-    // Each test file's frame keeps its focus while other pages open (e2e/frame-focus.ts).
-    setupFiles: ["./e2e/frame-focus-setup.ts"],
+    // Each test file's frame keeps its focus while other pages open (e2e/frame-focus.ts), and has a
+    // sessionStorage of its own, so a mark one file leaves holds no other (e2e/frame-storage.ts).
+    setupFiles: ["./e2e/frame-focus-setup.ts", "./e2e/frame-storage-setup.ts"],
     allowOnly: false,
     passWithNoTests: false,
     // The repository's test lock, taken however the run was started (e2e/test-lock.ts).
