@@ -40,7 +40,7 @@ export function segmentsOf(given: readonly MediaSegment[] | null): readonly Medi
 }
 
 /** A segment the player offers to skip, and its button's words (D82: intro, recap, preview, credits). */
-const skipWords = {
+export const skipWords = {
   intro: "playerControls.skipIntro",
   recap: "playerControls.skipRecap",
   preview: "playerControls.skipPreview",
@@ -51,9 +51,9 @@ const skipWords = {
 type SkipType = keyof typeof skipWords;
 
 /** A segment the player offers to skip. */
-type SkippedSegment = MediaSegment & { readonly type: SkipType };
+export type SkippedSegment = MediaSegment & { readonly type: SkipType };
 
-function isSkipOffered(segment: MediaSegment): segment is SkippedSegment {
+export function isSkipOffered(segment: MediaSegment): segment is SkippedSegment {
   return segment.type in skipWords;
 }
 
@@ -79,7 +79,7 @@ export function creditsStartOf(segments: readonly MediaSegment[]): number | unde
 }
 
 /** Whether atMs is inside segment: from its start, to just before its end. */
-function isInside(segment: MediaSegment, atMs: number): boolean {
+export function isInside(segment: MediaSegment, atMs: number): boolean {
   return atMs >= segment.startMs && atMs < segment.endMs;
 }
 
@@ -193,7 +193,7 @@ function useFocusAsItIsDrawn(
  * For the segment at (by its place), whether its skip was pressed, and whether it is still in its
  * first skipShownAloneMs; each segment come to starts both again.
  */
-function useSkipShowing(at: number | undefined): {
+export function useSkipShowing(at: number | undefined): {
   readonly isPressed: boolean;
   readonly isAlone: boolean;
   readonly press: () => void;
