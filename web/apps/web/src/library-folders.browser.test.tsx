@@ -62,6 +62,11 @@ async function browseAt(folder: string | undefined): Promise<void> {
   services = servedBy({
     "GET /libraries": [200, { libraries: [homeMovies] }],
     "GET /libraries/5/folders": [200, { ...summer, folder: folder ?? "" }],
+    // The side panel reads a matched video's still from its title once the row is focused.
+    "GET /items/90": [
+      200,
+      { id: 90, kind: "other", name: "Picnic", identificationState: "identified", art: {} },
+    ],
   });
   mounted = await mount(
     <BackgroundChangesContext value={neverAsks}>
