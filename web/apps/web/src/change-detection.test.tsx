@@ -42,31 +42,41 @@ it("saves how a library notices changes as it is chosen, always with its hours, 
   const { container } = mounted;
   expect(container.querySelector("button")).toBeNull();
   expect(container.querySelector("select")).toBeNull();
-  expect(container.querySelector("input[type=number]")).toBeNull();
+  expect(container.querySelector(".stepper__field")).toBeNull();
   expect(container.textContent).not.toContain("Saved");
 
-  // An interval is sent at once with the hours the library kept; new hours on leaving their field.
+  // An interval is sent at once with the hours the library kept; hours typed on leaving their
+  // field, held at a week, and a step of the Stepper at once (the owner, 2026-11-23: the Stepper
+  // everywhere).
   await chooseIn(container, "How changes are noticed", "Check every so many hours");
   await settleAnswers();
   expect(container.querySelector("output.status-line--success")?.textContent).toBe("Saved");
-  const hours = container.querySelector<HTMLInputElement>("input[type=number]");
-  expect(hours?.max).toBe("168");
+  const hours = container.querySelector<HTMLInputElement>(".stepper__field");
+  expect(hours?.getAttribute("type")).toBe("text");
   await enter(hours, "200");
   expect(saved).toHaveLength(1);
+  await fire(hours, new FocusEvent("focusout", { bubbles: true }));
+  await settleAnswers();
   expect(hours?.value).toBe("168");
   // An emptied field keeps the hours it held.
   await enter(hours, "");
-  expect(hours?.value).toBe("168");
   await fire(hours, new FocusEvent("focusout", { bubbles: true }));
-  await settleAnswers();
+  expect(hours?.value).toBe("168");
   // Enter on the same hours sends nothing again.
   await submit(container.querySelector("form"));
+  await fire(
+    container.querySelector('[aria-label="One hour less"]'),
+    new MouseEvent("click", { bubbles: true }),
+  );
+  await settleAnswers();
+  expect(hours?.value).toBe("167");
   await chooseIn(container, "How changes are noticed", "Watch the folders");
-  expect(container.querySelector("input[type=number]")).toBeNull();
+  expect(container.querySelector(".stepper__field")).toBeNull();
   expect(saved).toEqual([
     { changeDetection: "interval", checkEveryHours: 6 },
     { changeDetection: "interval", checkEveryHours: 168 },
-    { changeDetection: "watch", checkEveryHours: 168 },
+    { changeDetection: "interval", checkEveryHours: 167 },
+    { changeDetection: "watch", checkEveryHours: 167 },
   ]);
 });
 

@@ -18,7 +18,8 @@ import {
   RescanProgress,
   type Library,
 } from "./libraries.tsx";
-import { boundedHours, mostHoursBetweenChecks } from "./library-draft.ts";
+import { HoursStepper } from "./hours-stepper.tsx";
+import { boundedHours } from "./library-draft.ts";
 import { Link } from "./link.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
@@ -281,8 +282,8 @@ const changeDetectionKeys = {
 /**
  * How a library notices changes, chosen again after it was made (the owner, 2026-10-09): watching,
  * checking every so many hours, or when asked; saved at once (the owner, 2026-11-04, Q5), a choice
- * as it is made and the hours on Enter or on leaving their field, and saying Saved, or the refusal,
- * beside it. The hours are always held, from 1 to a week, and sent with every choice, so the
+ * as it is made and the hours at each step of their Stepper, or typed, on Enter or on leaving its
+ * field, and saying Saved, or the refusal, beside it. The hours are always held, from 1 to a week, and sent with every choice, so the
  * library keeps them whatever it notices changes by (D541 §1).
  */
 export function ChangeDetectionChoice(props: {
@@ -321,25 +322,15 @@ export function ChangeDetectionChoice(props: {
         options={choices}
       />{" "}
       {isInterval ? (
-        <label>
-          {t("libraries.checkEvery")}{" "}
-          <input
-            type="number"
-            min={1}
-            max={mostHoursBetweenChecks}
-            required
-            value={hours}
-            onChange={(event) => {
-              // A field emptied keeps the hours it held: there are always hours to send.
-              if (event.target.value !== "") {
-                setHours(boundedHours(Number(event.target.value), hours));
-              }
-            }}
-            onBlur={() => {
-              send(withHours(detection));
-            }}
-          />
-        </label>
+        <HoursStepper
+          hours={hours}
+          onChange={(chosen) => {
+            // A step saves at once, and a number typed on Enter or on leaving the field, as every
+            // setting does (the owner, 2026-11-04, Q5).
+            setHours(chosen);
+            send({ changeDetection: detection, checkEveryHours: chosen });
+          }}
+        />
       ) : null}{" "}
       <StatusNote told={told} />
     </form>

@@ -11,7 +11,6 @@ import { LibraryOffer } from "./library-offer.tsx";
 import {
   blankLibrary,
   boundedHours,
-  mostHoursBetweenChecks,
   libraryToCreate,
   libraryWords,
   type NewLibrary,
@@ -28,7 +27,7 @@ import { adminLibrariesCrumb } from "./upward.ts";
 import { Loaded } from "./loaded.tsx";
 import { useResource } from "./use-resource.ts";
 import { StatusNote } from "./status-note.tsx";
-import { Stepper } from "./stepper.tsx";
+import { HoursStepper } from "./hours-stepper.tsx";
 
 /** A node, and the roots it configured when it is connected. */
 export type LibraryNode = components["schemas"]["NodeBody"];
@@ -381,29 +380,6 @@ function ScanningQuestions(props: {
         />
       ) : null}
     </>
-  );
-}
-
-/** The hours between a library's checks, stepped an hour at a time from 1 to a week. */
-function HoursStepper(props: {
-  readonly hours: number;
-  readonly onChange: (hours: number) => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <Stepper
-      label={t("libraries.checkEvery")}
-      fieldLabel={t("libraries.checkEveryField")}
-      valueText={t("libraries.checkEveryWords", { count: props.hours })}
-      value={props.hours}
-      min={1}
-      max={mostHoursBetweenChecks}
-      step={1}
-      unit={t("libraries.checkEveryUnit")}
-      stepDownLabel={t("libraries.checkEveryLess")}
-      stepUpLabel={t("libraries.checkEveryMore")}
-      onChange={props.onChange}
-    />
   );
 }
 
