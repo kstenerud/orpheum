@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { components, RosterMember } from "@orpheum/sdk";
-import { useState, type JSX, type ReactNode } from "react";
+import { useId, useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmButton } from "./confirm-button.tsx";
 import { timeText } from "./date-time-text.ts";
 import { missingText, TextField, useFormFields } from "./field.tsx";
-import { FormRow } from "./form-row.tsx";
+import { submitWith } from "./form-row.tsx";
 import { idempotent } from "./idempotent.ts";
-import { ModalDialog } from "./modal-dialog.tsx";
+import { DialogClose, ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import { QrCode } from "./qr-code.tsx";
 import { useServices } from "./services.tsx";
 import { Share } from "./share.tsx";
+import { SubmitButton } from "./submit-button.tsx";
 import { PersonVoiceVolume, useHostVoice } from "./together-voice.tsx";
 
 /** A session as its host sees it: its links and members, with the host's notes. */
@@ -70,31 +71,68 @@ function playbackRightsText(t: (key: string) => string, rights: Rights): string 
 }
 
 /**
- * A dialog over the session's controls, its own heading and Close (D281 §5): what is done to one
- * person, or a link made, opened from the list and gone once done, or on a press outside it.
+ * A dialog over the session's controls (D281 §5): what is done to one person, a link made or one to
+ * pass on, opened from the list and gone once done, or on a press outside it. Its heading stays at
+ * its top and its foot at its bottom while its body scrolls (D538 §2): Done, where it is not told
+ * another foot, and no cross. One opened from the session's dialog replaces it (D538 §5).
  */
 export function ActionDialog(props: {
   readonly heading: string;
   readonly onClose: () => void;
+  /** Its foot's buttons, the main one last; Done where undefined. */
+  readonly footer?: ReactNode;
   readonly children: ReactNode;
 }): JSX.Element {
   return (
-    <ModalDialog label={props.heading} onClose={props.onClose}>
-      <div className="watch-together__dialog">
-        <div className="watch-together__dialog-head">
-          <h2>{props.heading}</h2>
-        </div>
-        {props.children}
-      </div>
+    <ModalDialog
+      label={props.heading}
+      heading={props.heading}
+      onClose={props.onClose}
+      footer={props.footer ?? <DialogClose onClose={props.onClose} />}
+    >
+      <div className="watch-together__dialog">{props.children}</div>
     </ModalDialog>
   );
 }
 
 /**
- * Making one person's link: the host's note of who it is for, which only the host sees, and what
- * they may do to playback, starting with what the last link gave (D271 §4).
+ * Invite someone (dialogs-spec): one person's link made in a dialog of its own, its one field and
+ * the rights in its body (MakeLink), Cancel and Make a link at its foot; once made, the link to
+ * pass on replaces it (onMake).
  */
-export function MakeLink(props: {
+export function MakeLinkDialog(props: {
+  readonly heading: string;
+  readonly nextRights: Rights;
+  readonly onMake: (hostNote: string, rights: Rights) => void;
+  readonly onClose: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const formId = useId();
+  return (
+    <ActionDialog
+      heading={props.heading}
+      onClose={props.onClose}
+      footer={
+        <>
+          <button type="button" onClick={props.onClose}>
+            {t("dialog.cancel")}
+          </button>
+          <SubmitButton label={t("watchTogether.makeLink")} isBusy={false} form={formId} />
+        </>
+      }
+    >
+      <MakeLink formId={formId} nextRights={props.nextRights} onMake={props.onMake} />
+    </ActionDialog>
+  );
+}
+
+/**
+ * Making one person's link: the host's note of who it is for, which only the host sees, and what
+ * they may do to playback, starting with what the last link gave (D271 §4); sent by the button of
+ * formId at its dialog's foot (MakeLinkDialog).
+ */
+function MakeLink(props: {
+  readonly formId: string;
   readonly nextRights: Rights;
   readonly onMake: (hostNote: string, rights: Rights) => void;
 }): JSX.Element {
@@ -103,14 +141,17 @@ export function MakeLink(props: {
   const [rights, setRights] = useState(props.nextRights);
   const fields = useFormFields(undefined, []);
   return (
-    <FormRow
-      onSubmit={() => {
+    <form
+      id={props.formId}
+      className="watch-together__make-link"
+      noValidate
+      onSubmit={submitWith(() => {
         if (
           fields.check([["hostNote", missingText(t, t("watchTogether.note"), hostNote.trim())]])
         ) {
           props.onMake(hostNote, rights);
         }
-      }}
+      })}
     >
       <TextField
         {...fields.fieldOf("hostNote")}
@@ -120,38 +161,46 @@ export function MakeLink(props: {
         value={hostNote}
         onChange={fields.editing("hostNote", setHostNote)}
       />
-      <label>
-        <input
-          type="checkbox"
-          checked={rights.canPlayPause}
-          onChange={(event) => {
-            setRights({ ...rights, canPlayPause: event.target.checked });
-          }}
-        />{" "}
-        {t("watchTogether.mayPlayPause")}
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          checked={rights.canSeek}
-          onChange={(event) => {
-            setRights({ ...rights, canSeek: event.target.checked });
-          }}
-        />{" "}
-        {t("watchTogether.maySeek")}
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          checked={rights.canNext}
-          onChange={(event) => {
-            setRights({ ...rights, canNext: event.target.checked });
-          }}
-        />{" "}
-        {t("watchTogether.mayNext")}
-      </label>
-      <button type="submit">{t("watchTogether.makeLink")}</button>
-    </FormRow>
+      <RightBox
+        rights={rights}
+        right="canPlayPause"
+        label={t("watchTogether.mayPlayPause")}
+        onChange={setRights}
+      />
+      <RightBox
+        rights={rights}
+        right="canSeek"
+        label={t("watchTogether.maySeek")}
+        onChange={setRights}
+      />
+      <RightBox
+        rights={rights}
+        right="canNext"
+        label={t("watchTogether.mayNext")}
+        onChange={setRights}
+      />
+    </form>
+  );
+}
+
+/** The box of one right a link gives, on or off. */
+function RightBox(props: {
+  readonly rights: Rights;
+  readonly right: "canPlayPause" | "canSeek" | "canNext";
+  readonly label: string;
+  readonly onChange: (rights: Rights) => void;
+}): JSX.Element {
+  return (
+    <label>
+      <input
+        type="checkbox"
+        checked={props.rights[props.right]}
+        onChange={(event) => {
+          props.onChange({ ...props.rights, [props.right]: event.target.checked });
+        }}
+      />{" "}
+      {props.label}
+    </label>
   );
 }
 

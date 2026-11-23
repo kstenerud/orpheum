@@ -192,6 +192,44 @@ describe("the host's Watch Together dialog (D246 §3, §5; D384 §2)", () => {
     mounted.unmount();
   });
 
+  it("draws Invite someone with its heading at its head and Cancel then Make a link at its foot, and the link made with Done (D538 §2)", async () => {
+    hostSession();
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /together/3": [
+          200,
+          { sessionId: 3, nextRights: allRights, links: [], members: [karl] },
+        ],
+        "POST /together/3/links": [201, { linkId: 4, secret: "s3cret" }],
+      },
+      heard,
+      "token",
+    );
+    const mounted = await mount(withServices(<WatchTogether />, services));
+    const footOf = (): string[] =>
+      [...document.querySelectorAll("dialog:not([data-replaced]) .modal-dialog__foot button")].map(
+        (each) => each.textContent,
+      );
+    await click(buttonWithText(mounted.container, "Invite someone"));
+    // It replaces the Watch Together dialog it opened from, which waits under it (D538 §3).
+    expect(
+      document.querySelector("dialog:not([data-replaced]) .modal-dialog__head")?.textContent,
+    ).toBe("Invite someone");
+    expect(footOf()).toEqual(["Cancel", "Make a link"]);
+    await click(buttonWithText(document.body, "Cancel"));
+    expect(document.querySelector(".watch-together__dialog")).toBeNull();
+    expect(heard.map((each) => each.methodAndPath)).not.toContain("POST /together/3/links");
+    await click(buttonWithText(mounted.container, "Invite someone"));
+    await enter(document.querySelector(".watch-together__dialog input"), "Grandma");
+    await click(buttonWithText(document.body, "Make a link"));
+    expect(heard.map((each) => each.methodAndPath)).toContain("POST /together/3/links");
+    expect(footOf()).toEqual(["Done"]);
+    await click(buttonWithText(document.body, "Done"));
+    expect(document.querySelector(".watch-together__dialog")).toBeNull();
+    mounted.unmount();
+  });
+
   it("lists who joined with the host's note, and removes them", async () => {
     hostSession();
     const heard: Heard[] = [];

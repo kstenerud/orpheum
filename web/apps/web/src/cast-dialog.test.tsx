@@ -229,6 +229,19 @@ describe("Cast's dialog (D384 §2)", () => {
     return onClose;
   }
 
+  // dialogs-spec: while casting, its foot is Cancel then Stop casting, its main action, where focus
+  // arrives; Cancel closes it, the cast going on.
+  it("draws Cancel then Stop casting at its foot while casting, focus on Stop, and Cancel stops nothing", async () => {
+    const heard: Heard[] = [];
+    const onClose = await openedWhileCasting([200, { positionMs: 0, isPlaying: false }], heard);
+    const foot = [...document.querySelectorAll("dialog .modal-dialog__foot button")];
+    expect(foot.map((each) => each.textContent)).toEqual(["Cancel", "Stop casting"]);
+    expect(document.activeElement).toBe(foot[1]);
+    await click(buttonWithText(document.body, "Cancel"));
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(heard.map((each) => each.methodAndPath)).not.toContain("POST /me/casts/9/end");
+  });
+
   // Principles §28: its Stop hid a failure, the cast going on while the person took it for stopped.
   it("stops casting, tried once more where the first try fails, and closes", async () => {
     const heard: Heard[] = [];

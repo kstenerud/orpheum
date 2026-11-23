@@ -18,7 +18,7 @@ import { useMembership } from "./together-membership.ts";
 import {
   ActionDialog,
   IssuedLink,
-  MakeLink,
+  MakeLinkDialog,
   SessionPeople,
   type Issued,
   type SessionDetails,
@@ -280,24 +280,24 @@ function SessionDialogs(props: {
     return null;
   }
   return (
-    <ActionDialog heading={t("watchTogether.makeLinkHeading")} onClose={props.onClose}>
-      <MakeLink
-        nextRights={props.details.nextRights}
-        onMake={(hostNote, rights) => {
-          props.run(async (idempotencyKey) => {
-            const made = dataOrThrow(
-              await api.POST("/together/{id}/links", {
-                params: { path: { id } },
-                body: { hostNote, rights },
-                ...idempotent(idempotencyKey),
-              }),
-            );
-            props.onIssued({ note: hostNote, secret: made.secret, link: made.link });
-            props.onChanged();
-          });
-        }}
-      />
-    </ActionDialog>
+    <MakeLinkDialog
+      heading={t("watchTogether.makeLinkHeading")}
+      onClose={props.onClose}
+      nextRights={props.details.nextRights}
+      onMake={(hostNote, rights) => {
+        props.run(async (idempotencyKey) => {
+          const made = dataOrThrow(
+            await api.POST("/together/{id}/links", {
+              params: { path: { id } },
+              body: { hostNote, rights },
+              ...idempotent(idempotencyKey),
+            }),
+          );
+          props.onIssued({ note: hostNote, secret: made.secret, link: made.link });
+          props.onChanged();
+        });
+      }}
+    />
   );
 }
 

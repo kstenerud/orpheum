@@ -66,16 +66,11 @@
   border-block-start: 1px solid var(--color-border);
 }
 
-.watch-together__dialog-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+/* Invite someone's field and its rights, one under another (MakeLink). */
+.watch-together__make-link {
+  display: grid;
+  justify-items: start;
   gap: var(--space-3);
-  margin-block-end: var(--space-3);
-}
-
-.watch-together__dialog-head h2 {
-  margin: 0;
 }
 
 .watch-together__actions {

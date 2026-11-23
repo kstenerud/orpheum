@@ -417,6 +417,9 @@ describe("voice on an iPhone without headphones", () => {
       await click(talkButton(mounted.container, "Talk"));
       expect(warning()).not.toBeNull();
       expect(mounted.container.textContent).toContain("please connect your headphones");
+      // OK alone, at its foot, where focus arrives (dialogs-spec; the owner: "just have OK").
+      expect(warning()?.querySelector(".modal-dialog__foot")?.textContent).toBe("OK");
+      expect(document.activeElement?.textContent).toBe("OK");
       // The microphone opens at the press; OK only closes the notice.
       expect(devices.processedAsked).toHaveLength(1);
       await click(buttonWithText(mounted.container, "OK"));

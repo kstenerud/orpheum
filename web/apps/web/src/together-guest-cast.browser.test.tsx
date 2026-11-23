@@ -11,7 +11,7 @@ import "./tokens.css";
 import "./base.css";
 import "./i18n.ts";
 
-import type { TogetherSnapshot } from "@orpheum/sdk";
+import { everyRight, startingTuning, type TogetherSnapshot } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -22,7 +22,21 @@ import { mount, type Mounted } from "./test-dom.tsx";
 import { focusedName, isRingShown, partWidths, tapOn } from "./test-parts.ts";
 import { withServices } from "./test-services.tsx";
 
-const connected = { status: "connected" } as TogetherSnapshot;
+const connected: TogetherSnapshot = {
+  status: "connected",
+  memberId: 2,
+  isHost: false,
+  rights: everyRight,
+  group: undefined,
+  groupReceivedAtMs: 0,
+  groupPlacedByRttMs: undefined,
+  roster: [],
+  endReason: undefined,
+  minimumRttMs: undefined,
+  lastRejectionCode: undefined,
+  answersHeard: 0,
+  tuning: startingTuning,
+};
 
 /** How many casts were started, and whether the next one fails. */
 const casts = { started: 0, shouldFail: false };
@@ -74,7 +88,7 @@ afterEach(() => {
 /** The button named text, wherever it shows. */
 function button(text: string): HTMLElement {
   const found = [...document.querySelectorAll<HTMLElement>("button")].find(
-    (each) => each.textContent?.trim() === text,
+    (each) => each.textContent.trim() === text,
   );
   if (found === undefined) {
     throw new Error(`no button ${text}`);

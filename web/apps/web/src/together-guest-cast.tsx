@@ -176,7 +176,6 @@ export function GuestsCastEntry(props: {
   readonly cast: GuestsCast;
   readonly snapshot: TogetherSnapshot | undefined;
 }): JSX.Element | null {
-  const { t } = useTranslation();
   const { cast, snapshot } = props;
   const airPlayHere = useAirPlayHere();
   const isAirPlayOffered = cast.airPlayGrants !== undefined && airPlayHere !== undefined;

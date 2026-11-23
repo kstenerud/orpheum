@@ -305,11 +305,13 @@ function HeadphonesWarning(props: { readonly onRead: () => void }): JSX.Element 
       role="alertdialog"
       label={t("together.voice.earpiece")}
       onClose={props.onRead}
+      footer={
+        <button type="button" onClick={props.onRead}>
+          {t("together.voice.ok")}
+        </button>
+      }
     >
       <p>{t("together.voice.earpiece")}</p>
-      <button type="button" onClick={props.onRead}>
-        {t("together.voice.ok")}
-      </button>
     </ModalDialog>
   );
 }
