@@ -17,6 +17,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
+import { CornerNotes, useCornerNotes } from "./corner-notes.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { TogetherIcon } from "./icons.tsx";
 import { useLive } from "./live.tsx";
@@ -256,9 +257,6 @@ export function onTheFilmsStage(video: HTMLVideoElement | null, node: JSX.Elemen
   return stage instanceof HTMLElement ? createPortal(node, stage) : node;
 }
 
-/** How long a note of someone joining or leaving shows over the film, in ms. */
-export const comingAndGoingShownMs = 5000;
-
 /**
  * The names of those in the session with a device in it now; undefined while this page is not
  * connected, its roster then not the session's.
@@ -276,7 +274,8 @@ function namesOf(key: string): readonly string[] {
 
 /**
  * A short note over the film as someone joins the session or leaves it (D423), so a person watching
- * learns it without opening the panel; who was there as this page came is no news.
+ * learns it without opening the panel, a Pill each at the film's bottom-left (CornerNotes, D538 §1);
+ * who was there as this page came is no news.
  */
 export function ComingAndGoing(props: {
   readonly snapshot: TogetherSnapshot | undefined;
@@ -288,7 +287,7 @@ export function ComingAndGoing(props: {
   // Who was there as the page came is no news: the first connected roster is only the measure, and
   // who was there last stays it across a drop. Measured as the roster changes, during the render.
   const [measured, setMeasured] = useState<string | undefined>(undefined);
-  const [note, setNote] = useState<{ readonly text: string } | undefined>(undefined);
+  const { notes, tell, forget } = useCornerNotes();
   if (key !== undefined && key !== measured) {
     setMeasured(key);
     if (measured !== undefined) {
@@ -299,23 +298,11 @@ export function ComingAndGoing(props: {
         ...was.filter((name) => !now.includes(name)).map((name) => t("together.wentOut", { name })),
       ];
       if (lines.length > 0) {
-        setNote({ text: lines.join(" · ") });
+        tell(lines);
       }
     }
   }
-  useEffect(() => {
-    if (note === undefined) {
-      return undefined;
-    }
-    const timer = setTimeout(() => {
-      setNote(undefined);
-    }, comingAndGoingShownMs);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [note]);
-  if (note === undefined) {
-    return null;
-  }
-  return onTheFilmsStage(props.video, <output className="together-coming">{note.text}</output>);
+  return notes.length === 0
+    ? null
+    : onTheFilmsStage(props.video, <CornerNotes notes={notes} onGone={forget} />);
 }

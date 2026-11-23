@@ -9,6 +9,7 @@ import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { WaitingIcon } from "./icons.tsx";
+import { Pill } from "./pill.tsx";
 
 /**
  * How long a film meant to play waits for data before its spinner shows, in ms, so a quick start or
@@ -193,8 +194,8 @@ export function FilmWaitsSpinner(props: {
   const isShown = useIsWaitingShown(props.videoRef) && !props.isFailed;
   const share = useLinkWaitShare(isShown, props.watchLinkWait);
   return (
-    // A span, not an output, which the player's page keeps for its words (the reconnecting note).
-    <span className="film-waits" hidden={!isShown} aria-live="polite">
+    // Its words are a Pill's, read out once as they show (D538 §1).
+    <span className="film-waits" hidden={!isShown}>
       {isShown ? <FilmWaitsLook share={share} /> : null}
     </span>
   );
@@ -202,8 +203,9 @@ export function FilmWaitsSpinner(props: {
 
 /**
  * What the spinner draws while it shows: its sign, the ring or, asked for less motion, the
- * hourglass (film-waits.css), saying "Getting ready to play"; and under it, where share is not
- * undefined, the bar filled to that share (linkWaitShare), which says nothing. The UI gallery draws
+ * hourglass (film-waits.css); under it, where share is not undefined, the bar filled to that share
+ * (linkWaitShare), which says nothing; and under those "Getting ready to play", a Pill whose words
+ * take the place of the sign's label (D538 §1). The UI gallery draws
  * it too, so it shows the real thing (the owner, 2026-11-17).
  */
 export function FilmWaitsLook(props: { readonly share: number | undefined }): JSX.Element {
@@ -211,7 +213,7 @@ export function FilmWaitsLook(props: { readonly share: number | undefined }): JS
   const { share } = props;
   return (
     <>
-      <span className="film-waits__sign" aria-label={t("playerControls.gettingReady")}>
+      <span className="film-waits__sign" aria-hidden="true">
         <span className="film-waits__spinner" />
         <span className="film-waits__hourglass">
           <WaitingIcon />
@@ -222,6 +224,9 @@ export function FilmWaitsLook(props: { readonly share: number | undefined }): JS
           <span className="film-waits__fill" style={{ width: `${String(share * 100)}%` }} />
         </span>
       )}
+      <span className="film-waits__words">
+        <Pill>{t("playerControls.gettingReady")}</Pill>
+      </span>
     </>
   );
 }

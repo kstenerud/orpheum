@@ -176,10 +176,14 @@ it("draws a film waiting for data with the player's own spinner and its bar, the
   const player = markup.slice(markup.indexOf('id="gallery-player"'));
   const waiting = player.slice(player.indexOf("A film waiting for data"));
   expect(waiting).toMatch(
-    /<div class="ui-gallery__film"><span class="film-waits"><span class="film-waits__sign" aria-label="Getting ready to play"><span class="film-waits__spinner"><\/span><span class="film-waits__hourglass">/u,
+    /<div class="ui-gallery__film"><span class="film-waits"><span class="film-waits__sign" aria-hidden="true"><span class="film-waits__spinner"><\/span><span class="film-waits__hourglass">/u,
   );
   expect(waiting).toContain(
     '<span class="film-waits__bar" aria-hidden="true"><span class="film-waits__fill" style="width:40%">',
+  );
+  // Its words are a Pill's, in place of the sign's label (D538 §1).
+  expect(waiting).toContain(
+    '<span class="film-waits__words"><output class="pill pill--said"><span class="pill__words">Getting ready to play</span></output></span>',
   );
   expect(markup).not.toMatch(/ui-gallery__(ring|hourglass|link)/u);
 });

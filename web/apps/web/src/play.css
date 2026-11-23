@@ -74,3 +74,15 @@
   max-height: 80vh;
   background: var(--color-video-background);
 }
+
+/* "The server restarted…" while a lost playback opens again (reopening-note.tsx, D538 §1): a Pill in
+   the middle of the film's stage, under the overlay's rows. */
+.play__reopening {
+  position: absolute;
+  z-index: var(--layer-video-note);
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  pointer-events: none;
+}

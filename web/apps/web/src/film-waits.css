@@ -66,6 +66,16 @@
    the chunks a wait waits on has come over the link (film-waits.tsx; the owner, 2026-11-17). It is
    placed under the sign, not beside it in the grid, so the sign stays in the middle of the picture
    as the bar shows and hides: half the sign's 3.5rem below the middle, and a gap. */
+/* "Getting ready to play" (D538 §1): a Pill under the sign and where the bar would be, so it does
+   not move as the bar comes and goes. */
+.film-waits__words {
+  position: absolute;
+  top: calc(50% + 1.75rem + 0.75rem + 2 * var(--space-4));
+  inset-inline: var(--space-4);
+  display: flex;
+  justify-content: center;
+}
+
 .film-waits__bar {
   position: absolute;
   top: calc(50% + 1.75rem + var(--space-4));

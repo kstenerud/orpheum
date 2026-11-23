@@ -28,6 +28,7 @@ import {
   type MovedDown,
 } from "./film-player.tsx";
 import { problemText } from "./problem.ts";
+import { ReopeningNote } from "./reopening-note.tsx";
 import type { ReopenAt } from "./reopen.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { usePlayState } from "./play-state.ts";
@@ -738,7 +739,6 @@ export function Play(props: {
 
 /** The Play page playing its film on this device, from where it is given to (from). */
 function PlayHere(props: { readonly fileId: number; readonly from: PlayedHereFrom }): JSX.Element {
-  const { t } = useTranslation();
   const receiving = useReceiving(props.fileId);
   // Next, Previous and Up next draw the Play page again: the window stays covered meanwhile.
   const isOpenedOverAFilm = useIsOpenedOverAFilm();
@@ -771,7 +771,7 @@ function PlayHere(props: { readonly fileId: number; readonly from: PlayedHereFro
         <Loaded resource={opened} render={render} />
       ) : (
         <>
-          {opened.state === "loaded" ? null : <output>{t("play.reopening")}</output>}
+          {opened.state === "loaded" ? null : <ReopeningNote />}
           {render(shown)}
         </>
       )}

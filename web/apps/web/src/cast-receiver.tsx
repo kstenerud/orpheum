@@ -17,7 +17,6 @@ import {
   type TogetherEndReason,
   type TogetherSnapshot,
 } from "@orpheum/sdk";
-import type { TFunction } from "i18next";
 import {
   use,
   useCallback,
@@ -30,7 +29,9 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import { inThisDevicesWords, pressOf, type CastAnswer } from "./cast-start.tsx";
+import { pressOf, type CastAnswer } from "./cast-start.tsx";
+import { CornerNotes, useCornerNotes } from "./corner-notes.tsx";
+import { SoundOnPill } from "./sound-on-pill.tsx";
 import { moveCastBack, moveCastOn, playInCast } from "./cast.ts";
 import { fillsWindowClass, leaveFullScreenAsked, setFillsWindow } from "./film-fullscreen.ts";
 import { commandOf, keyCodeOf } from "./input-buttons.ts";
@@ -52,12 +53,6 @@ import { onTheFilmsStage } from "./together-over-the-film.tsx";
 import { SoundPanelContext } from "./sound-panel.ts";
 import { usePictureWorkedByTheRemote } from "./cast-receiver-picture.ts";
 import { useTogether } from "./use-together.ts";
-
-/**
- * How long the "Controlled from" line stays before it fades, in milliseconds: long enough to read a
- * short line across a room. A justified constant.
- */
-export const castNoteShownMs = 5000;
 
 /** The cast this device receives of fileId, while it does, and how it ends here (D337). */
 export function useReceiving(fileId: number): Receiving | undefined {
@@ -225,7 +220,7 @@ export function CastReceiver(props: {
   return (
     <>
       <SoundAtAnyPress video={video} connection={connection} />
-      <ControlledMode fromName={cast.fromDeviceName} />
+      <ControlledMode fromName={cast.fromDeviceName} video={video} />
     </>
   );
 }
@@ -361,7 +356,6 @@ export function SoundAtAnyPress(props: {
   readonly video: HTMLVideoElement | null;
   readonly connection: Pick<TogetherConnection, "note"> | undefined;
 }): JSX.Element | null {
-  const { t } = useTranslation();
   const { video } = props;
   const muted = useMutedByTheBrowser(video);
   const latestRef = useLatest(props);
@@ -381,8 +375,7 @@ export function SoundAtAnyPress(props: {
   if (!muted.isMuted || video === null) {
     return null;
   }
-  const line = <output className="cast-receiver__sound-on">{soundOnText(t)}</output>;
-  return onTheFilmsStage(video, line);
+  return onTheFilmsStage(video, <SoundOnPill />);
 }
 
 /** Whether the browser plays video muted, having refused its sound (playedMutedEvent). */
@@ -471,15 +464,6 @@ function isNoSoundPress(event: KeyboardEvent): boolean {
 /** The keys that only modify another. */
 const modifierKeys = new Set(["Shift", "Control", "Alt", "Meta", "AltGraph", "CapsLock", "Fn"]);
 
-/** The line that asks for a press to turn the sound on, in this device's words for one. */
-function soundOnText(t: TFunction): string {
-  return inThisDevicesWords({
-    television: t("cast.soundOn.television"),
-    touch: t("cast.soundOn.touch"),
-    pointer: t("cast.soundOn.pointer"),
-  });
-}
-
 /**
  * How soon after an OK a click is the same press, in milliseconds: a TV browser may follow OK's key
  * with the click it makes on what has focus, which is not a second press. A justified constant, well
@@ -488,7 +472,7 @@ function soundOnText(t: TFunction): string {
 const samePressWithinMs = 100;
 
 /**
- * The receiver's controlled mode: a "Controlled from" line, which fades after castNoteShownMs, says
+ * The receiver's controlled mode: a "Controlled from" line, which goes after cornerNoteShownMs, says
  * who controls it. Nothing pressed here ends the cast, and neither does leaving full screen, a film
  * playing or not: ending it stays with the device that cast (the owner, 2026-11-07, the 11-20
  * batch's answer 4, amending D385 §1 and D338 §6, by which Back, Escape, OK twice and full screen
@@ -496,34 +480,34 @@ const samePressWithinMs = 100;
  * screen where the page is in it, as a Fire TV's Back and a desktop's Escape do there unheard, and is
  * the receiver's own otherwise, so it stays on its page; a click on the video pauses or plays it.
  */
-export function ControlledMode(props: { readonly fromName: string }): JSX.Element {
+export function ControlledMode(props: {
+  readonly fromName: string;
+  /** The film whose stage holds its line; none, the line stands in its own place. */
+  readonly video?: HTMLVideoElement | null | undefined;
+}): JSX.Element {
   const { navigation } = useServices();
   useBackStaysHere(navigation);
   useClicksPauseOrPlay();
   return (
     <div className="cast-receiver">
-      <ControlledFrom name={props.fromName} />
+      <ControlledFrom name={props.fromName} video={props.video ?? null} />
     </div>
   );
 }
 
-/** "Controlled from" the sender, which fades and goes after castNoteShownMs. */
-function ControlledFrom(props: { readonly name: string }): JSX.Element | null {
+/**
+ * "Controlled from" the sender, a Pill at the film's bottom-left (CornerNotes, D538 §1) that goes
+ * after cornerNoteShownMs.
+ */
+function ControlledFrom(props: {
+  readonly name: string;
+  readonly video: HTMLVideoElement | null;
+}): JSX.Element | null {
   const { t } = useTranslation();
-  const [isShown, setIsShown] = useState(true);
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsShown(false);
-    }, castNoteShownMs);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, []);
-  return isShown ? (
-    <output className="cast-receiver__note">
-      {t("cast.controlledFrom", { name: props.name })}
-    </output>
-  ) : null;
+  const { notes, forget } = useCornerNotes([t("cast.controlledFrom", { name: props.name })]);
+  return notes.length === 0
+    ? null
+    : onTheFilmsStage(props.video, <CornerNotes notes={notes} onGone={forget} />);
 }
 
 /**

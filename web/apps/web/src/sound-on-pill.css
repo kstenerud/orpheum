@@ -1,0 +1,17 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The sound-on prompt (sound-on-pill.tsx, D538 §1): at the film's top centre, over the overlay's
+   rows; only its action Pill takes a press. */
+.sound-on-pill {
+  position: absolute;
+  z-index: var(--layer-video-prompt);
+  inset-block-start: var(--space-4);
+  inset-inline: var(--space-4);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.sound-on-pill > .pill--action {
+  pointer-events: auto;
+}

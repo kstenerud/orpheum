@@ -8,30 +8,6 @@
   pointer-events: none;
 }
 
-.cast-receiver__note {
-  position: absolute;
-  bottom: var(--space-4);
-  left: var(--space-4);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-card);
-  background: var(--color-video-card);
-  color: var(--color-on-video);
-  font-size: var(--font-size-h2);
-  animation: cast-receiver-note-fades 5s forwards;
-}
-
-/* The line stays most of its time, then fades as it goes (castNoteShownMs). */
-@keyframes cast-receiver-note-fades {
-  0%,
-  70% {
-    opacity: 1;
-  }
-
-  100% {
-    opacity: 0;
-  }
-}
-
 /* A cast's sender, its remote (cast-remote.tsx): where the film would be, the full-screen overlay's
    rows over it (D444), as over a film that is not drawn here. */
 .cast-remote {
@@ -87,20 +63,6 @@
   font: inherit;
   font-size: var(--font-size-h2);
   cursor: pointer;
-}
-
-/* The receiver's line, over its film, that a press turns the sound on (cast-receiver.tsx). */
-.cast-receiver__sound-on {
-  position: absolute;
-  z-index: var(--layer-video-prompt);
-  top: var(--space-4);
-  left: 50%;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-card);
-  background: var(--color-video-card);
-  color: var(--color-on-video);
-  font-size: var(--font-size-h2);
-  transform: translateX(-50%);
 }
 
 /* A cast's receiver between videos (cast-ready.tsx, D364 §5): the whole screen, the film's black

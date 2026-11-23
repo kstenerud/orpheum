@@ -26,8 +26,6 @@ export const enTogether = {
     viewerHeading: "Watching together",
     stage: "The film",
     waitsForAFilm: "Waiting for the host to start a film.",
-    soundOn: "Tap for sound",
-    soundBack: "Tap to turn the sound back on",
     invitedBy: "{{host}} invited you to watch together.",
     invitedBySomeone: "You were invited to watch together.",
     tapToContinue: "Tap to continue",

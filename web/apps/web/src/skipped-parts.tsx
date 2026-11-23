@@ -91,7 +91,7 @@ function popUpOf(stretch: SkippedStretch): string {
 
 /**
  * How long a long stretch's Pill shows over the film (SkippedPopUp), in ms: as long as the other
- * notes over the film that need no answer (castNoteShownMs, comingAndGoingShownMs), long enough to
+ * notes over the film that need no answer (cornerNoteShownMs), long enough to
  * read its line once. A justified constant.
  */
 export const skippedShownMs = 5000;

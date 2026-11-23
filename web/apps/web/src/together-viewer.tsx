@@ -49,6 +49,7 @@ import { productName } from "./product-name.ts";
 import { useDiagnosisNotes } from "./together-diagnosis.ts";
 import { useShowsAFilm } from "./film-showing.ts";
 import { useMembership } from "./together-membership.ts";
+import { SoundOnPill } from "./sound-on-pill.tsx";
 import { useGoneFromUnder, useSessionEnd } from "./together-session-end.ts";
 import { useServices, useToken } from "./services.tsx";
 import { NoSessionHere, SessionOver, usePastedLinks } from "./together-viewer-outside.tsx";
@@ -431,10 +432,8 @@ function NothingPlays(props: {
       {isWaiting ? <p>{t("together.waitsForAFilm")}</p> : null}
       <EmptyStage>
         {props.isVoiceWaiting ? (
-          // Its tap is the page's (playWaitingAtTaps): the button only asks for one.
-          <button type="button" className="together-viewer__sound-on">
-            {t("together.soundBack")}
-          </button>
+          // Its tap is the page's (playWaitingAtTaps): the Pill only asks for one.
+          <SoundOnPill isForVoices onPress={() => undefined} />
         ) : null}
       </EmptyStage>
     </>
@@ -775,9 +774,7 @@ function FilmButtons(
   return (
     <>
       {props.isMuted || props.isVoiceWaiting ? (
-        <button type="button" className="together-viewer__sound-on" onClick={props.turnSoundOn}>
-          {t("together.soundBack")}
-        </button>
+        <SoundOnPill isForVoices={props.isVoiceWaiting} onPress={props.turnSoundOn} />
       ) : null}
       <div className="together-viewer__corner">
         {moves?.previous === undefined ? null : (

@@ -1,0 +1,22 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The notes at the film's bottom-left (corner-notes.tsx, D538 §1): at the film's bottom edge, past
+   the safe area, while the overlay's rows hide; just above them while they show, lifted by their
+   measured height (overlay-measure.ts; its fallback is the subtitles' own), so a note never covers
+   a control. The newest is lowest. */
+.corner-notes {
+  position: absolute;
+  z-index: var(--layer-video-note);
+  inset-block-end: var(--screen-edge-room-bottom);
+  inset-inline-start: var(--screen-edge-room-left);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  max-width: calc(100% - 2 * var(--space-4));
+  pointer-events: none;
+}
+
+.film-player__stage:has(.player-overlay[data-shown="full"]) .corner-notes {
+  inset-block-end: calc(var(--space-2) + var(--player-overlay-lift, 11rem));
+}

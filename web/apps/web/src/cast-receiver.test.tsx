@@ -6,7 +6,8 @@ import "./i18n.ts";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CastReceiver, castNoteShownMs, ControlledMode, moveOnOrReady } from "./cast-receiver.tsx";
+import { CastReceiver, ControlledMode, moveOnOrReady } from "./cast-receiver.tsx";
+import { cornerNoteShownMs } from "./corner-notes.tsx";
 import { playedMutedEvent, type CastToReceive } from "@orpheum/sdk";
 
 import { leaveFullScreen, type CastAnswer } from "./cast-start.tsx";
@@ -60,7 +61,7 @@ describe("the receiver's controlled mode (D338 §6; the owner, 2026-11-07)", () 
     expect(shown.container.textContent).toContain("Controlled from Pixel");
     expect(shown.container.textContent).not.toContain("take control here");
     act(() => {
-      vi.advanceTimersByTime(castNoteShownMs);
+      vi.advanceTimersByTime(cornerNoteShownMs);
     });
     expect(shown.container.textContent).not.toContain("Controlled from Pixel");
   });
@@ -568,9 +569,7 @@ describe("a receiver's sound and full screen as its cast starts (D358 §2, §5)"
     vi.useFakeTimers({ toFake: ["performance"] });
     const { server, video, stage, onLeave } = await started();
     refuseSound(video);
-    expect(stage.querySelector(".cast-receiver__sound-on")?.textContent).toBe(
-      "Click to turn the sound on",
-    );
+    expect(stage.querySelector(".sound-on-pill")?.textContent).toBe("Click to turn the sound on");
     const heard = vi.fn();
     const stop = onCommand(document, heard, { isCapture: true });
     const ok = press("Enter");
@@ -578,7 +577,7 @@ describe("a receiver's sound and full screen as its cast starts (D358 §2, §5)"
     expect(ok.defaultPrevented).toBe(true);
     expect(heard).not.toHaveBeenCalled(); // the player's own controls never heard it
     expect(video.muted).toBe(false);
-    expect(stage.querySelector(".cast-receiver__sound-on")).toBeNull();
+    expect(stage.querySelector(".sound-on-pill")).toBeNull();
     expect(notesOf(server, "unmuted")[0]).toMatchObject({ kind: "unmuted", by: "key" });
     vi.advanceTimersByTime(1000);
     press("Enter"); // the next OK is the player's own
@@ -596,7 +595,7 @@ describe("a receiver's sound and full screen as its cast starts (D358 §2, §5)"
     try {
       const { server, video, stage } = await started();
       refuseSound(video);
-      expect(stage.querySelector(".cast-receiver__sound-on")?.textContent).toBe(
+      expect(stage.querySelector(".sound-on-pill")?.textContent).toBe(
         "Press OK to turn the sound on",
       );
       act(() => {

@@ -4,6 +4,8 @@ import "./pill.css";
 
 import type { JSX, ReactNode } from "react";
 
+import { dangerousMark } from "./focus-navigation.ts";
+
 /**
  * How a notice pill speaks: "said", read out once as it shows (an `<output>`), a centre notice's
  * or a bottom-left note's; "volume", the same with digits that keep their width as the level moves;
@@ -48,15 +50,26 @@ export function Pill(props: {
 
 /**
  * A pill over a film that offers one action, its words the action's ("Stop casting here", "Tap to
- * turn the sound on"): a button a fingertip tall, a focus stop with the ring every control has.
+ * turn the sound on"): a button a fingertip tall, a focus stop with the ring every control has;
+ * disabled while its action runs, and marked a dangerous action (dangerousMark) where it is one.
  */
 export function ActionPill(props: {
   readonly children: ReactNode;
   readonly icon?: ReactNode;
   readonly onPress: () => void;
+  /** Whether it takes no press now, its action under way. */
+  readonly isDisabled?: boolean | undefined;
+  /** Whether it changes something a press too many should not (D421), so focus never starts on it. */
+  readonly isDangerous?: boolean | undefined;
 }): JSX.Element {
   return (
-    <button type="button" className="pill pill--action" onClick={props.onPress}>
+    <button
+      type="button"
+      className="pill pill--action"
+      {...(props.isDangerous === true ? dangerousMark : {})}
+      disabled={props.isDisabled === true}
+      onClick={props.onPress}
+    >
       {props.icon === undefined ? null : <span className="pill__icon">{props.icon}</span>}
       <span className="pill__words">{props.children}</span>
     </button>

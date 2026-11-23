@@ -26,7 +26,7 @@ import type { Services } from "./services.tsx";
 import { fakePlace, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
 import { hideTheDocument, playingVideo } from "./test-hidden.ts";
-import { comingAndGoingShownMs } from "./together-over-the-film.tsx";
+import { cornerNoteShownMs } from "./corner-notes.tsx";
 import { TogetherViewer } from "./together-viewer.tsx";
 import type { PlaybackDecision } from "./watching.ts";
 
@@ -142,13 +142,13 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       await server.accept();
       await server.say(welcome);
       const note = (): string | undefined =>
-        mounted.container.querySelector(".together-coming")?.textContent;
+        mounted.container.querySelector(".corner-notes")?.textContent;
       expect(note()).toBeUndefined();
       const anna = { id: 4, name: "Anna", isHost: false, devices: [{ id: 9, role: "video" }] };
       await server.say({ type: "roster", roster: [...welcome.roster, anna] });
       expect(note()).toBe("Anna joined");
       await act(async () => {
-        vi.advanceTimersByTime(comingAndGoingShownMs);
+        vi.advanceTimersByTime(cornerNoteShownMs);
         await Promise.resolve();
       });
       expect(note()).toBeUndefined();
@@ -530,15 +530,15 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       group: { state: "paused", positionMs: 0, rate: 1, fileId: 5, event: "paused", byMemberId: 1 },
     });
     const video = mounted.container.querySelector("video");
-    expect(buttonWithText(mounted.container, "Tap to turn the sound back on")).toBeUndefined();
+    expect(buttonWithText(mounted.container, "Click to turn the sound on")).toBeUndefined();
     // The follower found the browser refusing the film's sound, and plays it muted.
     if (video !== null) {
       video.muted = true;
     }
     await fire(video, new Event(playedMutedEvent));
-    await click(buttonWithText(mounted.container, "Tap to turn the sound back on"));
+    await click(buttonWithText(mounted.container, "Click to turn the sound on"));
     expect(video?.muted).toBe(false);
-    expect(buttonWithText(mounted.container, "Tap to turn the sound back on")).toBeUndefined();
+    expect(buttonWithText(mounted.container, "Click to turn the sound on")).toBeUndefined();
     mounted.unmount();
   });
 
@@ -567,7 +567,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     await fire(video, new Event(playedMutedEvent));
     await click(mounted.container.querySelector(".together-viewer__heading"));
     expect(video?.muted).toBe(false);
-    expect(buttonWithText(mounted.container, "Tap to turn the sound back on")).toBeUndefined();
+    expect(buttonWithText(mounted.container, "Click to turn the sound on")).toBeUndefined();
     mounted.unmount();
   });
 
@@ -684,10 +684,14 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     await viewer.server.accept();
     await viewer.server.say(welcome);
     const stage = mounted.container.querySelector(".film-player__stage--empty");
-    const ask = buttonWithText(mounted.container, "Tap to turn the sound back on");
-    expect(ask === undefined ? null : stage?.contains(ask)).toBe(true);
+    // The voices' ask wins over the sound's, as its tap turns the sound on too (D538 §1).
+    const asks = [...mounted.container.querySelectorAll("button")].filter(
+      (each) => each.textContent === "Tap to hear everyone's voices",
+    );
     // Asked over the stage alone, not again among the voice's controls.
-    expect(buttonWithText(mounted.container, "Tap to hear everyone's voices")).toBeUndefined();
+    expect(asks).toHaveLength(1);
+    expect(stage?.contains(asks[0] ?? null)).toBe(true);
+    expect(buttonWithText(mounted.container, "Click to turn the sound on")).toBeUndefined();
     mounted.unmount();
   });
 

@@ -19,6 +19,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { commandEventName } from "./input-commands.ts";
+import { CornerNotes } from "./corner-notes.tsx";
+import { SoundOnPill } from "./sound-on-pill.tsx";
 import { IconButton } from "./icon-button.tsx";
 import {
   AudioIcon,
@@ -218,11 +220,11 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
   it("draws the cast receiver's lines on the card's ground, in the colour over a film", async () => {
     await drawn(
       <div className="cast-receiver">
-        <output className="cast-receiver__note">{"·"}</output>
-        <output className="cast-receiver__sound-on">{"·"}</output>
+        <CornerNotes notes={[{ id: 0, text: "·" }]} onGone={() => undefined} />
+        <SoundOnPill />
       </div>,
       (mounted) => {
-        for (const selector of [".cast-receiver__note", ".cast-receiver__sound-on"]) {
+        for (const selector of [".corner-notes .pill", ".sound-on-pill .pill"]) {
           const style = getComputedStyle(found(mounted.container, selector));
           expect(style.backgroundColor).toBe(videoCard);
           expect(style.color).toBe("rgb(255, 255, 255)");
@@ -442,7 +444,7 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
           </div>
         </main>
         <div className="cast-receiver">
-          <output className="cast-receiver__note">{"·"}</output>
+          <output className="corner-notes">{"·"}</output>
         </div>
       </>,
       (mounted) => {
@@ -457,7 +459,7 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
         expect(visibilityOf(".app-shell__banner")).toBe("hidden");
         expect(visibilityOf("input")).toBe("hidden");
         expect(visibilityOf(".film-player__video")).toBe("visible");
-        expect(visibilityOf(".cast-receiver__note")).toBe("visible");
+        expect(visibilityOf(".corner-notes")).toBe("visible");
         stage.classList.remove("film-player__stage--fills-window");
         expect(visibilityOf(".app-shell__banner")).toBe("visible");
         expect(found(mounted.container, "input")).toHaveProperty("value", "typed");

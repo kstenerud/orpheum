@@ -222,7 +222,9 @@ describe("a film getting ready to play shows it (the owner, 2026-11-15)", () => 
     expect(await shownPlayLabel()).toBe("Pause");
     expect(isSpinnerShown()).toBe(true);
     expect(await shownPlayLabel()).toBe("Pause");
-    expect(mounted?.container.querySelector('[aria-label="Getting ready to play"]')).not.toBeNull();
+    expect(mounted?.container.querySelector(".film-waits output.pill")?.textContent).toBe(
+      "Getting ready to play",
+    );
     film.load([[0, 12]]);
     await fire(video, "progress");
     expect(film.plays()).toBe(1);

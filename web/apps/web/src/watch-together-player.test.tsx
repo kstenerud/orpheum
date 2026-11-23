@@ -202,15 +202,15 @@ describe("the host's player in a session (D246 §5)", () => {
       ),
     );
     await server.accept();
-    expect(buttonWithText(mounted.container, "Tap for sound")).toBeUndefined();
+    expect(buttonWithText(mounted.container, "Click to turn the sound on")).toBeUndefined();
     video.muted = true;
     await act(async () => {
       video.dispatchEvent(new Event(playedMutedEvent));
       await Promise.resolve();
     });
-    await click(buttonWithText(mounted.container, "Tap for sound"));
+    await click(buttonWithText(mounted.container, "Click to turn the sound on"));
     expect(video.muted).toBe(false);
-    expect(buttonWithText(mounted.container, "Tap for sound")).toBeUndefined();
+    expect(buttonWithText(mounted.container, "Click to turn the sound on")).toBeUndefined();
     mounted.unmount();
   });
 

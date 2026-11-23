@@ -58,7 +58,7 @@
 }
 
 @media (hover: hover) {
-  .pill--action:hover {
+  .pill--action:hover:not(:disabled) {
     background-image: linear-gradient(var(--color-video-control), var(--color-video-control));
   }
 }

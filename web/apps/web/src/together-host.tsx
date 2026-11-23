@@ -21,6 +21,7 @@ import { pageThatPausesWhenHidden } from "./handheld.ts";
 import { useToken } from "./services.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useMembership } from "./together-membership.ts";
+import { SoundOnPill } from "./sound-on-pill.tsx";
 import { useHostsSessionOver } from "./together-session-end.ts";
 import type { Membership } from "./together-storage.ts";
 import { followFilmVolume } from "./film-volume.ts";
@@ -235,7 +236,6 @@ export function SoundOn(props: {
   readonly video: HTMLVideoElement | null;
   readonly connection: TogetherConnection | undefined;
 }): JSX.Element | null {
-  const { t } = useTranslation();
   const { video, connection } = props;
   const [isMuted, setIsMuted] = useState(false);
   useEffect(() => {
@@ -254,15 +254,11 @@ export function SoundOn(props: {
     return null;
   }
   return (
-    <button
-      type="button"
-      className="together-host__sound-on"
-      onClick={() => {
+    <SoundOnPill
+      onPress={() => {
         soundOnAtTap(video, connection);
         setIsMuted(false);
       }}
-    >
-      {t("together.soundOn")}
-    </button>
+    />
   );
 }
