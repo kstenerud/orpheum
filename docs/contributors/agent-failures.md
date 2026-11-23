@@ -49,6 +49,19 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A91 — The revamp's review said no "lost the connection" notice existed (2026-11-23)
+
+- **What happened:** the lead's review of the D538 revamp (the owner's `ui-revamp-review.md`) said
+  the shell had no "Lost the connection" banner, only Watch Together's "Connection lost.
+  Reconnecting…". The loader already draws one, `loader-path-refused.tsx`, as the page loses its
+  connection and the server refuses the sign-in it reconnects with. The claim came from a
+  subagent's survey of the shell's notice strips, which listed `app-shell.tsx`'s strips and not
+  the loader's, and the lead passed it on without searching the words for "connection".
+- **Caught by:** the agent building batch 4b, which found the loader's notice while making every
+  notice a Banner, and made it the spec's Lost the connection.
+- **Gate:** none. A claim that something does not exist is checked by a search of the words a
+  person would see (`grep -rn` over the locales) before it is told to the owner.
+
 ### A90 — Told the owner the background re-read had reached a file the owner had rescanned (2026-11-22)
 
 - **What happened:** after deploying D535 §1–5 to staging, the lead watched file 18306's probe in
