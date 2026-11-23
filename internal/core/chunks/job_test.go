@@ -4,6 +4,7 @@ package chunks
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -398,6 +399,39 @@ func TestTakeProgress_ARunNoPlayerWantsStopsAtItsNextStep(t *testing.T) {
 		if isWanted := players != nil; service.runs.hasRun(dir) != isWanted {
 			t.Errorf("at step %d, with players %v, the run is kept %t; want %t", step, players, !isWanted, isWanted)
 		}
+	}
+}
+
+// A run whose job is cancelled while it is being given, before its attempt is kept, is not left as
+// on its way: a second seek cut the first's run just as it was given, and every ask for its chunks
+// was told to ask again, with nothing making them (staging, 2026-11-23).
+func TestHandleMakeChunks_ARunCancelledAsItIsGivenIsNotLeftOnItsWay(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancelCause(t.Context())
+	defer cancel(nil)
+	node := fakeNode{sent: make(chan nodeproto.Command, 1), assigning: func() { cancel(jobs.ErrCancelled) }}
+	service, _ := chunksFixture(t, newFakeQueue(), node)
+	service.exchanges.Handle(jobs.KindMakeChunks, service.Assignee(nodestest.NewResolver().Of(nil)))
+	grid := mustGrid(t, service)
+	quality := Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 1200, Height: 480}}
+	dir := testStoreDir(t, service, quality, grid.ID())
+	encoded, err := json.Marshal(runArgs{FirstChunk: 3, LastChunk: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	storeID, err := service.storeIDOf(t.Context(), 1, quality, testStoreKey(t, service, quality, grid.ID()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	answer := service.HandleMakeChunks(ctx, jobs.Job{
+		ID: 7, Kind: jobs.KindMakeChunks, Target: jobs.Target{ChunkStoreID: storeID}, ArgsJSON: string(encoded),
+		Priority: jobs.PriorityPlayNow,
+	})
+	if !errors.Is(answer, context.Canceled) {
+		t.Errorf("the job cancelled as it was given answered %v; want its cancel", answer)
+	}
+	if service.runs.isCovered(dir, 3) {
+		t.Fatal("the run cancelled as it was given still stands as on its way")
 	}
 }
 

@@ -102,9 +102,17 @@ func (service *Service) HandleMakeChunks(ctx context.Context, job jobs.Job) erro
 	service.runs.knowStoreID(command.StoreDir, job.ChunkStoreID)
 	service.runs.given(command.StoreDir, run.FirstChunk, run.LastChunk, job.ID, film.file.NodeID,
 		service.clock.Now())
-	return service.exchanges.Assign(ctx, film.file.NodeID, job, nodeproto.Command{
+	assigned := service.exchanges.Assign(ctx, film.file.NodeID, job, nodeproto.Command{
 		Work: nodeproto.Work{Type: nodeproto.CommandMakeChunks, MakeChunks: &command},
 	})
+	// A job cancelled while it was being given, before its attempt was kept, has no attempt for its
+	// cancel to forget, and its node is never sent it: the run given is forgotten here. Kept, it
+	// stood as on its way with nothing making it, and every ask for its chunks was told to ask again
+	// (staging, 2026-11-23: a second seek cut the first's run just as it was given).
+	if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
+		service.runs.forget(command.StoreDir, run.FirstChunk)
+	}
+	return assigned
 }
 
 // cutForRun is the run's film as it is cut on the grid the run was asked on: on its keyframes sized,

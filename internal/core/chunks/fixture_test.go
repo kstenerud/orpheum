@@ -134,11 +134,18 @@ func (queue *fakeQueue) runs(t *testing.T, service *Service) []askedRun {
 // fakeNode is node 1, connected, which takes the commands it is sent and does nothing with them.
 type fakeNode struct {
 	sent chan nodeproto.Command
+	// assigning, when set, is called as a run is being given to the node, before its attempt is kept.
+	assigning func()
 }
 
 func (node fakeNode) Enqueue(_ int64, command nodeproto.Command) { node.sent <- command }
 
-func (fakeNode) ParkUnlessConnected(context.Context, int64) error { return nil }
+func (node fakeNode) ParkUnlessConnected(context.Context, int64) error {
+	if node.assigning != nil {
+		node.assigning()
+	}
+	return nil
+}
 
 func (fakeNode) Withdraw(int64, string) bool { return false }
 
