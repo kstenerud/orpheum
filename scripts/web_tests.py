@@ -82,7 +82,7 @@ NAMED = ["npx", "--prefix", WEB, "vitest", "run", "--passWithNoTests", "--root",
 BROWSER_CONFIG = ["--config", "vitest.browser.config.ts"]
 UNIT = Suite("web-test", ["npm", "--prefix", WEB, "run", "--silent", "test"], RELATED, NAMED)
 BROWSER = Suite("web-test-browser-related", ["npm", "--prefix", WEB, "run", "--silent", "test:browser"],
-                [*RELATED, *BROWSER_CONFIG], [*NAMED, *BROWSER_CONFIG], setup=("e2e/frame-focus-setup.ts",),
+                [*RELATED, *BROWSER_CONFIG], [*NAMED, *BROWSER_CONFIG], setup=("e2e/frame-focus-setup.ts", "e2e/frame-storage-setup.ts"),
                 apart=("chromium", "firefox"), browser=True)
 # The script that follows a change to the tests that can see it, run by node in web/.
 WEB_TEST_REACH = Path(__file__).resolve().parent / "web_test_reach.cjs"
