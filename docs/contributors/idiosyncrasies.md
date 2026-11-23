@@ -63,6 +63,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A Tab under load put focus on the overlay's button with no focus ring: not `:focus-visible` in Firefox. | [Firefox counts a script's focus as a key's only when focus was already shown](#firefox-counts-a-scripts-focus-as-a-keys-only-when-focus-was-already-shown) |
 | A Tab stopped on a tall dialog's body, focus drawn round nothing. | [A box that scrolls is a Tab stop of its own, in Chromium and Firefox](#a-box-that-scrolls-is-a-tab-stop-of-its-own-in-chromium-and-firefox) |
 | The browser test file after one that went full screen could not size the window. | [A real full-screen window outlasts its test file](#a-real-full-screen-window-outlasts-its-test-file) |
+| A browser test file's Play pages drew the top bar over an empty page and timed out, a different file each run, in either browser; each passed alone. | [A browser test file's tab and its storage outlive it, for the files after it in that tab](#a-browser-test-files-tab-and-its-storage-outlive-it-for-the-files-after-it-in-that-tab) |
 | On a phone, a slow drag on the player's scrub bar lost the overlay from under the finger. | [Chrome on Android ends a touch drag on a range with pointerup, never pointercancel, and its seeks land only as the drag rests](#chrome-on-android-ends-a-touch-drag-on-a-range-with-pointerup-never-pointercancel-and-its-seeks-land-only-as-the-drag-rests) |
 | On a Fire TV in Silk, OK on a sign-in's checkbox signed in, as though Sign in had been pressed. | [Enter on a focused checkbox submits its form, and does not tick it](#enter-on-a-focused-checkbox-submits-its-form-and-does-not-tick-it) |
 | On a Fire TV in Silk, holding OK on a cast's receiver took control back, as OK pressed twice. | [Silk on Fire TV sends a held OK's repeats as fresh presses, unmarked and with no key up](#silk-on-fire-tv-sends-a-held-oks-repeats-as-fresh-presses-unmarked-and-with-no-key-up) |
@@ -4866,6 +4867,39 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   (searched Bugzilla and the ServiceWorker spec's issues, 2026-10-28); Firefox's
   [1426979](https://bugzilla.mozilla.org/show_bug.cgi?id=1426979) is an older iframe-control bug,
   fixed.
+
+### A browser test file's tab and its storage outlive it, for the files after it in that tab
+
+- **Technology:** vitest 5's browser mode on Playwright's Chromium and Firefox, 2026-11-23.
+- **Symptom:** in `make check`, one Play-page browser file finishing late (`up-trail`,
+  `up-next-place`, `play-next-full-screen`, `segments`) timed out at its 10 s polls: its screenshot
+  showed the top bar over an empty `<main>`, while the same file's title pages passed. The file
+  changed from run to run and across both browsers, and each passed alone and in a small group.
+- **Cause:** vitest gives each browser a few tabs and runs one test file after another in a frame of
+  each, so what a file leaves in the tab's storage is read by the files after it there.
+  `over-the-film`'s ready-screen test received a cast, which marks the tab as receiving
+  (`orpheum.cast.receiving` in sessionStorage, D383 §2), and never forgot it; a Play page mounted
+  later started in doubt about the cast and, by `PlayOrSendOn`, drew nothing until the server said
+  whether it hands the device a cast, which no walk says. Which file met the mark depended on the
+  order the files ran in.
+- **What we do:** `over-the-film`'s `afterEach` forgets the mark, and a test checks none is left.
+  Every frame also has a sessionStorage of its own (`web/e2e/frame-storage.ts`, a setup file of
+  `web/vitest.browser.config.ts`; the owner's go, 2026-11-23), tested by
+  `web/e2e/frame-storage.browser.test.ts`. localStorage, cookies, IndexedDB, the service worker and
+  its caches, and BroadcastChannel are still the tab's (the controller choice listens for
+  localStorage's events), so a test that leaves something there can do the same: suspect it when a
+  failure moves from file to file and each passes alone. The owner chose to revisit only if that
+  happens.
+- **Measuring it:** to time or repeat the browser tests as the gate runs them, run each browser in a
+  run of its own, as `make check` does (`scripts/web_tests.py`'s `runs_of`). `npm run
+  test:browser` runs both at once, which opens Firefox tabs mid-run and loses focus ("A page opening in
+  Firefox takes the focus from the test frame opened before it"): there, Firefox lost a focus test in every run, which the
+  gate never meets. Running files one at a time cost about 2.7 times as long (851 s against 297
+  and 325 s, both browsers at once, the machine loaded).
+- **Evidence:** "test(web): the over-the-film test forgets the cast its receiver took, which held
+  later files' Play pages empty" (seeding only the mark before `up-trail`'s Play tests failed all 4
+  alone, the same empty page) and "test(web): each browser test file's frame keeps a sessionStorage
+  of its own".
 
 ### A real full-screen window outlasts its test file
 
