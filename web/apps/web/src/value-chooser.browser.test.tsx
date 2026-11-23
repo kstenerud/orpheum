@@ -160,7 +160,7 @@ describe("a value chooser, by every way of pressing it", () => {
     expect(document.activeElement).toBe(openerOf("Role"));
   });
 
-  it("opens its list inside the screen at each width", async () => {
+  it("opens its list inside the screen at each width, each choice a fingertip tall and no taller (ui.md §2)", async () => {
     for (const width of partWidths) {
       await page.viewport(width, 800);
       await userEvent.click(openerOf("Quality"));
@@ -168,6 +168,8 @@ describe("a value chooser, by every way of pressing it", () => {
         const box = choice.getBoundingClientRect();
         expect(box.left, `${String(width)} px`).toBeGreaterThanOrEqual(0);
         expect(box.right).toBeLessThanOrEqual(width);
+        expect(box.height, `${String(width)} px`).toBeGreaterThanOrEqual(44);
+        expect(box.height, `${String(width)} px`).toBeLessThan(52);
       }
       await userEvent.keyboard("{Escape}");
     }
@@ -175,6 +177,15 @@ describe("a value chooser, by every way of pressing it", () => {
 });
 
 describe("a role chooser, by every way of pressing it", () => {
+  it("draws each role a fingertip tall at a phone's width (ui.md §2)", async () => {
+    await page.viewport(360, 800);
+    await userEvent.click(openerOf("Role"));
+    expect(choices()).toHaveLength(2);
+    for (const choice of choices()) {
+      expect(choice.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    }
+  });
+
   it("offers the household's roles, the person's marked, and gives another by a click or a tap", async () => {
     await userEvent.click(openerOf("Role"));
     expect(choices().map((each) => each.textContent)).toEqual(["friends", "family"]);

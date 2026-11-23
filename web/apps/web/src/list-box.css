@@ -42,12 +42,13 @@
   margin: 0;
 }
 
-/* A choice (ListOption), the list's width, its whole row pressable. */
+/* A choice (ListOption), the list's width, its whole row pressable, and a fingertip tall as every
+   target is (ui.md §2): a line of text in the middle of a control's height, more lines growing it. */
 .list-box__option {
   display: block;
   width: 100%;
-  min-height: auto;
-  padding: var(--space-2) var(--space-3);
+  min-height: var(--size-control);
+  padding: calc((var(--size-control) - var(--line-height-body) * 1em) / 2) var(--space-3);
   border: 0;
   border-radius: var(--radius-control);
   background: none;
