@@ -3787,3 +3787,38 @@ An item is ticked only by the person who did it, and only with what they saw.
      "Applied", and whether the film then plays 150 ms later for a person who set none.
   10. Open the menu that says who is signed in, choose Report a problem, and send one saying
       "VQ379". Report that you sent it.
+- [ ] **VQ380** — The player's overlay as D538 §1, §6 and §7 and player-spec lay it out: a touch
+  phone's previous, −10, play, +10 and next in the picture's middle, a tap of previous or next
+  waiting a moment so two quick taps seek instead; the scrub bar ringed and never faded; Cast's and
+  Watch Together's signs at the end of the buttons row; the subtitles lifted by the rows as drawn;
+  and a long stretch skipped told in a Pill, not a dialog. Only real devices say whether a finger's
+  taps, a TV remote's own navigation and a real subtitle track behave, which no test's browser
+  does. On staging, with "feat(web): a touch phone's overlay stands previous, the steps, play and
+  next in the picture's middle" and "feat(web): a long stretch skipped is a Pill over the film,
+  gone after five seconds", play an episode with subtitles in full screen on each device:
+  1. On your phone, upright, tap the film to show the controls. Report whether previous, −10,
+     play, +10 and next stand in a row in the picture's middle, the three between larger, and
+     whether the scrub bar and one row of Sound, Subtitles, ⁝ and full screen sit along the bottom
+     without wrapping.
+  2. On the phone, turn it on its side and tap the film. Report whether the same layout shows, and
+     whether nothing is cut off at the screen's edges.
+  3. On the phone, tap next once. Report whether the next episode starts after a short pause. Go
+     back to the first episode.
+  4. On the phone, tap previous twice quickly. Report whether the film steps back 10 s (its sign
+     shows) and the episode does not change.
+  5. On the phone, with subtitles on, show the controls. Report whether the subtitles rise above
+     the bottom rows and come back down as the rows hide.
+  6. On the Fire TV in Silk, press OK to show the controls, then press Left and Right along the
+     bottom row to its end. Report whether focus shows its white ring on each button, whether the
+     row ends with ⁝, the cast or Watch Together sign if one shows, then full screen, and whether
+     focus never vanishes.
+  7. On the Fire TV, press Up to the scrub bar. Report whether it carries the same white ring and
+     stays fully bright, then press Left to seek and report whether the picture follows.
+  8. On the Fire TV, press Back. Report whether the controls hide and the next OK shows them again
+     with focus on a button.
+  9. On a computer, in Chrome, if staging has a film with a stretch the server cannot make (else
+     skip this step), play it in full screen and let it play into that stretch. Report whether a
+     line saying the player skipped over it shows in the picture's middle for about five seconds,
+     with nothing to press, and then goes.
+  10. Open the menu that says who is signed in, choose Report a problem, and send one saying
+      "VQ380". Report that you sent it.

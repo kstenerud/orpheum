@@ -30998,7 +30998,13 @@ the principles are written from it, in the standards ([ui.md](../standards/ui.md
 principles (the "Interface" heading of [the principles](../principles/README.md#interface), §31
 to §41).
 
-**Status:** decided; §1–7, §9 and §11 not built. §12's API side is built, the pages not yet:
+**Status:** decided; §1–5, §9 and §11 not built (§1 in part, below). §6 and §7 are built in the player:
+the scrub bar has every control's ring and no fade, Cast's and Watch Together's signs end the
+buttons row, and the subtitles rise by the rows as drawn; of §1's parts the player's overlay has
+Pill (the notes over the film, "Part skipped" among them) and a touch phone's centre cluster
+(`web/apps/web/src/player-widgets.browser.test.tsx`,
+`web/apps/web/src/player-overlay-layout.browser.test.tsx`; on devices, VQ380); its offers are not
+yet OfferCards nor its banners one part. §12's API side is built, the pages not yet:
 GET /needs-attention lists, beside
 its counts, everything that needs an admin by page with where each item links
 (TestNeedsAttention_PagesListEachPlaceOfflineWithItsMachineAndPath,
@@ -31039,6 +31045,8 @@ Data use choice, Play the original file last in it for a person showing debug to
     and changes no call already there.
 
 **Proven by:**
+- 6: `web/apps/web/src/player-widgets.browser.test.tsx`: the focused scrub bar shows the ring every control has and stays at full opacity as a key's focus leaves it; VQ380
+- 7: `web/apps/web/src/player-overlay-signs.test.tsx`, `web/apps/web/src/cast-remote.test.tsx`, `web/apps/web/src/icon-button.test.tsx`: Cast's and Watch Together's signs follow the menus in the buttons row, before full screen, and leave the top row; VQ380
 - 8: `web/apps/web/src/sound-menu.test.tsx`, `web/apps/web/src/player-menus.test.tsx`: every sound setting in the Sound menu, ⁝ ordered as the spec does with none; VQ379
 - 10: `web/apps/web/src/player-menus.test.tsx`: Quality lists Automatic, then the rungs in GB per hour, the original last and only while debug tools show, played for one playback; `web/apps/web/src/player-menus-input.browser.test.tsx`; VQ379
 - 12: `TestNeedsAttention_PagesListEachPlaceOfflineWithItsMachineAndPath`, `TestNeedsAttention_PagesPutSystemsWorkFailingBeforeItsChecks`, `TestJobs_TheViewCountsTheJobsFailedWithinTheHealthWindow`, `TestPeople_TheListSaysWhenEachLastWatched`, `TestLibraries_TheHoursBetweenChecksAreAWeekAtMost` (internal/core/api), the API side
