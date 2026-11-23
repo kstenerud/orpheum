@@ -260,7 +260,8 @@ export function IssuedInvitationView(props: { readonly issued: IssuedInvitation 
  */
 export function UsersList(props: { readonly accounts: readonly Account[] }): JSX.Element {
   const { t, i18n } = useTranslation();
-  const now = { nowMs: Date.now(), locale: i18n.language };
+  const [nowMs] = useState(() => Date.now());
+  const now = { nowMs, locale: i18n.language };
   return (
     <GridList
       rows={props.accounts}

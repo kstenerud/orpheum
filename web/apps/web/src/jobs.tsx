@@ -215,10 +215,10 @@ export function JobsView(props: {
     state: isFailedOnly ? "failed" : "",
     kind: "",
   });
-  const ended = useRef<HTMLHeadingElement>(null);
+  const endedRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     if (isFailedOnly) {
-      ended.current?.focus();
+      endedRef.current?.focus();
     }
   }, [isFailedOnly]);
   if (props.jobs.length === 0) {
@@ -238,7 +238,7 @@ export function JobsView(props: {
         </>
       )}
       {days.length === 0 ? null : (
-        <h2 id="jobs-ended" ref={ended} tabIndex={-1}>
+        <h2 id="jobs-ended" ref={endedRef} tabIndex={-1}>
           {t("jobs.finished")}
         </h2>
       )}
