@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { availableParallelism } from "node:os";
+
 import react from "@vitejs/plugin-react";
 import { playwright } from "@vitest/browser-playwright";
 import { searchForWorkspaceRoot } from "vite";
 import { defineConfig, type ViteUserConfig } from "vitest/config";
 import type { BrowserCommand } from "vitest/node";
 
-import { chromiumArguments, firefoxUserPrefs } from "./e2e/browsers.ts";
+import { chromiumArguments, firefoxUserPrefs, pagesAtOnce } from "./e2e/browsers.ts";
 import { VitestTimings } from "./e2e/vitest-timings.ts";
 
 /**
@@ -88,6 +90,8 @@ const config: ViteUserConfig = defineConfig({
     // a machine other gates load (test-weight.md §26). Its polls wait as long as it may need.
     testTimeout: 30_000,
     expect: { poll: { timeout: 10_000 } },
+    // One page per two cores in each browser, not vitest's one per core but one (e2e/browsers.ts).
+    maxWorkers: pagesAtOnce(availableParallelism()),
     fsModuleCache: true,
     // The list as it runs, and every test's and file's timings kept (e2e/vitest-timings.ts).
     reporters: ["default", new VitestTimings({ suite: "vitest-browser" })],

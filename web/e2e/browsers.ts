@@ -17,3 +17,14 @@ export const firefoxUserPrefs = {
   "media.navigator.permission.disabled": true,
   "media.peerconnection.ice.obfuscate_host_addresses": false,
 };
+
+/**
+ * How many test pages each browser runs at once on a machine of `cores` cores: one for every two
+ * (the owner, 2026-11-24), the rest left to the dev server, the browsers' own processes and the
+ * machine's other work. On 8 cores Firefox took no less time at 6 or 7 pages than at 4, and its
+ * tests typing into a field that commits on leaving it failed more often as pages were added;
+ * Chromium took about 9 s more at 4 than at 7.
+ */
+export function pagesAtOnce(cores: number): number {
+  return Math.max(1, Math.floor(cores / 2));
+}
