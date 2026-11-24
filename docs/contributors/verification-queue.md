@@ -4064,3 +4064,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   2. Press play. Report whether both play. Pause again, leave, and start another session from
      the playing film; report whether it plays on.
   3. Do step 1 again in Firefox, and report the same.
+- [ ] **VQ397** — Stop from the cast's remote resumes where the receiver stood, never at 0:00 (D549):
+  only a real Fire TV receiver says what the server's answer to Stop holds. From your phone:
+  1. Play a film on the Fire TV's tab, let it reach about the 10-minute mark, and pause it on the
+     phone's remote. Press Stop casting. Report where the phone's film starts, and that it waits
+     paused there, not at 0:00.
+  2. Cast again, let it play, and press Stop casting while it plays. Report whether the phone plays
+     on from about where the TV stood.
+  3. Cast, and stop the TV's tab itself (close it). Report whether the phone's film comes back, and
+     where (not 0:00 unless it never played).
+  4. If the remote ever shows every control disabled at 0:00, capture the Fire TV Silk browser's
+     log (D549 §4) and send it with the time.

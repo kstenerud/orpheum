@@ -11,6 +11,7 @@ import type { Api, components } from "@orpheum/sdk";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { ApiProblem, dataOrThrow } from "./problem.ts";
+import type { ReopenAt } from "./reopen.ts";
 import { readMembership } from "./together-storage.ts";
 import { handAnswer } from "./use-resource.ts";
 
@@ -138,15 +139,41 @@ export async function listMyCasts(api: Api): Promise<Cast[]> {
   return dataOrThrow(await api.GET("/me/casts")).casts ?? [];
 }
 
-/** Ends the cast castId, saying why, and says where it stood. */
+/**
+ * The server's answers to this tab's asks to end a cast, kept by cast so the cast's remote, whose
+ * page learns of the end on its own channel, can take the film over from where the server said it
+ * stood (D549 §2): an answer undefined where the ask failed.
+ */
+const endAnswers = new Map<number, Promise<ReopenAt | undefined>>();
+
+/**
+ * Where the server said the cast castId stood as this tab's ask to end it was answered, paused where
+ * it did not play; its answer still awaited, awaiting it. Undefined where this tab asked for no end
+ * (the receiver's, the server's), or the ask failed. Read once: the answer is forgotten with it.
+ */
+export function takeEndAnswerOf(castId: number): Promise<ReopenAt | undefined> | undefined {
+  const answer = endAnswers.get(castId);
+  endAnswers.delete(castId);
+  return answer;
+}
+
+/** Ends the cast castId, saying why, and says where it stood (kept too: takeEndAnswerOf). */
 export async function endCast(api: Api, castId: number, reason: CastEnd): Promise<CastEnded> {
-  return dataOrThrow(
-    await api.POST("/me/casts/{id}/end", {
+  const asked = api
+    .POST("/me/casts/{id}/end", {
       params: { path: { id: castId } },
       body: { reason },
       ...idempotent(newIdempotencyKey()),
-    }),
+    })
+    .then((answer) => dataOrThrow(answer));
+  endAnswers.set(
+    castId,
+    asked.then(
+      (ended) => ({ positionMs: ended.positionMs, isPaused: !ended.isPlaying }),
+      () => undefined,
+    ),
   );
+  return await asked;
 }
 
 /**

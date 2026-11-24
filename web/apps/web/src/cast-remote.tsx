@@ -25,7 +25,7 @@ import { useTranslation } from "react-i18next";
 import { tabStorage } from "./browser-storage.ts";
 import { RemoteMenus, useReceiverFilmSound, useRemotePrevious } from "./cast-remote-choices.tsx";
 import { RemotePad, remoteSoundMovesOf } from "./cast-remote-pad.tsx";
-import { listMyCasts, moveCastOn, myCastsKey, type Cast } from "./cast.ts";
+import { listMyCasts, moveCastOn, myCastsKey, takeEndAnswerOf, type Cast } from "./cast.ts";
 import { useLeavesFullScreen } from "./film-fullscreen.ts";
 import { useShowsARemote } from "./hidden-need.ts";
 import type { PlayerSource, SequenceMoves } from "./player-controls.tsx";
@@ -106,7 +106,8 @@ function useHeldCast(castId: number): CastSending | undefined {
 }
 
 /**
- * Plays the film of the cast's last word here again, from atMs, paused there where isPaused: on the
+ * Plays the film of the cast's last word here again, from atMs, paused there where isPaused, or from
+ * its own start where atMs is undefined, no place being known (D549 §3): on the
  * page shown where it is the page's film (onPlayHere); else on that film's Play page, in this one's
  * place. Nothing played on the receiver, the page goes home (D446 §2).
  */
@@ -114,7 +115,7 @@ function usePlaysHere(
   sent: CastSending,
   pageFileId: number,
   onPlayHere: PlaysHereFrom,
-): (atMs: number, isPaused?: boolean) => void {
+): (atMs: number | undefined, isPaused?: boolean) => void {
   const { navigation } = useServices();
   return (atMs, isPaused = false) => {
     if (sent.fileId === 0) {
@@ -125,7 +126,7 @@ function usePlaysHere(
       navigation.replace({
         screen: "play",
         fileId: sent.fileId,
-        atMs,
+        ...(atMs === undefined ? {} : { atMs }), // none known: the film's own start, never 0 (D549 §3)
         shouldPlayHere: true,
         ...(isPaused ? { isPaused: true } : {}),
       });
@@ -154,7 +155,7 @@ function Remote(props: {
   const hosted = useHostedPanel();
   const stoodRef = useWhereItStood(hosted?.snapshot ?? snapshot);
   const playHere = usePlaysHere(sent, props.pageFileId, props.onPlayHere);
-  useTakesTheFilmOver(over, stoodRef, playHere);
+  useTakesTheFilmOver(sent.castId, over, { stoodRef, playHere });
   useGoesHomeAsTheCastIsLost(over);
   const episodes = useEpisodesMovedTo();
   useLeavesAtTheCastsEnd(sent.fileId, props.pageFileId, episodes.of);
@@ -275,24 +276,38 @@ function useGoesHomeAsTheCastIsLost(over: CastEnd | undefined): void {
 /**
  * Plays the film here again, once, as its cast ends by one of takenOverAt, stopped here, stopped on
  * the receiver or the receiver gone: from where the receiver last stood, playing or paused as it was,
- * this device then the one playing and controlling it (D446 §2, §5); where no device was heard
- * leading, from where the cast stood as it ended.
+ * this device then the one playing and controlling it (D446 §2, §5); where this tab's own Stop was
+ * answered, from where the server said it stood, before that; where no device was heard leading,
+ * from where the cast stood as it ended, and where that is not known either, from the film's own
+ * start (D549).
  */
 function useTakesTheFilmOver(
+  castId: number,
   over: CastEnd | undefined,
-  stoodRef: RefObject<ReopenAt | undefined>,
-  playHere: (atMs: number, isPaused?: boolean) => void,
+  where: {
+    readonly stoodRef: RefObject<ReopenAt | undefined>;
+    readonly playHere: (atMs: number | undefined, isPaused?: boolean) => void;
+  },
 ): void {
+  const { stoodRef, playHere } = where;
   const playHereRef = useLatest(playHere);
   const hasTakenRef = useRef(false);
+  useEffect(() => {
+    void takeEndAnswerOf(castId); // an answer to a Stop asked before this remote was shown is not its own
+  }, [castId]);
   useEffect(() => {
     if (over === undefined || !isTakenOver(over.reason) || hasTakenRef.current) {
       return;
     }
     hasTakenRef.current = true;
-    const from = stoodRef.current ?? over;
-    playHereRef.current(from.positionMs, from.isPaused);
-  }, [over, playHereRef, stoodRef]);
+    // The first known (D549 §2): the server's answer to this tab's own Stop, where the receiver last
+    // stood, the ended session's own place; none known, the film's own start, never 0 (§3).
+    const answered = takeEndAnswerOf(castId) ?? Promise.resolve(undefined);
+    void answered.then((ended) => {
+      const from = ended ?? stoodRef.current ?? over.stood;
+      playHereRef.current(from?.positionMs, from?.isPaused);
+    });
+  }, [castId, over, playHereRef, stoodRef]);
 }
 
 /**
@@ -318,9 +333,13 @@ function useWhereItStood(snapshot: TogetherSnapshot | undefined): RefObject<Reop
   return stoodRef;
 }
 
-/** How a cast ended, as its remote says it: why, and where its video stood, and whether paused. */
-interface CastEnd extends ReopenAt {
+/**
+ * How a cast ended, as its remote says it: why, and where its video stood, and whether paused, where
+ * its session said (stood).
+ */
+interface CastEnd {
   readonly reason: string;
+  readonly stood: ReopenAt | undefined;
 }
 
 /**
@@ -357,7 +376,10 @@ function useCastSession(castId: number): {
     over: endOf({
       endReason,
       isGone,
-      stood: { positionMs: positionMs ?? 0, isPaused: snapshot?.group?.state === "paused" },
+      stood:
+        positionMs === undefined
+          ? undefined
+          : { positionMs, isPaused: snapshot?.group?.state === "paused" },
     }),
   };
 }
@@ -369,13 +391,13 @@ function useCastSession(castId: number): {
 function endOf(cast: {
   readonly endReason: string | undefined;
   readonly isGone: boolean;
-  readonly stood: ReopenAt;
+  readonly stood: ReopenAt | undefined;
 }): CastEnd | undefined {
   const { endReason, isGone, stood } = cast;
   if (endReason === undefined && !isGone) {
     return undefined;
   }
-  return { reason: endReason ?? "gone", ...stood };
+  return { reason: endReason ?? "gone", stood };
 }
 
 /** A session as the remote works it: what it says, and its connection. */

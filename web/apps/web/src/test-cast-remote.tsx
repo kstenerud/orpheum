@@ -168,6 +168,8 @@ export function upNextCard(container: HTMLElement, words: string): HTMLElement |
 /** How a test draws the remote beyond its answers: what was sent, the Cast sign and the way up. */
 export interface RemoteShown {
   readonly sent?: Readonly<Record<string, unknown>>;
+  /** What the session's welcome says in place of `welcome`, as a session that holds no position yet. */
+  readonly welcome?: Readonly<Record<string, unknown>>;
   readonly castSign?: () => ReactNode;
   readonly upward?: Upward;
 }
@@ -216,6 +218,6 @@ export async function castingRemote(
   await sockets.live.accept();
   await sockets.live.say({ type: "sending", sending: shown.sent ?? sending });
   await sockets.session.accept();
-  await sockets.session.say(welcome);
+  await sockets.session.say(shown.welcome ?? welcome);
   return { mounted, services, sockets };
 }

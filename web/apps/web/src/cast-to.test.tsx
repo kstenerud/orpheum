@@ -748,6 +748,9 @@ describe("a film played on a device that casts (D364 §3, §4; D384 §2)", () =>
     expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/play")).toBe(false);
     await sockets.session.say({ type: "ended", reason: "stopped" });
     await sockets.live.say({ type: "sending" });
+    await settleUntil(
+      () => mounted?.container.textContent.includes("playing here from 61000") === true,
+    );
     expect(mounted?.container.textContent).toContain("playing here from 61000");
   });
 
