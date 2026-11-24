@@ -228,9 +228,9 @@ class Wiring(unittest.TestCase):
                                    text=True, check=True, cwd=REPO).stdout
         for target in ("check-pr-failed", "check-revert-red-failed", "check-revert-red"):
             self.assertIn(f"  {target} ", help_text)
-        # The tiers, quickest first, each step recorded; PR_STEPS, which check-pr-failed re-runs, is
-        # every tier's (the owner, 2026-10-15).
-        tiers = ("PR_FAST_STEPS", "PR_MEDIUM_STEPS", "PR_CODE_RED_STEP", "PR_SERIAL_STEP", "PR_SLOW_STEPS",
+        # The tiers, quickest first, each step recorded, revert-red after every other (the owner,
+        # 2026-11-24); PR_STEPS, which check-pr-failed re-runs, is every tier's (the owner, 2026-10-15).
+        tiers = ("PR_FAST_STEPS", "PR_MEDIUM_STEPS", "PR_SERIAL_STEP", "PR_SLOW_STEPS", "PR_CODE_RED_STEP",
                  "PR_LAST_STEP")
         places = []
         for tier in tiers:
@@ -252,8 +252,8 @@ class Wiring(unittest.TestCase):
         self.assertRegex(self.MAKEFILE, r"(?m)^pr-step-%:\n\t.*check_pr_steps\.py record \$\*")
         self.assertRegex(self.MAKEFILE, r"(?m)^\t.*check_pr_steps\.py durations \$\(PR_STEPS\) "
                          r"\$\(PR_CODE_RED_STEP\) \$\(PR_SERIAL_STEP\) \$\(PR_LAST_STEP\)")
-        # Revert-red in two parts, the code's cheap runs after the medium tier and every browser run
-        # last, each re-run on its own failed files (the owner, 2026-10-15, 2026-10-17).
+        # Revert-red in two parts, the code's cheap runs and then every browser run, after every other
+        # tier, each re-run on its own failed files (the owner, 2026-10-15, 2026-10-17).
         # A file's licence line and length are the branch's too: a new stylesheet without its SPDX line
         # passed check-pr (the owner, 2026-11-08: "make it run the check").
         self.assertRegex(self.MAKEFILE, r"(?m)^PR_FAST_STEPS := .*\bcheck-source\b")

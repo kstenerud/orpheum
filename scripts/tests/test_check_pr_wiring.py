@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# ABOUTME: Tests of check-pr's wiring in the Makefile: its tiers' order, revert-red after the timing
-# ABOUTME: tiers, a failed quick tier stopping it before the long ones (D424), and one way to its base.
+# ABOUTME: Tests of check-pr's wiring in the Makefile: its tiers' order, revert-red after every other
+# ABOUTME: tier, a failed tier stopping it before the long ones (D424), and one way to its base.
 import re
 import subprocess
 import tempfile
@@ -72,11 +72,18 @@ class CheckPrWiring(unittest.TestCase):
         for long_step in ("check-revert-red-code", "test-acceptance-home", "test-browser", "check-revert-red-browser"):
             self.assertNotIn(long_step, steps)
         self.assertIn("a quick tier failed", last)
-        # A failed long tier still lets every later one run (the owner, 2026-10-17).
+        # A failed browser tier stops it before revert-red, which took an hour (the owner, 2026-11-24:
+        # "a lint issue shouldn't cause check-pr to fail after an hour of runtime").
+        steps, last = run_the_tiers(self.MAKEFILE, "test-browser")
+        self.assertEqual(steps[-2:], ["test-acceptance-home", "test-browser"])
+        for revert_red in ("check-revert-red-code", "check-revert-red-browser"):
+            self.assertNotIn(revert_red, steps)
+        self.assertIn("revert-red did not run", last)
+        # Revert-red comes after every other tier, and a failed code part still lets the browser part run.
         steps, last = run_the_tiers(self.MAKEFILE, "check-revert-red-code")
-        self.assertEqual(steps[-1], "check-revert-red-browser")
-        self.assertIn("test-browser", steps)
-        self.assertIn("every tier still ran", last)
+        self.assertEqual(steps[-4:], ["test-acceptance-home", "test-browser", "check-revert-red-code",
+                                      "check-revert-red-browser"])
+        self.assertIn("every other tier having passed", last)
 
     def test_every_branch_gate_resolves_its_base_the_one_way(self):
         self.assertRegex(self.MAKEFILE, r"(?m)^check-pr-locked:.*\n\t.*quiet_gate\.py .*check-pr-verbose")
