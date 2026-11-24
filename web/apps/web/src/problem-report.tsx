@@ -228,7 +228,7 @@ export function playbackNow(
 }
 
 /** How the film plays, in the report's words: "converted, 4000 kb/s over 12000 kb/s". */
-function qualityOf(playing: PlaybackReport | undefined): string {
+export function qualityOf(playing: PlaybackReport | undefined): string {
   if (playing === undefined) {
     return "";
   }

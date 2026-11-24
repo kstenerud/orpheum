@@ -16,6 +16,7 @@ import { useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { audioTrackLabel } from "./audio-tracks.tsx";
+import { useReportFromTheRemote, type RemoteReport } from "./cast-remote-report.tsx";
 import { playInCast } from "./cast.ts";
 import { HowItPlays } from "./how-it-plays.tsx";
 import { ListEntry } from "./list-box.tsx";
@@ -61,15 +62,19 @@ export function noOverlay(): void {
 export function RemoteMenus(props: {
   readonly playback: PlaybackReport | undefined;
   readonly connection: ReceiverChoices | undefined;
+  /** The film and session ⁝'s Report a problem takes the receiver's playback from (D524 §2). */
+  readonly report?: RemoteReport | undefined;
 }): JSX.Element {
   const { playback, connection } = props;
+  const reporting = useReportFromTheRemote(props.report, playback);
   return (
     <>
+      {reporting.dialog}
       <SessionTalk isOverVideo />
       {connection === undefined ? null : (
         <ReceiverChoicesMenus playback={playback} connection={connection} />
       )}
-      <ReceiverMore playback={playback} connection={connection} />
+      <ReceiverMore playback={playback} connection={connection} report={reporting.entry} />
     </>
   );
 }
@@ -99,6 +104,8 @@ function ReceiverChoicesMenus(props: {
 function ReceiverMore(props: {
   readonly playback: PlaybackReport | undefined;
   readonly connection: ReceiverChoices | undefined;
+  /** ⁝'s Report a problem, in the menu where the receiver has said how it plays. */
+  readonly report: JSX.Element | null;
 }): JSX.Element | null {
   const { playback, connection } = props;
   const original =
@@ -119,6 +126,7 @@ function ReceiverMore(props: {
           />
         </ListEntry>
       )}
+      {props.report}
       <HowItPlays playback={playback} />
     </MoreMenuOf>
   );

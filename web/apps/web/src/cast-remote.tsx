@@ -490,7 +490,11 @@ function RemotePlaying(props: {
         isDisabled={isDisabled}
       />
       <RemoteButtons isDisabled={isDisabled}>
-        <RemoteMenus playback={playback} connection={props.cast.connection} />
+        <RemoteMenus
+          playback={playback}
+          connection={props.cast.connection}
+          report={{ fileId: sent.fileId, snapshot: worked.snapshot }}
+        />
       </RemoteButtons>
     </PlayUpwardContext>
   );
