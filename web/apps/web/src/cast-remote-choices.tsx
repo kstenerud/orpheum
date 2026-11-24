@@ -36,6 +36,16 @@ import { SoundOffsetInput } from "./sound-delay.tsx";
 import { Switch } from "./switch.tsx";
 import { SessionTalk } from "./together-voice.tsx";
 import type { Previous } from "./around-file.ts";
+import { RemoteFindSubtitles, RemoteFindSubtitlesOption } from "./cast-remote-find-subtitles.tsx";
+import { RemoteFileTiming, RemoteTellTheAdmin } from "./cast-remote-sound-timing.tsx";
+import { RemoteSubtitleTiming } from "./cast-remote-subtitle-timing.tsx";
+import { useLive } from "./live.tsx";
+import type { SuggestedSoundOffset } from "./problem-report.tsx";
+
+/** The dialog a remote's menu opened, if one did: Find subtitles, or Tell the admin's report. */
+type RemoteDialog =
+  | { readonly kind: "findSubtitles" }
+  | { readonly kind: "tellTheAdmin"; readonly suggested: SuggestedSoundOffset };
 
 /** What the remote's menus send the receiver: its sound's choices and its picture's (D434). */
 export type ReceiverChoices = CarriesSoundChoices & CarriesPictureChoices;
@@ -50,8 +60,9 @@ export function noOverlay(): void {
  * amending D440 §5), drawn as the player's are wherever the receiver can do what they do (the owner,
  * 2026-11-23: "I want the interfaces to look as similar as possible, aside from things that can't be
  * done due to a device or circumstances"): Talk in a Watch Together session; 💬,
- * the receiver's subtitle tracks; 🎧, its sound track, Level loudness, the dialogue boost and, under
- * Sound timing, That device's timing; ⁝, the original and How it plays. Each choice is sent to the
+ * the receiver's subtitle tracks, their timing and Find subtitles; 🎧, its sound track, Level
+ * loudness, the dialogue boost and, under Sound timing, That device's timing and This file's;
+ * ⁝, the original and How it plays. Each choice is sent to the
  * receiver in the cast's session (D434), which carries it out as its own press and says how it stands
  * after: a Fire TV's own controls are hidden while it is controlled (D407 §12; the owner, VQ116's
  * run). Neither the bare player nor Start over: the bar's ⏮ covers the start (the owner,
@@ -67,15 +78,48 @@ export function RemoteMenus(props: {
 }): JSX.Element {
   const { playback, connection } = props;
   const reporting = useReportFromTheRemote(props.report, playback);
+  const [dialog, setDialog] = useState<RemoteDialog | undefined>(undefined);
+  const fileId = useLive().sending?.fileId ?? 0;
+  const closed = (): void => {
+    setDialog(undefined);
+  };
   return (
     <>
       {reporting.dialog}
       <SessionTalk isOverVideo />
       {connection === undefined ? null : (
-        <ReceiverChoicesMenus playback={playback} connection={connection} />
+        <ReceiverChoicesMenus
+          playback={playback}
+          connection={connection}
+          fileId={fileId}
+          onDialog={setDialog}
+        />
       )}
       <ReceiverMore playback={playback} connection={connection} report={reporting.entry} />
+      {connection === undefined || dialog === undefined ? null : (
+        <RemoteMenuDialog
+          dialog={dialog}
+          fileId={fileId}
+          connection={connection}
+          onClose={closed}
+        />
+      )}
     </>
+  );
+}
+
+/** The dialog a remote's menu opened, over the receiver's file. */
+function RemoteMenuDialog(props: {
+  readonly dialog: RemoteDialog;
+  readonly fileId: number;
+  readonly connection: CarriesPictureChoices;
+  readonly onClose: () => void;
+}): JSX.Element {
+  const { dialog, onClose } = props;
+  return dialog.kind === "findSubtitles" ? (
+    <RemoteFindSubtitles fileId={props.fileId} connection={props.connection} onClose={onClose} />
+  ) : (
+    <RemoteTellTheAdmin suggested={dialog.suggested} onClose={onClose} />
   );
 }
 
@@ -83,16 +127,37 @@ export function RemoteMenus(props: {
 function ReceiverChoicesMenus(props: {
   readonly playback: PlaybackReport | undefined;
   readonly connection: ReceiverChoices;
+  /** The receiver's file, 0 while the remote knows none. */
+  readonly fileId: number;
+  readonly onDialog: (dialog: RemoteDialog) => void;
 }): JSX.Element {
-  const { connection } = props;
+  const { connection, fileId, onDialog } = props;
   const picture = props.playback?.picture;
   const sound = props.playback?.sound;
   return (
     <>
       {picture === undefined ? null : (
-        <ReceiverSubtitles picture={picture} connection={connection} />
+        <ReceiverSubtitles
+          picture={picture}
+          connection={connection}
+          onFind={
+            fileId === 0
+              ? undefined
+              : () => {
+                  onDialog({ kind: "findSubtitles" });
+                }
+          }
+        />
       )}
-      {sound === undefined ? null : <ReceiverSound sound={sound} connection={connection} />}
+      {sound === undefined ? null : (
+        <ReceiverSound
+          sound={sound}
+          connection={connection}
+          onTellTheAdmin={(soundOffsetMs) => {
+            onDialog({ kind: "tellTheAdmin", suggested: { fileId, soundOffsetMs } });
+          }}
+        />
+      )}
     </>
   );
 }
@@ -132,14 +197,19 @@ function ReceiverMore(props: {
   );
 }
 
-/** 💬 over the receiver's subtitles as its own menu names them, Off first; nothing where it offers none. */
+/**
+ * 💬 over the receiver's subtitles as its own menu names them, Off first, their timing under them,
+ * and Find subtitles where the remote knows the file, as the player's Subtitles menu is; nothing
+ * where it offers no track and none can be found.
+ */
 function ReceiverSubtitles(props: {
   readonly picture: PlaybackPicture;
   readonly connection: CarriesPictureChoices;
+  readonly onFind: (() => void) | undefined;
 }): JSX.Element | null {
   const { t } = useTranslation();
-  const { picture, connection } = props;
-  if (picture.subtitles.length === 0) {
+  const { picture, connection, onFind } = props;
+  if (picture.subtitles.length === 0 && onFind === undefined) {
     return null;
   }
   const choose = (key: string | undefined) => (): void => {
@@ -156,6 +226,10 @@ function ReceiverSubtitles(props: {
   return (
     <SubtitlesMenuOf onOpenChange={noOverlay}>
       <ChoicesSubmenu name={t("play.subtitles.label")} choices={options} />
+      {picture.subtitles.length === 0 ? null : (
+        <RemoteSubtitleTiming offsetMs={picture.subtitleOffsetMs} connection={connection} />
+      )}
+      {onFind === undefined ? null : <RemoteFindSubtitlesOption onFind={onFind} />}
     </SubtitlesMenuOf>
   );
 }
@@ -163,12 +237,13 @@ function ReceiverSubtitles(props: {
 /**
  * 🎧 over the receiver's sound, as the player's Sound menu is (sound-menu.tsx): its sound track
  * where its file has more than one, Level loudness, the dialogue boost where its film has a boosted
- * mix, and, under Sound timing, That device's timing where it says one. The file's own timing is the
- * player's alone until a receiver takes it (plans: the next batch).
+ * mix, and, under Sound timing, That device's timing and the file's own (D537), each where it says
+ * one, the file's opening Tell the admin's report by onTellTheAdmin.
  */
 function ReceiverSound(props: {
   readonly sound: PlaybackSound;
   readonly connection: CarriesSoundChoices;
+  readonly onTellTheAdmin: (ownMs: number) => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   const { sound, connection } = props;
@@ -210,15 +285,41 @@ function ReceiverSound(props: {
           />
         </ListEntry>
       )}
-      {sound.soundOffsetMs === undefined ? null : (
-        <>
-          <SoundTimingHeading />
-          <KeptOpen>
-            <RemoteSoundOffset ms={sound.soundOffsetMs} connection={connection} />
-          </KeptOpen>
-        </>
-      )}
+      <ReceiverSoundTiming
+        sound={sound}
+        connection={connection}
+        onTellTheAdmin={props.onTellTheAdmin}
+      />
     </SoundMenuOf>
+  );
+}
+
+/** 🎧's Sound timing on the remote: That device's timing and This file's, each where it says one. */
+function ReceiverSoundTiming(props: {
+  readonly sound: PlaybackSound;
+  readonly connection: CarriesSoundChoices;
+  readonly onTellTheAdmin: (ownMs: number) => void;
+}): JSX.Element | null {
+  const { sound, connection } = props;
+  if (sound.soundOffsetMs === undefined && sound.fileSoundOffset === undefined) {
+    return null;
+  }
+  return (
+    <>
+      <SoundTimingHeading />
+      {sound.soundOffsetMs === undefined ? null : (
+        <KeptOpen>
+          <RemoteSoundOffset ms={sound.soundOffsetMs} connection={connection} />
+        </KeptOpen>
+      )}
+      {sound.fileSoundOffset === undefined ? null : (
+        <RemoteFileTiming
+          offset={sound.fileSoundOffset}
+          connection={connection}
+          onTellTheAdmin={props.onTellTheAdmin}
+        />
+      )}
+    </>
   );
 }
 

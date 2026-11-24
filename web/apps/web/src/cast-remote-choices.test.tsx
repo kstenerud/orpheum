@@ -19,6 +19,7 @@ import {
 } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { liveAndSession } from "./test-together.ts";
+import { IsAdminContext } from "./warning-sign.tsx";
 
 /** The cast this device sends, as GET /me/casts lists it. */
 const cast = {
@@ -72,6 +73,16 @@ const sending = {
 
 /** The cast's roster, its receiver leading and saying what it shows. */
 function shows(picture: Readonly<Record<string, unknown>>): Record<string, unknown> {
+  return says({ picture });
+}
+
+/** The cast's roster, its receiver leading and saying how it sounds. */
+function sounds(sound: Readonly<Record<string, unknown>>): Record<string, unknown> {
+  return says({ sound: { isLevellingOn: false, audioTracks: [], ...sound } });
+}
+
+/** The cast's roster, its receiver leading and saying how it plays, converted. */
+function says(playback: Readonly<Record<string, unknown>>): Record<string, unknown> {
   return {
     type: "roster",
     roster: [
@@ -81,7 +92,12 @@ function shows(picture: Readonly<Record<string, unknown>>): Record<string, unkno
         isHost: true,
         devices: [
           { id: 5, role: "panel" },
-          { id: 7, role: "video", isLeader: true, playback: { delivery: "converted", picture } },
+          {
+            id: 7,
+            role: "video",
+            isLeader: true,
+            playback: { delivery: "converted", ...playback },
+          },
         ],
       },
     ],
@@ -96,12 +112,16 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
     window.sessionStorage.clear();
   });
 
-  /** The remote on film 4's Play page, its person's debug tools shown or not, its session joined. */
+  /**
+   * The remote on film 4's Play page, its person's debug tools shown or not, an admin or not, its
+   * session joined.
+   */
   async function casting(
     answers: Parameters<typeof servedBy>[0],
     heard: Heard[] = [],
-    showsDebugTools = false,
+    person: { readonly showsDebugTools?: boolean; readonly isAdmin?: boolean } = {},
   ): Promise<ReturnType<typeof liveAndSession>> {
+    const { showsDebugTools = false, isAdmin = false } = person;
     const services = servedBy(
       {
         "GET /me/casts": [200, { casts: [cast] }],
@@ -116,11 +136,13 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
     const sockets = liveAndSession();
     mounted = await mount(
       withServices(
-        <DebugToolsContext value={{ isShown: showsDebugTools, onChanged: () => undefined }}>
-          <LiveProvider>
-            <CastRemote castId={9} fileId={4} onPlayHere={vi.fn()} />
-          </LiveProvider>
-        </DebugToolsContext>,
+        <IsAdminContext value={isAdmin}>
+          <DebugToolsContext value={{ isShown: showsDebugTools, onChanged: () => undefined }}>
+            <LiveProvider>
+              <CastRemote castId={9} fileId={4} onPlayHere={vi.fn()} />
+            </LiveProvider>
+          </DebugToolsContext>
+        </IsAdminContext>,
         { ...services, openTogetherSocket: sockets.openSocket },
       ),
     );
@@ -143,7 +165,9 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
         (button) => button.textContent === text,
       );
     await session.say(shows({ subtitles: [] }));
-    expect(opener()).toBeUndefined();
+    // No track, yet Find subtitles, as the player's 💬 offers it with none (the plan's "The cast
+    // remote's harder parts", item 3).
+    expect(opener()?.getAttribute("aria-label")).toBe("Subtitles");
     const subtitles = [
       { key: "s5", label: "English" },
       { key: "s7", label: "French" },
@@ -156,14 +180,14 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
         .filter((b) => b.closest("[hidden]") === null)
         .map((b) => b.textContent);
     await click(opener());
-    expect(shown()).toEqual(["Subtitles: Off›"]);
+    expect(shown()).toEqual(["Subtitles: Off›", "Find subtitles…"]);
     await click(choice("Subtitles: Off›"));
     expect(shown()).toEqual(["‹Subtitles", "Off", "English", "French"]);
 
     await click(choice("French"));
     await session.say(shows({ subtitles, subtitleKey: "s7" })); // the receiver says it shows it
     await click(opener());
-    expect(shown()).toEqual(["Subtitles: French›"]);
+    expect(shown()).toEqual(["Subtitles: French›", "Find subtitles…"]);
     await click(choice("Subtitles: French›"));
     await click(choice("Off"));
     expect(session.heard.filter((each) => each["type"] === "picture")).toEqual([
@@ -178,7 +202,7 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
     expect(buttonWithText(mounted!.container, "Play the original file")).toBeUndefined();
     mounted?.unmount();
 
-    const { session } = await casting({}, [], true);
+    const { session } = await casting({}, [], { showsDebugTools: true });
     await session.say(shows({ canPlayOriginal: false }));
     expect(buttonWithText(mounted!.container, "Play the original file")).toBeUndefined();
     await session.say(shows({ canPlayOriginal: true }));
@@ -191,6 +215,106 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
     expect(session.heard.filter((each) => each["type"] === "picture")).toEqual([
       { v: 3, type: "picture", picture: { kind: "original" } },
     ]);
+  });
+
+  /** The overlay's menu button named name, its menu opened by a click. */
+  function opener(name: string): Element | undefined {
+    return [...mounted!.container.querySelectorAll("[aria-haspopup]")].find(
+      (button) => button.getAttribute("aria-label") === name,
+    );
+  }
+
+  // The plan's "The cast remote's harder parts", item 2: the player's 💬 stepper, on the remote.
+  it("moves the receiver's subtitle timing from where it says it stands, as the player's Subtitles menu does", async () => {
+    const { session } = await casting({});
+    const subtitles = [{ key: "s5", label: "English" }];
+    await session.say(shows({ subtitles, subtitleKey: "s5", subtitleOffsetMs: 1500 }));
+    await click(opener("Subtitles"));
+    expect(mounted!.container.textContent).toContain("Subtitles show 1.5 s later");
+    await click(buttonNamed(mounted!.container, "Subtitles later"));
+    await session.say(shows({ subtitles, subtitleKey: "s5" })); // the receiver says it is in step
+    await click(buttonNamed(mounted!.container, "Subtitles earlier"));
+    expect(session.heard.filter((each) => each["type"] === "picture")).toEqual([
+      { v: 3, type: "picture", picture: { kind: "subtitleOffset", ms: 1600 } },
+      { v: 3, type: "picture", picture: { kind: "subtitleOffset", ms: -100 } },
+    ]);
+  });
+
+  // The plan's "The cast remote's harder parts", item 3: the player's Find subtitles, on the remote.
+  it("finds a subtitle for the receiver's file, even where it has none, and tells the receiver one was fetched", async () => {
+    const heard: Heard[] = [];
+    const { session } = await casting(
+      {
+        "GET /files/4/subtitle-candidates": [
+          200,
+          {
+            allowance: { remainingDownloads: 19, allowedDownloads: 20, isVip: false },
+            didAskByIds: true,
+            didAskByOpensubtitlesHash: true,
+            candidates: [
+              {
+                providerFileId: 7,
+                releaseName: "Film.2002.1080p",
+                language: "en",
+                isOpensubtitlesHashMatch: true,
+                isHearingImpaired: false,
+                isMachineTranslated: false,
+                downloadCount: 120,
+              },
+            ],
+          },
+        ],
+        "POST /files/4/subtitles": [200, { fetchedSubtitleId: 3, remainingDownloads: 18 }],
+      },
+      heard,
+    );
+    await session.say(shows({ subtitles: [] }));
+    await click(opener("Subtitles"));
+    await click(buttonWithText(mounted!.container, "Find subtitles…"));
+    await click(buttonWithText(document.body, "Search OpenSubtitles"));
+    await click(document.body.querySelector(".subtitle-search li button") ?? undefined);
+    expect(heard.at(-1)).toEqual({
+      methodAndPath: "POST /files/4/subtitles",
+      body: { providerFileId: 7, language: "en" },
+    });
+    expect(document.body.querySelector(".subtitle-search")).toBeNull(); // the dialog closed
+    expect(session.heard.filter((each) => each["type"] === "picture")).toEqual([
+      { v: 3, type: "picture", picture: { kind: "subtitleFetched" } },
+    ]);
+  });
+
+  // The plan's "The cast remote's harder parts", item 1: the player's "This file" (D537), on the
+  // remote beside That device.
+  it("moves the receiver's file's own timing, and makes it everyone's for an admin, as the player's Sound menu does", async () => {
+    const { session } = await casting({}, [], { isAdmin: true });
+    await session.say(sounds({ soundOffsetMs: 0, fileSoundOffset: { everyonesMs: 100 } }));
+    await click(opener("Sound"));
+    const page = mounted!.container;
+    expect(page.textContent).toContain("That device");
+    expect(page.textContent).toContain("This file");
+    expect(buttonWithText(page, "Make it everyone's")).toBeUndefined(); // own is every person's
+    await click(buttonNamed(page, "This file later"));
+    await session.say(
+      sounds({ soundOffsetMs: 0, fileSoundOffset: { everyonesMs: 100, ownMs: 150 } }),
+    );
+    await click(buttonWithText(page, "Make it everyone's"));
+    expect(session.heard.filter((each) => each["type"] === "sound")).toEqual([
+      { v: 3, type: "sound", sound: { kind: "fileSoundOffset", ms: 150 } },
+      { v: 3, type: "sound", sound: { kind: "fileSoundOffset", ms: 150, isEveryones: true } },
+    ]);
+  });
+
+  it("tells the admin of the receiver's file's own timing for anyone else, as the player's Sound menu does", async () => {
+    const { session } = await casting({});
+    await session.say(sounds({ fileSoundOffset: { everyonesMs: 0, ownMs: -200 } }));
+    await click(opener("Sound"));
+    expect(buttonWithText(mounted!.container, "Make it everyone's")).toBeUndefined();
+    await click(buttonWithText(mounted!.container, "Tell the admin"));
+    // The report, the file's offset suggested in it (problem-report.tsx).
+    expect(document.body.textContent).toContain(
+      "It suggests this file's sound play 200 ms earlier for everyone.",
+    );
+    expect(session.heard.filter((each) => each["type"] === "sound")).toEqual([]);
   });
 
   it("plays the episode before on the receiver at ⏮", async () => {

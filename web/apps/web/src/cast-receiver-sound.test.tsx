@@ -3,11 +3,13 @@
 
 import "./i18n.ts";
 
-import { act } from "react";
+import { act, createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AudioMenu } from "./audio-tracks.tsx";
 import { CastReceiver } from "./cast-receiver.tsx";
+import { FilmTiming } from "./file-sound-offset.tsx";
+import { soundOffsetKeptAfterMs } from "./sound-delay.tsx";
 import { newSoundPanel, SoundPanelContext } from "./sound-panel.ts";
 import { BoostSwitch } from "./sound.tsx";
 import { mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
@@ -228,5 +230,79 @@ describe("the receiver's sound, worked by its remote (sound-panel.ts)", () => {
     expect(boosted).toHaveBeenCalledWith(true);
     expect(toldTheCast()).toMatchObject({ sound: { isBoostOn: true } });
     expect(sockets.cast.heard.some((each) => each["type"] === "state")).toBe(false);
+  });
+
+  // The plan's "The cast remote's harder parts", item 1: the file's own timing (D537) set from the
+  // phone, as the receiver's own "This file" sets it.
+  it("tells its remote the file's own timing, and keeps the person's own or makes it every person's as its remote chooses", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "PUT /files/4/preferences": [204, undefined],
+        "PUT /files/4/sound-offset": [204, undefined],
+      },
+      heard,
+      "token",
+    );
+    const server = fakeTogetherServer();
+    const video = document.createElement("video");
+    document.body.append(video);
+    mounted = await mount(
+      withServices(
+        <SoundPanelContext value={newSoundPanel()}>
+          <CastReceiver
+            receiving={{ cast, onLeave: vi.fn() }}
+            fileId={4}
+            video={video}
+            startPositionMs={0}
+            delivery="converted"
+          />
+          <FilmTiming
+            videoRef={createRef()}
+            fileId={4}
+            decision={{
+              soundOffsetMs: 0,
+              fileSoundOffset: { everyonesMs: 100, soundOffsetMs: 100 },
+            }}
+          />
+        </SoundPanelContext>,
+        { ...services, openTogetherSocket: server.openSocket },
+      ),
+    );
+    await server.accept();
+    await server.say(welcome);
+    const lastSound = (): { fileSoundOffset?: unknown } | undefined =>
+      (
+        server.heard.filter((each) => each["type"] === "state").at(-1)?.["playback"] as
+          { sound?: { fileSoundOffset?: unknown } } | undefined
+      )?.sound;
+    expect(lastSound()?.fileSoundOffset).toEqual({ everyonesMs: 100 });
+
+    await server.say({
+      type: "sound",
+      fromDeviceId: 5,
+      sound: { kind: "fileSoundOffset", ms: 250 },
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(lastSound()?.fileSoundOffset).toEqual({ everyonesMs: 100, ownMs: 250 });
+
+    await server.say({
+      type: "sound",
+      fromDeviceId: 5,
+      sound: { kind: "fileSoundOffset", ms: 250, isEveryones: true },
+    });
+    await act(async () => {
+      // The own write waits for presses to settle (soundOffsetKeptAfterMs), every person's after it.
+      await new Promise((resolve) => setTimeout(resolve, soundOffsetKeptAfterMs + 100));
+    });
+    // The person's own kept first, then every person's made it, as the menu's own press does.
+    expect(heard.filter((each) => each.methodAndPath.startsWith("PUT /files/4/"))).toEqual([
+      { methodAndPath: "PUT /files/4/preferences", body: { soundOffsetMs: 250 } },
+      { methodAndPath: "PUT /files/4/sound-offset", body: { soundOffsetMs: 250 } },
+      { methodAndPath: "PUT /files/4/preferences", body: { isSoundOffsetEveryones: true } },
+    ]);
+    expect(lastSound()?.fileSoundOffset).toEqual({ everyonesMs: 250 });
   });
 });

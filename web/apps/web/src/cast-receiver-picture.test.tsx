@@ -11,6 +11,7 @@ import {
   newPicturePanel,
   PicturePanelContext,
   useOriginalOfferedToARemote,
+  useSubtitleFetchedByARemote,
 } from "./picture-panel.ts";
 import { SubtitleControls, type SubtitleChoice, type SubtitleTrack } from "./subtitles.tsx";
 import { mount, servedBy, type Mounted } from "./test-dom.tsx";
@@ -52,6 +53,12 @@ function track(overrides: Partial<SubtitleTrack>): SubtitleTrack {
     vttUrl: "/api/v1/bytes/media/sub/t/5.vtt",
     ...overrides,
   };
+}
+
+/** The page's reading of its tracks again after a fetch, as play.tsx's UnderTheVideo has it. */
+function FetchedRead(props: { readonly onFetched: () => void }): JSX.Element | null {
+  useSubtitleFetchedByARemote(props.onFetched);
+  return null;
 }
 
 /** The ladder's Play original, as play.tsx's LadderUnder offers it to a remote. */
@@ -142,5 +149,83 @@ describe("what the receiver shows, worked by its remote (picture-panel.ts, D440 
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(chosenSubtitles).toHaveBeenLastCalledWith(undefined);
+  });
+
+  // The plan's "The cast remote's harder parts", items 2 and 3: the subtitles' timing set from the
+  // phone, and a subtitle the phone fetched read on the TV, as the TV's own 💬 does both.
+  it("sets the subtitles' timing as its remote chooses, tells its remote where it stands, and reads its tracks again once its remote fetched one", async () => {
+    const services = servedBy({}, [], "token");
+    const server = fakeTogetherServer();
+    const video = document.createElement("video");
+    document.body.append(video);
+    const shifted = vi.fn();
+    const readAgain = vi.fn();
+    // The page's subtitle choice, as useSubtitleChoice holds it: a step moves the timing by it.
+    function Page(): JSX.Element {
+      const [offsetMs, setOffsetMs] = useState(0);
+      const choice: SubtitleChoice = {
+        tracks: [track({})],
+        chosenTrackKey: "s5",
+        choose: () => undefined,
+        offsetMs,
+        shiftOffset: (stepMs) => {
+          shifted(stepMs);
+          setOffsetMs((ms) => ms + stepMs);
+        },
+        failure: undefined,
+      };
+      return (
+        <PicturePanelContext value={panel}>
+          <CastReceiver
+            receiving={{ cast, onLeave: vi.fn() }}
+            fileId={4}
+            video={video}
+            startPositionMs={0}
+            delivery="converted"
+          />
+          <SubtitleControls choice={choice} />
+          <FetchedRead onFetched={readAgain} />
+        </PicturePanelContext>
+      );
+    }
+    const panel = newPicturePanel();
+    mounted = await mount(
+      withServices(<Page />, { ...services, openTogetherSocket: server.openSocket }),
+    );
+    await server.accept();
+    await server.say(welcome);
+    const lastPicture = (): { subtitleOffsetMs?: unknown } | undefined =>
+      (
+        server.heard.filter((each) => each["type"] === "state").at(-1)?.["playback"] as
+          { picture?: { subtitleOffsetMs?: unknown } } | undefined
+      )?.picture;
+    expect(lastPicture()?.subtitleOffsetMs).toBeUndefined(); // in step
+
+    const settle = async (): Promise<void> => {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+    };
+    await server.say({
+      type: "picture",
+      fromDeviceId: 5,
+      picture: { kind: "subtitleOffset", ms: 1500 },
+    });
+    await settle();
+    expect(shifted).toHaveBeenLastCalledWith(1500);
+    expect(lastPicture()?.subtitleOffsetMs).toBe(1500);
+    await server.say({
+      type: "picture",
+      fromDeviceId: 5,
+      picture: { kind: "subtitleOffset", ms: 1400 },
+    });
+    await settle();
+    expect(shifted).toHaveBeenLastCalledWith(-100); // the stepper's own step to where it was sent
+    expect(lastPicture()?.subtitleOffsetMs).toBe(1400);
+    expect(readAgain).not.toHaveBeenCalled();
+
+    await server.say({ type: "picture", fromDeviceId: 5, picture: { kind: "subtitleFetched" } });
+    await settle();
+    expect(readAgain).toHaveBeenCalledTimes(1);
   });
 });

@@ -3,7 +3,7 @@
 /**
  * The Play page's sound controls as one panel a cast's remote reads and works (playback-sound.ts in
  * the SDK): the dialogue boost's switch, levelling's, the audio track's menu and the sound's timing
- * (the owner, 2026-11-06: "Put a control in ... cast") and the film's level and mute on a cast's
+ * (the owner, 2026-11-06: "Put a control in ... cast"), the file's own timing (D537) and the film's level and mute on a cast's
  * receiver (D440 §2) each say here how they stand, which the receiver tells its session for the remote to show, and each carries out the
  * remote's choice of it as its own press, kept for the person as a press is. A Fire TV's own controls
  * are hidden while it is controlled, so its sound could only be changed after taking control back
@@ -24,6 +24,12 @@ type SoundPart =
       readonly tracks: readonly SoundTrack[];
     }
   | { readonly kind: "soundOffset"; readonly ms: number }
+  /** The file's own offset for the person (D537): every person's, and their own where they keep one. */
+  | {
+      readonly kind: "fileSoundOffset";
+      readonly everyonesMs: number;
+      readonly ownMs: number | undefined;
+    }
   /** The film's channel: its level from 0 to 1, and whether it is muted (D440 §2). */
   | { readonly kind: "channel"; readonly level: number; readonly isMuted: boolean };
 
@@ -71,6 +77,7 @@ export function newSoundPanel(): SoundPanel & SoundPanelControls {
         ...(film?.kind === "channel"
           ? { channels: [{ channel: "film", level: film.level, isMuted: film.isMuted }] }
           : {}),
+        ...fileOffsetOf(parts.get("fileSoundOffset")),
       };
     },
     subscribe: (listener) => {
@@ -116,12 +123,12 @@ export function useSoundPart(
   const panel = use(SoundPanelContext);
   const chosenRef = useLatest(onChosen);
   const kind = part?.kind;
-  const { isOn, streamId, tracks, ms, level, isMuted } = fieldsOf(part);
+  const { isOn, streamId, tracks, ms, level, isMuted, ownMs } = fieldsOf(part);
   useEffect(() => {
     if (kind !== undefined) {
-      panel?.show(partOf(kind, { isOn, streamId, tracks, ms, level, isMuted }));
+      panel?.show(partOf(kind, { isOn, streamId, tracks, ms, level, isMuted, ownMs }));
     }
-  }, [panel, kind, isOn, streamId, tracks, ms, level, isMuted]);
+  }, [panel, kind, isOn, streamId, tracks, ms, level, isMuted, ownMs]);
   useEffect(() => {
     if (panel === undefined || kind === undefined) {
       return undefined;
@@ -144,6 +151,8 @@ interface PartFields {
   readonly ms: number | undefined;
   readonly level: number | undefined;
   readonly isMuted: boolean | undefined;
+  /** A file's own offset; its every person's is ms. */
+  readonly ownMs: number | undefined;
 }
 
 const noFields: PartFields = {
@@ -153,6 +162,7 @@ const noFields: PartFields = {
   ms: undefined,
   level: undefined,
   isMuted: undefined,
+  ownMs: undefined,
 };
 
 /** A part's fields, each undefined where it is not of that part's kind. */
@@ -167,6 +177,8 @@ function fieldsOf(part: SoundPart | undefined): PartFields {
       return { ...noFields, streamId: part.streamId, tracks: part.tracks };
     case "soundOffset":
       return { ...noFields, ms: part.ms };
+    case "fileSoundOffset":
+      return { ...noFields, ms: part.everyonesMs, ownMs: part.ownMs };
     case "channel":
       return { ...noFields, level: part.level, isMuted: part.isMuted };
   }
@@ -174,17 +186,27 @@ function fieldsOf(part: SoundPart | undefined): PartFields {
 
 /** A part from its fields (fieldsOf). */
 function partOf(kind: SoundPart["kind"], fields: PartFields): SoundPart {
+  const ms = fields.ms ?? 0;
   switch (kind) {
     case "audioTrack":
       return { kind, streamId: fields.streamId, tracks: fields.tracks ?? [] };
     case "soundOffset":
-      return { kind, ms: fields.ms ?? 0 };
+      return { kind, ms };
+    case "fileSoundOffset":
+      return { kind, everyonesMs: ms, ownMs: fields.ownMs };
     case "channel":
       return { kind, level: fields.level ?? 1, isMuted: fields.isMuted === true };
     case "boost":
     case "levelling":
       return { kind, isOn: fields.isOn === true };
   }
+}
+
+/** The file's own timing as the panel reads it (D537): none where nothing draws it. */
+function fileOffsetOf(part: SoundPart | undefined): Pick<PlaybackSound, "fileSoundOffset"> {
+  return part?.kind === "fileSoundOffset"
+    ? { fileSoundOffset: { everyonesMs: part.everyonesMs, ownMs: part.ownMs } }
+    : {};
 }
 
 /** The audio track's part of the sound as the panel reads it: none where no menu is drawn. */

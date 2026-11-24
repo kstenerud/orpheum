@@ -223,13 +223,13 @@ export function SubtitleControls(props: { readonly choice: SubtitleChoice }): JS
 }
 
 /**
- * Has a cast's remote show the subtitle tracks, each named as the menu names it, and the one
- * showing, and choose among them, a choice there made by choose as one here is (picture-panel.ts,
- * D440 §5).
+ * Has a cast's remote show the subtitle tracks, each named as the menu names it, the one showing and
+ * their timing, and choose among them and move the timing, a choice there made as one here is
+ * (picture-panel.ts, D440 §5): the timing by the stepper's own shiftOffset.
  */
 function useChoiceWorkedByARemote(choice: SubtitleChoice): void {
   const { t, i18n } = useTranslation();
-  const { tracks, chosenTrackKey, choose } = choice;
+  const { tracks, chosenTrackKey, choose, offsetMs, shiftOffset } = choice;
   const options = useMemo(() => {
     const labelOf = labellerOf(t, i18n.language);
     return tracks.flatMap((track) => {
@@ -237,7 +237,15 @@ function useChoiceWorkedByARemote(choice: SubtitleChoice): void {
       return key === undefined ? [] : [{ key, label: labelOf(track) }];
     });
   }, [tracks, t, i18n.language]);
-  useSubtitlesShownToARemote(chosenTrackKey, options, choose);
+  useSubtitlesShownToARemote(
+    { key: chosenTrackKey, options, offsetMs },
+    {
+      choose,
+      setOffset: (ms) => {
+        shiftOffset(ms - offsetMs);
+      },
+    },
+  );
 }
 
 /** What draws a track: its ASS, and its WebVTT named as the menu names it, for fullscreen (D254). */

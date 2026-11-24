@@ -35,7 +35,8 @@ export interface SoundChannel {
  * the audio track playing, among the file's own (D230 §5); how far the device moves its sound from
  * its picture, later when positive, undefined where its page offers no such move (the owner,
  * 2026-11-06: "Put a control in watch together and cast"); the levels of the sounds it mixes
- * (channels), none where its page does not say them.
+ * (channels), none where its page does not say them; and the file's own offset for its person
+ * (D537), undefined where its page offers none.
  */
 export interface PlaybackSound {
   readonly isBoostOn?: boolean | undefined;
@@ -44,6 +45,16 @@ export interface PlaybackSound {
   readonly audioTracks: readonly SoundTrack[];
   readonly soundOffsetMs?: number | undefined;
   readonly channels?: readonly SoundChannel[] | undefined;
+  readonly fileSoundOffset?: FileSoundOffsetNow | undefined;
+}
+
+/**
+ * A file's own sound offset as it stands for a player's person (D537): every person's, an admin's,
+ * and their own, undefined while they keep none, which overrides it for them.
+ */
+export interface FileSoundOffsetNow {
+  readonly everyonesMs: number;
+  readonly ownMs?: number | undefined;
 }
 
 /** One choice of how a film sounds, made on a remote for its person's player to carry out. */
@@ -52,6 +63,8 @@ export type SoundChoice =
   | { readonly kind: "levelling"; readonly isOn: boolean }
   | { readonly kind: "audioTrack"; readonly streamId: number }
   | { readonly kind: "soundOffset"; readonly ms: number }
+  /** The person's own offset for the file (D537 §2), or with isEveryones every person's (§3). */
+  | { readonly kind: "fileSoundOffset"; readonly ms: number; readonly isEveryones?: boolean }
   | ({ readonly kind: "channel" } & SoundChannel);
 
 /**
@@ -68,5 +81,15 @@ export function wireSound(sound: PlaybackSound): PlaybackSound {
     ...(sound.channels === undefined || sound.channels.length === 0
       ? {}
       : { channels: sound.channels }),
+    ...(sound.fileSoundOffset === undefined
+      ? {}
+      : {
+          fileSoundOffset: {
+            everyonesMs: sound.fileSoundOffset.everyonesMs,
+            ...(sound.fileSoundOffset.ownMs === undefined
+              ? {}
+              : { ownMs: sound.fileSoundOffset.ownMs }),
+          },
+        }),
   };
 }

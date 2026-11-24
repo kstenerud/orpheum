@@ -3,6 +3,7 @@
 import { apiPrefix } from "./client.ts";
 import type { PictureChoice, PlaybackPicture, SubtitleOption } from "./playback-picture.ts";
 import type { PlaybackSound, SoundChannel, SoundChoice, SoundTrack } from "./playback-sound.ts";
+import { fileSoundOffsetChoiceIn, fileSoundOffsetIn, msIn } from "./playback-timing.ts";
 
 /**
  * The version of the session WebSocket's messages, every message's v (cut-a §5.1). The core refuses
@@ -428,10 +429,13 @@ function pictureIn(value: unknown): { readonly picture?: PlaybackPicture } {
     return {};
   }
   const key = fields["subtitleKey"];
+  const offset = fields["subtitleOffsetMs"];
   const subtitles = Array.isArray(fields["subtitles"]) ? fields["subtitles"] : [];
   return {
     picture: {
       subtitleKey: typeof key === "string" && key !== "" ? key : undefined,
+      // The server omits a zero.
+      subtitleOffsetMs: typeof offset === "number" ? offset : undefined,
       subtitles: subtitles.flatMap((each: unknown): SubtitleOption[] => {
         const option = recordOf(each);
         const optionKey = option?.["key"];
@@ -454,8 +458,12 @@ function pictureChoiceIn(value: unknown): PictureChoice | undefined {
       // The server omits the key of subtitles turned off.
       return { kind: "subtitles", key: typeof key === "string" && key !== "" ? key : undefined };
     }
+    case "subtitleOffset":
+      return { kind: "subtitleOffset", ms: msIn(fields["ms"]) };
     case "original":
       return { kind: "original" };
+    case "subtitleFetched":
+      return { kind: "subtitleFetched" };
     default:
       return undefined;
   }
@@ -507,6 +515,7 @@ function playbackSoundIn(value: unknown): PlaybackSound | undefined {
     }),
     soundOffsetMs: typeof offset === "number" ? offset : undefined,
     ...(channels.length === 0 ? {} : { channels }),
+    ...fileSoundOffsetIn(recordOf(fields["fileSoundOffset"])),
   };
 }
 
@@ -540,11 +549,10 @@ function soundChoiceIn(value: unknown): SoundChoice | undefined {
       return { kind: "levelling", isOn: fields["isOn"] === true };
     case "audioTrack":
       return audioTrackChoiceIn(fields["streamId"]);
-    case "soundOffset": {
-      const ms = fields["ms"];
-      // The server omits a zero.
-      return { kind: "soundOffset", ms: typeof ms === "number" ? ms : 0 };
-    }
+    case "soundOffset":
+      return { kind: "soundOffset", ms: msIn(fields["ms"]) };
+    case "fileSoundOffset":
+      return fileSoundOffsetChoiceIn(fields);
     case "channel": {
       const channel = soundChannelIn(fields);
       return channel === undefined ? undefined : { kind: "channel", ...channel };

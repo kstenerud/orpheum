@@ -241,33 +241,9 @@ export function isEarlierRefusedFor(
 }
 
 /** What a playback's start says of the sound's timing (D537 §4): the device's and the file's own. */
-interface PlaybackSoundOffsets {
+export interface PlaybackSoundOffsets {
   readonly soundOffsetMs: number;
   readonly fileSoundOffset: FileSoundOffset;
-}
-
-/** The sound's timings a playback started with, as the overlay's menus are given them. */
-export function soundOffsetsOf(decision: PlaybackSoundOffsets): PlaybackSoundOffsets {
-  return { soundOffsetMs: decision.soundOffsetMs, fileSoundOffset: decision.fileSoundOffset };
-}
-
-/**
- * The sound's timing under a film playing a file of its own: the device's, starting where the
- * playback did, played with the file's (D537 §1), which the Sound menu sets.
- */
-export function FilmTiming(props: {
-  readonly videoRef: RefObject<HTMLVideoElement | null>;
-  readonly fileId: number;
-  readonly decision: PlaybackSoundOffsets;
-}): JSX.Element | null {
-  const { decision } = props;
-  return (
-    <SoundOffsetControl
-      videoRef={props.videoRef}
-      initialMs={decision.soundOffsetMs}
-      file={{ fileId: props.fileId, initial: decision.fileSoundOffset }}
-    />
-  );
 }
 
 /**

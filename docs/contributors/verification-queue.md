@@ -4020,6 +4020,36 @@ An item is ticked only by the person who did it, and only with what they saw.
   3. Seek back a few minutes, then to the credits again. Report whether Up next shows again.
   4. Open the menu that says who is signed in, choose Report a problem, and send one saying
      "VQ389". Report that you sent it.
+- [ ] **VQ390** — A cast's remote moving the file's own sound timing on the receiver (D537; the
+  plan's "The cast remote's harder parts", item 1): only a real TV says whether the sound moves as
+  the phone asks. On staging, with
+  "feat(web): a cast's remote times the receiver's sound for its file and its subtitles, and finds subtitles for it", from
+  your phone, signed in as a person who is not the admin:
+  1. Play a film on the Fire TV's tab, and cast to it from the phone. Open the phone's 🎧 menu.
+     Report whether Sound timing shows That device and This file, one under the other.
+  2. Press This file's later button four times. Report whether the TV's sound now plays later than
+     the picture, and what the phone's This file line says.
+  3. Report whether Tell the admin shows under This file, and whether pressing it opens Report a
+     problem on the phone saying the file's sound play later for everyone. Send it saying "VQ390".
+  4. Sign in on the phone as the admin, cast the same film again, and open 🎧. Press This file's
+     later button once, then Make it everyone's. Report whether Make it everyone's goes away.
+- [ ] **VQ391** — A cast's remote moving the subtitles' timing on the receiver (the plan's "The
+  cast remote's harder parts", item 2): only a real TV says whether its subtitles move. On
+  staging, with "feat(web): a cast's remote times the receiver's sound for its file and its subtitles, and finds subtitles for it", from your phone:
+  1. Play a film with subtitles on the Fire TV's tab, cast to it from the phone, and choose a
+     subtitle track in the phone's 💬 menu.
+  2. In the same menu, press Subtitles later three times. Report whether the TV's subtitles now
+     show later than the speech, and whether the phone says "Subtitles show 0.3 s later".
+  3. Press Subtitles earlier three times. Report whether the TV's subtitles are back in step.
+- [ ] **VQ392** — Find subtitles on a cast's remote (the plan's "The cast remote's harder parts",
+  item 3): only a real TV says whether the subtitle the phone fetched shows there. On staging, with
+  "feat(web): a cast's remote times the receiver's sound for its file and its subtitles, and finds subtitles for it",
+  from your phone:
+  1. Play a film with no subtitle track on the Fire TV's tab, and cast to it from the phone.
+     Report whether the phone's 💬 menu shows, offering Find subtitles….
+  2. Choose Find subtitles…, search, and fetch the first one. Report whether the dialog closes and,
+     within a few seconds, the phone's 💬 menu lists the new track.
+  3. Choose that track on the phone. Report whether the TV shows its subtitles.
 - [ ] **VQ395** — Report a problem from a cast's remote (D524 §2): the remote's ⁝ menu offers it, and
   the report says how the TV plays, not the phone.
   1. Cast a film to the Fire TV's tab from the phone and let it play a while. On the remote, open

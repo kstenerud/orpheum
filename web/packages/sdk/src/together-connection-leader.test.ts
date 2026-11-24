@@ -263,6 +263,60 @@ describe("a film's sound between a player and its remote", () => {
     expect(heard).toHaveLength(6);
   });
 
+  it("reads a file's own offset (D537) and hands on a remote's choice of it", () => {
+    const { connection, socket } = welcomed([
+      {
+        id: 7,
+        name: "Karl",
+        devices: [
+          {
+            id: 12,
+            role: "video",
+            isLeader: true,
+            playback: {
+              delivery: "converted",
+              sound: { ...sound, fileSoundOffset: { everyonesMs: 0, ownMs: -300 } },
+            },
+          },
+          {
+            id: 13,
+            role: "video",
+            playback: { delivery: "converted", sound: { ...sound, fileSoundOffset: {} } },
+          },
+        ],
+      },
+    ]);
+    const offsets = (connection.snapshot().roster[0]?.devices ?? []).map(
+      (device) => device.playback?.sound?.fileSoundOffset,
+    );
+    expect(offsets).toEqual([{ everyonesMs: 0, ownMs: -300 }, undefined]);
+    const heard: SoundChoice[] = [];
+    connection.subscribeToSoundChoices((choice) => {
+      heard.push(choice);
+    });
+    for (const sent of [
+      { kind: "fileSoundOffset", ms: 250 },
+      { kind: "fileSoundOffset", ms: -100, isEveryones: true },
+      { kind: "fileSoundOffset" }, // the server omits a zero
+    ]) {
+      socket
+        .listeners()
+        .onMessage(JSON.stringify({ v: 3, type: "sound", fromDeviceId: 3, sound: sent }));
+    }
+    expect(heard).toEqual([
+      { kind: "fileSoundOffset", ms: 250 },
+      { kind: "fileSoundOffset", ms: -100, isEveryones: true },
+      { kind: "fileSoundOffset", ms: 0 },
+    ]);
+    connection.setPlayback(() => ({
+      delivery: "converted",
+      sound: { ...sound, fileSoundOffset: { everyonesMs: 200, ownMs: undefined } },
+    }));
+    connection.reportPlayback();
+    const told = socket.sent.at(-1)?.["playback"] as { sound?: Record<string, unknown> };
+    expect(told.sound?.["fileSoundOffset"]).toEqual({ everyonesMs: 200 });
+  });
+
   it("says its playback alone, with no player, as asked (the owner, 2026-11-06)", () => {
     // A cast's receiver says it in the cast's session while it leads Watch Together: "It shouldn't
     // be watch together's business at all which TV has what offset or playback characteristics".
@@ -389,6 +443,50 @@ describe("what a film shows, between a player and its remote", () => {
     unsubscribe();
     hear({ kind: "original" });
     expect(heard).toHaveLength(3);
+  });
+
+  it("reads a player's subtitle timing, and hands on a remote's timing and fetched subtitle", () => {
+    const { connection, socket } = welcomed([
+      {
+        id: 7,
+        name: "Karl",
+        devices: [
+          {
+            id: 12,
+            role: "video",
+            isLeader: true,
+            playback: { delivery: "converted", picture: { ...picture, subtitleOffsetMs: -1500 } },
+          },
+        ],
+      },
+    ]);
+    expect(connection.snapshot().roster[0]?.devices[0]?.playback?.picture?.subtitleOffsetMs).toBe(
+      -1500,
+    );
+    const heard: PictureChoice[] = [];
+    connection.subscribeToPictureChoices((choice) => {
+      heard.push(choice);
+    });
+    connection.choosePicture({ kind: "subtitleOffset", ms: 800 });
+    connection.choosePicture({ kind: "subtitleFetched" });
+    expect(socket.sent.filter((each) => each["type"] === "picture")).toEqual([
+      { v: 3, type: "picture", picture: { kind: "subtitleOffset", ms: 800 } },
+      { v: 3, type: "picture", picture: { kind: "subtitleFetched" } },
+    ]);
+    for (const sent of [
+      { kind: "subtitleOffset", ms: 1200 },
+      { kind: "subtitleOffset" }, // the server omits a zero
+      { kind: "subtitleFetched" },
+    ]) {
+      socket
+        .listeners()
+        .onMessage(JSON.stringify({ v: 3, type: "picture", fromDeviceId: 3, picture: sent }));
+    }
+    expect(heard).toEqual([
+      { kind: "subtitleOffset", ms: 1200 },
+      { kind: "subtitleOffset", ms: 0 },
+      { kind: "subtitleFetched" },
+    ]);
   });
 
   it("tells what its film shows with how it plays it, as its page reads it", () => {

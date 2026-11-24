@@ -56,7 +56,7 @@ import {
 } from "./for-testers.tsx";
 import { FrameTimingNote } from "./frame-timing-note.tsx";
 import { BoostBox } from "./sound.tsx";
-import { FilmTiming, soundOffsetsOf } from "./sound-delay.tsx";
+import { FilmTiming, soundOffsetsOf } from "./file-sound-offset.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
 import { SubtitleControls } from "./subtitles.tsx";
 import { LevellingControl } from "./levelling.tsx";

@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { idempotent } from "./idempotent.ts";
 import { timeText } from "./date-time-text.ts";
 import { ApiProblem, dataOrThrow, providerProblemText } from "./problem.ts";
+import { useSubtitleFetchedByARemote } from "./picture-panel.ts";
 import { useServices } from "./services.tsx";
 import { RequestWait } from "./request-wait.tsx";
 import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
@@ -120,6 +121,9 @@ export function FindSubtitles(props: {
   readonly isOpenAtOnce?: boolean;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
+  // The one under the film, not a dialog's, is the page's own: a cast's remote that fetched a
+  // subtitle has it read its tracks again, as its own fetch does.
+  useSubtitleFetchedByARemote(props.isOpenAtOnce === true ? undefined : props.onFetched);
   const { api } = useServices();
   const [isOpen, setIsOpen] = useState(props.isOpenAtOnce === true);
   const [language, setLanguage] = useState(() => startingLanguage(i18n.language));

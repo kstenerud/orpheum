@@ -19,14 +19,17 @@ import {
   isEarlierRefusedFor,
   setFileSoundOffsetInThisTab,
   soundOffsetKeptAfterMs,
+  SoundOffsetControl,
   SoundOffsetInput,
   tabValue,
   TimingNotes,
   useDeviceSoundOffsetMs,
   useFileSoundOffset,
+  type PlaybackSoundOffsets,
   type FileOffsetNow,
   type FileOffsetOf,
 } from "./sound-delay.tsx";
+import { useSoundPart } from "./sound-panel.ts";
 import { IsAdminContext } from "./warning-sign.tsx";
 
 /** What failed last for a file's own timing: keeping the person's (fileNotKept), or making it everyone's. */
@@ -178,8 +181,72 @@ function FileTiming(props: {
   );
 }
 
+/** The sound's timings a playback started with, as the overlay's menus are given them. */
+export function soundOffsetsOf(decision: PlaybackSoundOffsets): PlaybackSoundOffsets {
+  return { soundOffsetMs: decision.soundOffsetMs, fileSoundOffset: decision.fileSoundOffset };
+}
+
+/**
+ * The sound's timing under a film playing a file of its own: the device's, starting where the
+ * playback did, played with the file's (D537 §1), which the Sound menu sets, and a cast's remote
+ * sets on a receiver (FileSoundOffsetForARemote).
+ */
+export function FilmTiming(props: {
+  readonly videoRef: RefObject<HTMLVideoElement | null>;
+  readonly fileId: number;
+  readonly decision: PlaybackSoundOffsets;
+}): JSX.Element {
+  const { decision } = props;
+  const file = { fileId: props.fileId, initial: decision.fileSoundOffset };
+  return (
+    <>
+      <SoundOffsetControl
+        videoRef={props.videoRef}
+        initialMs={decision.soundOffsetMs}
+        file={file}
+      />
+      <FileSoundOffsetForARemote file={file} />
+    </>
+  );
+}
+
+/**
+ * Has a cast's remote set the file's own timing on the receiver (D537; the plan's "The cast remote's
+ * harder parts", item 1), as the Sound menu's "This file" is set here: says how it stands, every
+ * person's and the person's own, for the remote to show beside That device, and carries out the
+ * remote's choice as its own press, keeping the person's own as presses settle, or, with
+ * isEveryones, making it every person's (an admin's, which the server refuses anyone else). Drawn
+ * with the film, not in the overlay's menu, so a receiver whose menus are hidden still takes it. A
+ * guest keeps no preference (D469 §4), so it says none.
+ */
+function FileSoundOffsetForARemote(props: { readonly file: FileOffsetOf }): null {
+  const isGuest = useIsGuest();
+  const { api } = useServices();
+  const now = useFileSoundOffset(props.file);
+  const writes = useOwnKept(api);
+  const { fileId } = props.file;
+  useSoundPart(
+    isGuest
+      ? undefined
+      : { kind: "fileSoundOffset", everyonesMs: now.everyonesMs, ownMs: now.ownMs },
+    (choice) => {
+      if (choice.kind !== "fileSoundOffset") {
+        return;
+      }
+      const ms = heldToLongest(choice.ms);
+      if (choice.isEveryones === true) {
+        void madeEveryones(api, writes.settled, { fileId, ownMs: ms });
+        return;
+      }
+      setFileSoundOffsetInThisTab({ fileId, everyonesMs: now.everyonesMs, ownMs: ms });
+      writes.write({ fileId, ms });
+    },
+  );
+  return null;
+}
+
 /** The one row under "This file": Make it everyone's for an admin, Tell the admin for anyone else. */
-function FileOffsetAction(props: {
+export function FileOffsetAction(props: {
   readonly isAdmin: boolean;
   readonly onEveryones: () => void;
   readonly onTellTheAdmin: () => void;
@@ -253,7 +320,7 @@ function useOwnKept(api: Api): {
 }
 
 /** What "This file" says while not 0: how much later or earlier the file's sound plays. */
-function fileTimingText(t: TFunction, ms: number): string {
+export function fileTimingText(t: TFunction, ms: number): string {
   return ms > 0
     ? t("play.soundOffset.fileLater", { ms })
     : t("play.soundOffset.fileEarlier", { ms: -ms });
