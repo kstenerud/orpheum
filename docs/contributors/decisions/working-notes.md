@@ -31492,3 +31492,39 @@ beside it.
 12. **Tests.** The remote's own (`cast-remote.test.tsx` and the files beside it) and the browser
     tests of the three layouts; the pop-up's and the darkening's tests go with them, named in the
     commit's `Test-Weakened:`.
+
+## D549 — After Stop, the casting device resumes where the receiver last stood; home only where nothing was on
+
+**Decided** (2026-11-24), by the project owner: "agreed on the uneven stop.", answering the lead's
+rule drawn from an agent's reading of the remote's Stop paths (the plan file's "The cast remote's
+harder parts", item 6: after Stop the casting device sometimes went home, sometimes resumed where
+the receiver left off, sometimes restarted at 0:00). **Refines** D446 §2, which has the film play
+here again as the receiver left it, or the page go home where nothing was on, by saying where "as
+the receiver left it" comes from when the remote heard no leader, and D385 §3, under which the
+position need not be exact: it must still never be 0:00 for want of one.
+
+**Status:** decided; not built. Its code is `cast-remote.tsx`'s usePlaysHere, useWhereItStood,
+useTakesTheFilmOver and useCastSession, taken up in the redesign batch (D548) once its layout lands.
+
+1. **One rule for every Stop:** stopped here, stopped on the receiver, control taken back or the
+   receiver gone, the film plays here again from where the receiver last stood, paused where it
+   was paused. The page goes home only where the receiver truly had nothing on (the cast's
+   `fileId` 0). It never restarts at 0:00 by default.
+2. **Where the place comes from,** the first known taken: the server's answer to Stop casting
+   (`EndCastOutput`'s position and whether it played, which the core computes from the cast's
+   session and every caller discards today: the Cast dialog's Stop, the tray's, Chrome's own Cast
+   control's); where the remote last heard the receiver stand while a device led (useWhereItStood);
+   the ended session's own position where it has one. The remote found the three paths uneven
+   because it fell to `0` when none of these had been heard, as with a Chromecast, which leads no
+   session, or a Stop while the receiver still loaded or stood between films.
+3. **Nothing known, the film's own start:** the remote opens the film's Play page with no position
+   (the route's `atMs` left out), so the film starts where its own Play starts, never where the
+   remote guessed. The page the cast was started from, with the film as its own, takes the same
+   course: it asks for no position rather than passing 0.
+4. **The all-disabled remote at 0:00** seen once on a Fire TV's Silk is a hypothesis, not a
+   diagnosis: the remote drawn before the receiver reported a duration or led, with
+   `useRemoteSource` treating a duration of 0 as unbounded. No code until a log from that device
+   shows it; the VQ item asks the owner for the log.
+5. **Tests:** one of the remote's own per path (Stop here taking the server's answer; taken back;
+   the receiver gone with no leader heard; nothing on), each failing when the fallback to 0
+   returns; and a `VQ<n>` for the Fire TV walk.

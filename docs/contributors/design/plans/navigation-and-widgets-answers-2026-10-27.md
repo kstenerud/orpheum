@@ -5135,6 +5135,9 @@ film's name). What needs a receiver or the cast's session to carry something new
    device sometimes goes home, sometimes resumes where the receiver left off, sometimes restarts at
    0:00; once the remote showed every control disabled at 0:00 with the cast on a Fire TV's Silk.
    "This can be sorted out later."
+   *Decided as D549 (the owner, 2026-11-24: "agreed on the uneven stop."): after any Stop the film
+   resumes here where the receiver last stood, taking the server's answer to Stop casting first,
+   home only where nothing was on, never 0:00 by default; the Silk case waits for a device log.*
 7. **The Chromecast takes the remote's sound, subtitles and volume** (the owner, 2026-11-23: "yes,
    add it to the next batch"). The Chromecast's receiver (apps/cast-receiver's device.ts) follows
    play, pause and position alone and reports no playback, so the remote draws no 🔊, 💬, 🎧 or ⁝
