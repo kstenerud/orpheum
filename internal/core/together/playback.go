@@ -31,7 +31,9 @@ type Playback struct {
 // its picture, later when positive, which a remote moves for a TV that plays one of them late (the
 // owner, 2026-11-06: "Put a control in watch together and cast"); nil where its page offers none.
 // Channels are the levels of the sounds it mixes, each set from a cast's remote apart from the TV's
-// own volume (D440 §2): the film's alone so far.
+// own volume (D440 §2): the film's alone so far. FileSoundOffset is the file's own offset for the
+// person (D537), which a remote shows and sets under Sound timing beside the device's; nil where
+// its page offers none.
 type PlaybackSound struct {
 	IsBoostOn     *bool          `json:"isBoostOn,omitempty"`
 	IsLevellingOn bool           `json:"isLevellingOn,omitempty"`
@@ -39,6 +41,24 @@ type PlaybackSound struct {
 	AudioTracks   []SoundTrack   `json:"audioTracks,omitempty"`
 	SoundOffsetMs *int64         `json:"soundOffsetMs,omitempty"`
 	Channels      []SoundChannel `json:"channels,omitempty"`
+	// FileSoundOffset is the file's own sound offset as it stands for the player's person (D537).
+	FileSoundOffset *FileSoundOffset `json:"fileSoundOffset,omitempty"`
+}
+
+// FileSoundOffset is a file's own sound offset as it stands for a player's person (D537): every
+// person's, an admin's, 0 for in step, and the person's own, which overrides it for them, nil while
+// they keep none.
+type FileSoundOffset struct {
+	EveryonesMs int64  `json:"everyonesMs"`
+	OwnMs       *int64 `json:"ownMs,omitempty"`
+}
+
+// isKnown is whether a file's offset is one a player may say: each within the bound.
+func (offset *FileSoundOffset) isKnown() bool {
+	if offset == nil {
+		return true
+	}
+	return isSoundOffset(offset.EveryonesMs) && (offset.OwnMs == nil || isSoundOffset(*offset.OwnMs))
 }
 
 // SoundChannel is one sound a player mixes, its level and whether it is muted, as a cast's remote
@@ -94,10 +114,7 @@ func (sound *PlaybackSound) isKnown() bool {
 	if sound.AudioStreamID < 0 || len(sound.AudioTracks) > soundTracksMost {
 		return false
 	}
-	if sound.SoundOffsetMs != nil && !isSoundOffset(*sound.SoundOffsetMs) {
-		return false
-	}
-	if len(sound.Channels) > soundChannelsMost {
+	if !sound.isTimingKnown() || len(sound.Channels) > soundChannelsMost {
 		return false
 	}
 	for _, channel := range sound.Channels {
@@ -119,6 +136,15 @@ func (sound *PlaybackSound) isKnown() bool {
 	return true
 }
 
+// isTimingKnown is whether a player's sound timings, the device's and the file's, are within
+// their bounds.
+func (sound *PlaybackSound) isTimingKnown() bool {
+	if sound.SoundOffsetMs != nil && !isSoundOffset(*sound.SoundOffsetMs) {
+		return false
+	}
+	return sound.FileSoundOffset.isKnown()
+}
+
 // SoundChoiceKind is what of a film's sound a choice changes.
 type SoundChoiceKind string
 
@@ -135,6 +161,9 @@ const (
 	// SoundChannelLevel sets one channel's level and mute on the player (Channel, Level, IsMuted),
 	// for the session alone, apart from the TV's own volume (D440 §2).
 	SoundChannelLevel SoundChoiceKind = "channel"
+	// SoundFileOffset keeps Ms as the person's own offset for the file playing (D537 §2), or, with
+	// IsEveryones, makes it every person's, an admin's (D537 §3).
+	SoundFileOffset SoundChoiceKind = "fileSoundOffset"
 )
 
 // SoundChoice is one choice of how a film sounds, made on a remote for the person's player.
@@ -146,6 +175,8 @@ type SoundChoice struct {
 	Channel  string          `json:"channel,omitempty"`
 	Level    float64         `json:"level,omitempty"`
 	IsMuted  bool            `json:"isMuted,omitempty"`
+	// IsEveryones makes a file's offset every person's (SoundFileOffset).
+	IsEveryones bool `json:"isEveryones,omitempty"`
 }
 
 // isKnown is whether a choice is one a remote may make: a known kind, a track by a stream, a
@@ -156,10 +187,12 @@ func (choice *SoundChoice) isKnown() bool {
 	}
 	switch choice.Kind {
 	case SoundBoost, SoundLevelling:
-		return true
+		return !choice.IsEveryones
 	case SoundAudioTrack:
 		return choice.StreamID > 0
 	case SoundOffset:
+		return isSoundOffset(choice.Ms) && !choice.IsEveryones
+	case SoundFileOffset:
 		return isSoundOffset(choice.Ms)
 	case SoundChannelLevel:
 		return SoundChannel{Channel: choice.Channel, Level: choice.Level, IsMuted: choice.IsMuted}.isKnown()
@@ -221,7 +254,8 @@ func (current *session) relaySound(ctx context.Context, who *member, from *devic
 	current.logger.InfoContext(ctx, "watch together: a remote chose its film's sound",
 		append(current.deviceAttributes(who, from),
 			"kind", string(choice.Kind), "isOn", choice.IsOn, "streamId", choice.StreamID, "ms", choice.Ms,
-			"channel", choice.Channel, "level", choice.Level, "isMuted", choice.IsMuted)...)
+			"channel", choice.Channel, "level", choice.Level, "isMuted", choice.IsMuted,
+			"isEveryones", choice.IsEveryones)...)
 	current.relayToOwnPlayers(who, from, Outbound{
 		V: ProtocolVersion, Type: MessageSound, FromDeviceID: from.id, Sound: choice,
 	})

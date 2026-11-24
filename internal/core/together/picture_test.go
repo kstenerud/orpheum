@@ -25,6 +25,8 @@ func TestCast_TheRemoteChoosesTheReceiversPicture(t *testing.T) {
 		{Kind: PictureSubtitles, Key: "s3"},
 		{Kind: PictureSubtitles}, // off
 		{Kind: PictureOriginal},
+		{Kind: PictureSubtitleOffset, Ms: -1500}, // the subtitles' timing
+		{Kind: PictureSubtitleFetched},           // Find subtitles fetched one
 	}
 	for _, choice := range chosen {
 		stage.hub.Handle(t.Context(), remote, Inbound{Type: MessagePicture, Picture: &choice})
@@ -39,6 +41,10 @@ func TestCast_TheRemoteChoosesTheReceiversPicture(t *testing.T) {
 		{Kind: "zoom"},
 		{Kind: PictureOriginal, Key: "s3"},
 		{Kind: PictureSubtitles, Key: strings.Repeat("s", subtitleKeyMost+1)},
+		{Kind: PictureSubtitleOffset, Ms: subtitleOffsetMostMs + 1},
+		{Kind: PictureSubtitleOffset, Key: "s3", Ms: 100},
+		{Kind: PictureSubtitleFetched, Key: "s3"},
+		{Kind: PictureSubtitles, Key: "s3", Ms: 100},
 	}
 	for _, each := range refused {
 		stage.hub.Handle(t.Context(), remote, Inbound{Type: MessagePicture, Picture: each})
@@ -77,9 +83,10 @@ func TestHub_TheRosterSaysWhatEachPlayerShows(t *testing.T) {
 		return nil
 	}
 	picture := PlaybackPicture{
-		SubtitleKey:     "f7",
-		Subtitles:       []SubtitleOption{{Key: "s3", Label: "English"}, {Key: "f7", Label: "Deutsch (fetched)"}},
-		CanPlayOriginal: true,
+		SubtitleKey:      "f7",
+		SubtitleOffsetMs: 2500,
+		Subtitles:        []SubtitleOption{{Key: "s3", Label: "English"}, {Key: "f7", Label: "Deutsch (fetched)"}},
+		CanPlayOriginal:  true,
 	}
 	stage.hub.Handle(t.Context(), receiver, Inbound{
 		Type: MessagePlayback, Playback: &Playback{Delivery: DeliveryConverted, Picture: &picture},
@@ -92,6 +99,7 @@ func TestHub_TheRosterSaysWhatEachPlayerShows(t *testing.T) {
 		{Subtitles: []SubtitleOption{{Key: "s1", Label: strings.Repeat("x", subtitleLabelMost+1)}}},
 		{SubtitleKey: strings.Repeat("s", subtitleKeyMost+1)},
 		{Subtitles: make([]SubtitleOption, pictureSubtitlesMost+1)},
+		{SubtitleOffsetMs: -subtitleOffsetMostMs - 1},
 	} {
 		stage.hub.Handle(t.Context(), receiver, Inbound{
 			Type: MessagePlayback, Playback: &Playback{Delivery: DeliveryConverted, Picture: &past},

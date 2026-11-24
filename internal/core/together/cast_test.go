@@ -350,6 +350,8 @@ func TestCast_TheRemoteChoosesTheReceiversSound(t *testing.T) {
 		{Kind: SoundOffset, Ms: -200}, // the owner, 2026-11-06: "Put a control in ... cast"
 		{Kind: SoundChannelLevel, Channel: ChannelFilm, Level: 0.4},
 		{Kind: SoundChannelLevel, Channel: ChannelFilm, Level: 1, IsMuted: true},
+		{Kind: SoundFileOffset, Ms: 300},                     // the file's own (D537)
+		{Kind: SoundFileOffset, Ms: -150, IsEveryones: true}, // made every person's
 	} {
 		stage.hub.Handle(t.Context(), remote, Inbound{Type: MessageSound, Sound: &choice})
 		relayed := playerBox.last(MessageSound)
@@ -373,12 +375,14 @@ func TestCast_TheRemoteChoosesTheReceiversSound(t *testing.T) {
 		{Kind: SoundChannelLevel, Channel: "voices", Level: 0.5},
 		{Kind: SoundChannelLevel, Channel: ChannelFilm, Level: 1.5},
 		{Kind: SoundChannelLevel, Channel: ChannelFilm, Level: -0.1},
+		{Kind: SoundFileOffset, Ms: 2050},
+		{Kind: SoundOffset, Ms: 100, IsEveryones: true},
 	}
 	for _, refused := range refusedChoices {
 		stage.hub.Handle(t.Context(), remote, Inbound{Type: MessageSound, Sound: refused})
 	}
-	if count := playerBox.count(MessageSound); count != 6 {
-		t.Errorf("the player was told %d sound choices; want the 6 a remote may make", count)
+	if count := playerBox.count(MessageSound); count != 8 {
+		t.Errorf("the player was told %d sound choices; want the 8 a remote may make", count)
 	}
 	if count := remoteBox.count(MessageRejected); count != len(refusedChoices) {
 		t.Errorf("the remote's unknown choices were refused %d times; want %d", count, len(refusedChoices))
@@ -449,7 +453,8 @@ func TestHub_TheRosterSaysHowEachPlayersFilmSounds(t *testing.T) {
 			{StreamID: 1, Language: "en", Kind: "plain"},
 			{StreamID: 2, Language: "de", ContainerTitle: "Director", Kind: "commentary"},
 		},
-		Channels: []SoundChannel{{Channel: ChannelFilm, Level: 0.35, IsMuted: true}},
+		Channels:        []SoundChannel{{Channel: ChannelFilm, Level: 0.35, IsMuted: true}},
+		FileSoundOffset: &FileSoundOffset{EveryonesMs: 0, OwnMs: &earlier},
 	}
 	stage.command(t, receiver, CommandChangeItem, 12)
 	stage.hub.Handle(t.Context(), receiver, Inbound{
@@ -464,6 +469,8 @@ func TestHub_TheRosterSaysHowEachPlayersFilmSounds(t *testing.T) {
 		"a sound offset past the bound":    {SoundOffsetMs: &pastTheBound},
 		"a film louder than full":          {Channels: []SoundChannel{{Channel: ChannelFilm, Level: 1.2}}},
 		"a channel no player mixes":        {Channels: []SoundChannel{{Channel: "louder", Level: 0.5}}},
+		"a file's offset past the bound":   {FileSoundOffset: &FileSoundOffset{EveryonesMs: 2050}},
+		"a file's own past the bound":      {FileSoundOffset: &FileSoundOffset{OwnMs: &pastTheBound}},
 	}
 	for name, each := range refused {
 		stage.hub.Handle(t.Context(), receiver, Inbound{
