@@ -33,8 +33,14 @@ with the checks deferred until I'm happy with the look and feel", and after the 
      there (`scripts/check_stamp.py`, `DEFERRED_MARK`; its test
      `test_the_gate_refuses_to_begin_while_a_design_cycle_defers_it`): a make check ends the cycle
      with every safeguard back in place (the owner, 2026-10-30);
-   - run `make check` once; update the tests the new look changed, and add the tests a behaviour
-     changed by the cycle owes (AGENTS.md rule 4);
+   - run `make inventory` once, not `make check`: every test of every tier to its end, nothing
+     stopping at a first failure and no revert-red, both end-to-end passes, and one list of what
+     failed, each with its file and first failing line, in `.dev/inventory/failures.md`
+     (`scripts/inventory.py`; the owner, 2026-11-24: the fixes after the 11-23 cycle took eight hours,
+     the reds arriving one tier at a time). Every fix starts from that list. Update the tests the new
+     look changed, and add the tests a behaviour changed by the cycle owes (AGENTS.md rule 4). A failed
+     inventory turns the background revert-red probe off for the sweep, and a passing `make check-pr`
+     turns it on again;
    - commit in logical pieces, each its own subject and body, the gate-file changes with their
      `Gate-Changed:` trailer;
    - then merge the worktrees' work the owner agreed.

@@ -409,6 +409,7 @@ check-pr-verbose: ## Branch gates against BASE (default: where the last pass end
 	  $(PYTHON) scripts/check_pr_steps.py durations $(PR_STEPS) $(PR_CODE_RED_STEP) $(PR_SERIAL_STEP) $(PR_LAST_STEP); \
 	  $(PYTHON) scripts/tree_state.py --check "$$state"; \
 	  $(PYTHON) scripts/branch_base.py --checked "$$head" --base "$$base" && $(PYTHON) scripts/check_pr_debt.py paid && { \
+	    rm -f "$$(git rev-parse --path-format=absolute --git-common-dir)/revert-red/sweep-off"; \
 	    took=$$(( $$(date +%s) - started )); \
 	    if [ "$$took" -gt $(CHECK_PR_BUDGET_S) ]; then \
 	      echo "make check-pr: passed in $${took} s, over its $(CHECK_PR_BUDGET_S) s budget: find the step that grew (standards/makefile.md)"; \
@@ -530,6 +531,16 @@ check-everything: browsers ## Everything, trusting no stamp, cache or map: CI's 
 	  else $(GATE_LOCK) --as revert-red $(PYTHON) scripts/check_revert_red.py --base "$$base" --part all --unrecorded --trust-no-record || failed=1; fi; \
 	  if [ "$$failed" -ne 0 ]; then echo "make check-everything: FAILED; every step ran, so each failure is above"; exit 1; fi; \
 	  echo "make check-everything: everything passed"
+
+# The inventory at a design cycle's end: every tier to its end, no revert-red, and one list of what
+# failed, each with its file and first failing line, in .dev/inventory/failures.md; a failure turns
+# the background probe off for the sweep, until check-pr passes (scripts/inventory.py; the owner,
+# 2026-11-24).
+.PHONY: inventory
+inventory: check-tools web-deps go-warm browsers ## Every test of every tier to its end, no revert-red, then one list of failures by file and line; at a design cycle's end
+	@$(PYTHON) scripts/disk_guard.py
+	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) --as check-pr $(PYTHON) scripts/inventory.py --base "$$base" \
+	  --jobs $(CHECK_JOBS) --quick $(filter-out check-source,$(PR_FAST_STEPS))
 
 .PHONY: test-all
 test-all: check ## The gate, then the race detector and uncached tests

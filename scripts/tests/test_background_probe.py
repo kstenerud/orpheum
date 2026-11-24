@@ -12,6 +12,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import background_probe as bp  # noqa: E402
+import check_pr_snapshot  # noqa: E402
 from gitrepo import Repo  # noqa: E402
 
 # A background run as another process holds it: the lock, until the stop file appears; one never asked
@@ -29,6 +30,10 @@ with open(here / "background.lock", "a") as lock:
             sys.exit(1)
         time.sleep(0.05)
 """
+
+
+# The real check, kept before each test patches it to see the owner's switch alone.
+IS_WANTED = bp.is_wanted
 
 
 class BackgroundProbe(unittest.TestCase):
@@ -81,6 +86,12 @@ class BackgroundProbe(unittest.TestCase):
                 mock.patch.object(bp.subprocess, "Popen") as popen:
             bp.launch()
         popen.assert_not_called()
+
+    def test_the_inventorys_sweep_mark_switches_it_off_until_removed(self):
+        with self.repo.cwd(), mock.patch.object(check_pr_snapshot, "running", return_value=None):
+            self.assertTrue(IS_WANTED(self.here))
+            (self.here / bp.SWEEP_OFF).touch()
+            self.assertFalse(IS_WANTED(self.here), "the sweep's commits probe tests not yet trusted")
 
     def test_the_gates_own_run_stops_it_by_the_stop_file_and_says_how_long_it_waited(self):
         # 2026-11-03: check-pr, in the gate's container, signalled a process group numbered on the

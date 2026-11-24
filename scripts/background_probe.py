@@ -31,7 +31,10 @@ runs `background_probe.py launch`; it starts this, detached, and returns at once
 - **Its log says when.** Each run's start and end, and a stop, are in the log with the clock time.
 - **Never while check-pr runs**, and never in check-pr's own tree.
 - **Off** while `<git-common-dir>/revert-red/background-off` exists: `touch` it while the owner
-  tests on staging, which shares this machine (memory: no gates during live tests).
+  tests on staging, which shares this machine (memory: no gates during live tests). Off too while
+  `sweep-off` is there, which a failed `make inventory` leaves for the fix sweep, whose commits'
+  probes would probe tests not yet trusted, and a passing check-pr removes (scripts/inventory.py;
+  the owner, 2026-11-24).
 
 It records no failures (`--unrecorded`): the batch's record of what failed is check-pr's.
 """
@@ -53,6 +56,7 @@ sys.path.insert(0, str(SCRIPTS))
 import gate_lock  # noqa: E402
 
 OFF = "background-off"
+SWEEP_OFF = "sweep-off"
 AGAIN = "again"
 LOCK = "background.lock"
 STOP = "stop"
@@ -77,7 +81,7 @@ def folder(root: Path | None = None) -> Path | None:
 
 def is_wanted(here: Path) -> bool:
     """Whether a run may start: not switched off, not in check-pr's own tree, no check-pr running."""
-    if (here / OFF).exists() or "/.git/check-pr/" in str(Path.cwd()):
+    if (here / OFF).exists() or (here / SWEEP_OFF).exists() or "/.git/check-pr/" in str(Path.cwd()):
         return False
     sys.path.insert(0, str(SCRIPTS))
     import check_pr_snapshot  # noqa: PLC0415 (only a run that may start needs it)
