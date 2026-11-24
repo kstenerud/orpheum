@@ -3,7 +3,6 @@
 import { apiPrefix } from "@orpheum/sdk";
 import { act, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { expect } from "vitest";
 
 import type { Services } from "./services.tsx";
 import { resetLazyScreensOnMount } from "./screen-load.tsx";
@@ -227,6 +226,7 @@ export interface Mounted {
  * (tray-dialog.ts).
  */
 export async function mount(tree: ReactNode): Promise<Mounted> {
+  mountsSoFar += 1;
   resetLazyScreensOnMount();
   closeTrayDialog();
   Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
@@ -476,17 +476,21 @@ export function politeNotices(container: Element): string[] {
 const SETTLE_FAILURE_LIMIT_MS = 60_000;
 
 /**
- * Whether the test running now has since ended. A test that timed out is abandoned, not stopped: its
- * waits went on polling into the tests after it, and a condition reading the next test's page threw
- * there ("no video", play-state.test.ts, after the test before it timed out under make check's load,
- * 2026-11-24). A wait that asks this stops with its own test instead.
+ * The trees mount has rendered in this test file: each test mounts its own, so a wait that sees the
+ * count move on is waiting in a test that has ended. This file may not import vitest to ask it which
+ * test runs (dependency-cruiser's `not-to-dev-dep`).
+ */
+let mountsSoFar = 0;
+
+/**
+ * Whether the test running now has since ended, as a later mount shows. A test that timed out is
+ * abandoned, not stopped: its waits went on polling into the tests after it, and a condition reading
+ * the next test's page threw there ("no video", play-state.test.ts, after the test before it timed
+ * out under make check's load, 2026-11-24). A wait that asks this stops with its own test instead.
  */
 function endOfTheRunningTest(): () => boolean {
-  const { currentTestName, testPath } = expect.getState();
-  return () => {
-    const now = expect.getState();
-    return now.currentTestName !== currentTestName || now.testPath !== testPath;
-  };
+  const at = mountsSoFar;
+  return () => mountsSoFar !== at;
 }
 
 /**

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   failOnUnexpectedRequests,
+  mount,
   servedBy,
   settleAnswers,
   settleUntil,
@@ -69,6 +70,19 @@ describe("settleUntil, the wait for what outlasts a page's answers", () => {
     await advanceByChunks(60_000);
     await rejected;
   });
+
+  it(
+    "stops once a later test mounts its page: a timed-out test's wait read the next test's page " +
+      "and failed it (play-state.test.ts, 2026-11-24)",
+    async () => {
+      const isShown = false;
+      const settled = settleUntil(() => isShown);
+      const stopped = expect(settled).rejects.toThrow(/settleUntil: its test ended .*isShown/);
+      const next = await mount(<p>the next test's page</p>);
+      await stopped;
+      next.unmount();
+    },
+  );
 });
 
 describe("servedBy, the stand-in server (finding 2, test-architecture-2026-10-26.md)", () => {
