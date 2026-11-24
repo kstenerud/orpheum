@@ -49,6 +49,31 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A93 — Told the owner the Quality picker was not built, from a stale note (2026-11-23)
+
+- **What happened:** asked whether the batch's UI work was done, the agent said the menu spec's
+  Quality picker was still to build, reading its own handoff note ("Not done from the spec: single
+  Quality picker"). The owner said to build it. ⁝ already had Quality, a submenu of Automatic and
+  the Data use choices, the original last for a person showing debug tools, as D538 §10 decided
+  against the spec's version (the original an ordinary choice, kept for later videos). The note
+  was written before that part was checked against D538, and repeated without looking at the code.
+- **Caught by:** the agent, opening player-menus.tsx to build it.
+- **Gate:** none: a handoff's "not done" is a claim about the code. The lesson: before telling the
+  owner something is unbuilt, look at the code, and check the spec against the decisions that
+  amend it.
+
+### A92 — Told the owner a paused Watch Together start was fixed, untried (2026-11-23)
+
+- **What happened:** the owner reported that starting a Watch Together session over a paused film
+  played it. The agent changed the host's first put-on to pause where its video was paused after
+  playing, deployed it to staging and told the owner "It was quick, so I fixed it", having only
+  typechecked it. On staging the film still played. The belief came from reading one code path
+  (together-host.tsx's putOn) and assuming it was the only one that set the group playing.
+- **Caught by:** the owner, trying it on staging.
+- **Gate:** none yet: during a design cycle no test runs (design-cycle.md), so a behaviour fix
+  deployed in one is untested by construction. The lesson: say "deployed, untried" for a
+  behaviour fix in a design cycle, never "fixed"; a revert-red test is queued with the real fix.
+
 ### A91 — The revamp's review said no "lost the connection" notice existed (2026-11-23)
 
 - **What happened:** the lead's review of the D538 revamp (the owner's `ui-revamp-review.md`) said

@@ -5103,3 +5103,65 @@ and nothing says which of its files.
      - Every case opened from Home hits the 10 s test timeout.
      - The file runs over 15 minutes.
    - It lands passing in both browsers, short enough for `make check`.
+
+## The cast remote's harder parts, and casting's bugs, next batch (the owner, 2026-11-23)
+
+The owner, 2026-11-23, during the design cycle on the player's menus: "Schedule the harder work for
+the next batch, and do the rest now. I want the interfaces to look as similar as possible, aside
+from things that can't be done due to a device or circumstances. Any button that would have nothing
+in its submenu should not display at all." The design cycle drew the cast's remote as the player is
+where the receiver already takes the choice (🎧 with its track, Level loudness, boost and That
+device's timing; 💬 as the player's pop-up; ⁝ with the original and How it plays; ⏭; Ends at; no
+film's name). What needs a receiver or the cast's session to carry something new is here:
+
+1. **This file's sound timing on the remote** (D537): the person's own offset for the file the
+   receiver plays, under Sound timing beside That device, with Make it everyone's or Tell the admin
+   as the player's has. The receiver must play with the file's offset and the remote set it.
+2. **Subtitle timing on the remote:** the player's 💬 timing (OffsetControl), sent to the receiver
+   as a picture choice it carries out; no such choice exists (playback-picture.ts has subtitles and
+   original alone).
+3. **Find subtitles on the remote:** the player's dialog, the subtitle fetched for the file then
+   offered to the receiver, which must read its tracks again.
+4. **Report a problem from the remote:** ⁝'s report, taking the receiver's playback as the player's
+   takes its own (D524 §2).
+5. **A paused Watch Together start plays the film** (the owner, 2026-11-23: "When I start a watch
+   together session with the video paused, it starts the video playing again. It should remain
+   paused."). A first try (the host's first put-on paused where its video was paused after playing,
+   together-host.tsx) did not work on staging (agent-failures A92); another path sets the group
+   playing. Diagnose first; the design cycle's edit is reverted or replaced with the fix.
+6. **Stopping a cast is uneven on some devices** (the owner, 2026-11-23): after Stop, the casting
+   device sometimes goes home, sometimes resumes where the receiver left off, sometimes restarts at
+   0:00; once the remote showed every control disabled at 0:00 with the cast on a Fire TV's Silk.
+   "This can be sorted out later."
+7. **The Chromecast takes the remote's sound, subtitles and volume** (the owner, 2026-11-23: "yes,
+   add it to the next batch"). The Chromecast's receiver (apps/cast-receiver's device.ts) follows
+   play, pause and position alone and reports no playback, so the remote draws no 🔊, 💬, 🎧 or ⁝
+   for it. It is to report its playback as the browser's receiver does (cast-receiver.tsx's
+   PlaybackReport) and carry out the sound and picture choices; the volume perhaps by the Cast
+   session's own (Chrome's sender sets the device's volume).
+8. **The remote's key frame runs a few seconds ahead of the TV** (the owner, 2026-11-23: "It seems
+   to be grabbing a screenshot a few seconds into the future"). The node takes the keyframe at or
+   before the place asked (D545), so the place the remote asks is likely ahead of the picture shown:
+   the remote's guess is the receiver's last report plus the time since, which runs on while the
+   receiver buffers, stalls or shows late. Measure first: the receiver's reported place, the
+   remote's place and the frame's time, side by side.
+9. **The remote's picture from trickplay, not FFmpeg each 3 s** (the owner, 2026-11-23: "I'm
+   thinking about ways to dovetail this such that we don't need to make so many ffmpeg calls"). When
+   trickplay (design/plans/trickplay.md, D530) is built, the remote shows the trickplay picture at
+   or before the receiver's place and D545's frame route goes. A stopgap if the cost bites before
+   then: the first frame of the chunk the receiver plays (a transcode's or remux's segment, on the
+   node's disk, one picture per segment kept), today's frame for a direct play.
+
+10. **A Settings test fails now and then in Firefox** (found 2026-11-24, in `make check`):
+    settings-pages.browser.test.tsx's "saves a text field on Enter and on leaving it, never as the
+    page closes" saw three saves where it expects two. Run alone, it passed three times out of three.
+    A third save probably comes from the field's blur as the page closes, under load. Find out where
+    that blur comes from in Firefox.
+### The way up at the film's top: what it collided with (the owner, 2026-11-24)
+
+The cycle moved the overlay's way up into its top row, at the film's top, where two things already stood. The browser tests found both.
+
+1. **The Play page's alert** ("Where you are is no longer being kept…") is drawn over the picture's top in full window, and it covered the way up, so the way up took no press. The owner chose: "Below the top row". The alert now drops by the top row's measured height (overlay-measure.ts sets `--player-overlay-drop` on the Play page as well, and play.css reads it).
+2. **The sound-on Pill** stood at the film's top centre, and on a phone, 360 wide, it overlapped the way up. The owner chose: "Below the top row". On a phone layout the Pill now stands under the top row (sound-on-pill.css); wide screens keep it at the top centre.
+
+   On a phone, no arrow reaches the Pill there. Arrows search the overlay's own buttons first, and the Pill is drawn outside the overlay. The owner chose "Keep it; tap and Tab only": a phone's layout is driven by touch, and a TV never lays out 360 wide. The 360-wide test still checks the Pill by a mouse, a finger, Tab and Enter, but not by arrows.

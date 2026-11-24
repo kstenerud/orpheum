@@ -3910,3 +3910,45 @@ An item is ticked only by the person who did it, and only with what they saw.
   the fire TV it renders as a text box that accepts only numeric input. We'll use the one designed
   by the agent instead."* Every whole number is now a stepper, Settings' wide ones too, and the
   gallery shows the stepper alone.
+- [ ] **VQ383** — The play overlay as the 2026-11-23 design cycle left it: the middle's five
+  buttons each keep their place whether or not previous and next are there, the menus open over the
+  picture beside the button that opened them, and the line under the title says "On: ‹device›"
+  while casting and "Ends: ‹time›". Only real devices say whether a finger's taps, a TV remote's
+  own navigation and a phone's narrow screen place them as drawn, which no test's browser does. On
+  staging, with "feat(web): the play overlay's buttons keep their places and its menus open over the video, and a cast's remote is led by the film's poster", play an episode with subtitles:
+  1. On your phone, upright, tap the film to show the controls. Report whether previous, −10,
+     play, +10 and next stand in the picture's middle, evenly spaced.
+  2. On the phone, play a film (no previous or next). Report whether −10, play and +10 stay where
+     they stood for the episode, with empty places at each end.
+  3. On the phone, open the subtitles menu, then ⁝. Report whether each opens over the picture
+     beside its button, wholly on screen, and closes with a tap outside it.
+  4. On the phone, report the line under the title: whether it says "Ends: ‹time›".
+  5. On a laptop, in Chrome, play the same episode full screen, open each menu with the mouse, and
+     report the same as step 3.
+  6. On the Fire TV, play the episode, and move with the remote to the subtitles button and press
+     OK. Report whether the menu opens over the picture, the focus is on its first choice, and Back
+     closes it with the focus on the subtitles button again.
+  7. On the TCL TV, do step 6 again with its remote, and report the same.
+  8. Open the menu that says who is signed in, choose Report a problem, and send one saying
+     "VQ383". Report that you sent it.
+- [ ] **VQ384** — A cast's remote as the 2026-11-23 design cycle left it (D545, D546): the film's
+  poster, darkened, under the remote's buttons; the film's key frame at the receiver's place in
+  its stead, a new one each 3 s while it plays; the player's skip offered on the remote at an
+  intro or the credits; and Up next on the receiver from where the credits start. Only a real cast
+  says whether the frame keeps up with the receiver, and whether a Chromecast and a TV's tab show
+  Up next at the credits, which no test's browser does. On staging, with
+  "feat(web): the play overlay's buttons keep their places and its menus open over the video, and a cast's remote is led by the film's poster", from
+  your phone:
+  1. Play an episode that has an intro and credits marked, and cast it to the Chromecast. Report
+     whether the phone's remote shows the poster, darkened, under its buttons, then the film's
+     picture in its stead, and the line under the title saying "On: ‹the Chromecast›".
+  2. Watch the remote for 15 s. Report whether its picture changes about every 3 s, and how far it
+     looks ahead of or behind the TV.
+  3. Pause on the phone. Report whether the picture stays still and stops changing.
+  4. Seek to just before the intro. Report whether the phone offers Skip intro as the intro
+     starts, and whether pressing it moves the TV past it.
+  5. Seek to just before the credits. Report whether the TV shows Up next as the credits start,
+     and whether the phone offers it too.
+  6. Do steps 1, 2, 4 and 5 again cast to the Fire TV's tab, and report the same.
+  7. Open the menu that says who is signed in, choose Report a problem, and send one saying
+     "VQ384". Report that you sent it.
