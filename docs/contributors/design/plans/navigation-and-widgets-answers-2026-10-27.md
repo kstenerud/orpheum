@@ -5175,3 +5175,23 @@ The fixes after the 11-23 design cycle took about eight hours. The reds came out
 3. **The browser tests' lock, `.git/browser-mode.lock`, gets a lease.** A gate finding it held past the lease says the browser tests did not run, and does not hang. An orphaned run held it for about 12 hours, and every `make check` in that time hung at the browser tests.
 4. **An inventory run at a design cycle's end** (the owner's proposal): every test of every tier runs to its end with nothing stopping early. That means no `--fail-fast` from `make check`, no stop at a failed quick tier (D424), and the end-to-end specs included. It writes one list of failures, each with its file and its first failing line. Every fix starts from that list. The owner, 2026-11-24: the cycle stays free of tests while designing; the tests are run and fixed in one big sweep at its end. The end-to-end specs run both passes, normal and timed (the owner, 2026-11-24: "yes both passes").
 5. **Revert-red runs only once the tests are trusted** (the owner, 2026-11-24: "shouldn't we leave that out of the earlier full test run at the start, and only run it once we're confident the tests are correct?"). A probe is meaningful only against tests that pass. The inventory run has no revert-red. The fix sweep turns off the background probe after each commit (`.git/revert-red/background-off`), and a passing check-pr turns it back on. Check-pr itself also skips revert-red's browser part when its browser tier failed. Today that part runs anyway, against red specs (Makefile, check-pr-verbose). Revert-red's code part already runs only after the quick and medium tiers pass.
+
+The owner moved these into this batch (2026-11-24: "We're already heading towards that 2.5h mark
+now. I think we should just do the test changes now since we've already lost the time"), and asked
+for a stock-take of every check that is trivially detected but placed where it can waste test time
+("lint issues are the most likely outcome of any code change an LLM makes"). The owner agreed to
+these from it, built with items 1–5:
+
+6. **Every tier but revert-red runs before revert-red.** Revert-red's code part ran before the
+   acceptance and browser tiers so that a change no test notices was found in minutes (2026-10-15);
+   it now takes an hour, so a red browser test waited an hour behind it.
+7. **A test run put off by the lock runs as the lock frees.** The Stop hook's `make check` waits out
+   a running check-pr, and a commit made meanwhile was linted by nothing until the next check-pr.
+8. **`check-pr-failed` re-runs the quick and medium tiers whenever HEAD moved**, not only the steps
+   that failed: a commit made for a revert-red fix went through it unlinted.
+9. **A stopped run takes its whole process group with it.** Stopping a check-pr left its revert-red
+   running without the lock, and the `make check` beside it timed out ten Firefox browser tests.
+10. **Why one run's revert-red did not probe a file the next found untested** is diagnosed first: run
+   #2's browser part never probed `title.css` and `up-next.css`, and run #3 found `title.css`
+   untested, unchanged between them, a whole run spent. The inventory run can miss files the same way
+   until it is known.
