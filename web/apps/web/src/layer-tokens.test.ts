@@ -38,6 +38,39 @@ function rawTurns(sheets: readonly (readonly [string, string])[]): string[] {
   );
 }
 
+/** A declaration's value split at its top-level commas, a function's own commas kept. */
+function partsOf(value: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let part = "";
+  for (const character of value) {
+    depth += character === "(" ? 1 : character === ")" ? -1 : 0;
+    if (character === "," && depth === 0) {
+      parts.push(part.trim());
+      part = "";
+    } else {
+      part += character;
+    }
+  }
+  return [...parts, part.trim()];
+}
+
+/**
+ * Each animation run once (an arrival, never an endless pulse, whose length is its own) timed other
+ * than by a duration token, as `file: animation`.
+ */
+function rawArrivals(sheets: readonly (readonly [string, string])[]): string[] {
+  return sheets.flatMap(([name, text]) =>
+    declarationsOf(text)
+      .map((declaration) => /^animation\s*:\s*(.+)$/su.exec(declaration.text.trim())?.[1])
+      .filter((value) => value !== undefined)
+      .flatMap((value) => partsOf(value))
+      .filter((part) => part !== "none" && !/\binfinite\b/u.test(part))
+      .filter((part) => !part.includes("var(--duration-"))
+      .map((part) => `${name}: ${part}`),
+  );
+}
+
 describe("what lies over what is a layer token (interface rule 11, D538)", () => {
   it("gives every z-index outside tokens.css as a layer token, never a number", () => {
     const sheets = sourcesHere(".css").filter(([name]) => name !== "tokens.css");
@@ -100,5 +133,22 @@ describe("motion is timed by the duration tokens (interface rule 11, D538)", () 
       "--duration-slow: 0ms",
       "--duration-spin: 0ms",
     ]);
+  });
+
+  it("times every animation run once by a token, as the title's loading line fades in", () => {
+    const sheets = sourcesHere(".css").filter(([name]) => name !== "tokens.css");
+    expect(sheets.map(([name]) => name)).toContain("title.css");
+    expect(rawArrivals(sheets)).toEqual([]);
+  });
+
+  it("finds an animation run once timed by a number, so the check above can fail", () => {
+    expect(
+      rawArrivals([
+        [
+          "a.css",
+          ".a { animation: a-appear 0.2s ease-out 0.4s both, a-pulse 1.6s ease-in-out infinite; } .b { animation: b-rise var(--duration-slow) cubic-bezier(0.2, 0, 0, 1); } .c { animation: none; }",
+        ],
+      ]),
+    ).toEqual(["a.css: a-appear 0.2s ease-out 0.4s both"]);
   });
 });
