@@ -165,6 +165,7 @@ export function useOriginalOfferedToARemote(onChosen: () => void): void {
 /**
  * Has the page read its subtitle tracks again by onFetched once its remote fetched one for the film
  * (Find subtitles on the remote, D224), as its own Find subtitles does after a fetch; none, nothing.
+ * Registered by the owner of the page's tracks (play.tsx's UnderTheVideo), not by a control.
  */
 export function useSubtitleFetchedByARemote(onFetched: (() => void) | undefined): void {
   const panel = use(PicturePanelContext);

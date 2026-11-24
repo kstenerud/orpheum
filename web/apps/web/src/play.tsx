@@ -63,12 +63,14 @@ import { LevellingControl } from "./levelling.tsx";
 import { LadderTracks, OwnFileTracks, usePlayerTracks } from "./player-tracks.tsx";
 import { LinkDebugTools } from "./link-debug-tools.tsx";
 import { useIsFullScreen } from "./full-screen-button.tsx";
+import { OverlayHeld } from "./overlay-held.tsx";
 import { PlayerMenusContext, StartOver, type PlayerMenusWays } from "./player-menus.tsx";
 import { usePlaybackHere } from "./how-it-plays.tsx";
 import {
   newPicturePanel,
   PicturePanelContext,
   useOriginalOfferedToARemote,
+  useSubtitleFetchedByARemote,
 } from "./picture-panel.ts";
 import { newSoundPanel, SoundPanelContext } from "./sound-panel.ts";
 import { Loaded } from "./title.tsx";
@@ -484,6 +486,9 @@ function UnderTheVideo(
   const tracks = usePlayerTracks();
   const { refusal: reportRefusal, stopMessage } = useReportedPlayState(props);
   const { onVideo, videoRef } = props;
+  // A cast's remote that fetched a subtitle for the film has the tracks read again, as this page's
+  // own Find subtitles does after a fetch: heard here, whatever controls are mounted under the film.
+  useSubtitleFetchedByARemote(decideAgainFor(props, "subtitleFetched"));
   useEffect(() => {
     onVideo(videoRef.current);
     return () => {
@@ -511,18 +516,6 @@ function UnderTheVideo(
         <FilmTiming videoRef={props.videoRef} fileId={props.fileId} decision={props.decision} />
       </OverlayHeld>
     </>
-  );
-}
-
-/**
- * What the full-screen overlay's menus hold (player-menus.tsx), under the film: hidden while full
- * screen draws the overlay, which holds them then (D407 §8), kept mounted so their state stays.
- */
-function OverlayHeld(props: { readonly children: ReactNode }): JSX.Element {
-  return (
-    <div className="play__overlay-held" hidden={useIsFullScreen()}>
-      {props.children}
-    </div>
   );
 }
 

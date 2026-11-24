@@ -55,7 +55,7 @@ function track(overrides: Partial<SubtitleTrack>): SubtitleTrack {
   };
 }
 
-/** The page's reading of its tracks again after a fetch, as play.tsx's UnderTheVideo has it. */
+/** The page's reading of its tracks again after a fetch, as play.tsx's UnderTheVideo has it (not Find subtitles, which a page may not mount). */
 function FetchedRead(props: { readonly onFetched: () => void }): JSX.Element | null {
   useSubtitleFetchedByARemote(props.onFetched);
   return null;
