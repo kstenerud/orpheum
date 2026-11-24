@@ -513,7 +513,7 @@ describe("the offers in the film's top-right corner (D538 §1, player-spec's Off
       { offer: 2, name: upNext },
     ];
     for (const { offer, name } of taken) {
-      await drawnOn(screens[1]!, { offer: offers[offer]!.piece([]) });
+      await drawnOn(screens[1], { offer: offers[offer]!.piece([]) });
       await shown();
       const named = page.getByRole("button", { name, exact: true }).element();
       expect(named).toBe(offerButton(offers[offer]!.take));
