@@ -31411,3 +31411,84 @@ time. **Replaces** the plan file's next-batch items 8 and 9 under "The cast remo
    relayed to the receiver, which the receiver cannot be past. The core's estimate is the lower of
    the report moved on by the clock and that bound. The remote asks for the cast's picture now, and
    the core places it. The remote's bar still moves on between reports by its own clock.
+
+## D548 — The cast remote has its own layout: the picture in a card, a pad of round buttons, and the player's buttons row
+
+**Decided** (2026-11-24), by the project owner: "agreed. continue.", answering the lead's reading of
+the design agent's cast remote spec (`cast-remote-spec.md` and `cast-remote-plan.md` in the design
+handoff, kept outside the repo as D538's is; the mockups are the canvas's row 14). **Amends** D538
+§1, whose parts gain CastRemote and IconButton's sizes, D545 §1, whose picture was drawn where the
+video would be, darkened, and D546 §3, whose Up next on the remote counted nothing down.
+**Replaces** the owner's choice of 2026-11-23 that the remote is the player's view with a still
+(the plan file's "The cast remote's harder parts", whose items 1 to 7 this batch and the Chromecast
+batch take up). The reasoning is the plan's: the player's overlay over a still looks as if the film
+plays here; the darkened frame was hard to read; the transport buttons stood mid-screen, out of a
+thumb's reach; the volume had a slider alone; and nothing said the TV was being reached.
+
+**Status:** decided; not built. Its code is `web/apps/web/src/cast-remote.tsx` and the files
+beside it.
+
+1. **One part, CastRemote,** built from IconButton, OfferCard, Pill and StatusNote with the
+   player's timeline and buttons row. It no longer uses the player's overlay (`OverlayRowsOf`,
+   `.player-overlay`); it keeps the way up and Ends at.
+2. **Portrait, top to bottom.** The top bar: "‹ {title}" on the whole first line, wrapping, so a
+   long title is read in full; "On: {device}" at the start and "Ends: {time}" at the end of the
+   line under it. The offer area: a 16:9 card, the width less `space-4` at each side, `radius-card`.
+   The timeline, the same width, with "0:08 / 59:49" under it at the start. The pad, anchored to
+   the bottom above the buttons row, so the space left over goes between the time and the pad and
+   the pad stays in the thumb's reach. The buttons row at the end. On a tablet held upright the
+   column is at most 28rem wide and centred.
+3. **The offer area.** With no offer it shows the receiver's frame at full brightness,
+   `object-fit: cover`, refreshed every 3 s as D545 says, and until the first frame the film's
+   still, then its backdrop, then `color-placeholder`. The picture is `aria-hidden`; the top bar
+   says what plays. Offers are the player's OfferCard, top-right, `space-3` in: Skip (the card is
+   the button) and Up next ("Up next: S1E3 · The name", the countdown line, ✕ "Dismiss"), its still
+   shown only when the area is 30rem wide or more. Pills (the volume's, Reaching) stand at the
+   area's centre.
+4. **Up next counts from the receiver.** On an orpheum receiver the line shows what the TV shows,
+   "Plays in 10 s" while it counts and "Play now" once it stops, counted from the position the
+   receiver reports, read out once as it starts; the card's press plays the next episode on the TV
+   now; ✕ puts the card away here and stops the TV's countdown, a new message. The countdown and
+   the ✕'s message are built under D547, whose live state carries the position: until then, and on
+   a Chromecast until the Chromecast batch, the line says "Play now" and ✕ acts on this device
+   alone.
+5. **The pad.** Three equal columns, each button centred in its cell, rows `space-4` apart: Previous
+   / — / Next at 64 px; Back 10 seconds / Play or Pause / Forward 10 seconds at 72, 96 and 72 px;
+   Volume down / Mute / Volume up at 64 px. Round IconButtons on `color-video-card`, 32 px icons
+   (40 px in Play). Mute is a toggle (`aria-pressed`), always the muted icon, filled with
+   `color-status` while pressed. Volume down's icon is a speaker with one wave, Volume up's with
+   three; two waves stays the Sound menu's. A button the receiver cannot do leaves its cell empty,
+   out of the focus order, and nothing else moves: Previous with a previous episode, Next with an
+   Up next; with no volume reported, the whole third row goes. Previous, Next and the jumps act at
+   once, jumps in a row adding up into one seek as today.
+6. **Volume.** Down and up move the film's own level on the receiver by 10 % between 0 and 100 %
+   (`chooseSound({kind: "channel", level})`, as the pop-up did); held, they repeat every 300 ms
+   after 500 ms; each press shows the Pill "Volume 70 %" for 1.5 s; up while muted unmutes first;
+   Mute shows "Sound off" or the level. A Chromecast's level needs the Cast SDK's path: the
+   Chromecast batch's. The volume pop-up (RemoteFilmVolume) goes.
+7. **The buttons row** behaves exactly as the player's: a button shows only when the receiver
+   reports it can be used; Watch Together and Cast are left out, being in the top bar, which the
+   remote always shows; Full screen is never offered. This is where the plan's items 1 to 4 (this
+   file's sound timing, subtitle timing, Find subtitles, Report a problem) are built.
+8. **Two columns** when the page is wider than tall and under 32rem tall, or 60rem wide or more:
+   the top bar on one line (the title cut short, then On and Ends); the offer area with the
+   timeline under it at the start, the pad at the end, both at the bottom; the time at the start
+   and the buttons row at the end of the bottom line. A phone on its side has a 15rem pad column
+   at reduced sizes (Play 72 px, the others 56 px, rows `space-2` apart); a computer a 22rem column
+   at full size, the page at most 80rem wide and centred.
+9. **States.** Reaching the TV (the existing `isReady` false): the picture or its stand-in, the
+   Pill "Reaching {device}…" with the spinner, the pad, timeline and menus `aria-disabled`. Not
+   answering, 15 s without reaching it: a StatusNote problem in the offer area, "{device} isn't
+   answering", with "Try again", the pad still disabled. Ready with nothing playing, and the cast's
+   end: as today.
+10. **Keys**, the player's where it has them, none acting while the pad is disabled or focus is in
+    a text field: Space plays or pauses unless a button has focus; Left and Right seek 10 s while
+    nothing has focus, and move the timeline on it; `+`, `=` and the numpad's + are Volume up, `−`
+    and the numpad's − Volume down; M is Mute, ignored with Ctrl, Alt or Cmd. No media keys: a
+    browser sends them only to a page playing sound itself. Focus order: the top bar, the offer
+    area's buttons, the timeline, the pad row by row, the buttons row.
+11. **The parts.** IconButton gains the sizes 56, 64, 72 and 96 px; the icons `volume-down` and
+    `volume-up` are new, Mute's is the existing muted icon; OfferCard is unchanged.
+12. **Tests.** The remote's own (`cast-remote.test.tsx` and the files beside it) and the browser
+    tests of the three layouts; the pop-up's and the darkening's tests go with them, named in the
+    commit's `Test-Weakened:`.

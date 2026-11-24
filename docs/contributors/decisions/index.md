@@ -543,7 +543,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D535](working-notes.md#d535--a-file-read-by-an-older-probe-is-read-again-on-its-own-and-every-videos-page-and-every-library-offers-a-rescan) A file read by an older probe is read again on its own, and every video's page and every library offers a rescan
 - [D536](working-notes.md#d536--each-thing-the-node-makes-carries-the-version-of-its-recipe-in-its-key-raised-with-any-change-to-its-ffmpeg-arguments) Each thing the node makes carries the version of its recipe in its key, raised with any change to its FFmpeg arguments
 - [D537](working-notes.md#d537--a-file-has-a-sound-offset-for-every-person-an-admins-which-a-persons-own-overrides-for-them) A file has a sound offset for every person, an admin's, which a person's own overrides for them
-- [D538](working-notes.md#d538--the-interface-follows-one-standard-and-one-set-of-parts-amending-d408-d410-d421-d422-d423-and-d528) The interface follows one standard and one set of parts, amending D408, D410, D421, D422, D423 and D528 — *revisited by D539*
+- [D538](working-notes.md#d538--the-interface-follows-one-standard-and-one-set-of-parts-amending-d408-d410-d421-d422-d423-and-d528) The interface follows one standard and one set of parts, amending D408, D410, D421, D422, D423 and D528 — *revisited by D539, D548*
 - [D539](working-notes.md#d539--one-file-browser-chooses-a-folder-and-browses-every-library-by-its-folders) One file browser chooses a folder and browses every library by its folders
 - [D540](working-notes.md#d540--a-claimed-job-is-never-left-running-a-record-that-wrote-nothing-is-a-cancel-and-any-failure-gives-the-job-back) A claimed job is never left running: a record that wrote nothing is a cancel, and any failure gives the job back
 - [D541](working-notes.md#d541--every-library-keeps-its-hours-between-checks-from-1-to-a-week-and-a-periodic-scan-due-while-its-roots-scan-runs-is-dropped) Every library keeps its hours between checks, from 1 to a week, and a periodic scan due while its root's scan runs is dropped
@@ -553,6 +553,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D545](working-notes.md#d545--a-casts-remote-shows-the-films-key-frame-at-the-receivers-place-every-3-s-while-it-moves) A cast's remote shows the film's key frame at the receiver's place, every 3 s while it moves
 - [D546](working-notes.md#d546--casting-offers-the-skips-and-up-next-from-the-credits-as-the-player-does-locally) Casting offers the skips, and Up next from the credits, as the player does locally — *revisited by D547*
 - [D547](working-notes.md#d547--the-core-makes-one-plan-per-play-and-keeps-one-live-state-and-every-device-draws-its-own-part) The core makes one plan per play and keeps one live state, and every device draws its own part
+- [D548](working-notes.md#d548--the-cast-remote-has-its-own-layout-the-picture-in-a-card-a-pad-of-round-buttons-and-the-players-buttons-row) The cast remote has its own layout: the picture in a card, a pad of round buttons, and the player's buttons row
 
 ## Archived
 

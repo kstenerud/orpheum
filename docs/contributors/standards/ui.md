@@ -286,7 +286,8 @@ named yet.
 | Chooser and menu list | `drop-down.tsx`, `list-box.tsx` | One of many, at its opener; the menu's list |
 | Stepper | `number-input.tsx`, becoming the Stepper | A small whole number in a range (D538 §9) |
 | Confirm | `confirm-button.tsx`, until batch 2 | Today's ask-first for what cannot be undone (rule 8) |
-| IconButton | `icon-button.tsx` | A button that is an icon alone, with its accessible name |
+| IconButton | `icon-button.tsx` | A button that is an icon alone, with its accessible name; the cast remote's pad takes it round at 56, 64, 72 and 96 px (D548 §11) |
+| CastRemote | `cast-remote.tsx` | The page that controls a film on another screen: the picture in a card with the offers over it, the pad, the player's buttons row (D548) |
 | Icon | `icons.tsx`, `player-icons.tsx` | Every drawing, one library each for the client and the player |
 | Stack, Cluster | `layout.tsx` | A column, or a row that wraps, its gap a step of the space scale |
 | GridList | `grid-list.tsx` | A list of rows whose columns line up, each row one target |

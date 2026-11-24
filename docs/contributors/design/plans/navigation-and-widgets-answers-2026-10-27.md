@@ -5106,6 +5106,8 @@ and nothing says which of its files.
 
 ## The cast remote's harder parts, and casting's bugs, next batch (the owner, 2026-11-23)
 
+*Taken up by the three batches under "The cast remote's own layout" below (the owner, 2026-11-24, D548): items 1 to 6 in the redesign's, item 7 in the Chromecast's, 8 and 9 in D547's; item 10 is fixed.*
+
 The owner, 2026-11-23, during the design cycle on the player's menus: "Schedule the harder work for
 the next batch, and do the rest now. I want the interfaces to look as similar as possible, aside
 from things that can't be done due to a device or circumstances. Any button that would have nothing
@@ -5195,3 +5197,31 @@ these from it, built with items 1–5:
    #2's browser part never probed `title.css` and `up-next.css`, and run #3 found `title.css`
    untested, unchanged between them, a whole run spent. The inventory run can miss files the same way
    until it is known.
+
+## The cast remote's own layout: the next batch, and the two after it (the owner, 2026-11-24: "agreed. continue.")
+
+The design agent drew the cast remote again (the handoff's `cast-remote-spec.md` and
+`cast-remote-plan.md`, drawn against the tree at `test(web): a page opening in Firefox no longer
+blurs a test frame's focused field`'s batch, so it saw the remote as the 11-23 cycle built it): its
+own layout in the place of the player's view with a still, recorded as D548. It overlaps nearly all
+of "The cast remote's harder parts" above, so it takes that batch's place and the owner ordered the
+three batches so:
+
+1. **This batch, the remote's redesign** (D548): the layout, the pad, the volume buttons, the states,
+   the keys and the three layouts, with the harder parts' items 1 to 4 (the buttons row behaving as
+   the player's: this file's sound timing, subtitle timing, Find subtitles, Report a problem) and the
+   bugs 5 and 6, which are independent of it. Up next's card says "Play now" everywhere, as it does
+   on a Chromecast; its ✕ acts on this device alone. It is a design cycle
+   (standards/design-cycle.md): the owner walks the look on staging, a phone upright and on its side
+   being the cases that matter, and the gate runs once at the end. Removing the volume pop-up and the
+   frame's darkening removes their tests, with the owner's `Test-Weakened:` words; the three layouts'
+   browser tests add to the browser tier, the gate's longest step.
+2. **Then D547:** the plan, the live state, and from it the remote's Up next countdown and the ✕'s
+   message that stops the TV's countdown, and the card's picture from trickplay in the 3 s frame's
+   place. Built once, there, not first on the remote.
+3. **Then the Chromecast batch:** item 7 (the Chromecast reports its playback and carries out the
+   sound and picture choices), the film's level through the Cast SDK, and the server moving a
+   Chromecast cast on at the end, after which its Up next counts as an orpheum receiver's.
+
+Item 10 (the Settings test's third save in Firefox) was fixed in the 11-24 batch (`test(web): a page
+opening in Firefox no longer blurs a test frame's focused field`).
