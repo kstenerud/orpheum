@@ -21,6 +21,9 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from revert_red_dependents import python_tests_reaching_any  # noqa: E402
+
 # Relative to where it runs, so revert-red runs the gate's own copy of this file against the tree
 # it probes.
 TESTS = Path("scripts/tests")
@@ -71,8 +74,32 @@ def run(module: Path) -> tuple[Path, subprocess.CompletedProcess[str]]:
     return module, done
 
 
+def reached_modules(changed: str | None) -> list[Path] | None:
+    """The test modules the changed paths (AREA_STAMP_CHANGED's lines) reach, by revert-red's reach
+    (revert_red_dependents.python_tests_reaching_any): None, every module, where no change is known or
+    one is not a Python file, which any test may read (the Makefile, a shell script, an allowlist)."""
+    if changed is None:
+        return None
+    paths = [line for line in changed.splitlines() if line]
+    reached = python_tests_reaching_any(".", paths)
+    return None if reached is None else [Path(module) for module in reached]
+
+
 def main(argv: list[str]) -> int:
-    """Every test module, or only those named (revert-red's narrow run, revert_red_dependents)."""
+    """Every test module, or only those named (revert-red's narrow run, revert_red_dependents), or with
+    --reach only those the paths changed since the step last passed reach (area_stamp.py): make check
+    ran all 68, 29 s and two minutes of CPU, for a change to one script (the owner, 2026-11-24)."""
+    if argv[:1] == ["--reach"]:
+        changed = os.environ.get("AREA_STAMP_CHANGED")
+        reached = reached_modules(changed)
+        if reached is not None:
+            count = len([line for line in (changed or "").splitlines() if line])
+            print(f"py_tests: {len(reached)} module(s) reach the {count} Python file(s) changed since the last pass")
+            if not reached:
+                return 0
+            argv = [str(module) for module in reached]
+        else:
+            argv = []
     modules = [Path(name) for name in argv] if argv else sorted(TESTS.glob("test_*.py"))
     with ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as pool:
         results = list(pool.map(run, modules))

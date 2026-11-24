@@ -151,7 +151,7 @@ check-docs: ## Links, anchors, decision citations and the decision index
 	@$(PYTHON) scripts/check_docs.py
 
 .PHONY: check-scripts
-check-scripts: ## The gate scripts' own tests, and shellcheck on every shell script; not again while only Go, TypeScript or docs changed since they passed
+check-scripts: ## The gate scripts' own tests, and shellcheck on every shell script; not again while only Go, TypeScript or docs changed since they passed, and only the tests a Python change reaches
 	@$(PYTHON) scripts/area_stamp.py check-scripts $(SCRIPTS_READ) -- $(MAKE) --no-print-directory check-scripts-run
 
 # What the gate scripts' tests read: all but the Go and TypeScript sources and the docs (scripts/
@@ -160,7 +160,7 @@ SCRIPTS_READ = . ':(exclude,glob)**/*.go' ':(exclude,glob)**/*.ts' ':(exclude,gl
 
 .PHONY: check-scripts-run check-source freeze-compose check-deps check-vulns check-claims check-media-names check-architecture
 check-scripts-run:
-	@$(HERMETIC) $(PYTHON) scripts/py_tests.py
+	@$(HERMETIC) $(PYTHON) scripts/py_tests.py --reach
 	@files="$$(git ls-files --cached --others --exclude-standard | grep -E '(\.sh$$|^\.githooks/)' || true)"; \
 	  if [ -n "$$files" ]; then shellcheck $$files; fi
 

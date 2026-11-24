@@ -85,5 +85,43 @@ class Runner(unittest.TestCase):
         self.assertEqual(done.stdout.strip(), "py_tests: 2 modules, 0 failed")
 
 
+class Reach(unittest.TestCase):
+    """--reach runs only the modules the paths changed since the step's last pass reach
+    (AREA_STAMP_CHANGED, area_stamp.py), and every module where a change is not Python's or none is
+    known."""
+
+    def run_reaching(self, changed: str | None) -> subprocess.CompletedProcess[str]:
+        root = Path(tempfile.mkdtemp(prefix="py-tests-reach-"))
+        (root / "scripts" / "tests").mkdir(parents=True)
+        (root / "scripts" / "alpha.py").write_text("X = 1\n")
+        (root / "scripts" / "beta.py").write_text("Y = 1\n")
+        uses = "import sys\nsys.path.insert(0, 'scripts')\nimport {0}  # noqa\n" + PASSES
+        (root / "scripts" / "tests" / "test_alpha.py").write_text(uses.format("alpha"))
+        (root / "scripts" / "tests" / "test_beta.py").write_text(uses.format("beta"))
+        env = {name: value for name, value in os.environ.items() if name != "AREA_STAMP_CHANGED"}
+        if changed is not None:
+            env["AREA_STAMP_CHANGED"] = changed
+        return subprocess.run([sys.executable, str(RUNNER), "--reach"], cwd=root, capture_output=True,
+                              text=True, check=False, env=env)
+
+    def test_a_python_change_runs_the_modules_it_reaches(self):
+        done = self.run_reaching("scripts/alpha.py\n")
+        self.assertEqual(done.returncode, 0, done.stdout)
+        self.assertIn("py_tests: 1 module(s) reach the 1 Python file(s) changed since the last pass", done.stdout)
+        self.assertIn("py_tests: 1 modules, 0 failed", done.stdout)
+
+    def test_a_change_reaching_no_module_runs_none(self):
+        done = self.run_reaching("scripts/unused.py")
+        self.assertEqual(done.returncode, 0, done.stdout)
+        self.assertIn("py_tests: 0 module(s) reach", done.stdout)
+        self.assertNotIn("modules, 0 failed", done.stdout)
+
+    def test_a_change_not_pythons_or_none_known_runs_every_module(self):
+        for changed in ("scripts/alpha.py\nMakefile", None):
+            done = self.run_reaching(changed)
+            self.assertEqual(done.returncode, 0, done.stdout)
+            self.assertIn("py_tests: 2 modules, 0 failed", done.stdout, changed)
+
+
 if __name__ == "__main__":
     unittest.main()

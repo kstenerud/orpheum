@@ -28,6 +28,25 @@ class AreaStampTest(unittest.TestCase):
             self.assertEqual(area_stamp.main(step), 0)
         self.assertEqual(ran.read_text(), "x\nx\n")
 
+    def test_a_step_run_again_is_told_the_paths_changed_since_its_pass(self) -> None:
+        """AREA_STAMP_CHANGED names what changed under the step's pathspecs since its last pass, so
+        py_tests.py --reach runs only the tests those reach; with no pass recorded it is not set, so
+        the step runs everything, whatever the caller's environment held."""
+        repo = Repo({"scripts/a.py": "1", "scripts/b.py": "1", "internal/x.go": "1"})
+        repo.commit("first")
+        told = Path(tempfile.mkdtemp()) / "told"
+        step = ["check-scripts", ".", ":(exclude,glob)**/*.go", "--", "sh", "-c",
+                f"echo \"${{AREA_STAMP_CHANGED-unset}}\" >> {told}; echo -- >> {told}"]
+        os.environ["AREA_STAMP_CHANGED"] = "scripts/stale.py"
+        self.addCleanup(os.environ.pop, "AREA_STAMP_CHANGED", None)
+        with repo.cwd():
+            self.assertEqual(area_stamp.main(step), 0)  # no pass yet: told nothing
+            repo.write({"scripts/b.py": "2", "internal/x.go": "2"})
+            self.assertEqual(area_stamp.main(step), 0)
+            (repo.root / "scripts" / "a.py").unlink()
+            self.assertEqual(area_stamp.main(step), 0)  # a removed file is a change too
+        self.assertEqual(told.read_text().split("--\n"), ["unset\n", "scripts/b.py\n", "scripts/a.py\n", ""])
+
     def test_a_failure_records_nothing_and_an_exclusion_is_honoured(self) -> None:
         repo = Repo({"scripts/s.py": "1", "internal/x.go": "1"})
         repo.commit("first")

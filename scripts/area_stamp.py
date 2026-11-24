@@ -9,7 +9,9 @@
 The step's inputs are git pathspecs (`:(exclude)` and `:(glob)` magic included), read in the working
 tree as `git add -A` would record it. The tree is taken before COMMAND runs and recorded, under
 STEP, once it passes, so a file edited while it ran is not blessed with its pass. When the
-recorded tree and the tree now differ in none of the pathspecs, COMMAND is skipped and says so.
+recorded tree and the tree now differ in none of the pathspecs, COMMAND is skipped and says so; when
+they differ, COMMAND is told the paths that did, in AREA_STAMP_CHANGED, so the gate scripts' tests
+run only the modules they reach (py_tests.py --reach).
 
 The web tests, the dependency rules and the gate scripts' tests ran on every turn of make check
 whatever it changed, some 35 to 50 s of CPU beside the Go steps a Go-only turn changed (the test
@@ -19,6 +21,7 @@ has no record and runs everything.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -44,6 +47,19 @@ def is_unchanged(passed_tree: str, tree: str, pathspecs: list[str]) -> bool:
     return done.returncode == 0
 
 
+# The paths, one a line, that changed under the step's pathspecs since its last pass, handed to its
+# COMMAND so it can run only what they reach (py_tests.py --reach); not set where no pass is
+# recorded, so the step runs everything.
+CHANGED = "AREA_STAMP_CHANGED"
+
+
+def changed_paths(passed_tree: str, tree: str, pathspecs: list[str]) -> list[str]:
+    """The paths under pathspecs that differ between passed_tree and tree, a removed one included."""
+    done = subprocess.run(["git", "diff", "--name-only", "--no-renames", passed_tree, tree, "--", *pathspecs],
+                          capture_output=True, text=True, check=True)
+    return [line for line in done.stdout.splitlines() if line]
+
+
 def main(argv: list[str]) -> int:
     if "--" not in argv or argv.index("--") < 2 or argv.index("--") == len(argv) - 1:
         print("usage: area_stamp.py STEP PATHSPEC... -- COMMAND...", file=sys.stderr)
@@ -52,10 +68,14 @@ def main(argv: list[str]) -> int:
     step, pathspecs, command = argv[0], argv[1:split], argv[split + 1:]
     tree = working_tree_id()
     stamp = stamp_path(step)
-    if stamp.exists() and is_unchanged(stamp.read_text().strip(), tree, pathspecs):
-        print(f"{step}: nothing it reads changed since it last passed; not run again")
-        return 0
-    done = subprocess.run(command, check=False)
+    env = {name: value for name, value in os.environ.items() if name != CHANGED}
+    if stamp.exists():
+        passed = stamp.read_text().strip()
+        if is_unchanged(passed, tree, pathspecs):
+            print(f"{step}: nothing it reads changed since it last passed; not run again")
+            return 0
+        env[CHANGED] = "\n".join(changed_paths(passed, tree, pathspecs))
+    done = subprocess.run(command, check=False, env=env)
     if done.returncode != 0:
         return done.returncode
     stamp.parent.mkdir(parents=True, exist_ok=True)
