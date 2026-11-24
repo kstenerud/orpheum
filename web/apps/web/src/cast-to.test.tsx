@@ -620,11 +620,11 @@ describe("a film played on a device that casts (D364 §3, §4; D384 §2)", () =>
   async function shownAsRemote(): Promise<void> {
     const page = mounted!.container;
     const wayUp = (): string | undefined =>
-      page.querySelector(".player-overlay__top .player-overlay__up .player-overlay__title")
+      page.querySelector(".cast-remote__bar .player-overlay__up .player-overlay__title")
         ?.textContent ?? undefined;
     await settleUntil(() => wayUp() !== undefined);
     expect(wayUp()).toBe("Metropolis");
-    expect(page.querySelector(".player-overlay__top h2")?.textContent).toBe("On: Fire TV");
+    expect(page.querySelector(".cast-remote__bar h2")?.textContent).toBe("On: Fire TV");
   }
 
   /**

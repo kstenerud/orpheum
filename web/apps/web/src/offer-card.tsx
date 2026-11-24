@@ -11,9 +11,10 @@ import { useId, type JSX, type ReactNode, type RefObject } from "react";
  * (an `<output>`), with a sentence said alone where given ("Plays in 10 seconds", as a countdown
  * starts); a line under them (the countdown itself) is not, as it changes every second. Where the
  * offer is taken by pressing the card itself (Skip, Up next), the still and the words are one
- * button; otherwise its buttons follow the words (Still watching's Continue and Stop). It has no ✕:
- * Back, the remote's or the player's own, puts an offer away where it can be (the owner,
- * 2026-11-23; plans' "Up next's ✕"). A card pressed itself is named by its words and described by
+ * button; otherwise its buttons follow the words (Still watching's Continue and Stop). Over a film
+ * it has no ✕: Back, the remote's or the player's own, puts an offer away where it can be (the
+ * owner, 2026-11-23; plans' "Up next's ✕"); a cast remote's Up next, over no film, has one, given
+ * among its buttons (D548 §3). A card pressed itself is named by its words and described by
  * the line under them: the words sit in the `<output>`, whose content a button's name leaves out.
  */
 export function OfferCard(props: {

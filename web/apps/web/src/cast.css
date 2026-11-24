@@ -8,46 +8,258 @@
   pointer-events: none;
 }
 
-/* A cast's sender, its remote (cast-remote.tsx): the player's view, its stage filling the window
-   under the top bar (--banner-height, app-shell.tsx), kept so a person can go elsewhere (the owner,
-   2026-11-23), a still of the film where its video would be, the overlay's rows over it. The picture
-   is drawn as the video is: the whole stage, black round it. Nor does the page scroll under it. */
-.film-player__stage.cast-remote__stage {
+/* A cast's sender, its remote (cast-remote.tsx, D548): its own page under the top bar
+   (--banner-height, app-shell.tsx), kept so a person can go elsewhere (the owner, 2026-11-23). The
+   stage is the size container, so a phone on its side and a computer are container queries; the
+   page does not scroll under it. */
+.cast-remote__stage {
+  container: cast-remote / size;
   position: fixed;
   inset: var(--banner-height, 0) 0 0;
-  display: grid;
-  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
-  place-items: center;
-  background: var(--color-video-background);
+  overflow: auto;
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 
 html:has(.cast-remote__stage) {
   overflow: hidden;
 }
 
-.cast-remote__picture {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+/* Portrait: one column, at most 28rem wide and centred, the pad and the menus at the bottom, where
+   a thumb is (§1). */
+.cast-remote__page {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-block-size: 100%;
+  max-inline-size: 28rem;
+  margin-inline: auto;
+  padding-block-end: env(safe-area-inset-bottom, 0px);
 }
 
-.cast-remote__poster {
-  height: 70%;
-  aspect-ratio: 2 / 3;
-}
-
-.cast-remote__poster .poster {
-  height: 100%;
-}
-
-/* The picture darkened under the controls, which a bright one hid: "the screenshots should be
-   darkened a bit so that the playback controls show up better" (the owner, 2026-11-23). The live
-   frame (CastFrame, D545) fills the stage, its still centred until the first frame has loaded. */
-.cast-frame.cast-remote__frame {
+.cast-remote__bar {
   display: grid;
-  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+}
+
+.cast-remote__heading {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The offer area: 16:9, the picture under any offer, Pill or note (§2). A container, so Up next
+   leaves its still out where the area is small (§3). */
+.cast-remote__offer {
+  container: cast-remote-offer / inline-size;
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  margin-inline: var(--space-4);
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-card);
+  background: var(--color-placeholder);
+  color: var(--color-on-video);
+}
+
+.cast-remote__picture-area,
+.cast-remote__picture-area > * {
+  position: absolute;
+  inset: 0;
+}
+
+/* The picture at full brightness, filling the area (§2). */
+.cast-remote__picture,
+.cast-remote__frame .cast-frame-image {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+/* Offers (Skip, Up next) top-right over the picture, as in the player. */
+.cast-remote__offers > * {
+  position: absolute;
+  z-index: var(--layer-raised);
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  max-inline-size: calc(100% - 2 * var(--space-3));
+}
+
+@container cast-remote-offer (inline-size < 30rem) {
+  .cast-remote__offer .offer-card__still {
+    display: none;
+  }
+}
+
+/* Pills in the centre; the area's own buttons stay pressable. */
+.cast-remote__centre {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.cast-remote__centre > * {
+  pointer-events: auto;
+}
+
+/* "Reaching ‹TV›…": a ring turning in the Pill's colour, as the submit button's. Asked for less
+   motion, it stands still (tokens.css). */
+.cast-remote__spinner {
+  display: inline-block;
+  box-sizing: border-box;
+  inline-size: 1em;
+  block-size: 1em;
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: var(--radius-pill);
+  animation: cast-remote-turn var(--duration-spin) linear infinite;
+}
+
+@keyframes cast-remote-turn {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* "‹TV› isn't answering" on the page's own ground over the picture, centred (§9). */
+.cast-remote__note {
+  position: absolute;
+  z-index: var(--layer-raised);
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+/* The timeline the whole width, the time under it at the start (§4). */
+.cast-remote__timeline {
+  display: grid;
+  margin: var(--space-2) var(--space-4) 0;
+}
+
+.cast-remote__time {
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The pad: three equal columns, at the bottom, the room left over above it (§5). */
+.cast-remote__pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  gap: var(--space-4) 0;
+  margin-block-start: auto;
+  padding: var(--space-4);
+}
+
+.cast-remote__pad-cell {
+  display: grid;
   place-items: center;
-  filter: brightness(0.55);
+}
+
+/* Mute pressed: the status ground, so a muted film is seen (§6). */
+.cast-remote__pad .icon-button[aria-pressed="true"],
+.cast-remote__pad .icon-button[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--color-status);
+}
+
+/* Reaching or not answering: the pad and the menus take no press and look it (§9). */
+.cast-remote [aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* The player's menus at the end, as in the player (§7). */
+.cast-remote__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) var(--space-4);
+}
+
+/* Two columns (§8): a phone on its side, or a page 60rem wide or more. The bar across the top, the
+   offer area and the timeline at the start, the pad at the end, the menus under it. */
+@container cast-remote ((orientation: landscape) and (height < 32rem)) or (width >= 60rem) {
+  .cast-remote__page {
+    --pad-column: 22rem;
+    /* What the bar, the timeline and its time take of the height: the offer area keeps to the rest. */
+    --start-chrome: 12rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--pad-column);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "bar bar"
+      "offer pad"
+      "timeline buttons";
+    align-items: end;
+    max-inline-size: 80rem;
+  }
+
+  .cast-remote__bar {
+    grid-area: bar;
+  }
+
+  .cast-remote__offer {
+    grid-area: offer;
+    align-self: center;
+    justify-self: center;
+    inline-size: min(100% - 2 * var(--space-4), (100cqh - var(--start-chrome)) * 16 / 9);
+  }
+
+  .cast-remote__timeline {
+    grid-area: timeline;
+    margin-block-end: var(--space-2);
+  }
+
+  .cast-remote__pad {
+    grid-area: pad;
+    align-self: end;
+    margin-block-start: 0;
+  }
+
+  .cast-remote__buttons {
+    grid-area: buttons;
+    padding-block: var(--space-2);
+  }
+}
+
+/* A phone on its side: a 15rem pad column, Play 72px and the others 56px, rows closer (§8). */
+@container cast-remote (orientation: landscape) and (height < 32rem) {
+  .cast-remote__page {
+    --pad-column: 15rem;
+    --start-chrome: 11.5rem;
+  }
+
+  .cast-remote__bar {
+    padding-block: var(--space-1);
+  }
+
+  .cast-remote__pad {
+    row-gap: var(--space-2);
+    padding-block: 0;
+  }
+
+  .cast-remote__pad .icon-button--remote-64,
+  .cast-remote__pad .icon-button--remote-72 {
+    --remote-size: 3.5rem;
+  }
+
+  .cast-remote__pad .icon-button--remote-96 {
+    --remote-size: 4.5rem;
+  }
+
+  .cast-remote__buttons {
+    padding-block: var(--space-1);
+  }
 }
 
 /* Under the way up, as the player's over its film, where it plays and when it ends on one line: "On:
@@ -60,7 +272,7 @@ html:has(.cast-remote__stage) {
   min-width: 0;
 }
 
-/* "On: ‹TV›" under the way up (player-overlay__heading), one line cut short with an ellipsis. */
+/* "On: ‹TV›" under the way up (cast-remote__heading), one line cut short with an ellipsis. */
 .cast-remote__sign {
   overflow: hidden;
   margin: 0;

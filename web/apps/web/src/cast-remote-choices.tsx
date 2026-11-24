@@ -21,7 +21,6 @@ import { HowItPlays } from "./how-it-plays.tsx";
 import { ListEntry } from "./list-box.tsx";
 import { PlayOriginal } from "./play-original.tsx";
 import type { PlayerSound, SequenceMoves } from "./player-controls.tsx";
-import { VolumeMenu } from "./player-menus.tsx";
 import {
   ChoicesSubmenu,
   KeptOpen,
@@ -49,28 +48,23 @@ export function noOverlay(): void {
  * The cast's remote's menus, the full-screen overlay's (player-menus.tsx) over the receiver (D444,
  * amending D440 §5), drawn as the player's are wherever the receiver can do what they do (the owner,
  * 2026-11-23: "I want the interfaces to look as similar as possible, aside from things that can't be
- * done due to a device or circumstances"): 🔈, the row of sliders, the film's first, its level on
- * the receiver apart from the TV's own (useReceiverFilmSound); Talk in a Watch Together session; 💬,
+ * done due to a device or circumstances"): Talk in a Watch Together session; 💬,
  * the receiver's subtitle tracks; 🎧, its sound track, Level loudness, the dialogue boost and, under
  * Sound timing, That device's timing; ⁝, the original and How it plays. Each choice is sent to the
  * receiver in the cast's session (D434), which carries it out as its own press and says how it stands
  * after: a Fire TV's own controls are hidden while it is controlled (D407 §12; the owner, VQ116's
  * run). Neither the bare player nor Start over: the bar's ⏮ covers the start (the owner,
  * 2026-11-07). A menu with nothing in it is not drawn (the owner: "Any button that would have nothing
- * in its submenu should not display at all"). Each waits for the receiver to say it.
+ * in its submenu should not display at all"). Each waits for the receiver to say it. No 🔈: the
+ * film's level on the receiver is the pad's (useReceiverFilmSound, D548 §6).
  */
 export function RemoteMenus(props: {
   readonly playback: PlaybackReport | undefined;
   readonly connection: ReceiverChoices | undefined;
 }): JSX.Element {
-  const { t } = useTranslation();
   const { playback, connection } = props;
-  const film = useReceiverFilmSound(playback?.sound?.channels?.[0], connection);
   return (
     <>
-      {film === undefined ? null : (
-        <VolumeMenu sound={film} filmTitle={t("cast.filmLevel")} onOpenChange={noOverlay} />
-      )}
       <SessionTalk isOverVideo />
       {connection === undefined ? null : (
         <ReceiverChoicesMenus playback={playback} connection={connection} />
@@ -289,7 +283,7 @@ interface ChosenChannel {
  * said them, and as moved here until it says them again; each move sent to the receiver, which
  * carries it out. Undefined while the receiver says no film channel (film).
  */
-function useReceiverFilmSound(
+export function useReceiverFilmSound(
   film: SoundChannel | undefined,
   connection: CarriesSoundChoices | undefined,
 ): PlayerSound | undefined {

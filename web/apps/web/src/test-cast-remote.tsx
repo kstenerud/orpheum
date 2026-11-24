@@ -99,14 +99,14 @@ export const catReads: Answers = {
 /** The name of the remote's way up, the player's own (OverlayUp): the page of what it plays. */
 export function wayUp(page: Element): string | undefined {
   return (
-    page.querySelector(`.player-overlay__top .${overlayUpClass} .player-overlay__title`)
+    page.querySelector(`.cast-remote__bar .${overlayUpClass} .player-overlay__title`)
       ?.textContent ?? undefined
   );
 }
 
 /** The remote's sign under its way up, where its film plays. */
 export function signOf(page: Element): string | undefined {
-  return page.querySelector(".player-overlay__top h2")?.textContent ?? undefined;
+  return page.querySelector(".cast-remote__bar h2")?.textContent ?? undefined;
 }
 
 /** The remote's welcome, the receiver's film paused at a minute. */

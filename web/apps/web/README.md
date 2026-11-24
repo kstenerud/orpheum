@@ -344,8 +344,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   the receiver, whose own choice carries it out as its press would, drawn or not (`src/player-tracks.tsx`), kept for the person, the
   remote showing what the receiver says after (`src/sound-panel.ts`; a Fire TV's controls are hidden
   while controlled, so its sound could be changed only after taking control back, the owner, VQ116's
-  run); and the film's level and mute on the receiver, on 🔈's row of sliders, apart from the TV's
-  own volume, for the session and not saved (D440 §2, §5; `useFilmChannelWorkedByTheRemote`,
+  run); and the film's level and mute on the receiver, on the pad's Volume down, Mute and Volume
+  up, a tenth a press and repeating held, apart from the TV's own volume, for the session and not
+  saved (D440 §2, §5, D548 §6; `useFilmChannelWorkedByTheRemote`, `src/cast-remote-pad.test.tsx`,
   `src/cast-remote.test.tsx`, `src/cast-receiver-sound.test.tsx`, VQ278); and what it shows, its subtitles, Off and each track named as its own menu names it, and
   the original, a debug tool as on the player, each choice carried out by the receiver's own control
   as its press (`src/picture-panel.ts`, `src/cast-receiver-picture.test.tsx`,
@@ -370,13 +371,19 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/cast-ready.test.tsx`, `src/cast-to.test.tsx`; on a device, VQ189 and VQ190.
   **The page cast from stays where it is** (D384 §2): a Play page whose film goes to the receiver,
   sent on or taken by a cast started over it, shows in its video's place the cast's remote
-  (`src/cast-remote.tsx`), which holds no player and is laid out as the full-screen overlay, from
-  its own pieces (D444, amending D440 §5; `OverlayRowsOf`, `src/cast-remote-choices.tsx`'s
-  `RemoteMenus`): with a film playing, the sign *‹film› · Playing on ‹Device›*, Up next only at the
-  episode's end, the signs over the film (Watch Together's, and Cast's, whose dialog holds Stop
+  (`src/cast-remote.tsx`), which holds no player and has its own layout (D548, amending D444): one
+  column at most 28rem wide, the bar, a 16:9 offer area with the receiver's picture at full
+  brightness under Up next or a skip at its top-right and a Pill at its centre, the timeline with
+  the time under it, the pad (`src/cast-remote-pad.tsx`: ⏮ ⏭, −10 s, Play and +10 s, the film's
+  level, its keys the player's) and the menus at the bottom (`src/cast-remote-choices.tsx`'s
+  `RemoteMenus`); two columns, the pad's at the end, on a phone on its side or a page 60rem wide
+  (`src/cast-remote-layout.browser.test.tsx`). While the receiver is not reached it says *Reaching
+  ‹Device›…*, the pad and the menus taking no press, and after 15 s that it isn't answering, with
+  Try again (D548 §9). With a film playing, the sign *‹film› · Playing on ‹Device›*, Up next only at
+  the episode's end, with a ✕ that puts it away on this device (D548 §3), the signs over the film (Watch Together's, and Cast's, whose dialog holds Stop
   casting, the one way to bring the film back, D388: the page has no Stop of its own); the timeline
   and the bar (`useRemoteSource`, `src/session-remote.tsx`), working the session the tab hosts while
-  Watch Together is on too; 🔈, Talk, Subtitles, Sound track and ⁝ over the receiver's, ⁝ with no
+  Watch Together is on too; Talk, Subtitles, Sound track and ⁝ over the receiver's, ⁝ with no
   bare player and no Start over, and How it plays read-only (`src/how-it-plays.tsx`, which the
   player's own ⁝ shows of this device's playback too). Watch Together's dialog is the session's
   panel tuned to the role (the guest's Leave; the host's people, grants and End,

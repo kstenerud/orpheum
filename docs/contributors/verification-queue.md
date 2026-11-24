@@ -3952,3 +3952,71 @@ An item is ticked only by the person who did it, and only with what they saw.
   6. Do steps 1, 2, 4 and 5 again cast to the Fire TV's tab, and report the same.
   7. Open the menu that says who is signed in, choose Report a problem, and send one saying
      "VQ384". Report that you sent it.
+- [ ] **VQ385** — The cast remote's own layout on a phone held upright (D548 §1, §2, §5): the bar,
+  the receiver's picture in a 16:9 area at full brightness, the timeline with the time under it,
+  then the pad and the menus at the bottom, in a thumb's reach. Only a real phone says whether the
+  pad sits where a thumb reaches and whether its buttons are big enough to hit without looking. On
+  staging, with "feat(web): the cast remote's own layout, its offer area, timeline, pad and menus",
+  from your phone:
+  1. Play a film and cast it to the Fire TV. Report whether the phone shows, from the top: the
+     film's name with "On: ‹the Fire TV›" under it, the picture (not darkened), the timeline with
+     the time under it, three rows of round buttons, and Subtitles, Sound and ⁝ at the bottom.
+  2. Holding the phone in one hand, press Play, Back 10 s and Forward 10 s with that thumb. Report
+     whether each was easy to reach and hit, and whether the TV did each.
+  3. Cast an episode with an episode before it and after it. Report whether ⏮ and ⏭ show in the
+     top row, and whether each moves the TV to that episode.
+  4. Open the menu that says who is signed in, choose Report a problem, and send one saying
+     "VQ385". Report that you sent it.
+- [ ] **VQ386** — The cast remote on a phone on its side and on a computer (D548 §8): two columns,
+  the pad's at the end. Only a real phone says whether its browser's own bars leave the three rows
+  room. On staging, with "feat(web): the cast remote's own layout, its offer area, timeline, pad
+  and menus":
+  1. Cast a film to the Fire TV from your phone, then turn the phone on its side. Report whether
+     the picture and timeline sit on the left, the round buttons on the right, and whether anything
+     is cut off at the bottom or needs scrolling to reach.
+  2. Turn the phone upright again. Report whether it goes back to one column.
+  3. On a laptop, in Chrome, open the same film's page while it casts. Report whether it shows two
+     columns, the buttons on the right, and how it looks with the window narrowed to half the
+     screen.
+  4. Open the menu that says who is signed in, choose Report a problem, and send one saying
+     "VQ386". Report that you sent it.
+- [ ] **VQ387** — The pad's volume on a real receiver (D548 §6): Volume down and up move the film's
+  level a tenth, held they repeat, Mute shows pressed while muted, and a Pill says the level a
+  moment. Only a real receiver says whether its sound follows quickly enough for a held press to
+  feel right. On staging, with "feat(web): the cast remote's pad, its volume held repeating, and
+  its keys", from your phone:
+  1. Cast a film to the Fire TV. Press Volume down three times. Report whether the TV got quieter
+     each press and the phone said "Volume 70 %" and so on in the middle of the picture.
+  2. Hold Volume up for 3 s. Report whether the level kept rising while held and stopped when you
+     let go.
+  3. Press Mute. Report whether the TV went silent and Mute stayed lit. Press Volume up. Report
+     whether the sound came back.
+  4. Do steps 1 to 3 cast to the TCL TV's tab, and report the same.
+  5. Open the menu that says who is signed in, choose Report a problem, and send one saying
+     "VQ387". Report that you sent it.
+- [ ] **VQ388** — The cast remote while the receiver is not reached (D548 §9): "Reaching ‹TV›…" with
+  a turning ring, the pad and the menus greyed and taking no press, and after 15 s "‹TV› isn't
+  answering" with Try again. Only a real receiver lost says how this reads. On staging, with
+  "feat(web): the cast remote's own layout, its offer area, timeline, pad and menus", from your
+  phone:
+  1. Cast a film to the Fire TV, then turn the Fire TV's Wi-Fi off (or pull its power). Report
+     whether the phone says "Reaching ‹the Fire TV›…" in the picture's middle with a turning ring,
+     and the round buttons and menus look greyed out.
+  2. Press Play. Report whether nothing happened.
+  3. Wait 15 s. Report whether it says "‹the Fire TV› isn't answering" with Try again, and what
+     pressing Try again does.
+  4. Turn the Fire TV back on. Report whether the remote comes back by itself, and how long it
+     took.
+  5. Open the menu that says who is signed in, choose Report a problem, and send one saying
+     "VQ388". Report that you sent it.
+- [ ] **VQ389** — The cast remote's keys on a computer and Up next's ✕ (D548 §3, §10). Only a real
+  keyboard and a cast reaching the credits say both. On staging, with "feat(web): the cast remote's
+  own layout, its offer area, timeline, pad and menus", on a laptop in Chrome:
+  1. Cast an episode with one after it to the Fire TV. Click on the page away from any button,
+     then press Space, the Left arrow, the Right arrow, + , - and M. Report what the TV did for
+     each.
+  2. Seek to just before the credits. Report whether Up next shows at the picture's top-right with
+     a ✕, and whether the ✕ puts it away on the laptop without changing the TV.
+  3. Seek back a few minutes, then to the credits again. Report whether Up next shows again.
+  4. Open the menu that says who is signed in, choose Report a problem, and send one saying
+     "VQ389". Report that you sent it.

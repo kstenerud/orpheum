@@ -533,6 +533,8 @@ export function UpNextCard(props: {
         readonly playRef?: RefObject<HTMLButtonElement | null>;
       }
     | undefined;
+  /** Its buttons beside it, where its user has any: the cast remote's ✕ (D548 §3). */
+  readonly buttons?: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
   const { upNext, secondsLeft, play } = props;
@@ -554,6 +556,7 @@ export function UpNextCard(props: {
       }
       onTake={play?.onPlay}
       takeRef={play?.playRef}
+      buttons={props.buttons}
     />
   );
 }
