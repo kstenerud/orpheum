@@ -9,10 +9,16 @@
 export const volumeStep = 0.05;
 
 /**
- * The volume a press of + (direction 1) or − (-1) leaves, from volume: a step along, to the nearest
- * hundredth so that steps add up evenly, kept within 0 and 1.
+ * How far the cast remote's Volume down and up move the film's level on the receiver: 10 % (D548
+ * §6), ten presses from silence to full. A justified constant.
  */
-export function volumeAfter(volume: number, direction: -1 | 1): number {
-  const moved = Math.round((volume + direction * volumeStep) * 100) / 100;
+export const remoteVolumeStep = 0.1;
+
+/**
+ * The volume a press of + (direction 1) or − (-1) leaves, from volume: a step along (volumeStep, or
+ * step where given), to the nearest hundredth so that steps add up evenly, kept within 0 and 1.
+ */
+export function volumeAfter(volume: number, direction: -1 | 1, step: number = volumeStep): number {
+  const moved = Math.round((volume + direction * step) * 100) / 100;
   return Math.min(1, Math.max(0, moved));
 }

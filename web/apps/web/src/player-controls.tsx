@@ -261,11 +261,19 @@ function StepButton(props: {
       icon={isForward ? <SeekForwardIcon /> : <SeekBackIcon />}
       isDisabled={!source.isReady}
       onClick={() => {
-        const mostMs = source.durationMs > 0 ? source.durationMs : Number.POSITIVE_INFINITY;
-        source.seekTo(Math.min(Math.max(0, source.atMs + byMs), mostMs));
+        seekStepped(source, byMs);
       }}
     />
   );
+}
+
+/**
+ * Seeks source byMs from where it stands, kept within the film: the bar's ⟲ and ⟳, and the cast
+ * remote's pad's jumps (cast-remote-pad.tsx).
+ */
+export function seekStepped(source: PlayerSource, byMs: number): void {
+  const mostMs = source.durationMs > 0 ? source.durationMs : Number.POSITIVE_INFINITY;
+  source.seekTo(Math.min(Math.max(0, source.atMs + byMs), mostMs));
 }
 
 /**

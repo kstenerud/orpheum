@@ -69,6 +69,17 @@ export const enCast = {
     over: {
       lost: "The cast ended: the server no longer knows it.",
     },
+    /** The cast remote's pad (D548 §5, §6), the player's words where it has them. */
+    pad: {
+      volumeDown: "Volume down",
+      volumeUp: "Volume up",
+      soundOff: "Sound off",
+    },
+    /** The cast remote's receiver not yet reached (D548 §9). */
+    reaching: "Reaching {{name}}…",
+    notAnswering: "{{name}} isn't answering",
+    /** The cast remote's Up next put away on this device (D548 §3). */
+    dismissUpNext: "Dismiss",
   },
   remote: {
     playing: "Playing",
