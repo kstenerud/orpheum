@@ -93,9 +93,12 @@ class Cpu(unittest.TestCase):
 
     def test_a_gates_own_children_are_counted(self):
         before = gate_runs.cpu_now()
-        subprocess.run([sys.executable, "-c", "sum(range(3_000_000))"], check=True)
+        # The child works until its own CPU clock says 0.2 s, not for a fixed sum: a fast machine
+        # finished the sum in under 0.05 s, which rounds to the 0.0 the test refuses (2026-11-24).
+        burns = "import time\nwhile time.process_time() < 0.2:\n    pass\n"
+        subprocess.run([sys.executable, "-c", burns], check=True)
         used = gate_runs.cpu_used(before)
-        self.assertGreater(used["gate"], 0.0)
+        self.assertGreaterEqual(used["gate"], 0.2)
 
     def test_the_report_says_the_cores_each_used(self):
         runs = [{**run("check", 100), "cpu": {"gate": 200.0, "sandboxOthers": 100.0, "hostOthers": 300.0}},
