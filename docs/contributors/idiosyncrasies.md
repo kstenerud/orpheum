@@ -1780,7 +1780,16 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   before it came back (make check, 2026-11-20: "karl" typed into the sign-in's name, which held "k";
   passed alone three times), so make check now runs each browser in a vitest run of its own, one
   after the other (`scripts/web_tests.py`'s `runs_of`): a run of one browser opens no page mid-run.
-  A full run took 217 s against 208 s together.
+  A full run took 217 s against 208 s together. A run of one browser still opens pages mid-run as
+  its files end and the next start, and the loss blurs the focused element before the window: a
+  settings text field, which saves on blur, saved the half-typed value and its test heard a save it
+  never asked for (`settings-pages`, "saves a text field on Enter and on leaving it"; the Stepper's
+  typed number likewise), at three or more pages in one Firefox process, in two of two `make check`
+  runs on a 12-thread machine (6 pages). So the keeper also stops an element's `blur` and `focusout`
+  at the window when no element takes the focus (`relatedTarget` null) and `document.hasFocus()` is
+  already false, which is the window's loss alone: a Tab or a click within the page keeps the
+  document's focus. `frame-focus.browser.test.ts` counts the blurs a kept field hears: one, the move
+  to its button, not the page opening before it.
 - **Evidence:** **[measured]** a Playwright probe of two contexts, each a page with a frame: a new
   page made the older frame's focused button lose `:focus` and `:focus-visible` and its Enter's
   click, every time; a blur listener calling `window.focus()` kept all three over three opens. Vitest's

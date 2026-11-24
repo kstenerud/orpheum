@@ -21,10 +21,12 @@ import { VitestTimings } from "./e2e/vitest-timings.ts";
 const attachmentsDir = "../.dev/browser-mode-results";
 
 /**
- * What a frame kept by `keeper` (keepTheFrameFocused's source, e2e/frame-focus.ts) has after another
- * page opens: its focused button's `:focus` and `:focus-visible`, and the clicks an Enter on it makes.
- * The frame is in a page of the command's own, opened last, as Firefox takes the focus only from the
- * page opened before the new one. The scripts are strings: this file is type-checked without the DOM.
+ * What a frame kept by `keeper` (keepTheFrameFocused's source, e2e/frame-focus.ts) has after other
+ * pages open: the blurs its focused field heard (one page opens while the field has the focus, then
+ * the focus moves to its button: a kept frame's field hears the move alone), and the button's `:focus`
+ * and `:focus-visible` and the clicks an Enter on it makes after a second page opens. The frame is in
+ * a page of the command's own, opened last, as Firefox takes the focus only from the page opened
+ * before the new one. The scripts are strings: this file is type-checked without the DOM.
  */
 const focusAfterAPageOpens: BrowserCommand<[keeper: string]> = async ({ page }, keeper) => {
   const browser = page.context().browser();
@@ -35,20 +37,26 @@ const focusAfterAPageOpens: BrowserCommand<[keeper: string]> = async ({ page }, 
   const other = await browser.newContext();
   try {
     const tab = await own.newPage();
-    await tab.setContent(`<iframe name="kept" srcdoc="<button>focused</button>"></iframe>`);
+    await tab.setContent(
+      `<iframe name="kept" srcdoc="<input id=field><button>focused</button>"></iframe>`,
+    );
     const frame = tab.frame("kept");
     if (frame === null) {
       throw new Error("the command's page has no frame");
     }
     await frame.evaluate(`(${keeper})(window)`);
     await frame.evaluate(`{
-      const button = document.querySelector("button");
-      button.addEventListener("click", () => {
-        document.body.dataset.clicks = String(Number(document.body.dataset.clicks ?? 0) + 1);
-      });
+      const count = (name) => {
+        document.body.dataset[name] = String(Number(document.body.dataset[name] ?? 0) + 1);
+      };
+      document.querySelector("#field").addEventListener("blur", () => count("blurs"));
+      document.querySelector("button").addEventListener("click", () => count("clicks"));
       window.focus();
-      button.focus({ focusVisible: true });
+      document.querySelector("#field").focus();
     }`);
+    await other.newPage();
+    await frame.evaluate(`document.querySelector("button").focus({ focusVisible: true })`);
+    const blurs = await frame.evaluate<number>(`Number(document.body.dataset.blurs ?? 0)`);
     await other.newPage();
     const isFocused = await frame.evaluate<boolean>(`document.activeElement.matches(":focus")`);
     const isFocusShown = await frame.evaluate<boolean>(
@@ -56,7 +64,7 @@ const focusAfterAPageOpens: BrowserCommand<[keeper: string]> = async ({ page }, 
     );
     await tab.keyboard.press("Enter");
     const clicks = await frame.evaluate<number>(`Number(document.body.dataset.clicks ?? 0)`);
-    return { isFocused, isFocusShown, clicks };
+    return { blurs, isFocused, isFocusShown, clicks };
   } finally {
     await other.close();
     await own.close();

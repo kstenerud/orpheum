@@ -8,6 +8,13 @@
  * files end it gives their pages to the other), so a test there read its focused tile as unfocused
  * (idiosyncrasies.md, "A page opening in Firefox takes the focus from the test frame opened before
  * it"). Self-contained, so its test can hand its source to a page of its own.
+ *
+ * The loss also blurs the focused element before the window: a field that saves what was typed as
+ * it is left saved early, and a test that typed into it heard a save it never asked for. The frame
+ * keeps that blur from its page too: an element's `blur` and `focusout` with no element taking the
+ * focus (`relatedTarget` null) while the document has no focus are the window's loss, not a move
+ * within the page, and stop at the window. A move within the page, by Tab or a click, keeps the
+ * document's focus and reaches its listeners as before.
  */
 export function keepTheFrameFocused(view: Window): void {
   view.addEventListener("blur", (event) => {
@@ -15,4 +22,11 @@ export function keepTheFrameFocused(view: Window): void {
       view.focus();
     }
   });
+  const stopsTheWindowsLoss = (event: FocusEvent): void => {
+    if (event.target !== view && event.relatedTarget === null && !view.document.hasFocus()) {
+      event.stopImmediatePropagation();
+    }
+  };
+  view.addEventListener("blur", stopsTheWindowsLoss, true);
+  view.addEventListener("focusout", stopsTheWindowsLoss, true);
 }
