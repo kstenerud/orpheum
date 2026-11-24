@@ -19,7 +19,7 @@ import { languageName } from "./language-name.ts";
 import { channelsText } from "./tracks-note.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
-import { dataOrThrow, throwIfRefused } from "./problem.ts";
+import { throwIfRefused } from "./problem.ts";
 import { identifiedCorrectlyAction, identifiedIncorrectlyAction } from "./match-correction.tsx";
 import { rescanAction } from "./rescan-action.tsx";
 import {
@@ -53,7 +53,7 @@ import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
 import { watchingOf } from "./watching.ts";
 import { firstPlayableFile } from "./first-playable.ts";
-import { titleOrThrow } from "./item-detail.ts";
+import { readTitle, titleKey } from "./item-detail.ts";
 import { Loaded } from "./loaded.tsx";
 import { groupName, placeCode } from "./episode-place.ts";
 import { rememberedInTheTab, useRemembered } from "./remembered.ts";
@@ -562,19 +562,11 @@ function useWarmsUp(fileId: number | undefined, itemId: number): void {
 export function Title(props: { readonly id: number }): JSX.Element {
   const { api } = useServices();
   const [loaded, reload] = useResource(
-    `title/${String(props.id)}`,
-    async (signal) =>
-      titleOrThrow(
-        dataOrThrow(
-          await api.GET("/items/{id}", {
-            params: { path: { id: props.id } },
-            signal: signal ?? null,
-          }),
-        ),
-      ),
+    titleKey(props.id),
+    async (signal) => await readTitle(api, props.id, signal),
     { poller: useBackgroundChangesPoller() },
   );
-  const title = useRemembered(`title/${String(props.id)}`, loaded, rememberedTitles);
+  const title = useRemembered(titleKey(props.id), loaded, rememberedTitles);
   usePageInterest(props.id);
   const shown = title.state === "loaded" ? title.value : undefined;
   useEpisodeReached(shown);

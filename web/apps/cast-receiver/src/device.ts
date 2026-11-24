@@ -9,6 +9,7 @@ import {
   expectedGroupPositionMs,
   failureText,
   type Api,
+  type components,
   type CastToReceive,
   type GroupCommand,
   type GroupView,
@@ -19,6 +20,9 @@ import {
 
 import type { Reached } from "./reach.ts";
 import { UpNextCard } from "./up-next.ts";
+
+/** What the core decides for a film the receiver plays. */
+type PlaybackDecision = components["schemas"]["StartPlaybackOutputBody"];
 
 /**
  * The receiver as a cast target (inventory B-10; the owner, 2026-11-07: "initial chromecast
@@ -497,20 +501,11 @@ export class CastDevice {
     atMs: number | undefined,
     itemId?: number,
   ): Promise<number | undefined> {
-    const { api, token, reached, video, note } = this.options;
+    const { token, reached, video, note } = this.options;
     this.stopFilm();
     this.playingFileId = fileId;
     try {
-      const decision = dataOrThrow(
-        await api.POST("/playback", {
-          body: {
-            fileId,
-            ...(itemId === undefined ? {} : { itemId }),
-            playableFormats: receiverFormats(),
-            cause: "playPage",
-          },
-        }),
-      );
+      const decision = await this.decisionFor(fileId, itemId);
       if (this.playingFileId !== fileId) {
         return undefined;
       }
@@ -534,6 +529,20 @@ export class CastDevice {
       note(`could not start file ${String(fileId)}: ${failureText(cause)}`);
       return undefined;
     }
+  }
+
+  /** The core's decision for playing fileId here, as the title itemId where one is given. */
+  private async decisionFor(fileId: number, itemId: number | undefined): Promise<PlaybackDecision> {
+    return dataOrThrow(
+      await this.options.api.POST("/playback", {
+        body: {
+          fileId,
+          ...(itemId === undefined ? {} : { itemId }),
+          playableFormats: receiverFormats(),
+          cause: "playPage",
+        },
+      }),
+    );
   }
 
   private playerNow(): PlayerNow {
