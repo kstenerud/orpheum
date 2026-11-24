@@ -31374,3 +31374,40 @@ receiver used none either, and plans/up-next.md §9, whose credits cue was not b
    and remote's own in `web/apps/web/src/up-next.test.tsx`,
    `web/apps/cast-receiver/src/up-next.test.ts`, `web/apps/cast-receiver/src/device-up-next.test.ts`
    and `web/apps/web/src/cast-segments.test.tsx`.
+
+## D547 — The core makes one plan per play and keeps one live state, and every device draws its own part
+
+**Decided** (2026-11-24), by the project owner: "yes agreed on the design", answering the lead's
+proposal. The owner's question: *"I'm wondering why intro and outro detection needed to run on the
+client rather than the server … trickplay would require generating an entire video's worth of
+keyframes, those could also be used by the caster to display the stills … we could use that data
+for the core to give its estimate of where the castee actually is in its video, rather than the
+caster giving its best guess based on second hand knowledge."* **Amends** D546, whose four clients
+(the player, the remote, the web receiver and the Chromecast) each read a file's segments for
+themselves, and D545, whose picture is placed by the remote's own guess and made by FFmpeg each
+time. **Replaces** the plan file's next-batch items 8 and 9 under "The cast remote's harder parts"
+(navigation-and-widgets-answers-2026-10-27.md).
+
+**Status:** decided; not built.
+
+1. **The segments are found on the server already, and stay there.** The node's fingerprint of a
+   season (D115), the file's chapters and a person's corrections (D82). What the clients do is read
+   them, and that reading is what moves to the core.
+2. **One plan per play, made by the core.** It holds the file and item, the cues, what plays next,
+   and where the file's trickplay pictures are. A cue is a span and what is offered in it, e.g. Skip
+   intro from 0:42 to 1:30, which seeks to 1:30, or Up next from 41:10, playing item N. Every
+   device in a play, cast or Watch Together gets the same plan, with what its rights allow (D471,
+   D465). A device only finds the cue covering its own place, and the player, the remote and both
+   receivers find it one way. `POST /playback`'s segments and `GET /files/{id}/segments` give way to
+   the plan, one way to learn them.
+3. **A film's credits found by the node.** Fingerprinting needs a season, so a film has credits
+   only from its chapters, or the fixed lead (D339). The node finds them near the film's end, as a
+   job, from black frames and the sound's change, and they feed the same plan.
+4. **The remote's picture from trickplay.** The node makes a file's pictures once and keeps them
+   (design/plans/trickplay.md, D530 evicting them). The remote and every scrub bar choose one by
+   place, with no request per picture. Until a file has them, D545's live key frame stands in.
+5. **One live state, kept by the core.** The receiver's report says whether its picture moves or
+   it waits on data, not "playing" alone. The core bounds the place by the last of the video it
+   relayed to the receiver, which the receiver cannot be past. The core's estimate is the lower of
+   the report moved on by the clock and that bound. The remote asks for the cast's picture now, and
+   the core places it. The remote's bar still moves on between reports by its own clock.

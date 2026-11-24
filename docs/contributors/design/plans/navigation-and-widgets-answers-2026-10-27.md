@@ -5139,13 +5139,13 @@ film's name). What needs a receiver or the cast's session to carry something new
    for it. It is to report its playback as the browser's receiver does (cast-receiver.tsx's
    PlaybackReport) and carry out the sound and picture choices; the volume perhaps by the Cast
    session's own (Chrome's sender sets the device's volume).
-8. **The remote's key frame runs a few seconds ahead of the TV** (the owner, 2026-11-23: "It seems
+8. **The remote's key frame runs a few seconds ahead of the TV** *Replaced by D547 (the owner, 2026-11-24), which is next batch's in its place.* (the owner, 2026-11-23: "It seems
    to be grabbing a screenshot a few seconds into the future"). The node takes the keyframe at or
    before the place asked (D545), so the place the remote asks is likely ahead of the picture shown:
    the remote's guess is the receiver's last report plus the time since, which runs on while the
    receiver buffers, stalls or shows late. Measure first: the receiver's reported place, the
    remote's place and the frame's time, side by side.
-9. **The remote's picture from trickplay, not FFmpeg each 3 s** (the owner, 2026-11-23: "I'm
+9. **The remote's picture from trickplay, not FFmpeg each 3 s** *Replaced by D547 (the owner, 2026-11-24), which is next batch's in its place.* (the owner, 2026-11-23: "I'm
    thinking about ways to dovetail this such that we don't need to make so many ffmpeg calls"). When
    trickplay (design/plans/trickplay.md, D530) is built, the remote shows the trickplay picture at
    or before the receiver's place and D545's frame route goes. A stopgap if the cost bites before
@@ -5165,3 +5165,13 @@ The cycle moved the overlay's way up into its top row, at the film's top, where 
 2. **The sound-on Pill** stood at the film's top centre, and on a phone, 360 wide, it overlapped the way up. The owner chose: "Below the top row". On a phone layout the Pill now stands under the top row (sound-on-pill.css); wide screens keep it at the top centre.
 
    On a phone, no arrow reaches the Pill there. Arrows search the overlay's own buttons first, and the Pill is drawn outside the overlay. The owner chose "Keep it; tap and Tab only": a phone's layout is driven by touch, and a TV never lays out 360 wide. The 360-wide test still checks the Pill by a mouse, a finger, Tab and Enter, but not by arrows.
+
+## The test fixes after a design cycle, next batch (the owner, 2026-11-24)
+
+The fixes after the 11-23 design cycle took about eight hours. The reds came out one kind at a time: unit, then browser, then end-to-end, the last only in check-pr. Two slips that the commit's checks do not look for cost a check-pr round each. The owner agreed to items 1–3, all gate changes ("OK, I agree to changes 2-4"). Item 4 is the owner's proposal, and its details wait on the owner's answer.
+
+1. **The end-to-end specs of the screens a change touches run before check-pr.** `make check` runs them for a change to the web client, chosen by reach, as `make spot` chooses unit tests. Ten stale specs were first seen in check-pr's browser tier.
+2. **The commit's check runs the web lint and type check on the changed files, and the unit tests that import them.** A needless `!` (lint) and a gallery test reading the changed markup (`vitest related`) each cost a check-pr round.
+3. **The browser tests' lock, `.git/browser-mode.lock`, gets a lease.** A gate finding it held past the lease says the browser tests did not run, and does not hang. An orphaned run held it for about 12 hours, and every `make check` in that time hung at the browser tests.
+4. **An inventory run at a design cycle's end** (the owner's proposal): every test of every tier runs to its end with nothing stopping early. That means no `--fail-fast` from `make check`, no stop at a failed quick tier (D424), and the end-to-end specs included. It writes one list of failures, each with its file and its first failing line. Every fix starts from that list. The owner, 2026-11-24: the cycle stays free of tests while designing; the tests are run and fixed in one big sweep at its end. The end-to-end specs run both passes, normal and timed (the owner, 2026-11-24: "yes both passes").
+5. **Revert-red runs only once the tests are trusted** (the owner, 2026-11-24: "shouldn't we leave that out of the earlier full test run at the start, and only run it once we're confident the tests are correct?"). A probe is meaningful only against tests that pass. The inventory run has no revert-red. The fix sweep turns off the background probe after each commit (`.git/revert-red/background-off`), and a passing check-pr turns it back on. Check-pr itself also skips revert-red's browser part when its browser tier failed. Today that part runs anyway, against red specs (Makefile, check-pr-verbose). Revert-red's code part already runs only after the quick and medium tiers pass.

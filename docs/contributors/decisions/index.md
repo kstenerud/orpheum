@@ -88,7 +88,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D79](working-notes.md#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal) Four levels, not three: Title → Edition → Version → File, with Collections orthogonal — *revisited by D81, D155, D156, D157*
 - [D80](working-notes.md#d80--licence-by-artefact-gplv3-for-the-server-mpl-20-for-the-clients-and-the-sdk) Licence by artefact: GPLv3 for the server, MPL-2.0 for the clients and the SDK — *revisited by D275*
 - [D81](working-notes.md#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative) Play state is an append-only event log plus a guarded position, and positions are Edition-relative — *revisited by D157, D165*
-- [D82](working-notes.md#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance) Media segments are typed, attach at the Version, and carry provenance — *revisited by D115, D159*
+- [D82](working-notes.md#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance) Media segments are typed, attach at the Version, and carry provenance — *revisited by D115, D159, D547*
 - [D83](working-notes.md#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device) Loudness is measured at scan and applied as gain; downmix has one default and a dialogue control; DRC is per device — *revisited by D114, D222, D226*
 - [D84](working-notes.md#d84--certifications-are-system-code-with-a-per-system-order-a-kids-profile-is-a-grantee-plus-a-predicate) Certifications are `(system, code)` with a per-system order; a kids profile is a grantee plus a predicate — *revisited by D125, D132*
 - [D85](working-notes.md#d85--the-api-has-a-compatibility-contract-and-it-covers-three-protocols) The API has a compatibility contract, and it covers three protocols
@@ -551,7 +551,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D543](working-notes.md#d543--no-room-on-a-nodes-disk-is-an-error-the-player-is-told-at-once-and-an-admin-is-told) No room on a node's disk is an error: the player is told at once, and an admin is told
 - [D544](working-notes.md#d544--a-result-the-core-refuses-for-what-it-is-fails-its-attempt-and-the-node-stops-sending-it) A result the core refuses for what it is fails its attempt, and the node stops sending it
 - [D545](working-notes.md#d545--a-casts-remote-shows-the-films-key-frame-at-the-receivers-place-every-3-s-while-it-moves) A cast's remote shows the film's key frame at the receiver's place, every 3 s while it moves
-- [D546](working-notes.md#d546--casting-offers-the-skips-and-up-next-from-the-credits-as-the-player-does-locally) Casting offers the skips, and Up next from the credits, as the player does locally
+- [D546](working-notes.md#d546--casting-offers-the-skips-and-up-next-from-the-credits-as-the-player-does-locally) Casting offers the skips, and Up next from the credits, as the player does locally — *revisited by D547*
+- [D547](working-notes.md#d547--the-core-makes-one-plan-per-play-and-keeps-one-live-state-and-every-device-draws-its-own-part) The core makes one plan per play and keeps one live state, and every device draws its own part
 
 ## Archived
 
