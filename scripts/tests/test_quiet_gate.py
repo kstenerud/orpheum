@@ -243,6 +243,17 @@ class Running(unittest.TestCase):
         self.assertEqual([(r["target"], r["exit"], [step for step, _ in r["steps"]]) for r in recorded],
                          [("gate", 0, ["slow"])])
 
+    def test_a_runs_record_says_the_cpu_its_own_steps_used(self):
+        # The step works until its own CPU clock says 0.2 s, as gate_runs' own test of it does: a sum
+        # finishes at once on a fast machine. One line, for make: it asks the clock until it says 0.2.
+        burns = "import time; any(iter(lambda: time.process_time() >= 0.2, True))"
+        makefile = f"gate:\n\t@'{sys.executable}' -c '{burns}'\n"
+        code, _, log = self.run_gate(makefile)
+        self.assertEqual(code, 0)
+        recorded = [json.loads(line) for line in log.with_name("runs.jsonl").read_text().splitlines()]
+        self.assertEqual(len(recorded), 1)
+        self.assertGreaterEqual(recorded[0]["cpu"]["gate"], 0.2)
+
     def test_verbose_prints_everything(self):
         code, _, log = self.run_gate("gate:\n\t@echo 'ok  \tpkg\t1s'\n", verbose=True)
         self.assertEqual(code, 0)
