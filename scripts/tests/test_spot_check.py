@@ -41,7 +41,9 @@ class Planning(unittest.TestCase):
         self.assertEqual(spot.web_files, ["web/apps/web/src/a.tsx"])
         gaps = " ".join(spot.not_run)
         self.assertIn("web/apps/web/src/a.css", gaps)
-        self.assertIn("type check", gaps)
+        # The type check and lint are its own (the owner, 2026-11-24), not left to make check.
+        self.assertNotIn("type check", gaps)
+        self.assertEqual(spot.web_typed, ["web/apps/web/src/a.tsx"])
         self.assertEqual(spot.go_packages, [])
 
     def test_a_gate_script_runs_the_python_tests_and_markdown_the_docs_gate(self):
@@ -103,7 +105,10 @@ class Planning(unittest.TestCase):
         self.assertEqual(commands[0][:4], ["bash", "-o", "pipefail", "-c"])
         self.assertRegex(commands[0][4], r"^go test -json ./cmd/c ./internal/a ./internal/b \| .*"
                                          r"scripts/go_test_timings.py go-spot$")
-        self.assertEqual(commands[1][1:], ["scripts/py_tests.py"], "no web test imports a.tsx here")
+        # a.tsx is not here: a deleted file calls for the whole web suite, make check's, and has nothing to lint.
+        self.assertEqual(commands[1], spot_check.WEB_TYPECHECK)
+        self.assertEqual(commands[2][1:], ["scripts/py_tests.py"])
+        self.assertIn(spot_check.WHOLE_WEB_SUITE, spot.not_run)
 
     def test_a_go_change_lints_its_own_package_and_not_its_importers(self):
         # The changed package must exist for lint to run on it: this repository's own.
@@ -190,73 +195,79 @@ if __name__ == "__main__":
 
 
 class WebTests(unittest.TestCase):
-    def test_a_changed_test_runs_and_a_source_runs_only_the_tests_importing_it_directly(self):
-        import tempfile
-        with tempfile.TemporaryDirectory() as scratch:
-            src = Path(scratch) / "web/apps/web/src"
-            src.mkdir(parents=True)
-            (src / "a.tsx").write_text("export const a = 1;\n")
-            (src / "b.tsx").write_text('import { a } from "./a.tsx";\nexport const b = a;\n')
-            (src / "a.test.tsx").write_text('import { a } from "./a.tsx";\n')
-            (src / "b.test.tsx").write_text('import { b } from "./b.tsx";\n')
-            (src / "c.test.tsx").write_text("\n")
-            saved = Path.cwd()
-            os.chdir(scratch)
-            try:
-                self.assertEqual(spot_check.web_tests(["web/apps/web/src/a.tsx"]), ["apps/web/src/a.test.tsx"])
-                self.assertEqual(spot_check.web_tests(["web/apps/web/src/c.test.tsx", "web/apps/web/src/b.tsx"]),
-                                 ["apps/web/src/b.test.tsx", "apps/web/src/c.test.tsx"])
-            finally:
-                os.chdir(saved)
+    """The web tests the spot check runs are make check's for the change (web_tests.command_for): by
+    depth 1 alone, a gallery test reading a changed component's markup through the page drawing it ran
+    first in check-pr (the owner, 2026-11-24)."""
 
-    def test_a_source_runs_the_tests_using_its_change_by_name_and_by_its_imports_when_that_cannot_tell(self):
-        # By relative imports alone, a test importing the SDK as @orpheum/sdk was never run (2026-11-21).
+    def in_scratch(self, answers: list, typescript: bool = True):  # type: ignore[no-untyped-def]
+        """A scratch web client holding a.tsx and its tests, and a reach giving answers' last."""
         import tempfile
-        asked = []
+        asked: list[tuple] = []
 
-        def reach(base, changed, suite, typescript, depth):  # type: ignore[no-untyped-def]
+        def reach(base, changed, suite, typescript, depth=None):  # type: ignore[no-untyped-def]
             asked.append((base, changed, suite.step, depth))
-            return answer, ""
+            return answers[-1], ""
+        scratch = tempfile.TemporaryDirectory()
+        self.addCleanup(scratch.cleanup)
+        src = Path(scratch.name) / "web/apps/web/src"
+        src.mkdir(parents=True)
+        if typescript:
+            (Path(scratch.name) / "web/node_modules/typescript").mkdir(parents=True)
+        (src / "a.tsx").write_text("export const a = 1;\n")
+        (src / "a.test.tsx").write_text('import { a } from "./a.tsx";\n')
+        (src / "a.browser.test.tsx").write_text('import { a } from "./a.tsx";\n')
+        saved = Path.cwd()
+        os.chdir(scratch.name)
+        self.addCleanup(os.chdir, saved)
+        return reach, asked
 
-        with tempfile.TemporaryDirectory() as scratch:
-            src = Path(scratch) / "web/apps/web/src"
-            src.mkdir(parents=True)
-            (Path(scratch) / "web/node_modules/typescript").mkdir(parents=True)
-            (src / "a.tsx").write_text("export const a = 1;\n")
-            (src / "a.test.tsx").write_text('import { a } from "./a.tsx";\n')
-            saved = Path.cwd()
-            os.chdir(scratch)
-            try:
-                answer = ["apps/web/src/sdk.test.tsx", "apps/web/src/a.browser.test.tsx"]
-                self.assertEqual(spot_check.web_tests(["web/apps/web/src/a.tsx"], "base", reach),
-                                 ["apps/web/src/sdk.test.tsx"],
-                                 "what the reach names, the browser suite's left to make check")
-                self.assertEqual(asked, [("base", ["apps/web/src/a.tsx"], "web-test", 1)])
-                for answer in (None, ["*"]):
-                    self.assertEqual(spot_check.web_tests(["web/apps/web/src/a.tsx"], "base", reach),
-                                     ["apps/web/src/a.test.tsx"], f"a reach of {answer}: by the relative imports")
-                self.assertEqual(spot_check.web_tests(["web/apps/web/src/gone.tsx"], "base", reach), [],
-                                 "a deleted file is not asked of the reach")
-                self.assertEqual(len(asked), 3)
-            finally:
-                os.chdir(saved)
+    def test_a_source_runs_every_unit_test_make_check_would_for_it_at_any_distance(self):
+        answers: list = [["apps/web/src/ui-gallery.test.tsx", "apps/web/src/a.browser.test.tsx"]]
+        reach, asked = self.in_scratch(answers)
+        run = spot_check.web_test_run(["web/apps/web/src/a.tsx"], "base", reach)
+        assert isinstance(run, spot_check.Run)
+        self.assertEqual(run.command, [*spot_check.UNIT.named, "apps/web/src/ui-gallery.test.tsx"],
+                         "what the reach names, the browser suite's left to make check")
+        self.assertEqual(asked, [("base", ["apps/web/src/a.tsx"], "web-test", None)], "no depth: make check's reach")
+        answers.append(None)
+        run = spot_check.web_test_run(["web/apps/web/src/a.tsx"], "base", reach)
+        assert isinstance(run, spot_check.Run)
+        self.assertEqual(run.command, [*spot_check.UNIT.related, "apps/web/src/a.tsx"],
+                         "a reach that cannot tell: vitest related, as make check")
+        answers.append(["*"])
+        self.assertEqual(spot_check.web_test_run(["web/apps/web/src/a.tsx"], "base", reach), spot_check.WHOLE_WEB_SUITE)
+        self.assertEqual(spot_check.web_test_run(["web/apps/web/src/gone.tsx"], "base", reach),
+                         spot_check.WHOLE_WEB_SUITE, "a deleted file: the tests importing it would fail")
+        self.assertEqual(len(asked), 3, "a deleted file is not asked of the reach")
+
+    def test_a_change_the_reach_cannot_follow_runs_vitest_related_as_make_check_does(self):
+        # No TypeScript to read with: a changed test and a source go to vitest related, test and all.
+        reach, asked = self.in_scratch([[]], typescript=False)
+        run = spot_check.web_test_run(["web/apps/web/src/a.tsx"], "base", reach)
+        assert isinstance(run, spot_check.Run)
+        self.assertEqual(run.command, [*spot_check.UNIT.related, "apps/web/src/a.tsx"])
+        run = spot_check.web_test_run(["web/apps/web/src/a.test.tsx", "web/apps/web/src/a.tsx"], "base", reach)
+        assert isinstance(run, spot_check.Run)
+        self.assertEqual(run.command, [*spot_check.UNIT.related, "apps/web/src/a.test.tsx", "apps/web/src/a.tsx"])
+        self.assertEqual(asked, [])
 
     def test_a_browser_mode_test_is_left_to_make_check_and_named_not_run(self):
         # A commit of browser tests alone ran the plain vitest, which excludes them, and failed on no
         # test file (2026-10-30).
-        import tempfile
-        with tempfile.TemporaryDirectory() as scratch:
-            src = Path(scratch) / "web/apps/web/src"
-            src.mkdir(parents=True)
-            (src / "a.tsx").write_text("export const a = 1;\n")
-            (src / "a.browser.test.tsx").write_text('import { a } from "./a.tsx";\n')
-            (src / "a.test.tsx").write_text('import { a } from "./a.tsx";\n')
-            saved = Path.cwd()
-            os.chdir(scratch)
-            try:
-                self.assertEqual(spot_check.web_tests(["web/apps/web/src/a.browser.test.tsx"]), [])
-                self.assertEqual(spot_check.web_tests(["web/apps/web/src/a.tsx"]), ["apps/web/src/a.test.tsx"])
-            finally:
-                os.chdir(saved)
+        reach, _ = self.in_scratch([["apps/web/src/a.browser.test.tsx"]])
+        self.assertIsNone(spot_check.web_test_run(["web/apps/web/src/a.browser.test.tsx"], "base", reach))
         planned = spot_check.plan(["web/apps/web/src/a.browser.test.tsx"], "m", {})
         self.assertIn("browser-mode tests, which run in a browser (`make check`)", planned.not_run)
+
+    def test_the_type_check_and_the_lint_of_the_changed_files_run_for_the_webs_typescript(self):
+        # A needless `!` failed check-pr's lint, a round of it (the owner, 2026-11-24).
+        lint = "web/apps/web/src/offer-card.tsx"  # this repository's own: a file the lint can read
+        spot = spot_check.plan([lint, "web/apps/web/src/offer-card.css", "web/tsconfig.json"], MODULE, {})
+        runs = {run.label: run for run in spot_check.runs(spot, MODULE)}
+        self.assertEqual(runs["the web type check"].command, spot_check.WEB_TYPECHECK)
+        self.assertEqual(runs["the web type check"].command[2], "web-typecheck", "make check's record, to share its pass")
+        linted = runs["the web lint, 1 file(s)"]
+        self.assertEqual(linted.command, [*spot_check.WEB_LINT, "apps/web/src/offer-card.tsx"])
+        self.assertEqual(linted.cwd, "web", "eslint finds its configuration from web/")
+        labels = [run.label for run in spot_check.runs(spot_check.plan(["docs/a.md"], MODULE, {}), MODULE)]
+        self.assertFalse([label for label in labels if "web" in label], "nothing of the web's for a document")

@@ -77,7 +77,7 @@ protection really is worth it."
   `BASE=` (an old base re-probes every commit since). While it runs it works in its own tree under a
   lock: edit freely; if it fails, `git stash`, fix, commit, `make check-pr-failed`, `git stash pop`.
 - **Fail fast:** `make spot` lints the changed Go packages (since 2026-10-31: four gate runs in one
-  session went to line lengths); eslint the changed web files and `make fmt` before `make check`; chain with `&&` and `set -o pipefail` (a `make check | tail`
+  session went to line lengths) and the changed web files, and type-checks the web (since 2026-11-24); `make fmt` before `make check`; chain with `&&` and `set -o pipefail` (a `make check | tail`
   once let a failed check commit). A load-flaky failure is diagnosed by running the one test alone,
   never retried blind.
 - **Slow tests:** find out why, fix it when cheap, record the mechanism in

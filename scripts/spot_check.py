@@ -13,13 +13,19 @@ the working tree's uncommitted and untracked files), and runs, at once:
   golangci-lint of each changed package alone, with make check's integration build tag: a long line
   or an unchecked error was found only by the turn's-end gate, four whole runs in one session (the
   owner, 2026-10-31: "lint the one package first" was a habit, not a check).
-* **Web:** the changed test files, and the tests that use a changed declaration themselves, by
-  name, through the barrels that pass it on, or load a module whose loading changed
-  (web_test_reach.cjs at depth 1). vitest's `related` follows every importer and took 44 s for one
-  player file; the tests further out are `make check`'s. By relative imports alone, a test importing
-  the SDK as `@orpheum/sdk` was never run for a change to it (2026-11-21); they remain the fallback
-  when the reach cannot tell (a deleted file, a setup file's, no TypeScript). A stylesheet only a
-  browser renders, so the spot check names it and runs nothing for it.
+* **Web:** the unit tests make check would run for the change, chosen as it chooses them
+  (web_tests.command_for): the changed tests, those using a changed declaration at any distance by
+  name or loading a module whose loading changed (web_test_reach.cjs), those reading the sources by
+  path, and `vitest related` when the reach cannot tell. When the change calls for the whole suite
+  (a deleted file, one every test reads), the spot check names it as make check's. And the type
+  check, `tsc -b`, which is incremental (about 3 s), under make check's own record (area_stamp.py),
+  so a pass here spares make check's; and eslint of the changed files, about 6 s. Depth 1 ran only
+  the tests using a changed name themselves: a gallery test reading a changed component's markup
+  through the page that draws it ran first in check-pr, and a needless `!` failed check-pr's lint,
+  each a round of it (the owner, 2026-11-24, agreeing to the test-time stock-take's item 2: "lint
+  issues are the most likely outcome of any code change an LLM makes"). The cost is the reach's:
+  about 25 s for a component the pages draw, a minute for a file the player's every test loads.
+  A stylesheet only a browser renders: the browser-mode tests are make check's.
 * **Python:** the gates' test modules that import a changed script or hook, directly or not, or
   name it (revert_red_dependents.py), and every module when ./dev, the Makefile or a git hook
   changed, which no import follows: every module for any script took 20 s, the spot check's floor (the
@@ -33,7 +39,7 @@ the working tree's uncommitted and untracked files), and runs, at once:
 * **The owner's domains:** the test that only suggested.go names them, when a shipped source changed
   and its package is not already run whole.
 
-What it cannot run in the time (the web type check and lint, the dev build's Go lint, generated code, the integration and browser
+What it cannot run in the time (the dev build's Go lint, generated code, the integration and browser
 tiers) it names, so a green is never read as `make check`'s.
 """
 
@@ -54,8 +60,7 @@ from collections.abc import Callable
 
 import gate_runs
 from revert_red_dependents import python_tests_reaching_any
-from revert_red_web import VITEST_RUN, importing_tests
-from web_tests import UNIT, reached_tests
+from web_tests import UNIT, command_for, reached_tests
 
 BUDGET_S = gate_runs.BUDGET_S["spot"]
 # How many of its runs go at once, by default: two, so a spot check beside staging or another
@@ -65,6 +70,14 @@ HERMETIC = {"TZ": "UTC", "LC_ALL": "C.UTF-8", "GIT_CONFIG_GLOBAL": "/dev/null", 
 
 WEB_SOURCE = re.compile(r"^web/(packages|apps)/[^/]+/(src|e2e)/.*\.tsx?$")
 WEB_STYLE = re.compile(r"^web/(packages|apps)/[^/]+/src/.*\.css$")
+# What the web's type check and lint read: its TypeScript and JavaScript, and the TypeScript configuration.
+WEB_TYPED = re.compile(r"^web/(?!.*node_modules/).*(\.(ts|tsx|mts|cts|js|mjs|cjs)|/tsconfig[^/]*\.json)$")
+WEB_LINTED = re.compile(r"\.(ts|tsx|mts|cts|js|mjs|cjs)$")
+WEB_TYPECHECK = [sys.executable, "scripts/area_stamp.py", "web-typecheck", "web", "--",
+                 "npm", "--prefix", "web", "run", "--silent", "typecheck"]
+# make check's web-lint, on the files given: its cache, shared with make check's, keyed by content.
+WEB_LINT = ["npx", "--no-install", "eslint", "--max-warnings", "0", "--no-warn-ignored", "--cache",
+            "--cache-strategy", "content", "--cache-location", "node_modules/.cache/eslint/"]
 PYTHON_GATES = re.compile(r"^(scripts/.*\.py|\.claude/hooks/.*\.py|dev|Makefile|mk/.*\.mk|\.githooks/.*)$")
 GENERATED_FROM = re.compile(r"^(internal/store/(cache/)?queries/.*\.sql|internal/core/api/.*\.go)$")
 
@@ -96,6 +109,10 @@ class Plan:
     go_packages: list[str] = field(default_factory=list)
     lint_packages: list[str] = field(default_factory=list)
     web_files: list[str] = field(default_factory=list)
+    # Every changed path under web/, which make check's choice of web tests reads (web_tests.command_for).
+    web_changes: list[str] = field(default_factory=list)
+    # The changed files the web's type check and lint read.
+    web_typed: list[str] = field(default_factory=list)
     python: bool = False
     # The gate test modules to run, when python: None for every one.
     python_tests: list[str] | None = None
@@ -140,6 +157,8 @@ def plan(paths: list[str], module: str, importers: dict[str, set[str]],
     result.shipped = any(SHIPPED_SOURCE.search(path) and not UNSHIPPED_TEST.search(Path(path).name) for path in paths)
     changed_packages: set[str] = set()
     styles = []
+    result.web_changes = [path for path in paths if path.startswith("web/") and "node_modules/" not in path]
+    result.web_typed = [path for path in result.web_changes if WEB_TYPED.match(path)]
     for path in paths:
         if path.endswith(".go"):
             directory = str(Path(path).parent)
@@ -173,8 +192,6 @@ def plan(paths: list[str], module: str, importers: dict[str, set[str]],
     result.lint_packages = sorted(changed_packages)
     if styles:
         result.not_run.append("stylesheets, which only the browser tier renders: " + ", ".join(styles))
-    if result.web_files:
-        result.not_run.append("the web type check and lint (`make check`)")
     if any(is_browser_test(path) for path in result.web_files):
         result.not_run.append("browser-mode tests, which run in a browser (`make check`)")
     if result.go_packages:
@@ -246,6 +263,8 @@ def go_importers() -> tuple[str, dict[str, set[str]]]:
 class Run:
     label: str
     command: list[str]
+    # Where it runs, when not the repository's root: eslint finds its configuration from there.
+    cwd: str | None = None
 
 
 def runs(spot: Plan, module: str, base: str = "HEAD") -> list[Run]:
@@ -253,9 +272,17 @@ def runs(spot: Plan, module: str, base: str = "HEAD") -> list[Run]:
     if spot.go_packages:
         relative = [relative_package(p, module) for p in spot.go_packages]
         out.append(Run(f"go test, {len(relative)} package(s)", go_test_as_make_check(relative)))
-    tests = web_tests(spot.web_files, base)
-    if tests:
-        out.append(Run(f"vitest, {len(tests)} test file(s)", [*VITEST_RUN, *tests]))
+    tested = web_test_run(spot.web_changes, base)
+    if isinstance(tested, Run):
+        out.append(tested)
+    elif tested is not None:
+        spot.not_run.append(tested)
+    if spot.web_typed:
+        out.append(Run("the web type check", WEB_TYPECHECK))
+    linted_web = [path.removeprefix("web/") for path in spot.web_typed
+                  if WEB_LINTED.search(path) and Path(path).is_file()]
+    if linted_web:
+        out.append(Run(f"the web lint, {len(linted_web)} file(s)", [*WEB_LINT, *linted_web], cwd="web"))
     if spot.python:
         some = spot.python_tests or []
         label = f"the gates' Python tests, {len(some)} module(s)" if some else "the gates' Python tests"
@@ -295,25 +322,24 @@ def go_test_as_make_check(packages: list[str]) -> list[str]:
             f"go test -json {listed} | {shlex.quote(sys.executable)} scripts/go_test_timings.py go-spot"]
 
 
-def web_tests(paths: list[str], base: str = "HEAD", reach=reached_tests) -> list[str]:
-    """The test files to run for web files changed since base: each changed test, and the tests
-    using a changed declaration themselves (`reach`, reached_tests at depth 1), or, when it cannot
-    tell, importing a changed file directly; relative to web/, as vitest's root takes them."""
-    tests: set[str] = set()
-    typescript = Path("web/node_modules/typescript")
-    if typescript.is_dir() and all(Path(path).is_file() for path in paths):
-        reached, _ = reach(base, [path.removeprefix("web/") for path in paths], UNIT, typescript.resolve(), 1)
-        if reached is not None and reached != ["*"]:
-            return sorted(test for test in reached if not is_browser_test(test))
-    for path in paths:
-        if re.search(r"\.test\.tsx?$", path) and Path(path).exists():
-            tests.add(str(Path(path).relative_to("web")))
-        else:
-            tests.update(importing_tests(".", path, depth=1))
-    # A browser-mode test runs only in a browser (vitest.browser.config.ts, make check's): handed to
-    # the plain run, which excludes it, it found no test file and failed a commit of browser tests
-    # alone (agent A's report, 2026-10-30).
-    return sorted(test for test in tests if not is_browser_test(test))
+# What the spot check says when the change calls for make check's whole web suite.
+WHOLE_WEB_SUITE = "the whole web unit suite, which a deleted web file or one every web test reads calls for (`make check`)"
+
+
+def web_test_run(paths: list[str], base: str = "HEAD", reach=reached_tests) -> Run | str | None:
+    """The unit test run make check would make for the web paths changed since base (web_tests.py's
+    command_for), every failure listed rather than the first alone: None when they call for none, and
+    WHOLE_WEB_SUITE when they call for the whole suite, make check's to run."""
+    changes = [("M" if Path(path).exists() else "D", path) for path in paths]
+    # The root absolute: the reach reads TypeScript from under it, run in web/.
+    command = command_for(changes, str(Path.cwd()), UNIT, base, reach) if changes else None
+    if command == UNIT.whole:
+        return WHOLE_WEB_SUITE
+    if not command:
+        return None
+    if command[:len(UNIT.named)] == UNIT.named:
+        return Run(f"vitest, {len(command) - len(UNIT.named)} test file(s)", command)
+    return Run(f"vitest related, {len(command) - len(UNIT.related)} file(s)", command)
 
 
 def is_browser_test(path: str) -> bool:
@@ -323,7 +349,8 @@ def is_browser_test(path: str) -> bool:
 
 def execute(run: Run) -> tuple[Run, int, float, str]:
     started = time.monotonic()
-    done = subprocess.run(run.command, capture_output=True, text=True, check=False, env={**os.environ, **HERMETIC})
+    done = subprocess.run(run.command, capture_output=True, text=True, check=False, cwd=run.cwd,
+                          env={**os.environ, **HERMETIC})
     return run, done.returncode, time.monotonic() - started, done.stdout + done.stderr
 
 

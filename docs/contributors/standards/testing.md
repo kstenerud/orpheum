@@ -215,11 +215,12 @@ exists, and every `TestArch_` test is cited.
 - **Runs are proportionate to the change** ([principles §23](../principles/23-proportionate-test-runs.md),
   [D279](../decisions/working-notes.md)):
   - **while working, a spot check** of what changed: `make spot` runs the Go packages that
-    changed and those importing them, the web tests using a changed declaration themselves (by
-    name, through the barrels passing it on: `scripts/web_test_reach.cjs`), the gates'
+    changed and those importing them, the web unit tests make check would run for the change (by
+    name, at any distance: `scripts/web_test_reach.cjs`), the web type check and eslint of the
+    changed files (the owner, 2026-11-24), the gates'
     Python tests when a script changed, the docs gate for Markdown and, when a shipped source
     changed, the test that only suggested.go names the owner's domains, at once, and names what it
-    left to `make check` (stylesheets, the type check, generated code); or one test by hand,
+    left to `make check` (the browser-mode tests, the whole web suite, generated code); or one test by hand,
     `go test -run <Test> ./<pkg>/`, `npm --prefix web test -- <file>`. Within **30 seconds**;
   - **at each commit, `make check`** (the hooks run it), within about **90 seconds**;
   - **for an accumulated batch, or before the owner applies, `make check-pr`**, within
