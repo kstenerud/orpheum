@@ -21,6 +21,7 @@ import { CornerNotes, useCornerNotes } from "./corner-notes.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { TogetherIcon } from "./icons.tsx";
 import { useLive } from "./live.tsx";
+import { GrownFromOpener } from "./popover.tsx";
 import { LaterScreen } from "./screen-load.tsx";
 import { signMark } from "./sign-mark.tsx";
 import { TogetherDialog } from "./together-dialog-code.tsx";
@@ -147,6 +148,7 @@ export function TogetherButton(props: {
   const canStart = use(CanStartTogetherContext);
   const { showsStart, showsElsewhere } = useWhatTheButtonOffers(canStart);
   const [isOpen, setIsOpen] = useState(false);
+  const openerRef = useRef<HTMLButtonElement>(null);
   const { onOpenChange } = props;
   const openOrClose = useCallback(
     (isNowOpen: boolean): void => {
@@ -174,6 +176,7 @@ export function TogetherButton(props: {
   return (
     <span className={props.isOverVideo ? "player-overlay__together" : "together-button"}>
       <IconButton
+        ref={openerRef}
         label={t(buttonLabel(isOn, showsElsewhere))}
         icon={<TogetherIcon />}
         mark={signMark(isOn)}
@@ -183,11 +186,16 @@ export function TogetherButton(props: {
         }}
       />
       {isOpen ? (
-        <TogetherDialogOverTheFilm
-          onClose={() => {
-            openOrClose(false);
-          }}
-        />
+        <GrownFromOpener
+          openerRef={props.isOverVideo ? openerRef : undefined}
+          tab={<TogetherIcon />}
+        >
+          <TogetherDialogOverTheFilm
+            onClose={() => {
+              openOrClose(false);
+            }}
+          />
+        </GrownFromOpener>
       ) : null}
     </span>
   );

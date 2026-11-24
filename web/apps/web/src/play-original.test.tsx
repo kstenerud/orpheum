@@ -220,7 +220,7 @@ describe("the player's How it plays (D444)", () => {
     mounted = await onItsLadder(false);
     await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
     expect(menuOpen(mounted).querySelector(".how-it-plays")?.textContent).toMatch(
-      /^Plays it converted/u,
+      /^Playing: Converted/u,
     );
   });
 });

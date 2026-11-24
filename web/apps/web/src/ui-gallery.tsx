@@ -59,6 +59,7 @@ import {
   AudioIcon,
   BackIcon,
   CloseIcon,
+  ConnectionIcon,
   FullScreenIcon,
   LeaveFullScreenIcon,
   SettingsIcon,
@@ -309,6 +310,7 @@ function Icons(): JSX.Element {
         <AudioIcon />
         <SettingsIcon />
         <BackIcon />
+        <ConnectionIcon className="how-it-plays__icon" />
       </p>
     </section>
   );

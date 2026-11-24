@@ -155,16 +155,22 @@ interface ButtonsParts {
 
 /**
  * The bar's buttons among the controls given (PlayerControls): in the bar's order, or as the
- * overlay's row, previous, the steps with play between them and next in a leading group, and full
- * screen and the sound trailing.
+ * overlay's row, previous, the steps with play between them and next in a leading group (a move
+ * there is none of keeping its place), and full screen and the sound trailing.
  */
 function ControlButtons(props: ButtonsParts): JSX.Element {
   const { source, controls, isOverVideo, playRef, aside, isOverlayRow, moves, menus } = props;
   const has = (control: PlayerControl): boolean => controls.includes(control);
   const move = (isForward: boolean): JSX.Element | null => {
     const go = isForward ? moves?.next : moves?.previous;
-    return has(isForward ? "next" : "previous") && go !== undefined ? (
-      <SequenceMoveButton isOverVideo={isOverVideo} isForward={isForward} onMove={go} />
+    if (has(isForward ? "next" : "previous") && go !== undefined) {
+      return <SequenceMoveButton isOverVideo={isOverVideo} isForward={isForward} onMove={go} />;
+    }
+    // The overlay's row keeps a move's place where there is none, so the others stand where they
+    // stand with both: "The center buttons should always behave in placement as if all 5 were
+    // always available" (the owner, 2026-11-23).
+    return isOverlayRow === true ? (
+      <span className="player-controls__move-place" aria-hidden="true" />
     ) : null;
   };
   const play = has("play") ? (

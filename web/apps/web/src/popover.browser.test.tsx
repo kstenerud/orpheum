@@ -141,7 +141,13 @@ describe("a pop-up's width, laid out by a real browser", () => {
     const entries = [...popUp().querySelectorAll<HTMLElement>(".list-box__option")];
     expect(entries.length).toBeGreaterThan(2);
     const widest = Math.max(...entries.map((entry) => unwrappedSizeOf(entry).width));
-    const inside = popUp().clientWidth;
+    // The menu grows out of its button (the owner, 2026-11-23): its box is its panel, inside the
+    // pop-up with the tab, and the panel's borders hold the choices.
+    const panel = popUp().querySelector(".popover__panel");
+    if (panel === null) {
+      throw new Error("the banner's menu draws no panel");
+    }
+    const inside = panel.clientWidth;
     expect(inside).toBeGreaterThanOrEqual(
       Math.max(widest, narrowestPx - 2 * borderPx) - roundingPx,
     );
@@ -150,7 +156,9 @@ describe("a pop-up's width, laid out by a real browser", () => {
       expect(laid.width, entry.textContent).toBeCloseTo(inside, 0);
       expect(laid.height, entry.textContent).toBeCloseTo(unwrappedSizeOf(entry).height, 0);
     }
-    expectClearOfTheEdges(boxOf(popUp()), window.innerWidth, window.innerHeight);
+    // The panel stands clear of the screen's edges; its tab lies on the Menu button, at the banner's
+    // top, where the button is.
+    expectClearOfTheEdges(boxOf(panel), window.innerWidth, window.innerHeight);
   });
 
   // The owner, 2026-11-03: "the part that says 'admin on Firefox on Mac' is fine to wrap, since it's

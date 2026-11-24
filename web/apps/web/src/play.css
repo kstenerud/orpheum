@@ -21,7 +21,8 @@
   :is([role="alert"], .needs-fixing):not(.film-player__stage *) {
   position: relative;
   z-index: var(--layer-video-alert);
-  margin: 0 0 var(--space-2);
+  /* Under the overlay's top row (overlay-measure.ts), whose way up it covered (the owner, 2026-11-24). */
+  margin: var(--player-overlay-drop, 0px) 0 var(--space-2);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-card);
   color: var(--color-on-video);

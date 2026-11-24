@@ -48,7 +48,10 @@ function shown(): string | null | undefined {
   return document.querySelector(".player-overlay")?.getAttribute("data-shown");
 }
 
-/** The page's video once its load has failed, as with no media served, standing at atS of 600 s. */
+/**
+ * The page's video once its load has failed, as with no media served, standing at atS of 600 s with
+ * a frame there.
+ */
 async function theVideoAt(atS: number): Promise<HTMLVideoElement> {
   await expect.poll(() => isDrawn("video")).toBe(true);
   const video = document.querySelector("video");
@@ -66,6 +69,11 @@ async function theVideoAt(atS: number): Promise<HTMLVideoElement> {
     },
   });
   Object.defineProperty(video, "paused", { configurable: true, get: () => false });
+  // A frame where it stands, as a playing film has: the skip waits for one (segments.tsx).
+  Object.defineProperty(video, "readyState", {
+    configurable: true,
+    get: () => HTMLMediaElement.HAVE_CURRENT_DATA,
+  });
   return video;
 }
 

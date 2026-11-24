@@ -42,6 +42,12 @@
   margin: 0;
 }
 
+/* A note that is one line, setting the list's width (ListNote's isOneLine): ⁝'s How it plays. */
+.list-box__note--one-line {
+  contain: none;
+  white-space: nowrap;
+}
+
 /* A choice (ListOption), the list's width, its whole row pressable, and a fingertip tall as every
    target is (ui.md §2): a line of text in the middle of a control's height, more lines growing it. */
 .list-box__option {

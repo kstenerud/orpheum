@@ -16,6 +16,13 @@
   gap: var(--space-1) var(--space-2);
 }
 
+/* In a menu's list, the control at the row's end, so a menu's steppers line up one under another
+   whatever their labels (the owner, 2026-11-23: "The stepper widgets should be aligned to the
+   right"). */
+.list-box .stepper {
+  grid-template-columns: minmax(0, 1fr) max-content;
+}
+
 /* Not clipped, so a part's focus ring shows whole; the part focused sits above its neighbours. Never
    stretched to the caption's width, which left a blank after + (revamp question 21). */
 .stepper__control {

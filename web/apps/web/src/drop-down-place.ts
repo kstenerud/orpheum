@@ -127,3 +127,51 @@ export function overOpenerPlace(
   const left = opener.left + opener.width / 2 - (part.left + part.width / 2);
   return { left: within(left, popUp.width, [room.left, room.width]), top };
 }
+
+/**
+ * Where a menu goes that grows out of its button (Popover's tab; the owner, 2026-11-23: "make all of
+ * the bottom button menus look like they're coming out of the icons themselves"): its tab, the
+ * button's own size, laid on the button, the menu beside it on the side with more room: above a
+ * button in the screen's lower half, the tab at its foot, below one in its upper half, the top bar's
+ * (the owner: "the same grow-out treatment to the top bar buttons"), the tab at its head. Across, it
+ * runs from the button's start where the room allows and moves back where it does not, but never so
+ * far that the tab leaves the menu's width; it is cut at the room's edge, its list scrolling, where
+ * it is taller than the room beside the button. Its left and top, its height where cut (else
+ * undefined), the tab's offset from its left, and whether it grows down.
+ */
+export function grownPlace(placing: {
+  readonly opener: ScreenBox;
+  readonly popUp: { readonly width: number; readonly height: number };
+  readonly room: ScreenBox;
+}): {
+  readonly left: number;
+  readonly top: number;
+  readonly height: number | undefined;
+  readonly tabOffset: number;
+  readonly isDown: boolean;
+} {
+  const { opener, popUp, room } = placing;
+  const inRoom = within(opener.left, popUp.width, [room.left, room.width]);
+  const left = Math.min(opener.left, Math.max(inRoom, opener.left + opener.width - popUp.width));
+  const tabOffset = opener.left - left;
+  const isDown = opener.top + opener.height / 2 < room.top + room.height / 2;
+  if (isDown) {
+    const roomBelow = room.top + room.height - opener.top;
+    return {
+      left,
+      top: opener.top,
+      height: popUp.height > roomBelow ? roomBelow : undefined,
+      tabOffset,
+      isDown,
+    };
+  }
+  const bottom = opener.top + opener.height;
+  const top = Math.max(bottom - popUp.height, room.top);
+  return {
+    left,
+    top,
+    height: top > bottom - popUp.height ? bottom - top : undefined,
+    tabOffset,
+    isDown,
+  };
+}

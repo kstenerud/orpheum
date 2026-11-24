@@ -35,6 +35,17 @@ const cast = {
   membershipCredential: "remote",
 };
 
+/** Item 2, the cast's film, as GET /items/2 has it: the remote's way up leads to its page. */
+const metropolis = {
+  id: 2,
+  kind: "film",
+  name: "Metropolis",
+  identificationState: "identified",
+  art: {},
+  versions: [],
+  extras: [],
+};
+
 /** The remote's welcome, the receiver's film paused at a minute. */
 const welcome = {
   type: "welcome",
@@ -92,7 +103,13 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
     showsDebugTools = false,
   ): Promise<ReturnType<typeof liveAndSession>> {
     const services = servedBy(
-      { "GET /me/casts": [200, { casts: [cast] }], "GET /files/4/up-next": [200, {}], ...answers },
+      {
+        "GET /me/casts": [200, { casts: [cast] }],
+        "GET /files/4/up-next": [200, {}],
+        "GET /items/2": [200, metropolis],
+        "GET /files/4/segments": [200, { segments: [] }],
+        ...answers,
+      },
       heard,
       "token",
     );
@@ -132,16 +149,22 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
       { key: "s7", label: "French" },
     ];
     await session.say(shows({ subtitles }));
-    expect(opener()?.getAttribute("aria-label")).toBe("Subtitles: Off");
+    // Named Subtitles, its choice named in its menu, as the player's (the owner, 2026-11-23).
+    expect(opener()?.getAttribute("aria-label")).toBe("Subtitles");
+    const shown = (): string[] =>
+      [...page.querySelectorAll('dialog .list-box [role="button"]')]
+        .filter((b) => b.closest("[hidden]") === null)
+        .map((b) => b.textContent);
     await click(opener());
-    expect(
-      [...page.querySelectorAll('dialog .list-box [role="button"]')].map((b) => b.textContent),
-    ).toEqual(["Off", "English", "French"]);
+    expect(shown()).toEqual(["Subtitles: Off›"]);
+    await click(choice("Subtitles: Off›"));
+    expect(shown()).toEqual(["‹Subtitles", "Off", "English", "French"]);
 
     await click(choice("French"));
     await session.say(shows({ subtitles, subtitleKey: "s7" })); // the receiver says it shows it
-    expect(opener()?.getAttribute("aria-label")).toBe("Subtitles: French");
     await click(opener());
+    expect(shown()).toEqual(["Subtitles: French›"]);
+    await click(choice("Subtitles: French›"));
     await click(choice("Off"));
     expect(session.heard.filter((each) => each["type"] === "picture")).toEqual([
       { v: 3, type: "picture", picture: { kind: "subtitles", key: "s7" } },

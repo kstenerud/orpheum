@@ -7,13 +7,38 @@
    film). After a seek, or OK pausing, only the scrub row shows. */
 .player-overlay {
   position: absolute;
-  inset-inline: 0;
-  inset-block-end: 0;
+  inset: 0;
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
-  padding: var(--space-7) var(--space-6) var(--space-5);
-  background: linear-gradient(to top, var(--color-video-scrim), transparent);
+  padding: var(--space-5) var(--space-6);
+  background:
+    linear-gradient(to bottom, var(--color-video-scrim), transparent) top / 100% 9rem no-repeat,
+    linear-gradient(to top, var(--color-video-scrim), transparent) bottom / 100% 14rem no-repeat;
   color: var(--color-on-video);
+  pointer-events: none;
+}
+
+/* The way up and "Ends" at the stage's top, the scrub bar and the buttons at its bottom (the owner,
+   2026-11-23); the ground between lets a press through to the film. */
+.player-overlay > .player-overlay__top {
+  grid-row: 1;
+}
+
+.player-overlay > .player-overlay__scrub {
+  grid-row: 3;
+}
+
+/* The buttons come up against the scrub bar, the times under its track between (the owner,
+   2026-11-23). */
+.player-overlay > .player-overlay__buttons {
+  grid-row: 4;
+  margin-block-start: calc(var(--space-1) - var(--space-3));
+}
+
+.player-overlay > .player-overlay__row {
+  pointer-events: auto;
 }
 
 .player-overlay[data-shown="hidden"] {
@@ -62,18 +87,14 @@
    the scrub bar and one row of menus and full screen that fits at 360px. The overlay then spans the
    picture, as with an offer, its ground letting a tap through to the film. */
 .player-overlay[data-layout="phone"] {
-  inset-block-start: 0;
-  align-content: end;
-  pointer-events: none;
+  padding: var(--space-2) var(--space-3);
 }
 
-.player-overlay[data-layout="phone"] > .player-overlay__row {
-  pointer-events: auto;
-}
-
+/* They stand midway between the top row and the scrub bar, as each is measured (overlay-measure.ts):
+   in the picture's middle, a phone on its side laid them over the scrub bar (the owner, 2026-11-23). */
 .player-overlay[data-layout="phone"] .player-controls__leading {
   position: absolute;
-  top: 50%;
+  top: calc((var(--player-overlay-drop, 0px) + 100% - var(--player-overlay-lift, 0px)) / 2);
   left: 50%;
   gap: var(--space-4);
   transform: translate(-50%, -50%);
@@ -89,8 +110,14 @@
   height: calc(var(--size-control) + var(--space-3));
 }
 
+/* The menus' row wraps where it holds more than a phone's width does, closer set than the
+   computer's: six menus ran past a phone's right edge (the owner, 2026-11-23). */
 .player-overlay[data-layout="phone"] .player-controls__trailing {
-  margin-inline: auto;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-inline-start: auto;
 }
 
 /* An offer stays through a seek's scrub bar and the pause sign (Q3). */
@@ -98,82 +125,97 @@
   visibility: visible;
 }
 
-/* While an offer shows (data-offer), it sits in the film's top-right corner, where it is unlikely to
-   cover the action: in row 0 it stood a third of the way up the film, over a show's closing skit
-   (the owner, 2026-11-09). It stays there with all of the overlay shown too, in place of D407 §1's
-   row 0's end (the owner, 2026-11-09: "yes"), and Up and Down still reach it, as the overlay's parts
-   are walked in their order, not by where they are drawn (D422, D423). The overlay then spans the
-   stage, its rows still along the bottom, so the area's corner is the stage's, in full screen too;
-   the overlay lets presses through to the film but on its rows, and its scrim, when it has one, lies
-   behind its rows alone, as it did. */
-.player-overlay[data-offer] {
-  inset-block-start: 0;
-  align-content: end;
-  background: none;
-  pointer-events: none;
+/* The top row (the owner, 2026-11-23): at the film's top-left the way up, and under it "Ends: 2:56
+   PM" (the owner, 2026-11-23: "it's better to have the "Ends" text underneath the "Playing ..." on
+   cast and backlink on local playback"); at its top-right the offer area, where Skip intro and Up
+   next go, laid over the row and not beside it, so the way up's line keeps the row's width and an
+   offer covers its end a while. The offer is in the same place whether the rest of the overlay shows
+   or not. */
+.player-overlay__top {
+  position: relative;
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
 }
 
-.player-overlay[data-offer] > .player-overlay__row {
-  grid-column: 1;
-  pointer-events: auto;
+.player-overlay__heading {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 0;
 }
 
-.player-overlay[data-offer] > .player-overlay__top {
-  grid-row: 1;
+/* The way up as wide as its words, the line's width the most it takes: stretched across the row, it
+   covered the sound-on Pill at the film's top centre (sound-on-pill.css), which no arrow from it
+   then reached, Right finding nothing beside it and Up nothing above it at the film's top. */
+.player-overlay__heading > .player-overlay__up {
+  justify-self: start;
+  max-width: 100%;
 }
 
-.player-overlay[data-offer] > .player-overlay__scrub {
-  grid-row: 2;
+.player-overlay__heading .convenience-area__ends {
+  overflow: hidden;
+  font-size: var(--font-size-small);
+  text-overflow: ellipsis;
 }
 
-.player-overlay[data-offer] > .player-overlay__buttons {
-  grid-row: 3;
-}
-
-.player-overlay[data-offer]:not([data-shown="convenience"])::before {
-  grid-row: 1 / 4;
-  grid-column: 1;
-  margin: calc(-1 * var(--space-7)) calc(-1 * var(--space-6)) calc(-1 * var(--space-5));
-  background: linear-gradient(to top, var(--color-video-scrim), transparent);
-  content: "";
-}
-
-.player-overlay[data-offer] .convenience-area {
-  position: absolute;
-  z-index: var(--layer-video-offer);
-  inset-block-start: var(--space-5);
-  inset-inline-end: var(--space-5);
-  max-width: min(26rem, calc(100% - 2 * var(--space-5)));
-  pointer-events: auto;
-}
-
-/* The area holds the card's room from the stage's edges, as the card's own rule would
-   (offer-card.css): the card's, against the area it sizes, took that room a second time, off its end. */
-.player-overlay[data-offer] .convenience-area .offer-card {
-  max-width: none;
-}
-
-/* The convenience area at row 0's end: the offer, or when the film ends. */
 .convenience-area {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-end;
+  max-width: min(26rem, 60%);
   margin-inline-start: auto;
 }
 
-/* Row 0: the way up, "‹ S1E1 Pilot" (D367 §8, D407 §1). */
-/* Its items stand the row's full height, so Up from the scrub bar, finding them all at one gap,
-   goes to the first, the film's page, not to the tallest, a sign over the film whose box came
-   nearer (D422, D423); each centres its own content. */
-.player-overlay__top {
-  display: flex;
-  gap: var(--space-3);
-  align-items: stretch;
+.player-overlay__top > .convenience-area {
+  position: absolute;
+  z-index: var(--layer-raised);
+  inset-block-start: 0;
+  inset-inline-end: 0;
 }
 
-/* "‹ {parent}" takes the room left over and ends in an ellipsis, so a long name never pushes what
-   follows it off the row (D538 §6); no row wraps. */
+.convenience-area__ends {
+  display: flex;
+  align-items: center;
+  min-height: var(--size-control);
+  white-space: nowrap;
+}
+
+.player-overlay__heading .convenience-area__ends {
+  display: block;
+  min-height: 0;
+}
+
+.convenience-area__ends:not([data-shown]) {
+  visibility: hidden;
+}
+
+/* The area holds the card's room from the stage's edges, as the card's own rule would
+   (offer-card.css): the card's, against the area it sizes, took that room a second time. */
+.convenience-area .offer-card {
+  max-width: none;
+}
+
+/* The times are part of the scrub bar: under its track at its end, in the slider's own room for a
+   finger, which they let through to it, as they are read and never pressed (the owner, 2026-11-23). */
+.player-overlay__scrub {
+  position: relative;
+}
+
+.player-overlay__times {
+  position: absolute;
+  inset-block-start: calc(50% + var(--space-2));
+  inset-inline-end: var(--space-2);
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .player-overlay__up {
   display: inline-flex;
+  min-height: var(--size-control);
   flex: 1 1 0;
   gap: var(--space-2);
   align-items: center;

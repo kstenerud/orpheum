@@ -1,21 +1,27 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import "./cast-words.ts";
+import "./how-it-plays.css";
 
 import { PlaybackTold, playerSwitchedQualityEvent, type PlaybackReport } from "@orpheum/sdk";
 import { useEffect, useMemo, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConnectionIcon, PlayIcon } from "./player-icons.tsx";
 import { ListNote } from "./list-box.tsx";
 import { rateText } from "./rate-text.ts";
 
 /**
- * ⁝'s How it plays (D444, amending D440 §5): the file as it is or converted, the quality it plays
- * and the link it chose it on, read-only, one line that informs (ListNote). The owner: "The
- * controller side should get information about playback, such as the transcoding and bandwidth
- * choices" (D371 §4), and, of the full-screen player, "This should be available in local fullscreen
- * as well since it's useful" (2026-11-07). On the cast's remote it is the receiver's, as its state
- * comes back; in the player's ⁝, this device's own (usePlaybackHere). Nothing while nothing is said.
+ * ⁝'s How it plays (D444, amending D440 §5), the line at the foot of the menu (the menu spec of D538:
+ * "▶ Converted 12.1 Mb/s · 📶 69.2 Mb/s"): a play mark, then the file as it is, "Original", or
+ * "Converted", with the quality it plays; a signal's bars, then the link it chose it on. Read-only,
+ * one line that informs (ListNote); the marks are the design's icons at the text's size, said to a
+ * screen reader as "Playing" and "Connection". The owner: "The controller side should get information
+ * about playback, such as the transcoding and bandwidth choices" (D371 §4), and, of the full-screen
+ * player, "This should be available in local fullscreen as well since it's useful" (2026-11-07); and
+ * of the line, "the text about how it's playing was supposed to use shortened text and icons"
+ * (2026-11-23). On the cast's remote it is the receiver's, as its state comes back; in the player's
+ * ⁝, this device's own (usePlaybackHere). Nothing while nothing is said.
  */
 export function HowItPlays(props: {
   readonly playback: PlaybackReport | undefined;
@@ -26,20 +32,27 @@ export function HowItPlays(props: {
     return null;
   }
   const { qualityKbps, linkKbps } = playback;
+  const how = t(`cast.playback.${playback.delivery}`);
   return (
-    <ListNote>
+    <ListNote isOneLine>
       <span className="how-it-plays">
-        {[
-          t(`cast.playback.${playback.delivery}`),
-          qualityKbps === undefined
-            ? undefined
-            : t("cast.playback.quality", { rate: rateText(qualityKbps) }),
-          linkKbps === undefined
-            ? undefined
-            : t("cast.playback.link", { rate: rateText(linkKbps) }),
-        ]
-          .filter((each) => each !== undefined)
-          .join(" · ")}
+        <span className="how-it-plays__fact">
+          <PlayIcon className="how-it-plays__icon" />
+          <span className="how-it-plays__said">{t("cast.playback.playing")}</span>
+          {qualityKbps === undefined
+            ? how
+            : t("cast.playback.atRate", { how, rate: rateText(qualityKbps) })}
+        </span>
+        {linkKbps === undefined ? null : (
+          <>
+            {" · "}
+            <span className="how-it-plays__fact">
+              <ConnectionIcon className="how-it-plays__icon" />
+              <span className="how-it-plays__said">{t("cast.playback.connection")}</span>
+              {rateText(linkKbps)}
+            </span>
+          </>
+        )}
       </span>
     </ListNote>
   );

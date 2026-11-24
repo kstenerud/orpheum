@@ -7,7 +7,7 @@ import type { SkippedStretch } from "@orpheum/player";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ConvenienceArea, type OfferPiece } from "./convenience-area.tsx";
+import { ConvenienceArea, leftMsOf, type OfferPiece } from "./convenience-area.tsx";
 import { fillTheScreen, toggleFullScreen } from "./film-fullscreen.ts";
 import { keepThePressForTheStart } from "./start-refused.ts";
 import type { FilmParts } from "./film-player.tsx";
@@ -155,7 +155,7 @@ function ControlsBar(props: {
         offer={offer}
         skipped={skipped}
         isTv={isTv}
-        leftMs={source.durationMs === 0 ? undefined : source.durationMs - source.atMs}
+        leftMs={leftMsOf(source)}
       />
     </div>
   );
@@ -186,7 +186,7 @@ function BarOffers(props: {
         hasOffer={hasOffer}
         isOverlayFull
         onOffered={setHasOffer}
-        leftMs={props.leftMs}
+        ends={{ leftMs: props.leftMs }}
         areaRef={areaRef}
       />
     </div>

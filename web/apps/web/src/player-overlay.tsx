@@ -18,7 +18,7 @@ import { useTranslation } from "react-i18next";
 
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
 import { isPausedAsAsked } from "./film-waits.tsx";
-import { ConvenienceArea, type OfferPiece } from "./convenience-area.tsx";
+import { ConvenienceArea, EndsAt, leftMsOf, type OfferPiece } from "./convenience-area.tsx";
 import { useIsVolumeSettable } from "./film-volume-slider.tsx";
 import type { FilmParts } from "./film-player.tsx";
 import { isThisHandheld } from "./handheld.ts";
@@ -53,10 +53,11 @@ import { useOverlayMeasured } from "./overlay-measure.ts";
 import { SideTapsContext, type SideTaps } from "./phone-side-taps.tsx";
 import { useStartRefused } from "./start-refused-shown.tsx";
 import { StopCastingHere } from "./stop-casting-here.tsx";
-import { Timeline } from "./timeline.tsx";
+import { useIsFullScreen } from "./full-screen-button.tsx";
+import { ClockTimes, shownAtMsOf, Timeline } from "./timeline.tsx";
 import { TogetherSignOverTheFilm } from "./together-over-the-film.tsx";
 import { peopleOf, useSessionVoice } from "./together-voice.tsx";
-import { isOnTelevision } from "./input-mode.ts";
+import { isOnTelevision, isTouchPointer } from "./input-mode.ts";
 
 /**
  * The player's full-screen overlay (D407 §1–§7; plans/player-overlay.md): over the film inside its
@@ -120,7 +121,7 @@ export function PlayerOverlay(
         data-focus-container=""
         data-player-controls=""
       >
-        <SideTapsContext value={isPhone ? overlay.sideTaps : undefined}>
+        <SideTapsContext value={isPhone && isTouchPointer() ? overlay.sideTaps : undefined}>
           <OverlayRows
             source={source}
             isTv={isTv}
@@ -223,13 +224,18 @@ interface OverlayRefs {
 /**
  * The tray's signs over the film, after the menus at the buttons row's end, before full screen:
  * Watch Together's, then Cast's (D538 §7, amending D422 §1 and D423 §1), so the top row's title keeps
- * its width and a remote finds every control in one row; on the cast's remote's too (D444), whose
- * Cast sign's dialog holds Stop casting.
+ * its width and a remote finds every control in one row. Only while the film shows full screen,
+ * which hides the page's top bar and its own signs: with the bar in sight, the row drew them twice
+ * (the owner, 2026-11-23: "Let's hide them from the bottom button row in any playback page whenever
+ * the top bar is visible").
  */
 export function SignsOverTheFilm(props: {
   readonly onOpenChange: (isOpen: boolean) => void;
-}): JSX.Element {
+}): JSX.Element | null {
   const castSign = use(CastSignOverTheFilmContext);
+  if (!useIsFullScreen()) {
+    return null;
+  }
   return (
     <>
       <TogetherSignOverTheFilm onOpenChange={props.onOpenChange} />
@@ -256,7 +262,7 @@ export function OverlayRows({
   readonly source: PlayerSource;
   readonly isTv: boolean;
   readonly refs: Pick<OverlayRefs, "playRef" | "scrubRef" | "buttonsRef" | "videoRef">;
-  readonly convenience: Omit<ComponentProps<typeof ConvenienceArea>, "leftMs">;
+  readonly convenience: Omit<ComponentProps<typeof ConvenienceArea>, "ends">;
   readonly moves: SequenceMoves | undefined;
   readonly onMenuOpenChange: (isOpen: boolean) => void;
 }): JSX.Element {
@@ -267,11 +273,11 @@ export function OverlayRows({
       top={
         <>
           <StopCastingHere />
-          <OverlayUp />
-          <ConvenienceArea
-            {...convenience}
-            leftMs={source.durationMs === 0 ? undefined : source.durationMs - source.atMs}
-          />
+          <div className="player-overlay__heading">
+            <OverlayUp />
+            <EndsAt leftMs={leftMsOf(source)} isShown={convenience.isOverlayFull} />
+          </div>
+          <ConvenienceArea {...convenience} ends={undefined} />
         </>
       }
       source={source}
@@ -326,7 +332,14 @@ export function OverlayRowsOf(props: {
           isDisabled={!source.isReady}
           hasArrowsAsCommands={props.isOverTheFilm}
           onSeek={source.seekTo}
+          hasTimes={false}
         />
+        <span className="player-overlay__times">
+          <ClockTimes
+            atMs={shownAtMsOf(source.atMs, source.durationMs)}
+            durationMs={source.durationMs}
+          />
+        </span>
       </div>
       <div
         ref={buttonsRef}

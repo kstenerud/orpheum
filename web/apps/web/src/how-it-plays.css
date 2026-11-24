@@ -1,0 +1,26 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* ⁝'s How it plays (how-it-plays.tsx): two facts, each its mark then its words, on one line. */
+.how-it-plays__fact {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  white-space: nowrap;
+}
+
+/* A mark at the text's size, the design's icon, not an emoji. */
+.how-it-plays__icon {
+  flex: none;
+  width: 1em;
+  height: 1em;
+}
+
+/* Said with the mark, not shown: "Playing", "Connection". */
+.how-it-plays__said {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

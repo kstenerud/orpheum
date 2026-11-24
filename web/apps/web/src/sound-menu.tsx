@@ -7,14 +7,12 @@ import type { JSX, RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useAudioChoices } from "./audio-tracks.tsx";
-import { DropDown } from "./drop-down.tsx";
 import { FileSoundOffsetEntries } from "./file-sound-offset.tsx";
 import { LevelLoudnessEntry } from "./levelling.tsx";
-import { ListEntry, ListNote, ListOption, ListSubmenu } from "./list-box.tsx";
-import { AudioIcon } from "./player-icons.tsx";
+import { ListEntry, ListNote } from "./list-box.tsx";
+import { ChoicesSubmenu, KeptOpen, SoundMenuOf } from "./over-video-menu.tsx";
 import type { PlayerTracks } from "./player-tracks.tsx";
 import type { SuggestedSoundOffset } from "./problem-report.tsx";
-import { currentLabelOf } from "./route-chooser.tsx";
 import { BoostBox } from "./sound.tsx";
 import { SoundOffsetControl, type FileOffsetOf } from "./sound-delay.tsx";
 
@@ -48,23 +46,8 @@ export function SoundMenu(props: {
   const { tracks, timing, videoRef } = props;
   const trackChoices = useAudioChoices(tracks.audio);
   return (
-    <DropDown
-      label={t("play.audio.label")}
-      opener={<AudioIcon />}
-      openerClassName="icon-button icon-button--over-video"
-      openerNaming={{ "aria-label": t("play.audio.label") }}
-      isFromItsTop
-      onOpenChange={props.onOpenChange}
-    >
-      {trackChoices.length > 1 ? (
-        <ListSubmenu name={t("play.audio.menu")} value={currentLabelOf(trackChoices)}>
-          {trackChoices.map((choice) => (
-            <ListOption key={choice.key} isCurrent={choice.isCurrent} onChoose={choice.onChoose}>
-              {choice.label}
-            </ListOption>
-          ))}
-        </ListSubmenu>
-      ) : null}
+    <SoundMenuOf onOpenChange={props.onOpenChange}>
+      <ChoicesSubmenu name={t("play.audio.menu")} choices={trackChoices} />
       <ListEntry>
         <LevelLoudnessEntry
           level={tracks.level}
@@ -78,7 +61,17 @@ export function SoundMenu(props: {
         </ListEntry>
       )}
       {timing === undefined ? null : <TimingEntries timing={timing} videoRef={videoRef} />}
-    </DropDown>
+    </SoundMenuOf>
+  );
+}
+
+/** The Sound menu's Sound timing heading, over the timings that follow it. */
+export function SoundTimingHeading(): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <ListNote>
+      <span className="sound-menu__heading">{t("play.soundOffset.timing")}</span>
+    </ListNote>
   );
 }
 
@@ -87,21 +80,18 @@ function TimingEntries(props: {
   readonly timing: SoundMenuTiming;
   readonly videoRef: RefObject<HTMLVideoElement | null>;
 }): JSX.Element {
-  const { t } = useTranslation();
   const { timing, videoRef } = props;
   return (
     <>
-      <ListNote>
-        <span className="sound-menu__heading">{t("play.soundOffset.timing")}</span>
-      </ListNote>
-      <ListEntry isKeptOpen isInsetAsChoices>
+      <SoundTimingHeading />
+      <KeptOpen>
         <SoundOffsetControl
           videoRef={videoRef}
           initialMs={timing.deviceInitialMs}
           file={timing.file}
           isInAList
         />
-      </ListEntry>
+      </KeptOpen>
       {timing.file === undefined ? null : (
         <FileSoundOffsetEntries
           videoRef={videoRef}

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { useLayoutEffect, useState, type RefObject } from "react";
+import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 
 import { isTouchPointer } from "./input-mode.ts";
 
@@ -30,6 +30,14 @@ export function isPhoneLayout(
 export const overlayLiftProperty = "--player-overlay-lift";
 
 /**
+ * The stage's property holding how far the overlay's top row reaches down from the overlay's top, in
+ * px, measured as it is drawn: a phone's ⏮ ⟲ ⏯ ⟳ ⏭ stand midway between it and the scrub bar
+ * (player-overlay.css), which a phone on its side, its picture short, needs (the owner, 2026-11-23:
+ * "In landscape mode, the middle buttons need to be raised a bit"; they lay over the scrub bar).
+ */
+const overlayDropProperty = "--player-overlay-drop";
+
+/**
  * Measures the overlay in overlayRef as it is drawn and as its stage or rows change size: the
  * height of its rows from the top row to its bottom, set on its stage as overlayLiftProperty, which
  * lifts the subtitles and the bottom-left notes above it (standards/ui.md, over the film; the fixed
@@ -41,6 +49,10 @@ export function useOverlayMeasured(
   shown: string,
 ): boolean {
   const [isPhone, setIsPhone] = useState(false);
+  // The stage's width at which the overlay's buttons last ran past its end, laid out as a desktop's:
+  // under it the overlay takes the phone's layout whatever the pointer (the owner, 2026-11-23: a
+  // narrowed browser's buttons ran off its right), and back over it the desktop's again.
+  const overflowedAtPxRef = useRef(0);
   useLayoutEffect(() => {
     const overlay = overlayRef.current;
     const stage = overlay?.parentElement;
@@ -48,14 +60,30 @@ export function useOverlayMeasured(
       return undefined;
     }
     const measure = (): void => {
-      const top = overlay.querySelector(".player-overlay__top");
+      const top = overlay.querySelector(".player-overlay__scrub");
       const liftPx =
         top === null ? 0 : overlay.getBoundingClientRect().bottom - top.getBoundingClientRect().top;
       if (liftPx > 0) {
         stage.style.setProperty(overlayLiftProperty, `${String(Math.ceil(liftPx))}px`);
       }
+      const head = overlay.querySelector(".player-overlay__top");
+      const dropPx =
+        head === null
+          ? 0
+          : head.getBoundingClientRect().bottom - overlay.getBoundingClientRect().top;
+      const drop = `${String(Math.max(0, Math.ceil(dropPx)))}px`;
+      stage.style.setProperty(overlayDropProperty, drop);
+      // The Play page's alert over the film's top stands under the top row too (play.css): it covered
+      // the way up, which no press then reached (the owner, 2026-11-24: "below the top row").
+      stage.closest<HTMLElement>(".play")?.style.setProperty(overlayDropProperty, drop);
       const box = stage.getBoundingClientRect();
-      setIsPhone(isPhoneLayout(box.width, box.height));
+      const buttons = overlay.querySelector(".player-overlay__buttons");
+      const isDesktopLaidOut = overlay.getAttribute("data-layout") !== "phone";
+      if (isDesktopLaidOut && buttons !== null && buttons.scrollWidth > buttons.clientWidth) {
+        overflowedAtPxRef.current = Math.max(overflowedAtPxRef.current, box.width);
+      }
+      const isNarrow = box.width <= overflowedAtPxRef.current;
+      setIsPhone(isNarrow || isPhoneLayout(box.width, box.height));
     };
     measure();
     if (typeof ResizeObserver !== "function") {

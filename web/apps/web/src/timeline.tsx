@@ -27,6 +27,20 @@ export function ClockTimes(props: {
   );
 }
 
+/** A touch anywhere along the slider seeks to there, in the drag's steps (useTouchAnywhere). */
+function useTouchSeeks(
+  inputRef: RefObject<HTMLInputElement | null>,
+  mostMs: number,
+  onSeek: (atMs: number) => void,
+): void {
+  useTouchAnywhere(
+    inputRef,
+    (clientX, rect) =>
+      Math.round((fractionAlong(clientX, rect) * mostMs) / dragStepMs) * dragStepMs,
+    onSeek,
+  );
+}
+
 /**
  * A film's timeline (D369 §1), the one way to draw one: a slider in milliseconds from the film's
  * start to its end, and its times beside it. Each move of a drag or a press is a seek, which its
@@ -51,19 +65,16 @@ export function Timeline(props: {
   readonly hasArrowsAsCommands?: boolean | undefined;
   /** The slider, for a player that moves focus to it or asks whether it has it. */
   readonly inputRef?: RefObject<HTMLInputElement | null> | undefined;
+  /** Whether the times stand beside the slider; false where the page draws them itself (the overlay's). */
+  readonly hasTimes?: boolean | undefined;
 }): JSX.Element {
   const { label, atMs, durationMs, onSeek, isDisabled, hasArrowsAsCommands } = props;
   const { language } = useTranslation().i18n;
   const ownRef = useRef<HTMLInputElement | null>(null);
   const inputRef = props.inputRef ?? ownRef;
   const mostMs = Math.max(durationMs, 1);
-  useTouchAnywhere(
-    inputRef,
-    (clientX, rect) =>
-      Math.round((fractionAlong(clientX, rect) * mostMs) / dragStepMs) * dragStepMs,
-    onSeek,
-  );
-  const shownMs = durationMs > 0 ? Math.min(atMs, durationMs) : atMs;
+  useTouchSeeks(inputRef, mostMs, onSeek);
+  const shownMs = shownAtMsOf(atMs, durationMs);
   const [pointedFraction, setPointedFraction] = useState<number | undefined>(undefined);
   const notePointer = (event: PointerEvent<HTMLInputElement>): void => {
     setPointedFraction(
@@ -73,7 +84,7 @@ export function Timeline(props: {
     );
   };
   return (
-    <div className="timeline">
+    <div className={props.hasTimes === false ? "timeline timeline--alone" : "timeline"}>
       <div className="timeline__track">
         <input
           ref={inputRef}
@@ -99,7 +110,7 @@ export function Timeline(props: {
           <TimeUnderPointer fraction={pointedFraction} durationMs={durationMs} />
         )}
       </div>
-      <ClockTimes atMs={shownMs} durationMs={durationMs} />
+      {props.hasTimes === false ? null : <ClockTimes atMs={shownMs} durationMs={durationMs} />}
     </div>
   );
 }
@@ -124,4 +135,9 @@ function TimeUnderPointer(props: {
       {clockText(props.fraction * props.durationMs, language)}
     </span>
   );
+}
+
+/** Where a film stands as its times show it: never past its end, once its length is known. */
+export function shownAtMsOf(atMs: number, durationMs: number): number {
+  return durationMs > 0 ? Math.min(atMs, durationMs) : atMs;
 }

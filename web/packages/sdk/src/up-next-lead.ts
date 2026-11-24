@@ -42,7 +42,7 @@ type Segment = components["schemas"]["SegmentBody"];
 /**
  * Where a file's credits start, the last credits segment's start where it has one: where Up next
  * shows and counts from in place of the fixed lead (D139, D339; plans/up-next.md §9). A Chromecast's
- * Up next reads it (D546); the web client's segments.tsx has its own still, to fold into this one.
+ * Up next reads it (D546), and the web client's, through segments.tsx.
  */
 export function creditsStartOf(segments: readonly Segment[]): number | undefined {
   let startMs: number | undefined;

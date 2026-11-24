@@ -28,12 +28,12 @@ describe("the overlay's convenience area (D407 §1)", () => {
         hasOffer={false}
         isOverlayFull={true}
         onOffered={() => undefined}
-        leftMs={60_000}
+        ends={{ leftMs: 60_000 }}
         areaRef={createRef()}
       />,
     );
     const endsAt = mounted.container.querySelector(".convenience-area__ends")?.textContent;
-    expect(endsAt).toContain("Ends at");
+    expect(endsAt).toContain("Ends:");
     expect(endsAt).toMatch(/[٠-٩]/u); // the chosen language's digits, where the browser's are 0-9
   });
 });

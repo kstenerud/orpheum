@@ -114,7 +114,8 @@ describe("the Sound menu's timing (D537, D538 §8)", () => {
       heard,
     });
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    expect(on.container.textContent).toContain("Timing");
+    // Its heading names what it times (the owner, 2026-11-23), over This device and This file.
+    expect(on.container.querySelector(".sound-menu__heading")?.textContent).toBe("Sound timing");
     press(on, "This file later");
     press(on, "This file later");
     expect(on.container.textContent).toContain("Sound plays 100 ms later in this file");

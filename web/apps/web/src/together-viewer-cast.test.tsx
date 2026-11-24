@@ -175,7 +175,7 @@ describe("a cast from over a guest's Play page of the group's film (D371 §4, VQ
     await click(buttonWithText(mounted.container, "Tap to continue"));
     await sockets.live.accept();
     await sockets.live.say({ type: "sending" });
-    await sockets.live.say({ type: "devices", deviceIds: [1, 2] });
+    await sockets.live.say({ type: "devices", deviceIds: [1, 2], inFrontDeviceIds: [1, 2] });
     await sockets.session.acceptEach();
     await sockets.session.say({
       ...welcome,

@@ -241,10 +241,23 @@ export function ListEntry(props: {
  * what informs may wrap, what acts wraps only where nothing else will do (the owner, 2026-11-03).
  * Its look beyond that is its user's, on an element of its own inside it (app-shell.tsx's who).
  */
-export function ListNote(props: { readonly children: ReactNode }): JSX.Element {
+export function ListNote(props: {
+  /**
+   * Whether it is one line that sets the list's width rather than wrapping to it: ⁝'s How it plays
+   * (the owner, 2026-11-23: "The gear menu should be wider so that the status text will fit in 1
+   * line").
+   */
+  readonly isOneLine?: boolean;
+  readonly children: ReactNode;
+}): JSX.Element {
   const isHidden = useIsUnderASubmenu();
   return (
-    <li className="list-box__note" hidden={isHidden}>
+    <li
+      className={
+        props.isOneLine === true ? "list-box__note list-box__note--one-line" : "list-box__note"
+      }
+      hidden={isHidden}
+    >
       {props.children}
     </li>
   );

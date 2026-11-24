@@ -114,6 +114,15 @@ describe("🔈's row of sliders (D440 §2)", () => {
     const on = await openedRow(soundNoting([]), undefined);
     expect(sliders(on)).toHaveLength(1);
     expect(on.container.querySelectorAll("dialog input[type=range]")).toHaveLength(1);
+    // Alone, nothing to tell it from: no mark (the owner, 2026-11-23).
+    expect(on.container.querySelector("dialog .volume-row__film .volume-row__mark")).toBeNull();
+  });
+
+  it("marks the film's slider as the film's where the row holds people's too", async () => {
+    const on = await openedRow(soundNoting([]), voiceNoting([]));
+    const mark = on.container.querySelector("dialog .volume-row__film .volume-row__mark");
+    expect(mark).not.toBeNull();
+    expect(mark?.getAttribute("title")).toBe("The film's volume");
   });
 
   it("draws the film's, then one per other person, with their letters and colour", async () => {

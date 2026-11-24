@@ -45,3 +45,8 @@
   font-size: var(--font-size-small);
   font-variant-numeric: tabular-nums;
 }
+
+/* The slider alone, its times drawn elsewhere (the overlay's, under it). */
+.timeline--alone {
+  grid-template-columns: minmax(0, 1fr);
+}

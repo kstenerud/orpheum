@@ -2,12 +2,21 @@
 
 import "./modal-dialog.css";
 
-import { useId, useLayoutEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
+import {
+  use,
+  useId,
+  useLayoutEffect,
+  useRef,
+  type JSX,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 import { choiceArrivalIn } from "./focus-navigation.ts";
 import { useLatest } from "./latest.ts";
 import { useModalLayer } from "./modal-layer.tsx";
+import { GrownFromContext, GrownParts, useGrownOutOf } from "./popover.tsx";
 
 /** What a modal dialog is told. */
 interface ModalDialogProps {
@@ -117,25 +126,39 @@ export function ModalDialog(props: ModalDialogProps): JSX.Element {
   });
   useReplacesTheOneUnder(ref);
   useModalLayer(ref, toldRef);
+  const grownFrom = use(GrownFromContext);
+  useGrownOutOf(ref, grownFrom, props.onClose);
   const isConfirm = props.isConfirm === true;
+  const drawn = hasPartsIn(props) ? (
+    <DialogParts heading={props.heading} footer={props.footer} bodyId={bodyId}>
+      {props.children}
+    </DialogParts>
+  ) : (
+    props.children
+  );
   return (
     // tabIndex -1: a dialog taller than the window scrolls, and a box that scrolls is a Tab stop of its
     // own in Chromium and Firefox, reached as nothing (the Cast and Watch Together dialogs, 2026-11-04).
     <dialog
       ref={ref}
-      className={classesOf(props)}
+      className={classesOf(props, grownFrom !== undefined)}
       role={isConfirm ? "alertdialog" : props.role}
       aria-label={props.label}
       aria-describedby={isConfirm ? bodyId : undefined}
       tabIndex={-1}
     >
-      {hasPartsIn(props) ? (
-        <DialogParts heading={props.heading} footer={props.footer} bodyId={bodyId}>
-          {props.children}
-        </DialogParts>
-      ) : (
-        props.children
-      )}
+      <GrownFromContext value={undefined}>
+        {grownFrom === undefined ? (
+          drawn
+        ) : (
+          <>
+            <GrownParts tab={grownFrom.tab} panelClass="modal-dialog__panel">
+              {drawn}
+            </GrownParts>
+            <div className="popover__room" aria-hidden="true" />
+          </>
+        )}
+      </GrownFromContext>
     </dialog>
   );
 }
@@ -146,9 +169,10 @@ function hasPartsIn(props: ModalDialogProps): boolean {
 }
 
 /** A dialog's classes: its looks, as named options. */
-function classesOf(props: ModalDialogProps): string {
+function classesOf(props: ModalDialogProps, isGrown: boolean): string {
   return [
     "modal-dialog",
+    isGrown ? "modal-dialog--grown" : "",
     hasPartsIn(props) ? "modal-dialog--parts" : "",
     props.isConfirm === true ? "modal-dialog--confirm" : "",
     props.isWide === true ? "modal-dialog--wide" : "",

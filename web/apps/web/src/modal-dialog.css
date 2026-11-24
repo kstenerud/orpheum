@@ -139,3 +139,58 @@
     box-shadow: var(--shadow-card-hover);
   }
 }
+
+/* A dialog grown out of its button, as a menu is (popover.tsx's GrownFromContext; the owner,
+   2026-11-23): Watch Together's and Cast's over the film. The dialog is no box of its own, at its
+   button on a phone too, rather than a sheet; its panel has the dialog's look, and under it the
+   menus' tab (popover.css). */
+.modal-dialog.modal-dialog--grown {
+  inset: auto;
+  max-width: calc(100vw - var(--screen-edge-room-left) - var(--screen-edge-room-right));
+  max-height: calc(100dvh - var(--screen-edge-room-top) - var(--screen-edge-room-bottom));
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+}
+
+.modal-dialog.modal-dialog--grown[open] {
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+}
+
+.modal-dialog--grown:focus-visible {
+  box-shadow: none;
+}
+
+.modal-dialog--grown > .modal-dialog__panel {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-4);
+  border-block-start: 3px solid var(--color-status);
+}
+
+.modal-dialog--grown.modal-dialog--parts > .modal-dialog__panel {
+  overflow: hidden;
+  padding: 0;
+}
+
+.modal-dialog--grown.modal-dialog--warning > .modal-dialog__panel {
+  border-block-start-color: var(--color-warning);
+}
+
+/* Grown down from the top bar (popover.css), the status stripe is at the panel's foot: at its head
+   it would cut between the tab and the panel. */
+.modal-dialog--grown[data-grow="down"] > .modal-dialog__panel {
+  border-block-start: 1px solid var(--color-border);
+  border-block-end: 3px solid var(--color-status);
+}
+
+.modal-dialog--grown.modal-dialog--warning[data-grow="down"] > .modal-dialog__panel {
+  border-block-end-color: var(--color-warning);
+}

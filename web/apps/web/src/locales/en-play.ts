@@ -40,7 +40,7 @@ export const enPlay = {
     skipPreview: "Skip preview",
     skipCredits: "Skip credits",
     where: "Where the film stands",
-    endsAt: "Ends at {{time}}",
+    endsAt: "Ends: {{time}}",
     mute: "Mute",
     unmute: "Sound on",
     seekedForward: "+{{seconds}}",
@@ -134,7 +134,7 @@ export const enPlay = {
       unit: "ms",
       cannotEarlier:
         "This film plays as its own file, whose sound cannot be played earlier here; a streamed copy's can.",
-      timing: "Timing",
+      timing: "Sound timing",
       thisDevice: "This device",
       thisDeviceEarlier: "This device earlier",
       thisDeviceLater: "This device later",

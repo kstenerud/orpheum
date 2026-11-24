@@ -6,20 +6,36 @@ import "./cast-words.ts";
 
 import {
   leaderOf,
+  type components,
   type CastSending,
   type PlaybackReport,
   type TogetherSnapshot,
 } from "@orpheum/sdk";
-import { useEffect, useMemo, useRef, useState, type JSX, type RefObject } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type JSX,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 import { tabStorage } from "./browser-storage.ts";
 import { noOverlay, RemoteMenus, useRemotePrevious } from "./cast-remote-choices.tsx";
-import { listMyCasts, moveCastOn, myCastsKey } from "./cast.ts";
+import { listMyCasts, moveCastOn, myCastsKey, type Cast } from "./cast.ts";
 import { useLeavesFullScreen } from "./film-fullscreen.ts";
 import { useShowsARemote } from "./hidden-need.ts";
-import type { PlayerControl, PlayerSource } from "./player-controls.tsx";
+import type { PlayerControl, PlayerSource, SequenceMoves } from "./player-controls.tsx";
+import { EndsAt, leftMsOf } from "./convenience-area.tsx";
+import { readTitle, titleKey } from "./item-detail.ts";
+import { Poster, WideArt } from "./poster.tsx";
+import { useOverlayMeasured } from "./overlay-measure.ts";
 import { OverlayRowsOf, SignsOverTheFilm } from "./player-overlay.tsx";
+import { CastFrame } from "./cast-frame.tsx";
+import { RemoteSkipOffer, useFileSegments } from "./cast-segments.tsx";
+import { OverlayUp, PlayUpwardContext, usePlayUpward } from "./play-up.tsx";
 import { useLatest } from "./latest.ts";
 import { useLive } from "./live.tsx";
 import { homeTold } from "./notice.ts";
@@ -30,9 +46,15 @@ import { usePositionNow, useRemoteSource } from "./session-remote.tsx";
 import { useMembership } from "./together-membership.ts";
 import { TogetherBehindTheRemote } from "./together-on-the-remote.tsx";
 import { useAroundFile, type AroundFile, type UpNext } from "./around-file.ts";
+import { creditsStartOf } from "./segments.tsx";
 import { offerState, UpNextCard, useLeavesForThePageAbove } from "./up-next.tsx";
-import { useResource } from "./use-resource.ts";
+import { useResource, type Resource } from "./use-resource.ts";
 import { useTogether } from "./use-together.ts";
+
+/** A title's pictures, as its detail names them. */
+type ArtBody = components["schemas"]["ArtBody"];
+type TitleBody = components["schemas"]["ItemBody"];
+type PlaysBody = components["schemas"]["PlaysBody"];
 
 /**
  * Plays the page's film here again, from atMs, or where the person left it where undefined, paused
@@ -47,9 +69,9 @@ export type PlaysHereFrom = (atMs: number | undefined, isPaused?: boolean) => vo
  * film back to the page (onPlayHere), as the receiver gone does, from where the receiver last stood,
  * playing or paused as it was, and with nothing on there sends the page home (D446 §2, §5); a cast the server no longer knows sends the page home, saying so in a pop-up
  * (D386 §2). Where the cast plays another film than the page's by then, the film comes back on that
- * film's Play page, in this one's place. A cast started from full screen leaves it: the remote is a
- * page, the control centre while casting, not a film (D440 §5), laid out as the full-screen overlay
- * is, with its set of controls (D444).
+ * film's Play page, in this one's place. A cast started from the browser's full screen leaves it,
+ * and the remote fills the window under the top bar instead: the player's own view, a still where
+ * the film would be, its overlay's rows over it (RemoteOf, D444).
  */
 export function CastRemote(props: {
   readonly castId: number;
@@ -130,7 +152,7 @@ function Remote(props: {
   readonly onPlayHere: PlaysHereFrom;
 }): JSX.Element | null {
   const { sent } = props;
-  const { connection, snapshot, over } = useCastSession(sent.castId);
+  const { connection, snapshot, over, casts } = useCastSession(sent.castId);
   const hosted = useHostedPanel();
   const stoodRef = useWhereItStood(hosted?.snapshot ?? snapshot);
   const playHere = usePlaysHere(sent, props.pageFileId, props.onPlayHere);
@@ -146,6 +168,7 @@ function Remote(props: {
       <RemoteOf
         sent={sent}
         cast={{ snapshot, connection }}
+        casts={casts}
         hosted={hosted}
         onAround={episodes.note}
       />
@@ -305,12 +328,13 @@ interface CastEnd extends ReopenAt {
 /**
  * The cast castId's session, joined as this device's remote by a credential read from the server for
  * it: what it says, and how it ended once it has (ended, as by Stop casting in Cast's dialog, or no
- * longer the server's).
+ * longer the server's); and this device's casts as read for it, which name its title (useCastTitle).
  */
 function useCastSession(castId: number): {
   readonly connection: ReturnType<typeof useTogether>["connection"];
   readonly snapshot: ReturnType<typeof useTogether>["snapshot"];
   readonly over: CastEnd | undefined;
+  readonly casts: Resource<readonly Cast[]>;
 } {
   const { api } = useServices();
   const token = useToken();
@@ -331,6 +355,7 @@ function useCastSession(castId: number): {
   return {
     connection,
     snapshot,
+    casts,
     over: endOf({
       endReason,
       isGone,
@@ -375,42 +400,54 @@ function receiverPlaybackIn(snapshot: TogetherSnapshot | undefined): PlaybackRep
 }
 
 /**
- * What the remote shows of what plays on the receiver, laid out as the full-screen overlay is
- * (D444, amending D440 §5): the receiver ready with nothing playing, "Ready on ‹TV›" alone (§5); or
- * the overlay's rows, its top the sign "‹film› · Playing on ‹TV›", Up next only at the episode's end
- * as over the film (upNextLeadMs) and the signs over the film, the Cast sign's dialog holding Stop
- * casting; the timeline; the bar with ⏮ (useRemotePrevious) and the overlay's menus over the
- * receiver (RemoteMenus). The bar and timeline work, while the person hosts Watch Together, that
- * session (hosted), the receiver its host's player (D364 §11), the cast's own playing nothing.
+ * What the remote shows of what plays on the receiver, the player's own view with a still where the
+ * film would be (the owner, 2026-11-23: "When casting, we show the same view we would have with a
+ * video screen, but instead of the video, we show a screenshot. Everything else is laid out the same
+ * as they would be if we were playing a video"): its stage fills the window under the top bar, kept
+ * so a person can go elsewhere (the owner, 2026-11-23), its Cast the dialog, Stop casting in it. The
+ * receiver ready with nothing playing, the top row alone, "Ready on ‹TV›"; a film
+ * playing there, the overlay's rows (RemotePlaying). The controls work, while the person hosts Watch
+ * Together, that session (hosted), the receiver its host's player (D364 §11), the cast's own playing
+ * nothing.
  */
 function RemoteOf(props: {
   readonly sent: CastSending;
   readonly cast: WorkedSession;
+  /** This device's casts as read for the cast's session (useCastSession). */
+  readonly casts: Resource<readonly Cast[]>;
   readonly hosted: WorkedSession | undefined;
   /** Told what plays around each film the cast plays, as it is read. */
   readonly onAround: (around: AroundFile) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { sent } = props;
-  if (sent.fileId === 0) {
-    return (
-      <div className="player-overlay cast-remote__overlay" data-shown="full">
-        <div className="player-overlay__row player-overlay__top">
-          <p id="cast-remote-heading" className="cast-remote__sign">
-            {t("cast.readyOn", { name: sent.receiverName })}
-          </p>
-          <SignsOverTheFilm onOpenChange={noOverlay} />
+  return (
+    <div className="film-player__stage cast-remote__stage">
+      {sent.fileId === 0 ? (
+        <div className="player-overlay cast-remote__overlay" data-shown="full">
+          <div className="player-overlay__row player-overlay__top">
+            <RemoteUp sign={t("cast.readyOn", { name: sent.receiverName })} />
+          </div>
         </div>
-      </div>
-    );
-  }
-  return <RemotePlaying {...props} />;
+      ) : (
+        <RemotePlaying {...props} />
+      )}
+    </div>
+  );
 }
 
-/** The remote's rows while a film plays on the receiver (RemoteOf). */
+/**
+ * The remote's still and rows while a film plays on the receiver (RemoteOf): the film's picture
+ * where its video would be (RemotePicture); over it the full-screen overlay's rows, always shown, by
+ * the player's own measure, a phone's layout on a phone or where the bar would run past the stage's
+ * edge (the owner, 2026-11-23: "they should be using the same code for laying things out"): its top
+ * (RemoteTop), the scrub bar, ⏮ ⟲ ⏯ ⟳ ⏭ (useRemoteMoves), the menus over the receiver (RemoteMenus)
+ * and the signs over the film where the top bar is hidden, as over a film here.
+ */
 function RemotePlaying(props: {
   readonly sent: CastSending;
   readonly cast: WorkedSession;
+  readonly casts: Resource<readonly Cast[]>;
   readonly hosted: WorkedSession | undefined;
   readonly onAround: (around: AroundFile) => void;
 }): JSX.Element {
@@ -424,37 +461,74 @@ function RemotePlaying(props: {
       onAround(around);
     }
   }, [around, onAround]);
-  const moves = useRemotePrevious(sent, around?.previous);
+  const moves = useRemoteMoves(sent, around);
   // How the receiver plays and sounds is said in the cast's session, and its sound chosen there,
   // whatever else it plays in (the owner, 2026-11-06: "It shouldn't be watch together's business at
   // all which TV has what offset or playback characteristics").
   const playback = receiverPlaybackIn(props.cast.snapshot);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const isPhone = useOverlayMeasured(overlayRef, "full");
+  const title = useCastTitle(props.casts, sent.castId, sent.fileId);
+  const upward = usePlayUpward(title === undefined ? undefined : playsOf(title), title?.name);
   return (
-    <div className="player-overlay cast-remote__overlay" data-shown="full">
-      <OverlayRowsOf
-        top={<RemoteTop sent={sent} source={source} upNext={around?.upNext} />}
-        source={source}
-        controls={remoteControls}
-        moves={moves}
-        menus={
-          <>
-            <RemoteMenus playback={playback} connection={props.cast.connection} />
-            <SignsOverTheFilm onOpenChange={noOverlay} />
-          </>
-        }
-        isOverTheFilm={false}
-      />
-    </div>
+    <PlayUpwardContext value={title === undefined ? undefined : upward}>
+      <RemotePicture fileId={sent.fileId} atMs={source.atMs} art={title?.art} />
+      <div
+        ref={overlayRef}
+        className="player-overlay cast-remote__overlay"
+        data-shown="full"
+        data-layout={isPhone ? "phone" : undefined}
+      >
+        <OverlayRowsOf
+          top={<RemoteTop sent={sent} source={source} upNext={around?.upNext} />}
+          source={source}
+          controls={remoteControls}
+          moves={moves}
+          menus={
+            <>
+              <RemoteMenus playback={playback} connection={props.cast.connection} />
+              <SignsOverTheFilm onOpenChange={noOverlay} />
+            </>
+          }
+          isOverTheFilm={false}
+        />
+      </div>
+    </PlayUpwardContext>
   );
 }
 
-/** The remote's bar: the overlay's, ⏮ leading it where there is a previous (D440 §5). */
-const remoteControls: readonly PlayerControl[] = ["previous", "steps", "play"];
+/**
+ * The remote's ⏮ ⟲ ⏯ ⟳ ⏭: the overlay row's, ⏮ where there is a previous (D440 §5) and ⏭ where
+ * there is a next, as the player's are (the owner, 2026-11-23: "as similar as possible").
+ */
+const remoteControls: readonly PlayerControl[] = ["previous", "steps", "play", "next"];
 
 /**
- * The remote's top row, as the overlay's over the film: the film's sign and Up next at its end; the
- * signs over the film (the Cast sign, Watch Together's) end its buttons row, as the overlay's do
- * (D538 §7).
+ * The remote's ⏮ and ⏭: ⏮ plays the previous episode in the cast (useRemotePrevious), ⏭ moves the
+ * cast on to the next, as its Up next does, where one can play next.
+ */
+function useRemoteMoves(sent: CastSending, around: AroundFile | undefined): SequenceMoves {
+  const { api } = useServices();
+  const previous = useRemotePrevious(sent, around?.previous);
+  const upNext = around?.upNext;
+  if (upNext === undefined || upNext.episode.unavailable !== undefined) {
+    return previous;
+  }
+  return {
+    ...previous,
+    next: () => {
+      moveCastOn(api, sent.castId).catch(() => undefined); // the cast goes on as it was
+    },
+  };
+}
+
+/**
+ * The remote's top row, as the overlay's over the film: the player's way up (PlayUpwardContext, from
+ * the cast's title), under it where it plays and when it ends on one line (RemoteUp; the owner,
+ * 2026-11-23: "It then shows "On: <device>" and "Ends: xyz" on the next line"); the convenience area
+ * at its end, as the player's (PlayersOffers, D546): Up next from the film's credits, or its fixed
+ * lead where it has none (RemoteUpNext), else the skip of the segment the cast is in, Skip credits
+ * left to Up next where an episode plays next (RemoteSkipOffer), its press seeking the cast past it.
  */
 function RemoteTop(props: {
   readonly sent: CastSending;
@@ -462,25 +536,160 @@ function RemoteTop(props: {
   readonly upNext: UpNext | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { sent, source } = props;
+  const { sent, source, upNext } = props;
+  const segments = useFileSegments(sent.fileId);
+  const isNextPlayable = upNext !== undefined && upNext.episode.unavailable === undefined;
   const isAtTheEnd = offerState(
-    { atMs: source.atMs, durationMs: source.durationMs, hasEnded: false },
+    {
+      atMs: source.atMs,
+      durationMs: source.durationMs,
+      hasEnded: false,
+      creditsStartMs: creditsStartOf(segments),
+    },
     { isDismissed: false, isCancelled: false },
     false,
   ).isNearTheEnd;
   return (
     <>
-      <div className="cast-remote__sign">
-        <h2 id="cast-remote-heading">{sent.itemName === "" ? t("cast.aFilm") : sent.itemName}</h2>
-        <p>{t("cast.playingOn", { name: sent.receiverName })}</p>
+      <RemoteUp sign={t("cast.on", { name: sent.receiverName })}>
+        <EndsAt leftMs={leftMsOf(source)} isShown />
+      </RemoteUp>
+      <div className="convenience-area">
+        {isAtTheEnd && isNextPlayable ? (
+          <RemoteUpNext sent={sent} upNext={upNext} />
+        ) : (
+          <RemoteSkipOffer
+            segments={segments}
+            atMs={source.atMs}
+            isCreditsLeftToUpNext={isNextPlayable}
+            onSkip={source.seekTo}
+          />
+        )}
       </div>
-      {isAtTheEnd ? (
-        <div className="convenience-area">
-          <RemoteUpNext sent={sent} upNext={props.upNext} />
-        </div>
-      ) : null}
     </>
   );
+}
+
+/**
+ * The player's way up (OverlayUp), under it on one line the remote's sign, its heading, where it
+ * plays, and what the top row adds (children): Ends, as under the way up over a film here.
+ */
+function RemoteUp(props: { readonly sign: string; readonly children?: ReactNode }): JSX.Element {
+  return (
+    <div className="player-overlay__heading">
+      <OverlayUp />
+      <div className="cast-remote__where">
+        <h2 id="cast-remote-heading" className="cast-remote__sign">
+          {props.sign}
+        </h2>
+        {props.children}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The film's picture where its video would be, as the video is drawn, the whole stage, black round
+ * it: the key frame where the receiver stands, renewed every 3 s while it moves (CastFrame, D545),
+ * and until the first has loaded, or where the node makes none, the film's art (RemoteArt).
+ */
+function RemotePicture(props: {
+  readonly fileId: number;
+  readonly atMs: number;
+  readonly art: ArtBody | undefined;
+}): JSX.Element {
+  return (
+    <CastFrame
+      fileId={props.fileId}
+      atMs={props.atMs}
+      className="cast-remote__frame"
+      fallback={<RemoteArt art={props.art} />}
+    />
+  );
+}
+
+/**
+ * The film's art as its picture: an episode's still, else its backdrop, else the still a film with
+ * no poster has, else its poster; nothing where it has none, or while it is read.
+ */
+function RemoteArt(props: { readonly art: ArtBody | undefined }): JSX.Element | null {
+  const { art } = props;
+  const wide = art?.stillSha256 ?? art?.backdropSha256 ?? art?.noPosterStillSha256;
+  if (wide !== undefined) {
+    return <WideArt sourceSha256={wide} size="landscape-l" className="cast-remote__picture" />;
+  }
+  if (art?.posterSha256 === undefined) {
+    return null;
+  }
+  return (
+    <div className="cast-remote__poster">
+      <Poster sourceSha256={art.posterSha256} />
+    </div>
+  );
+}
+
+/**
+ * The title the cast castId plays as fileId: the cast's item, as the server's list of this device's
+ * casts names it (casts, the cast's session's read), read again under its file where the cast has
+ * moved on since that read, then
+ * the title's detail, as its Title page reads it (readTitle). Undefined while read, or where the
+ * cast names no title.
+ */
+function useCastTitle(
+  casts: Resource<readonly Cast[]>,
+  castId: number,
+  fileId: number,
+): TitleBody | undefined {
+  const { api } = useServices();
+  const itemId = useCastItemId(casts, castId, fileId);
+  const [title] = useResource(
+    itemId === undefined ? "cast-art/none" : titleKey(itemId),
+    async (signal) => (itemId === undefined ? undefined : await readTitle(api, itemId, signal)),
+  );
+  return title.state === "loaded" ? title.value : undefined;
+}
+
+/**
+ * What a cast plays, title, as a Play page's playback says what it plays (PlaysBody), so the remote's
+ * way up is the player's over its film (usePlayUpward): "The caster device shows the back links just
+ * like the local video player does" (the owner, 2026-11-23). Its library is the title's first.
+ */
+function playsOf(title: TitleBody): PlaysBody {
+  const library = title.libraries?.[0];
+  return {
+    itemId: title.id,
+    kind: title.kind,
+    ...(title.episode === undefined ? {} : { episode: title.episode }),
+    ...(title.filmOfExtra === undefined ? {} : { filmOfExtra: title.filmOfExtra }),
+    ...(library === undefined ? {} : { libraryId: library.id, libraryName: library.name }),
+  };
+}
+
+/** The item the cast castId plays as fileId (useCastTitle); undefined while read, or where it names none. */
+function useCastItemId(
+  casts: Resource<readonly Cast[]>,
+  castId: number,
+  fileId: number,
+): number | undefined {
+  const { api } = useServices();
+  // The cast's session's read, which the cast started here handed its answer (D478): a reader of its
+  // own would ask the server again, the handed answer taken by the first. Read again only for
+  // another film.
+  const firstCast = sentCastIn(casts, castId);
+  const isFirstFilm = firstCast === undefined || firstCast.fileId === fileId;
+  const [again] = useResource(
+    isFirstFilm ? "cast-item/first" : `${myCastsKey(castId)}/file/${String(fileId)}`,
+    async () => (isFirstFilm ? [] : await listMyCasts(api)),
+  );
+  const cast = sentCastIn(isFirstFilm ? casts : again, castId);
+  return cast?.fileId === fileId && cast.itemId !== 0 ? cast.itemId : undefined;
+}
+
+/** The cast castId this device sends, as the list read says it; undefined while read, or without it. */
+function sentCastIn(casts: Resource<readonly Cast[]>, castId: number): Cast | undefined {
+  return casts.state === "loaded"
+    ? casts.value.find((each) => each.castId === castId && each.isSender)
+    : undefined;
 }
 
 /**
@@ -499,7 +708,7 @@ function useHostedPanel(): WorkedSession | undefined {
 }
 
 /**
- * The remote's Up next: the cast's film's next episode, the Up next card with no count (UpNextCard,
+ * The remote's Up next, near the film's end as over the film (upNextLeadMs, RemoteTop): the cast's film's next episode, the Up next card with no count (UpNextCard,
  * D538 §1), which moves the cast on to it, the receiver handed it (plans/up-next.md), with no ✕ to
  * put it away (the owner, 2026-11-23): on the remote's own page it covers no film, and it goes as
  * the cast moves on or the film is moved back from its end; nothing where none can play next.

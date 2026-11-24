@@ -19,6 +19,7 @@ import {
   buttonNamed,
   buttonWithText,
   click,
+  fire,
   mount,
   refusal,
   servedBy,
@@ -154,10 +155,9 @@ it("has Cast's sign open its dialog over the page, which stays where it is, offe
   await settleUntil(() => dialog.textContent.includes("None of your other devices"));
   expect(dialog.textContent).toContain("Cast to");
   expect(services.navigation.route()).toEqual({ screen: "play", fileId: 9 });
-  await act(async () => {
-    buttonNamed(dialog, "Done")?.click();
-    await Promise.resolve();
-  });
+  // No Done (the owner, 2026-11-23: "The cast menu doesn't need a 'Done' button"): Escape closes it.
+  expect(buttonNamed(dialog, "Done")).toBeUndefined();
+  await fire(dialog, new Event("cancel", { cancelable: true }));
   expect(document.querySelector("dialog[open]")).toBeNull();
   expect(services.navigation.route()).toEqual({ screen: "play", fileId: 9 });
 });
@@ -199,10 +199,10 @@ it("has Cast's sign over the film open its dialog in the player, telling the ove
   }
   await settleUntil(() => dialog.textContent.includes("None of your other devices"));
   expect(opens).toEqual([true]);
-  await act(async () => {
-    buttonNamed(dialog, "Done")?.click();
-    await Promise.resolve();
-  });
+  // Grown out of its sign, as the menus over the film are (the owner, 2026-11-23).
+  expect(dialog.classList.contains("modal-dialog--grown")).toBe(true);
+  expect(buttonNamed(dialog, "Done")).toBeUndefined();
+  await fire(dialog, new Event("cancel", { cancelable: true }));
   expect(document.querySelector("dialog[open]")).toBeNull();
   expect(opens).toEqual([true, false]);
   expect(services.navigation.route()).toEqual({ screen: "play", fileId: 9 });
@@ -382,7 +382,7 @@ it("forgets, at each test's mount, the hosted details an earlier test's tray fet
   expect(heldAnswer(hostedDetailsKey(17))).toBeUndefined();
 });
 
-it("turns Cast's sign blue while this device casts, naming the receiver and what plays, its dialog saying so, with the way back to the film and Stop casting (D364 §7; D384 §2)", async () => {
+it("turns Cast's sign blue while this device casts, naming the receiver and what plays, leading to the film's remote, whose sign opens the dialog saying where, with Stop casting (D364 §7; D384 §2)", async () => {
   const server = fakeTogetherServer();
   const heard: Heard[] = [];
   const services = {
@@ -415,14 +415,24 @@ it("turns Cast's sign blue while this device casts, naming the receiver and what
   expect(sign("Casting to Fire TV, ready")).toEqual({ isOn: true, href: null });
   await server.say({ type: "sending", sending: casting });
   expect(sign("Casting Metropolis to Fire TV")).toEqual({ isOn: true, href: null });
-  const dialog = await openDialogOf("Casting Metropolis to Fire TV");
-  expect(dialog.textContent).toContain("Playing Metropolis on Fire TV");
+  // The owner, 2026-11-23: "the cast button in the top bar no longer shows a submenu, but rather
+  // brings us back to the casting page": the film's Play page, the cast's remote.
   await act(async () => {
-    buttonWithText(dialog, "Back to the film")?.click();
+    mounted?.container
+      .querySelector<HTMLButtonElement>(
+        '.status-tray button[aria-label="Casting Metropolis to Fire TV"]',
+      )
+      ?.click();
     await Promise.resolve();
   });
   expect(services.navigation.route()).toEqual({ screen: "play", fileId: 3 });
+  expect(document.querySelector("dialog[open]")).toBeNull();
+  // On its page already, the sign opens the dialog.
   const again = await openDialogOf("Casting Metropolis to Fire TV");
+  expect(services.navigation.route()).toEqual({ screen: "play", fileId: 3 });
+  // Its dialog says only where the film plays (the owner, 2026-11-23: "only where we're casting to").
+  expect(again.querySelector("#cast-on-heading")?.textContent).toBe("Playing on Fire TV");
+  expect(again.textContent).not.toContain("Metropolis");
   expect(buttonWithText(again, "Back to the film")).toBeUndefined(); // on its page already
   await act(async () => {
     buttonWithText(again, "Stop casting")?.click();

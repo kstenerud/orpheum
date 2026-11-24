@@ -349,7 +349,9 @@ describe("the sound-on Pill (D538 §1, player-spec's Turning the sound on)", () 
       await shown();
       const box = soundOn().getBoundingClientRect();
       expect(Math.abs((box.left + box.right) / 2 - window.innerWidth / 2)).toBeLessThan(2);
-      expect(Math.round(box.top)).toBe(16); // --space-4
+      // On a phone under the overlay's top row, whose way up it covered (the owner, 2026-11-24); else
+      // at --space-4.
+      expect(Math.round(box.top)).toBe(isPhoneLaidOut() ? topRowDropPx() + 8 : 16);
       expect(Math.round(box.height)).toBeGreaterThanOrEqual(44);
       const pill = document.elementFromPoint(
         (box.left + box.right) / 2,
@@ -373,6 +375,11 @@ describe("the sound-on Pill (D538 §1, player-spec's Turning the sound on)", () 
       expect(isRingShown()).toBe(true);
       await userEvent.keyboard("{Enter}");
       expect(pressed).toHaveLength(3);
+      // On a phone, under the top row, the Pill is a finger's and Tab's alone: arrows search the
+      // overlay's own buttons first, and a phone's layout is touch's (the owner, 2026-11-24).
+      if (isPhoneLaidOut()) {
+        return;
+      }
       const input = startInput({ goBack: () => false, isNavigating: () => true });
       try {
         overlay().querySelector<HTMLElement>(".player-overlay__up")?.focus();
@@ -386,6 +393,18 @@ describe("the sound-on Pill (D538 §1, player-spec's Turning the sound on)", () 
     });
   }
 });
+
+/** Whether the overlay drawn lays itself out as a phone's (overlay-measure.ts). */
+function isPhoneLaidOut(): boolean {
+  return overlay().getAttribute("data-layout") === "phone";
+}
+
+/** How far the overlay's top row reaches down the stage, as overlay-measure.ts sets it, in px. */
+function topRowDropPx(): number {
+  const stage = overlay().parentElement;
+  const dropPx = Number.parseFloat(stage?.style.getPropertyValue("--player-overlay-drop") ?? "");
+  return Number.isNaN(dropPx) ? 0 : dropPx;
+}
 
 /** Presses each key in turn, at most six times each, until isThere holds; expects it does. */
 async function reachedBy(keys: readonly string[], isThere: () => boolean): Promise<void> {
@@ -495,8 +514,11 @@ describe("the offers in the film's top-right corner (D538 §1, player-spec's Off
         const card = document
           .querySelector(".convenience-area .offer-card")!
           .getBoundingClientRect();
-        expect(Math.round(window.innerWidth - card.right)).toBe(24); // --space-5
-        expect(Math.round(card.top)).toBe(24);
+        // At the end of the overlay's top row, laid over it (the owner's look 1, 2026-11-23): inside
+        // the overlay's own padding, a phone's --space-2 --space-3, else --space-5 --space-6.
+        const isPhone = isPhoneLaidOut();
+        expect(Math.round(window.innerWidth - card.right)).toBe(isPhone ? 12 : 32);
+        expect(Math.round(card.top)).toBe(isPhone ? 8 : 24);
         expect(card.width).toBeLessThanOrEqual(Math.min(26 * 16, window.innerWidth - 48) + 0.5);
         for (const name of named) {
           await userEvent.click(offerButton(name));

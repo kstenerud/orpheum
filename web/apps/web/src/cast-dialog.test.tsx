@@ -14,6 +14,7 @@ import { CastingLeft } from "./old-addresses.tsx";
 import {
   buttonWithText,
   click,
+  fire,
   mount,
   refusal,
   servedBy,
@@ -76,6 +77,18 @@ describe("Cast's dialog (D384 §2)", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  // The owner, 2026-11-23: "The cast menu doesn't need a 'Done' button".
+  it("draws no Done with no cast on, nothing at its foot, and Escape closes it", async () => {
+    const { live, onClose } = await opened();
+    await live.say({ type: "sending" });
+    expect(document.querySelector("dialog")).not.toBeNull();
+    expect(buttonWithText(document.body, "Done")).toBeUndefined();
+    expect(document.querySelectorAll("dialog .modal-dialog__foot button")).toHaveLength(0);
+    expect(onClose).not.toHaveBeenCalled();
+    await fire(document.querySelector("dialog"), new Event("cancel", { cancelable: true }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   // One file's bytes filed as a film and as an episode play as the title they were opened from
   // (B0 question 20): the cast the dialog starts plays the Play page's file as its route's title.
   it("starts a cast of the Play page's film as the title it was opened from", async () => {
@@ -110,7 +123,7 @@ describe("Cast's dialog (D384 §2)", () => {
     );
     await live.accept();
     await live.say({ type: "sending" });
-    await live.say({ type: "devices", deviceIds: [1, 2] });
+    await live.say({ type: "devices", deviceIds: [1, 2], inFrontDeviceIds: [1, 2] });
     await click(buttonWithText(mounted.container, "Fire TV"));
     expect(heard.find((each) => each.methodAndPath === "POST /me/casts")?.body).toMatchObject({
       toDeviceId: 2,
@@ -178,7 +191,7 @@ describe("Cast's dialog (D384 §2)", () => {
     }
   });
 
-  it("stays open over a cast on as it opened, saying what plays where", async () => {
+  it("stays open over a cast on as it opened, saying where it plays and not what (the owner, 2026-11-23)", async () => {
     const live = fakeTogetherServer();
     const onClose = vi.fn();
     /** The dialog, opened once the live connection says a cast is on. */
@@ -197,9 +210,9 @@ describe("Cast's dialog (D384 §2)", () => {
     await live.say({ type: "sending", sending });
     await live.say({ type: "sending", sending: { ...sending, fileId: 5 } });
     expect(onClose).not.toHaveBeenCalled();
-    expect(document.querySelector("dialog")?.textContent).toContain(
-      "Playing Metropolis on Fire TV",
-    );
+    // "only where we're casting to": the device, never the film's name.
+    expect(document.querySelector("#cast-on-heading")?.textContent).toBe("Playing on Fire TV");
+    expect(document.querySelector("dialog")?.textContent).not.toContain("Metropolis");
   });
 
   /** The dialog opened over a cast on, the end request answered as given; what it was told of closing. */
@@ -229,15 +242,17 @@ describe("Cast's dialog (D384 §2)", () => {
     return onClose;
   }
 
-  // dialogs-spec: while casting, its foot is Cancel then Stop casting, its main action, where focus
-  // arrives; Cancel closes it, the cast going on.
-  it("draws Cancel then Stop casting at its foot while casting, focus on Stop, and Cancel stops nothing", async () => {
+  // dialogs-spec: while casting, its foot is Stop casting alone, its main action, where focus
+  // arrives (the owner, 2026-11-23: "We don't need a cancel button here"); Escape closes it, the
+  // cast going on.
+  it("draws Stop casting alone at its foot while casting, focus on it, and Escape closes it stopping nothing", async () => {
     const heard: Heard[] = [];
     const onClose = await openedWhileCasting([200, { positionMs: 0, isPlaying: false }], heard);
     const foot = [...document.querySelectorAll("dialog .modal-dialog__foot button")];
-    expect(foot.map((each) => each.textContent)).toEqual(["Cancel", "Stop casting"]);
-    expect(document.activeElement).toBe(foot[1]);
-    await click(buttonWithText(document.body, "Cancel"));
+    expect(foot.map((each) => each.textContent)).toEqual(["Stop casting"]);
+    expect(buttonWithText(document.body, "Cancel")).toBeUndefined();
+    expect(document.activeElement).toBe(foot[0]);
+    await fire(document.querySelector("dialog"), new Event("cancel", { cancelable: true }));
     expect(onClose).toHaveBeenCalledOnce();
     expect(heard.map((each) => each.methodAndPath)).not.toContain("POST /me/casts/9/end");
   });

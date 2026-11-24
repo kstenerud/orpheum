@@ -15,3 +15,9 @@
 .sound-on-pill > .pill--action {
   pointer-events: auto;
 }
+
+/* On a phone, under the overlay's top row (overlay-measure.ts): centred at the top it covered the way
+   up, which neither a finger nor an arrow then reached cleanly (the owner, 2026-11-24). */
+.film-player__stage:has(> .player-overlay[data-layout="phone"]) .sound-on-pill {
+  inset-block-start: calc(var(--player-overlay-drop, 0px) + var(--space-2));
+}

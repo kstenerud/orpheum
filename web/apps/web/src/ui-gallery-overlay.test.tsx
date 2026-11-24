@@ -45,6 +45,26 @@ async function popUpOf(name: string): Promise<string[]> {
   );
 }
 
+/**
+ * The places an open pop-up's submenu lists once opened from its entry whose text starts with name:
+ * the shown places alone, not the entry that holds them (D490).
+ */
+async function submenuOf(name: string): Promise<string[]> {
+  const entry = [...galleryOverlay().querySelectorAll("dialog[open] .list-box li")].find(
+    (place) => place.textContent.startsWith(name) && place.querySelector("li") === null,
+  );
+  if (entry === undefined) {
+    throw new Error(`no submenu ${name}`);
+  }
+  await fire(
+    entry.querySelector('[role="button"], button') ?? entry,
+    new MouseEvent("click", { bubbles: true }),
+  );
+  return [...galleryOverlay().querySelectorAll("dialog[open] .list-box li")]
+    .filter((place) => !place.hasAttribute("hidden") && place.querySelector("li") === null)
+    .map((place) => place.textContent);
+}
+
 // The UI review's "the gallery's pop-ups per widget and its real player rows" (the UI revamp's
 // first wave, item 10).
 it("shows the player's real overlay rows over a film, each of whose menus opens its own pop-up", async () => {
@@ -54,8 +74,10 @@ it("shows the player's real overlay rows over a film, each of whose menus opens 
   const names = [...overlay.querySelectorAll('button, [role="button"]')].map((button) =>
     button.getAttribute("aria-label"),
   );
-  expect(names).toEqual(expect.arrayContaining(["Subtitles: Off", "Sound", "Settings"]));
-  expect(await popUpOf("Subtitles: Off")).toEqual(["Off", "English", "French"]);
+  // The owner, 2026-11-23: the button is named Subtitles, its choice named in its menu.
+  expect(names).toEqual(expect.arrayContaining(["Subtitles", "Sound", "Settings"]));
+  await popUpOf("Subtitles");
+  expect(await submenuOf("Subtitles: Off")).toEqual(["‹Subtitles", "Off", "English", "French"]);
   expect((await popUpOf("Sound")).join(" | ")).toContain("Sound track: English");
 });
 

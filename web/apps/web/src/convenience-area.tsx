@@ -26,8 +26,10 @@ export type OfferPiece = ComponentType<FilmParts & OfferPlace>;
  * The overlay's convenience area, at the end of its top row (D407 §1, §3;
  * plans/player-overlay.md §2.1): the offer while one is on, which shows alone while the rest of the
  * overlay is hidden, drawn in the film's top-right corner whether the rest shows or not (the owner,
- * 2026-11-09; player-overlay.css); with nothing on offer and all of the overlay shown, when the film ends ("Ends
- * at 9:41"), leftMs from its end.
+ * 2026-11-09; player-overlay.css), over what the row holds under it (the owner, 2026-11-23: "you can
+ * have longer text where it doesn't matter if it gets temporarily covered by the offer box"); where
+ * the area holds them (ends: a television's bar), when the film ends ("Ends: 9:41"), leftMs from
+ * its end, with all of the overlay shown. The overlay shows Ends under its way up instead.
  */
 export function ConvenienceArea(props: {
   readonly film: FilmParts;
@@ -35,26 +37,32 @@ export function ConvenienceArea(props: {
   readonly hasOffer: boolean;
   readonly isOverlayFull: boolean;
   readonly onOffered: (isOffered: boolean) => void;
-  readonly leftMs: number | undefined;
+  readonly ends: { readonly leftMs: number | undefined } | undefined;
   readonly areaRef: RefObject<HTMLDivElement | null>;
 }): JSX.Element {
-  const { film, offer: Offer, hasOffer, isOverlayFull, onOffered, leftMs, areaRef } = props;
+  const { film, offer: Offer, hasOffer, isOverlayFull, onOffered, ends, areaRef } = props;
   return (
-    <div ref={areaRef} className="convenience-area">
+    <div ref={areaRef} className="convenience-area" data-has-offer={hasOffer ? "" : undefined}>
+      {ends === undefined ? null : <EndsAt leftMs={ends.leftMs} isShown={isOverlayFull} />}
       {Offer === undefined ? null : (
         <Offer {...film} isOverlayFull={isOverlayFull} onOffered={onOffered} />
       )}
-      {isOverlayFull && !hasOffer ? <EndsAt leftMs={leftMs} /> : null}
     </div>
   );
 }
 
-/** When the film ends if it plays on from now, leftMs from its end; nothing while its length is not known. */
-function EndsAt(props: { readonly leftMs: number | undefined }): JSX.Element {
+/**
+ * When the film ends if it plays on from now, leftMs from its end; nothing while its length is not
+ * known. The overlay's, and the cast's remote's top row (cast-remote.tsx).
+ */
+export function EndsAt(props: {
+  readonly leftMs: number | undefined;
+  readonly isShown: boolean;
+}): JSX.Element {
   const { t, i18n } = useTranslation();
   const { leftMs } = props;
   return (
-    <span className="convenience-area__ends">
+    <span className="convenience-area__ends" data-shown={props.isShown ? "" : undefined}>
       {leftMs === undefined
         ? ""
         : t("playerControls.endsAt", { time: endsAt(leftMs, i18n.language) })}
@@ -104,4 +112,12 @@ export function useFocusAsItShows(
       buttonRef.current?.focus();
     }
   }, [isShown, isTaken, buttonRef]);
+}
+
+/** How long a film has left from where it stands; undefined while its length is not known. */
+export function leftMsOf(source: {
+  readonly atMs: number;
+  readonly durationMs: number;
+}): number | undefined {
+  return source.durationMs === 0 ? undefined : source.durationMs - source.atMs;
 }

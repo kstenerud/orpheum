@@ -23,7 +23,6 @@ import {
   type CastFilm,
 } from "./cast.ts";
 import { loadCastSender } from "./cast-sdk.ts";
-import { dateTimeText } from "./date-time-text.ts";
 import { useShowsDebugTools } from "./debug-tools.tsx";
 import {
   castToAGoogleCastDevice,
@@ -54,16 +53,15 @@ interface CastTargetsProps {
 }
 
 /**
- * Setting a cast up (D364 §1, §2; D337 §2): the person's other devices open now, each by its name and
- * when it was last used, read again as that set changes; one chosen starts a session with it, playing
+ * Setting a cast up (D364 §1, §2; D337 §2): the person's other devices that can take a cast now,
+ * each by its kind and name alone, read again as that set changes; one chosen starts a session with it, playing
  * film, the video this device played as the person came here, if any (film), from where it stood.
  * The device takes it at once, asking nothing (D468 §1), and this page says it is asking until it
  * has: its taking makes the session the server's and the live connection says so (useLive's
  * sending); a cast ended first, never taken, is said in a line. A cast this device sends unanswered that
  * this page is not waiting on, the dialog closed while it asked, shows asking too, to be cancelled
- * (AskingWithCancel). A device with no Orpheum tab in front says so, and a cast to it is refused
- * with what to do (D338 §2). A device receiving a cast is shown unavailable, and a cast to it,
- * raced, is refused with its name (D386 §1). The device casting to this one is not listed, and a cast
+ * (AskingWithCancel). A device with no Orpheum tab in front, or receiving a cast, is not listed,
+ * and a cast to it, raced, is refused with what to do (D338 §2) or its name (D386 §1). The device casting to this one is not listed, and a cast
  * back to one casting here through others is refused with its name (casting_here; the owner's 11-20
  * batch, finding 6). After Chromecast, AirPlay, where this tab offers it (AirPlayEntry, D473). One
  * cast at a time (D523 §7): while the film plays on AirPlay, AirPlay alone is shown, no device and no
@@ -488,8 +486,11 @@ interface TargetStates {
 }
 
 /**
- * The devices to cast to as they are read: Loaded's words while loading or failed. The device casting
- * to this one, if any, is not listed: a cast back would close a loop.
+ * The devices to cast to as they are read: Loaded's words while loading or failed. Only a device
+ * that can take a cast now is listed (the owner, 2026-11-23: "Just show the name and type of
+ * anything currently reachable"): one with an Orpheum tab in front (D338 §2) showing no other cast
+ * (D386 §1). The device casting to this one, if any, is not listed either: a cast back would close
+ * a loop.
  */
 function Targets(props: {
   readonly devices: Resource<Device[]>;
@@ -500,15 +501,21 @@ function Targets(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const castingHereId = useLive().receiving?.fromDeviceId;
+  const { inFrontDeviceIds, receivingDeviceIds } = props.states;
   return (
     <Loaded
       resource={props.devices}
       render={(devices) => {
-        const targets = devices.filter((device) => device.id !== castingHereId);
+        const targets = devices.filter(
+          (device) =>
+            device.id !== castingHereId &&
+            inFrontDeviceIds.includes(device.id) &&
+            !receivingDeviceIds.includes(device.id),
+        );
         return targets.length === 0 ? (
           <p>{t("cast.none")}</p>
         ) : (
-          <TargetList {...props} devices={targets} />
+          <TargetList devices={targets} isStale={props.isStale} onCast={props.onCast} />
         );
       }}
     />
@@ -517,41 +524,27 @@ function Targets(props: {
 
 /**
  * The devices to cast to: each a button with the mark of the kind of cast it takes (D465 §3: the
- * laurel, or the Cast icon for a paired Chromecast) and its name, and when it was last used, or, with no Orpheum
- * tab in front, that one must be brought to the front there (D338 §2); one receiving a cast is
- * unavailable, its button disabled, until that cast ends (D386 §1).
+ * laurel, or the Cast icon for a paired Chromecast) and its name, nothing more.
  */
 function TargetList(props: {
   readonly devices: readonly Device[];
-  readonly states: TargetStates;
   readonly isStale: boolean;
   readonly onCast: (device: Device) => void;
 }): JSX.Element {
-  const { t, i18n } = useTranslation();
-  const { inFrontDeviceIds, receivingDeviceIds } = props.states;
-  const stateOf = (device: Device): string => {
-    if (receivingDeviceIds.includes(device.id)) {
-      return t("cast.showingAnother");
-    }
-    return inFrontDeviceIds.includes(device.id)
-      ? t("cast.connectedNow", { used: dateTimeText(device.lastUsedAt, i18n.language) })
-      : t("cast.noTabInFront");
-  };
   return (
     <ul className="cast-to__devices">
       {props.devices.map((device) => (
         <li key={device.id}>
           <button
             type="button"
-            disabled={props.isStale || receivingDeviceIds.includes(device.id)}
+            disabled={props.isStale}
             onClick={() => {
               props.onCast(device);
             }}
           >
             <CastKindMark kind={castKindOf(device.platform)} />
             {device.name}
-          </button>{" "}
-          <span>{stateOf(device)}</span>
+          </button>
         </li>
       ))}
     </ul>

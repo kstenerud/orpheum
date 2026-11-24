@@ -17,8 +17,9 @@
   border-radius: var(--radius-control);
 }
 
-/* The film's own slider and mute keep their look; its mark sits above them. */
-.volume-row__film .player-controls__sound--upright {
+/* The film's own slider and mute keep their look; its mark, where drawn, sits above them in the room
+   the slider keeps at its top otherwise (the owner, 2026-11-23: alone, it touched the pop-up's top). */
+.volume-row__mark + .player-controls__sound--upright {
   padding-block-start: 0;
 }
 

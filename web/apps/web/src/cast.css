@@ -8,25 +8,66 @@
   pointer-events: none;
 }
 
-/* A cast's sender, its remote (cast-remote.tsx): where the film would be, the full-screen overlay's
-   rows over it (D444), as over a film that is not drawn here. */
-.cast-remote {
-  position: relative;
-  aspect-ratio: 16 / 9;
-  max-height: 80vh;
+/* A cast's sender, its remote (cast-remote.tsx): the player's view, its stage filling the window
+   under the top bar (--banner-height, app-shell.tsx), kept so a person can go elsewhere (the owner,
+   2026-11-23), a still of the film where its video would be, the overlay's rows over it. The picture
+   is drawn as the video is: the whole stage, black round it. Nor does the page scroll under it. */
+.film-player__stage.cast-remote__stage {
+  position: fixed;
+  inset: var(--banner-height, 0) 0 0;
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  place-items: center;
   background: var(--color-video-background);
-  color: var(--color-on-video);
 }
 
-/* "‹film› · Playing on ‹TV›", or "Ready on ‹TV›": the remote's sign, first in the overlay's top row. */
+html:has(.cast-remote__stage) {
+  overflow: hidden;
+}
+
+.cast-remote__picture {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.cast-remote__poster {
+  height: 70%;
+  aspect-ratio: 2 / 3;
+}
+
+.cast-remote__poster .poster {
+  height: 100%;
+}
+
+/* The picture darkened under the controls, which a bright one hid: "the screenshots should be
+   darkened a bit so that the playback controls show up better" (the owner, 2026-11-23). The live
+   frame (CastFrame, D545) fills the stage, its still centred until the first frame has loaded. */
+.cast-frame.cast-remote__frame {
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  place-items: center;
+  filter: brightness(0.55);
+}
+
+/* Under the way up, as the player's over its film, where it plays and when it ends on one line: "On:
+   ‹TV›" and "Ends: ‹time›" (the owner, 2026-11-23). */
+.cast-remote__where {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-4);
+  min-width: 0;
+}
+
+/* "On: ‹TV›" under the way up (player-overlay__heading), one line cut short with an ellipsis. */
 .cast-remote__sign {
-  flex: 1;
+  overflow: hidden;
   margin: 0;
-}
-
-.cast-remote__sign h2,
-.cast-remote__sign p {
-  margin: 0;
+  font-size: var(--font-size-small);
+  font-weight: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* The list of devices to cast to (cast-to.tsx). */

@@ -81,28 +81,35 @@ describe("the overlay's pop-ups, laid out by a real browser", () => {
     expect(boxOf(slider).width).toBeLessThanOrEqual(boxOf(mute).width + roundingPx);
   });
 
-  // D407 §8: the timing's parts beside what they move, its label in line with the choices' text.
-  it("sets ⁝'s subtitle timing in one row, its label in line with the choices' text", async () => {
+  // D407 §8: the timing's parts beside what they move, its label in line with the choices' text. The
+  // timing is the Subtitles menu's, no longer ⁝'s (the owner, 2026-11-23).
+  it("sets the Subtitles menu's timing in one row, its label in line with the choices' text", async () => {
     await page.viewport(1280, 800);
     mounted = await mount(
       withServices(
         <PlayerTracksContext value={subtitledTracks}>
           <PlayerMenusContext value={ways}>
-            <PlayerMenus videoRef={createRef()} shown={["more"]} onOpenChange={() => undefined} />
+            <PlayerMenus
+              videoRef={createRef()}
+              shown={["subtitles"]}
+              onOpenChange={() => undefined}
+            />
           </PlayerMenusContext>
         </PlayerTracksContext>,
       ),
     );
-    await userEvent.click(page.getByRole("button", { name: "Settings" }));
-    const startOver = drawnIn("dialog .list-box__option");
+    await userEvent.click(page.getByRole("button", { name: "Subtitles", exact: true }));
+    const find = [...document.querySelectorAll("dialog .list-box__option")].find(
+      (each) => each.textContent === "Find subtitles…",
+    );
     const label = [...document.querySelectorAll("dialog .stepper__label")].find(
       (each) => each.textContent === "Subtitle timing",
     );
     const earlier = page.getByRole("button", { name: "Subtitles earlier" }).element();
     const later = page.getByRole("button", { name: "Subtitles later" }).element();
     const field = page.getByRole("textbox", { name: /^Subtitle timing, in seconds/u }).element();
-    expect(startOver.textContent).toBe("Start over");
-    const choiceTextLeft = boxOf(startOver).left + sidesOf(startOver, "padding") / 2;
+    expect(find).toBeDefined();
+    const choiceTextLeft = boxOf(find).left + sidesOf(find ?? null, "padding") / 2;
     expect(boxOf(label).left).toBeCloseTo(choiceTextLeft, 0);
     const middle = (box: DOMRect): number => box.top + box.height / 2;
     for (const part of [field, later]) {
@@ -113,14 +120,15 @@ describe("the overlay's pop-ups, laid out by a real browser", () => {
   });
 
   // The plan's "A video's own sound offset": ⁝'s Later was out of a remote's reach, three buttons
-  // with no row; a stepper's row takes Left and Right along it (D538 §9).
-  it("reaches ⁝'s subtitle timing's Later by a remote's Right, and steps it by OK, at 360, 1280 and 1920 wide", async () => {
+  // with no row; a stepper's row takes Left and Right along it (D538 §9). The timing is the
+  // Subtitles menu's now (the owner, 2026-11-23).
+  it("reaches the Subtitles menu's timing's Later by a remote's Right, and steps it by OK, at 360, 1280 and 1920 wide", async () => {
     const input = startInput({ goBack: () => false, isNavigating: () => true });
     try {
       for (const width of [360, 1280, 1920]) {
         await page.viewport(width, 800);
         mounted = await mount(withServices(<LiveSubtitleOffset />));
-        await userEvent.click(page.getByRole("button", { name: "Settings" }));
+        await userEvent.click(page.getByRole("button", { name: "Subtitles", exact: true }));
         const field = page
           .getByRole("textbox", { name: /^Subtitle timing, in seconds/u })
           .element() as HTMLInputElement;
@@ -259,8 +267,14 @@ describe("Subtitles and Sound track, opened by a remote's OK", () => {
     await expect.poll(() => document.querySelector("dialog .list-box") !== null).toBe(true);
   }
 
-  it("opens Subtitles on its current choice, a choice above and below it in view", async () => {
+  it("opens the Subtitles menu's Subtitles on its current choice, a choice above and below it in view", async () => {
     await openedByOk("Subtitles", manyTracks({ subtitleKey: "s19", audioStreamId: 80 }));
+    // The menu holds the tracks in its Subtitles submenu, beside the timing (the owner, 2026-11-23).
+    const subtitles = [...document.querySelectorAll<HTMLElement>("dialog .list-box li")].find(
+      (place) => place.textContent.startsWith("Subtitles") && place.querySelector("li") === null,
+    );
+    (subtitles?.querySelector<HTMLElement>('[role="button"], button') ?? subtitles)?.click();
+    await expect.poll(() => document.activeElement?.textContent).toBe("English · Track 19");
     const shown = focusedAndNeighbours();
     expect(shown.text).toBe("English · Track 19");
     expect(shown.isCurrent).toBe(true);
@@ -373,7 +387,7 @@ function drawnIn(selector: string): Element {
   return element;
 }
 
-/** A film's tracks with two subtitle tracks, so ⁝ holds their offset; it chooses nothing. */
+/** A film's tracks with two subtitle tracks, so Subtitles holds their offset; it chooses nothing. */
 const subtitledTracks: PlayerTracks = {
   subtitles: {
     tracks: [subtitleTrack(5), subtitleTrack(7)],
@@ -390,7 +404,7 @@ const subtitledTracks: PlayerTracks = {
   boost: undefined,
 };
 
-/** ⁝ over subtitled tracks whose offset moves as the person steps it, as the player's does. */
+/** Subtitles over subtitled tracks whose offset moves as the person steps it, as the player's does. */
 function LiveSubtitleOffset(): JSX.Element {
   const [offsetMs, setOffsetMs] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -410,7 +424,7 @@ function LiveSubtitleOffset(): JSX.Element {
   return (
     <PlayerTracksContext value={tracks}>
       <PlayerMenusContext value={ways}>
-        <PlayerMenus videoRef={videoRef} shown={["more"]} onOpenChange={() => undefined} />
+        <PlayerMenus videoRef={videoRef} shown={["subtitles"]} onOpenChange={() => undefined} />
       </PlayerMenusContext>
     </PlayerTracksContext>
   );

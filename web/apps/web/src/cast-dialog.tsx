@@ -9,15 +9,14 @@ import { useTranslation } from "react-i18next";
 
 import { CastTargets } from "./cast-to.tsx";
 import { arrivalMark } from "./focus-navigation.ts";
-import { endCastRetrying, type CastFilm } from "./cast.ts";
+import type { CastFilm } from "./cast.ts";
 import { useLatest } from "./latest.ts";
 import { useLive } from "./live.tsx";
-import { DialogClose, ModalDialog } from "./modal-dialog.tsx";
+import { ModalDialog } from "./modal-dialog.tsx";
 import { isPausedHere, isTheGroupsFilmShown, positionPlayedHere } from "./playing-here.ts";
-import { problemText } from "./problem.ts";
 import { useRoute, useServices } from "./services.tsx";
-import { useRequest } from "./use-request.ts";
 import { StatusNote } from "./status-note.tsx";
+import { useCastEnding } from "./stop-casting-here.tsx";
 
 /**
  * Cast's dialog, which the tray's Cast opens over whatever page is shown and which never moves it
@@ -43,12 +42,7 @@ export function CastDialog(props: { readonly onClose: () => void }): JSX.Element
     return <CastOn sent={taken} isOnItsPage={fileId === taken.fileId} onClose={props.onClose} />;
   }
   return (
-    <ModalDialog
-      label={t("cast.page")}
-      heading={t("cast.page")}
-      onClose={props.onClose}
-      footer={<DialogClose onClose={props.onClose} />}
-    >
+    <ModalDialog label={t("cast.page")} heading={t("cast.page")} onClose={props.onClose}>
       {isSendingKnown ? (
         <CastTargets film={film} onAirPlayPressed={props.onClose} />
       ) : (
@@ -74,68 +68,39 @@ function useClosesOnceTaken(takenCastId: number | undefined, onClose: () => void
 }
 
 /**
- * The cast this device sends, in Cast's dialog: what plays on which device and the way to its film's
- * page where that is not the page shown; at its foot Cancel, then Stop casting, its main action and
- * where focus arrives (dialogs-spec), which brings the film back to that page where it is shown
- * (play.tsx's PlayOrSendOn). Stop is tried once more where its first try fails, and
- * closes the dialog once the cast is over; failing twice, it says why and the dialog stays, to try
- * again (principles §28: it hid the failure, the cast going on as the person took it for stopped).
+ * The cast this device sends, in Cast's dialog: on which device it plays, never what plays (the
+ * owner, 2026-11-23: "only where we're casting to"), and the way to its film's page where that is
+ * not the page shown; at its foot Stop casting alone, its main action and where focus arrives
+ * (dialogs-spec), with no Cancel (the owner: "We don't need a cancel button here"; Escape and a
+ * press outside still close it), which brings the film back to that page where it is shown
+ * (play.tsx's PlayOrSendOn). Stop is tried once more where its first try fails, and closes the
+ * dialog once the cast is over; failing twice, it says why and the dialog stays, to try again
+ * (principles §28: it hid the failure, the cast going on as the person took it for stopped).
  */
-/** The foot of the dialog while casting: Cancel, then Stop casting, where focus arrives. */
-function CastOnFoot(props: {
-  readonly isBusy: boolean;
-  readonly onCancel: () => void;
-  readonly onStop: () => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <>
-      <button type="button" onClick={props.onCancel}>
-        {t("dialog.cancel")}
-      </button>
-      <button type="button" disabled={props.isBusy} {...arrivalMark} onClick={props.onStop}>
-        {t("cast.stop")}
-      </button>
-    </>
-  );
-}
-
 function CastOn(props: {
   readonly sent: CastSending;
   readonly isOnItsPage: boolean;
   readonly onClose: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { api, navigation } = useServices();
+  const { navigation } = useServices();
   const { sent, onClose } = props;
   const name = sent.receiverName;
-  const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
+  const { isBusy, problem, end } = useCastEnding(sent.castId, "stopped", onClose);
   return (
     <ModalDialog
       label={t("cast.page")}
       heading={t("cast.page")}
       onClose={onClose}
       footer={
-        <CastOnFoot
-          isBusy={isBusy}
-          onCancel={onClose}
-          onStop={() => {
-            runRequest(async () => {
-              await endCastRetrying(api, sent.castId, "stopped");
-              onClose();
-            });
-          }}
-        />
+        <button type="button" disabled={isBusy} {...arrivalMark} onClick={end}>
+          {t("cast.stop")}
+        </button>
       }
     >
       <section className="cast-on" aria-labelledby="cast-on-heading">
         <h3 id="cast-on-heading">
-          {sent.fileId === 0
-            ? t("cast.readyOn", { name })
-            : t("cast.playingFilmOn", {
-                film: sent.itemName === "" ? t("cast.aFilm") : sent.itemName,
-                name,
-              })}
+          {sent.fileId === 0 ? t("cast.readyOn", { name }) : t("cast.playingOn", { name })}
         </h3>
         {sent.fileId === 0 || props.isOnItsPage ? null : (
           <div className="cast-on__buttons">

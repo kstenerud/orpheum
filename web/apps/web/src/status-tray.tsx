@@ -4,7 +4,7 @@ import "./status-tray.css";
 
 import type { CastSending, CastToReceive } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
-import { useEffect, useState, type JSX } from "react";
+import { useEffect, useRef, useState, type JSX, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useIsOnAirPlay } from "./airplay-here.ts";
@@ -24,6 +24,7 @@ import { closeTrayDialog, openTrayDialog, useTrayDialog } from "./tray-dialog.ts
 import { useMembership } from "./together-membership.ts";
 import { TogetherDialog } from "./together-dialog-code.tsx";
 import { CastDialog, useLoadsTrayDialogsAhead } from "./tray-dialog-code.tsx";
+import { GrownFromOpener } from "./popover.tsx";
 import { LaterScreen } from "./screen-load.tsx";
 import { signMark } from "./sign-mark.tsx";
 import { useResource } from "./use-resource.ts";
@@ -92,9 +93,11 @@ function TogetherSign(props: {
   const { t } = useTranslation();
   usePrefetchedHostedDetails();
   const isOn = props.isHosting || props.isViewing;
+  const openerRef = useRef<HTMLButtonElement>(null);
   return (
     <>
       <IconButton
+        ref={openerRef}
         label={t(isOn ? "status.togetherOn" : "status.together")}
         icon={<TogetherIcon />}
         mark={signMark(isOn)}
@@ -103,9 +106,11 @@ function TogetherSign(props: {
         }}
       />
       {useTrayDialog() === "together" ? (
-        <LaterScreen resetKey="together-dialog">
-          <TogetherDialog onClose={closeTrayDialog} />
-        </LaterScreen>
+        <GrownFromOpener openerRef={openerRef} tab={<TogetherIcon />}>
+          <LaterScreen resetKey="together-dialog">
+            <TogetherDialog onClose={closeTrayDialog} />
+          </LaterScreen>
+        </GrownFromOpener>
       ) : null}
     </>
   );
@@ -114,25 +119,59 @@ function TogetherSign(props: {
 /**
  * Cast's sign (D364 §13, D384 §2): it opens Cast's dialog over the page, to choose a device or stop,
  * and never moves the page; blue while a cast is on, named by its receiver and what plays, or, on the
- * device cast to, by the device casting.
+ * device cast to, by the device casting. While a film plays on the receiver it goes to that film's
+ * Play page instead, the cast's remote, whose Cast sign over the film opens the dialog (the owner,
+ * 2026-11-23: "the cast button in the top bar no longer shows a submenu, but rather brings us back to
+ * the casting page"); with nothing on there, the dialog, to stop or choose.
  */
 function CastSign(props: {
   readonly sending: CastSending | undefined;
   readonly receiving: CastToReceive | undefined;
 }): JSX.Element {
+  const openerRef = useRef<HTMLButtonElement>(null);
+  const toTheRemote = useToTheRemote(props.sending);
   return (
     <>
       <CastSignButton
+        openerRef={openerRef}
         sending={props.sending}
         receiving={props.receiving}
         isOverVideo={false}
         onOpen={() => {
-          openTrayDialog("cast");
+          if (toTheRemote?.() !== true) {
+            openTrayDialog("cast");
+          }
         }}
       />
-      {useTrayDialog() === "cast" ? <CastDialogLoaded onClose={closeTrayDialog} /> : null}
+      {useTrayDialog() === "cast" ? (
+        <GrownFromOpener openerRef={openerRef} tab={<CastIcon />}>
+          <CastDialogLoaded onClose={closeTrayDialog} />
+        </GrownFromOpener>
+      ) : null}
     </>
   );
+}
+
+/**
+ * The way to the remote of the cast this device sends, the Play page of the film on its receiver,
+ * which is the cast's remote (cast-to.tsx's PlayOrSendOn), true where it went there; false where the
+ * page shown is it already, whose Cast is the dialog, Stop casting in it. Undefined while nothing
+ * plays there, or this device sends no cast.
+ */
+function useToTheRemote(sending: CastSending | undefined): (() => boolean) | undefined {
+  const { navigation } = useServices();
+  if (sending === undefined || sending.fileId === 0) {
+    return undefined;
+  }
+  const { fileId } = sending;
+  return () => {
+    const shown = navigation.route();
+    if (shown.screen === "play" && shown.fileId === fileId) {
+      return false;
+    }
+    navigation.go({ screen: "play", fileId });
+    return true;
+  };
 }
 
 /**
@@ -146,6 +185,7 @@ export function CastSignOverTheFilm(props: {
 }): JSX.Element {
   const { sending, receiving } = useLive();
   const [isOpen, setIsOpen] = useState(false);
+  const openerRef = useRef<HTMLButtonElement>(null);
   const { onOpenChange } = props;
   const openOrClose = (isNowOpen: boolean): void => {
     setIsOpen(isNowOpen);
@@ -154,6 +194,7 @@ export function CastSignOverTheFilm(props: {
   return (
     <span className="player-overlay__cast">
       <CastSignButton
+        openerRef={openerRef}
         sending={sending}
         receiving={receiving}
         isOverVideo
@@ -162,11 +203,13 @@ export function CastSignOverTheFilm(props: {
         }}
       />
       {isOpen ? (
-        <CastDialogLoaded
-          onClose={() => {
-            openOrClose(false);
-          }}
-        />
+        <GrownFromOpener openerRef={openerRef} tab={<CastIcon />}>
+          <CastDialogLoaded
+            onClose={() => {
+              openOrClose(false);
+            }}
+          />
+        </GrownFromOpener>
       ) : null}
     </span>
   );
@@ -183,21 +226,24 @@ export function castSignOverTheFilm(onOpenChange: (isOpen: boolean) => void): JS
  * too while this tab's film plays on AirPlay, saying so (D523 §6).
  */
 function CastSignButton(props: {
+  /** The button, which the dialog over the film grows out of (GrownFromContext). */
+  readonly openerRef?: Ref<HTMLButtonElement> | undefined;
   readonly sending: CastSending | undefined;
   readonly receiving: CastToReceive | undefined;
   readonly isOverVideo: boolean;
   readonly onOpen: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { sending, receiving } = props;
+  const { openerRef, sending, receiving, isOverVideo, onOpen } = props;
   const isOnAirPlay = useIsOnAirPlay();
   return (
     <IconButton
+      ref={openerRef}
       label={isOnAirPlay ? t("status.onAirPlay") : castSignLabel(t, sending, receiving)}
       icon={<CastIcon />}
       mark={signMark(isOnAirPlay || sending !== undefined || receiving !== undefined)}
-      isOverVideo={props.isOverVideo}
-      onClick={props.onOpen}
+      isOverVideo={isOverVideo}
+      onClick={onOpen}
     />
   );
 }

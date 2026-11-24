@@ -83,7 +83,7 @@ describe("a casting request still unanswered, Cast's dialog opened again", () =>
       ),
     );
     await sockets.live.accept();
-    await sockets.live.say({ type: "devices", deviceIds: [1, 2] });
+    await sockets.live.say({ type: "devices", deviceIds: [1, 2], inFrontDeviceIds: [1, 2] });
     await sockets.live.say({ type: "sending", sending: sendingToTheTv });
     return sockets;
   }

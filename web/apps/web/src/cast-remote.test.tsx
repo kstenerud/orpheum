@@ -3,16 +3,31 @@
 
 import "./i18n.ts";
 
-import { act, useState, type JSX, type ReactNode } from "react";
+import { useState, type JSX } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-
 import { CastRemote } from "./cast-remote.tsx";
 import { startCast } from "./cast.ts";
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
 import { createHiddenNeed } from "./hidden-need.ts";
 import { LiveProvider } from "./live.tsx";
-import { PlayUpwardContext } from "./play-up.tsx";
-import { currentNotice, dismissNotice } from "./notice.ts";
+import { overlayUpClass } from "./play-up.tsx";
+import {
+  openedMenu,
+  receiverSays,
+  cast,
+  wayUp,
+  signOf,
+  welcome,
+  sending,
+  catNext,
+  castOnCat,
+  pausedAt,
+  upNextCard,
+  castingRemote,
+  type RemoteShown,
+  catReads,
+  filmReads,
+} from "./test-cast-remote.tsx";
 import {
   buttonNamed,
   buttonWithText,
@@ -29,43 +44,7 @@ import {
 } from "./test-dom.tsx";
 import { useServices } from "./services.tsx";
 import { withServices } from "./test-services.tsx";
-import type { Upward } from "./upward.ts";
 import { fakeTogetherServer, liveAndSession } from "./test-together.ts";
-
-/** Opens the remote's menu whose opener's name starts with name, as over the film. */
-async function openedMenu(page: Element, name: string): Promise<void> {
-  const opener = [...page.querySelectorAll("[aria-haspopup]")].find(
-    (button) => button.getAttribute("aria-label")?.startsWith(name) === true,
-  );
-  await click(opener);
-}
-
-/** The cast's session saying its receiver, leading it, plays as playback says. */
-async function receiverSays(
-  server: ReturnType<typeof liveAndSession>["session"],
-  playback: Readonly<Record<string, unknown>>,
-): Promise<void> {
-  const receiver = { id: 7, role: "video", isLeader: true, status: "watching", playback };
-  await server.say({
-    type: "roster",
-    roster: [{ id: 2, name: "owner", isHost: true, devices: [{ id: 5, role: "panel" }, receiver] }],
-  });
-}
-
-/** The cast this device sends, as GET /me/casts lists it. */
-const cast = {
-  castId: 9,
-  isSender: true,
-  fileId: 4,
-  itemId: 2,
-  itemName: "Metropolis",
-  durationMs: 600_000,
-  senderDeviceId: 1,
-  senderName: "Pixel",
-  receiverDeviceId: 2,
-  receiverName: "Fire TV",
-  membershipCredential: "remote",
-};
 
 /** A cast started from this page, its remote drawn once starting it answered, as Play draws it. */
 function StartedHere(): JSX.Element {
@@ -86,48 +65,6 @@ function StartedHere(): JSX.Element {
   );
 }
 
-/** The remote's welcome, the receiver's film paused at a minute. */
-const welcome = {
-  type: "welcome",
-  seq: 3,
-  sessionId: 9,
-  memberId: 2,
-  deviceId: 5,
-  isHost: true,
-  rights: { canPlayPause: true, canSeek: true },
-  group: { state: "paused", positionMs: 61_000, rate: 1, fileId: 4 },
-  roster: [],
-};
-
-/** The cast's roster, its receiver's video leading it. */
-const receiverLeads = [
-  { id: 2, name: "owner", isHost: true, devices: [{ id: 6, role: "video", isLeader: true }] },
-];
-
-/** The cast this device sends, as the live connection says it, its receiver having said Use. */
-const sending = {
-  castId: 9,
-  receiverDeviceId: 2,
-  receiverName: "Fire TV",
-  fileId: 4,
-  itemName: "Metropolis",
-  durationMs: 600_000,
-  isAccepted: true,
-};
-
-/** File 4's Up next: the second episode, Cat, file 5. */
-const catEpisode = { itemId: 3, name: "Cat", groupNumber: 1, numberInGroup: 2, fileId: 5 };
-const catNext = { upNext: { episode: { ...catEpisode, isPartway: false }, ordering: "aired" } };
-
-/** The receiver's file 4 paused at positionMs, as a seek leaves it. */
-const pausedAt = (positionMs: number) => ({
-  state: "paused",
-  positionMs,
-  rate: 1,
-  fileId: 4,
-  event: "seeked",
-});
-
 describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
@@ -136,53 +73,22 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     window.sessionStorage.clear();
   });
 
-  /**
-   * The remote on film 4's Play page, its live connection saying the cast this device sends, its
-   * session joined; what it was told of playing the film here again.
-   */
+  /** The remote on film 4's Play page (castingRemote), the one this describe unmounts. */
   async function casting(
-    answers: Parameters<typeof servedBy>[0],
-    heard: Heard[] = [],
-    shown: {
-      readonly sent?: Readonly<Record<string, unknown>>;
-      readonly castSign?: () => ReactNode;
-      readonly upward?: Upward;
-    } = {},
-  ): Promise<{
-    readonly services: ReturnType<typeof servedBy>;
-    readonly sockets: ReturnType<typeof liveAndSession>;
-    readonly onPlayHere: ReturnType<typeof vi.fn>;
-  }> {
-    const services = servedBy(
-      { "GET /me/casts": [200, { casts: [cast] }], "GET /files/4/up-next": [200, {}], ...answers },
-      heard,
-      "token",
-    );
-    const sockets = liveAndSession();
+    answers: Parameters<typeof castingRemote>[0],
+    heard?: Heard[],
+    shown: RemoteShown = {},
+  ): Promise<Awaited<ReturnType<typeof castingRemote>> & { onPlayHere: ReturnType<typeof vi.fn> }> {
     const onPlayHere = vi.fn();
-    mounted = await mount(
-      withServices(
-        <CastSignOverTheFilmContext value={shown.castSign ?? (() => null)}>
-          <PlayUpwardContext value={shown.upward}>
-            <LiveProvider>
-              <CastRemote castId={9} fileId={4} onPlayHere={onPlayHere} />
-            </LiveProvider>
-          </PlayUpwardContext>
-        </CastSignOverTheFilmContext>,
-        { ...services, openTogetherSocket: sockets.openSocket },
-      ),
-    );
-    await sockets.live.accept();
-    await sockets.live.say({ type: "sending", sending: shown.sent ?? sending });
-    await sockets.session.accept();
-    await sockets.session.say(welcome);
-    return { services, sockets, onPlayHere };
+    const drawn = await castingRemote(answers, heard, { ...shown, remote: CastRemote, onPlayHere });
+    mounted = drawn.mounted;
+    return { ...drawn, onPlayHere };
   }
 
   it("opens on what starting the cast answered, asking for this device's casts no more (D478)", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
-      { "POST /me/casts": [200, cast], "GET /files/4/up-next": [200, {}] },
+      { "POST /me/casts": [200, cast], "GET /files/4/up-next": [200, {}], ...filmReads },
       heard,
       "token",
     );
@@ -242,8 +148,10 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(server.heard[0]).toMatchObject({ type: "hello", credential: "remote", role: "panel" });
     const page = mounted!.container;
     expect(page.querySelector("video")).toBeNull();
-    expect(page.textContent).toContain("Metropolis");
-    expect(page.textContent).toContain("Playing on Fire TV");
+    // The owner, 2026-11-23: the back links as the player's, under them "On: <device>".
+    await settleUntil(() => wayUp(page) !== undefined);
+    expect(wayUp(page)).toBe("Metropolis");
+    expect(signOf(page)).toBe("On: Fire TV");
     expect(page.textContent).toContain("1:01 / 10:00");
     await click(buttonNamed(page, "Play"));
     expect(server.heard.at(-1)).toMatchObject({ type: "command", command: "play" });
@@ -257,21 +165,23 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     });
   });
 
-  it("shows how the receiver plays the film in ⁝'s How it plays, as its state comes back: delivery, quality and link (D371 §4, D444)", async () => {
+  // A menu with nothing in it is not drawn (the owner, 2026-11-23): no ⁝ until the receiver says.
+  it("shows how the receiver plays the film in ⁝'s How it plays, as its state comes back: delivery, quality and link, and no ⁝ before (D371 §4, D444)", async () => {
     const { sockets } = await casting({});
     const page = mounted!.container;
-    await openedMenu(page, "Settings");
+    expect(page.querySelector("[aria-haspopup][aria-label='Settings']")).toBeNull();
     expect(page.querySelector(".how-it-plays")).toBeNull();
     await receiverSays(sockets.session, {
       delivery: "converted",
       qualityKbps: 4200,
       linkKbps: 18_000,
     });
+    await openedMenu(page, "Settings");
     expect(page.querySelector(".how-it-plays")?.textContent).toBe(
-      "Plays it converted · Quality 4.2 Mb/s · Link about 18.0 Mb/s",
+      "Playing: Converted 4.2 Mb/s · Connection: 18.0 Mb/s",
     );
     await receiverSays(sockets.session, { delivery: "direct" });
-    expect(page.querySelector(".how-it-plays")?.textContent).toBe("Plays the file as it is");
+    expect(page.querySelector(".how-it-plays")?.textContent).toBe("Playing: Original");
   });
 
   it("lays out the full-screen overlay's rows, its bar and menus, the film's name a sign, and leaves out the bare player and Start over (D444)", async () => {
@@ -283,35 +193,110 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
       picture: { subtitles: [{ key: "s1", label: "English" }], canPlayOriginal: true },
     });
     const overlay = page.querySelector(".cast-remote .player-overlay");
-    expect(overlay?.querySelector(".player-overlay__top .cast-remote__sign h2")?.textContent).toBe(
-      "Metropolis",
-    );
+    // The player's own way up and, under it, where the film plays (the owner, 2026-11-23: "as
+    // similar as possible").
+    await settleUntil(() => wayUp(page) !== undefined);
+    const heading = overlay?.querySelector(".player-overlay__top .player-overlay__heading");
+    expect(heading?.querySelector(`.${overlayUpClass}`)?.textContent).toBe("Metropolis");
+    expect(heading?.querySelector("h2.cast-remote__sign")?.textContent).toBe("On: Fire TV");
     expect(overlay?.querySelector(".player-overlay__scrub input[type=range]")).not.toBeNull();
     const openers = [
       ...(overlay?.querySelectorAll('.player-overlay__buttons :is(button, [role="button"])') ?? []),
     ].map((button) => button.getAttribute("aria-label")?.split(":")[0]);
-    expect(openers).toEqual(expect.arrayContaining(["Play", "Volume", "Subtitles", "Settings"]));
+    expect(openers).toEqual(
+      expect.arrayContaining(["Play", "Volume", "Subtitles", "Sound", "Settings"]),
+    );
+    const placesOpen = (): string[] =>
+      [...page.querySelectorAll("dialog .list-box li")].map((li) => li.textContent);
     await openedMenu(page, "Settings");
-    const places = [...page.querySelectorAll("dialog .list-box li")].map((li) => li.textContent);
-    expect(places).toContain("Level loudness");
+    const places = placesOpen();
+    // Level loudness is the Sound menu's, as the player's is (D538 §8), not ⁝'s.
+    expect(places).not.toContain("Level loudness");
     expect(places.some((place) => place.includes("Start over"))).toBe(false);
     expect(places.some((place) => place.includes("bare"))).toBe(false);
+    await openedMenu(page, "Settings"); // closes ⁝ again
+    await openedMenu(page, "Sound");
+    expect(placesOpen()).toContain("Level loudness");
   });
 
-  // D538 §7 (the owner, 2026-11-22): the signs end the buttons row, as the overlay's do.
-  it("holds the tray's Cast sign in its buttons row, whose dialog holds Stop casting, and no Stop of its own (D444)", async () => {
+  // The owner, 2026-11-23: "they should be using the same code for laying things out".
+  it("lays its overlay out as a phone's where the player's would be, a finger's on a narrow stage, and as a computer's on a wide one under a mouse", async () => {
+    const laidOutOn = async (
+      widthPx: number,
+      heightPx: number,
+      isTouch: boolean,
+    ): Promise<string | null | undefined> => {
+      const box = vi
+        .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+        .mockReturnValue(new DOMRect(0, 0, widthPx, heightPx));
+      const media = vi.spyOn(globalThis, "matchMedia").mockImplementation((query: string) => {
+        const list: MediaQueryList = {
+          matches: isTouch && query === "(pointer: coarse)",
+          media: query,
+          onchange: null,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+          addListener: () => undefined,
+          removeListener: () => undefined,
+          dispatchEvent: () => false,
+        };
+        return list;
+      });
+      try {
+        await casting({});
+        return mounted?.container
+          .querySelector(".cast-remote .player-overlay")
+          ?.getAttribute("data-layout");
+      } finally {
+        mounted?.unmount();
+        mounted = undefined;
+        box.mockRestore();
+        media.mockRestore();
+      }
+    };
+    expect(await laidOutOn(1280, 800, false)).toBeNull();
+    expect(await laidOutOn(360, 740, true)).toBe("phone");
+  });
+
+  // The owner, 2026-11-23: the remote's bar as the player's, ⏭ moving the cast on as Up next does.
+  it("moves the cast on to the next episode at ⏭, where one can play next", async () => {
+    const heard: Heard[] = [];
+    await casting(
+      {
+        "GET /files/4/up-next": [200, catNext],
+        "POST /me/casts/9/next": [200, { ...cast, fileId: 5, itemId: 3, itemName: "Cat" }],
+      },
+      heard,
+    );
+    await settleUntil(() => buttonNamed(mounted!.container, "Next episode") !== undefined);
+    expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/next")).toBe(false);
+    await click(buttonNamed(mounted!.container, "Next episode"));
+    expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/next")).toBe(true);
+  });
+
+  it("offers no ⏭ where nothing can play next", async () => {
+    await casting({});
+    await settleAnswers();
+    expect(buttonNamed(mounted!.container, "Next episode")).toBeUndefined();
+  });
+
+  // D538 §7 (the owner, 2026-11-22): the signs end the buttons row, as the overlay's do, only where
+  // the top bar is hidden (the owner, 2026-11-23); the remote's page keeps the bar, its Cast sign
+  // the one whose dialog holds Stop casting.
+  it("holds no Stop of its own, and leaves the tray's Cast sign to the top bar it keeps, as over a film in the page (D444)", async () => {
     await casting({}, [], { castSign: () => <button type="button">Cast sign</button> });
     const page = mounted!.container;
     expect(buttonWithText(page, "Stop casting")).toBeUndefined();
     const buttons = page.querySelector<HTMLElement>(".player-overlay__buttons");
-    expect(buttons === null ? undefined : buttonWithText(buttons, "Cast sign")).toBeDefined();
+    expect(buttons).not.toBeNull();
+    expect(buttons === null ? undefined : buttonWithText(buttons, "Cast sign")).toBeUndefined();
     const top = page.querySelector<HTMLElement>(".player-overlay__top");
     expect(top === null ? undefined : buttonWithText(top, "Cast sign")).toBeUndefined();
   });
 
   // A Fire TV's own controls are hidden while it is controlled, so its sound could only be changed
   // after taking control back (the owner, VQ116's run).
-  it("shows the receiver's sound in ⁝ and Sound track as it says it, and sends the person's choices of it to the receiver", async () => {
+  it("shows the receiver's sound in the Sound menu and its Sound track as it says it, and sends the person's choices of it to the receiver", async () => {
     const { sockets } = await casting({});
     const page = mounted!.container;
     const server = sockets.session;
@@ -327,13 +312,21 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     };
     await receiverSays(server, { delivery: "converted", sound });
     await openedMenu(page, "Settings");
+    expect(labelled("Dialogue boost")).toBeUndefined(); // ⁝ holds no sound setting (D538 §8)
+    expect(labelled("Level loudness")).toBeUndefined();
+    await openedMenu(page, "Settings"); // closes ⁝ again
+    await openedMenu(page, "Sound");
     expect(isSwitchOn(labelled("Dialogue boost"))).toBe(false);
     expect(isSwitchOn(labelled("Level loudness"))).toBe(true);
     await click(labelled("Dialogue boost"));
     await click(labelled("Level loudness"));
-    await openedMenu(page, "Settings"); // closes ⁝ again
-    await openedMenu(page, "Sound track");
-    const tracks = [...page.querySelectorAll('dialog .list-box [role="button"]')];
+    const shown = (): HTMLElement[] =>
+      [...page.querySelectorAll<HTMLElement>('dialog .list-box [role="button"]')].filter(
+        (each) => each.closest("[hidden]") === null,
+      );
+    await click(shown().find((each) => each.textContent === "Sound track: English›"));
+    const tracks = shown().slice(1);
+    expect(shown()[0]?.textContent).toBe("‹Sound track");
     expect(tracks.map((each) => each.textContent)).toEqual([
       "English",
       "English · Director · commentary",
@@ -350,12 +343,14 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
       delivery: "converted",
       sound: { ...sound, isBoostOn: undefined, isLevellingOn: false, audioStreamId: 2 },
     });
-    await openedMenu(page, "Settings");
+    if (page.querySelector("dialog") === null) {
+      await openedMenu(page, "Sound");
+    }
     expect(labelled("Dialogue boost")).toBeUndefined();
     expect(isSwitchOn(labelled("Level loudness"))).toBe(false);
   });
 
-  it("shows the receiver's sound timing in ⁝, and moves it a step from there for a TV that plays its sound late (the owner, 2026-11-06)", async () => {
+  it("shows the receiver's sound timing as That device under the Sound menu's Sound timing, not in ⁝, and moves it a step from there for a TV that plays its sound late (the owner, 2026-11-06)", async () => {
     // "Put a control in ... cast so that I can adjust the sound timing".
     const { sockets } = await casting({});
     const page = mounted!.container;
@@ -366,14 +361,23 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
         sound: { isLevellingOn: false, audioTracks: [], soundOffsetMs },
       });
     await said();
-    await openedMenu(page, "Settings");
+    await openedMenu(page, "Sound");
     expect(page.textContent).not.toContain("Sound there");
+    expect(page.querySelector("dialog .sound-menu__heading")).toBeNull();
     await said(-200);
+    await openedMenu(page, "Sound"); // closes it
+    await openedMenu(page, "Settings");
+    expect(page.textContent).not.toContain("Sound there"); // not ⁝'s (D538 §8)
+    await openedMenu(page, "Settings"); // closes ⁝ again
+    await openedMenu(page, "Sound");
+    expect(page.querySelector("dialog .sound-menu__heading")?.textContent).toBe("Sound timing");
+    expect(page.querySelector("dialog .stepper")?.textContent).toContain("That device");
     expect(page.textContent).toContain("Sound there: 200 ms earlier");
-    await click(buttonNamed(page, "Sound 50 ms earlier"));
+    await click(buttonNamed(page, "That device earlier"));
+    expect(page.querySelector("dialog")).not.toBeNull(); // kept open for the next step
     await said(0);
     expect(page.textContent).toContain("Sound there: in step with the picture");
-    await click(buttonNamed(page, "Sound 50 ms later"));
+    await click(buttonNamed(page, "That device later"));
     expect(server.heard.filter((each) => each["type"] === "sound")).toEqual([
       { v: 3, type: "sound", sound: { kind: "soundOffset", ms: -250 } },
       { v: 3, type: "sound", sound: { kind: "soundOffset", ms: 50 } },
@@ -399,11 +403,10 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(buttonNamed(page, "Volume")).toBeUndefined();
     await said({ level: 0.6 });
     await openedMenu(page, "Volume");
-    // The film's slider leads 🔈's row, as over the film (D440 §2), its mark saying what it sets.
+    // The film's slider leads 🔈's row, as over the film (D440 §2), with no mark while the row
+    // holds no one's voice to tell it from (the owner, 2026-11-23).
     expect(page.querySelector("dialog .volume-row > .volume-row__film")).not.toBeNull();
-    expect(page.querySelector(".volume-row__film .volume-row__mark")?.getAttribute("title")).toBe(
-      "The film's volume there, under the TV's own",
-    );
+    expect(page.querySelector(".volume-row__film .volume-row__mark")).toBeNull();
     expect(slider()?.value).toBe("60");
 
     await enter(slider(), "25");
@@ -458,19 +461,21 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
   });
 
   it("follows what plays on the receiver as the live connection says it (D364 §3)", async () => {
-    const { sockets } = await casting({ "GET /files/5/up-next": [200, {}] });
+    const { sockets } = await casting({ "GET /files/5/up-next": [200, {}], ...catReads });
+    await settleUntil(() => wayUp(mounted!.container) === "Metropolis");
     await sockets.live.say({
       type: "sending",
       sending: { ...sending, fileId: 5, itemName: "Cat" },
     });
-    expect(mounted!.container.querySelector("h2")?.textContent).toBe("Cat");
+    await settleUntil(() => wayUp(mounted!.container) !== "Metropolis");
+    expect(wayUp(mounted!.container)).toBe("S1E2 Cat");
   });
 
   it("never plays here while the cast goes on, Stop casting in Cast's dialog the one way back (D388, D444)", async () => {
     const heard: Heard[] = [];
     const { services, onPlayHere } = await casting({}, heard);
     const page = mounted!.container;
-    expect(page.textContent).toContain("Playing on Fire TV");
+    expect(signOf(page)).toBe("On: Fire TV");
     expect(page.textContent).not.toContain("Play on this device instead");
     expect(heard.map((each) => each.methodAndPath)).not.toContain("POST /me/casts/9/play");
     expect(onPlayHere).not.toHaveBeenCalled();
@@ -487,7 +492,11 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     const castSession = fakeTogetherServer();
     let opened = 0;
     const services = servedBy(
-      { "GET /me/casts": [200, { casts: [cast] }], "GET /files/4/up-next": [200, {}] },
+      {
+        "GET /me/casts": [200, { casts: [cast] }],
+        "GET /files/4/up-next": [200, {}],
+        ...filmReads,
+      },
       [],
       "token",
     );
@@ -541,9 +550,9 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
         },
       ],
     });
-    await openedMenu(mounted.container, "Settings");
+    await openedMenu(mounted.container, "Sound");
     expect(mounted.container.textContent).toContain("Sound there: 400 ms earlier");
-    await click(buttonNamed(mounted.container, "Sound 50 ms earlier"));
+    await click(buttonNamed(mounted.container, "That device earlier"));
     expect(castSession.heard.at(-1)).toMatchObject({
       type: "sound",
       sound: { kind: "soundOffset", ms: -450 },
@@ -551,198 +560,14 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(hosted.heard.some((each) => each["type"] === "sound")).toBe(false);
   });
 
-  // The owner, staging, 2026-10-30: after a Fire TV took control back, the page offered "Play here
-  // from ‹time›", its time rising on its own whatever the TV then did.
-  it("plays the film here at once from where the receiver stood, paused as it was, as control is taken back there, offering nothing (D385 §2)", async () => {
-    const { sockets, onPlayHere } = await casting({});
-    await sockets.session.say({ type: "roster", roster: receiverLeads });
-    await sockets.live.say({ type: "sending" });
-    await sockets.session.say({ type: "ended", reason: "takenBack" });
-    expect(onPlayHere).toHaveBeenCalledExactlyOnceWith(61_000, true);
-    expect(mounted!.container.textContent).not.toContain("took control back");
-    expect(buttonWithText(mounted!.container, "Play here from 1:01")).toBeUndefined();
-  });
-
-  it("plays the film of another page on that page, in this one's place, where the cast moved on to it, paused as the receiver had it", async () => {
-    const { services, sockets } = await casting({ "GET /files/5/up-next": [200, {}] });
-    await sockets.live.say({
-      type: "sending",
-      sending: { ...sending, fileId: 5, itemName: "Cat" },
-    });
-    await sockets.live.say({ type: "sending" });
-    await sockets.session.say({ type: "ended", reason: "takenBack" });
-    expect(services.navigation.route()).toEqual({
-      screen: "play",
-      fileId: 5,
-      atMs: 61_000,
-      shouldPlayHere: true,
-      isPaused: true,
-    });
-  });
-
-  // The owner, 2026-10-30: "We could just have it take over at the last known playback position once
-  // it's sure the castee is gone."
-  it("plays the film here, playing, from where the receiver last stood once it is gone, not where the clock has moved it to since (D385 §3)", async () => {
-    vi.useFakeTimers({ toFake: ["performance", "setInterval", "clearInterval"] });
-    try {
-      const { sockets, onPlayHere } = await casting({});
-      const playing = { state: "playing", positionMs: 61_000, rate: 1, fileId: 4 };
-      await sockets.session.say({ type: "group", seq: 4, group: { ...playing, event: "played" } });
-      await sockets.session.say({ type: "roster", roster: receiverLeads });
-      act(() => {
-        vi.advanceTimersByTime(5000);
-      });
-      // The receiver's connection lost: the server detaches it, and no device leads the cast.
-      await sockets.session.say({ type: "roster", roster: [] });
-      act(() => {
-        // The server sure it is gone: its minutes, shortened, as this stand-in answers no ping.
-        vi.advanceTimersByTime(20_000);
-      });
-      await sockets.live.say({ type: "sending" });
-      await sockets.session.say({ type: "ended", reason: "receiverGone" });
-      expect(onPlayHere).toHaveBeenCalledExactlyOnceWith(66_000, false);
-      expect(mounted!.container.textContent).not.toContain("was gone");
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("opens the film here paused, where the receiver had it paused, as the cast is stopped from Cast's dialog (D446 §2)", async () => {
-    const { sockets, onPlayHere } = await casting({});
-    await sockets.session.say({ type: "ended", reason: "stopped" });
-    expect(onPlayHere).toHaveBeenCalledWith(61_000, true);
-  });
-
-  it("plays the film here on, where the receiver played it, as the cast is stopped from Cast's dialog (D446 §2)", async () => {
-    const { sockets, onPlayHere } = await casting({});
-    const playing = { state: "playing", positionMs: 61_000, rate: 1, fileId: 4 };
-    await sockets.session.say({ type: "group", seq: 4, group: { ...playing, event: "played" } });
-    await sockets.session.say({ type: "ended", reason: "stopped" });
-    expect(onPlayHere).toHaveBeenCalledOnce();
-    expect(onPlayHere.mock.calls[0]?.[1]).toBe(false);
-  });
-
-  /** File 4's page's way up, its film's page, item 40's, as a Play page's Up is. */
-  const filmsPage: Upward = {
-    crumbs: [
-      {
-        label: "Metropolis",
-        to: { screen: "title", itemId: 40 },
-        isIt: (route) => route.screen === "title" && route.itemId === 40,
-      },
-    ],
-    here: "Metropolis",
-  };
-
-  it("leaves for the film's page, back to its entry, as its receiver has the cast play nothing at the film's end (the owner, 2026-11-17)", async () => {
-    // The plan file's "A film played to its end with nothing next goes back to its page", its cast
-    // part: as a local play leaves, the cast going on, ready.
-    const { services, sockets, onPlayHere } = await casting({}, [], { upward: filmsPage });
-    services.navigation.go({ screen: "title", itemId: 40 });
-    services.navigation.go({ screen: "play", fileId: 4 });
-    await sockets.live.say({ type: "sending", sending: { ...sending, fileId: 0, itemName: "" } });
-    expect(services.navigation.route()).toEqual({ screen: "title", itemId: 40 });
-    expect(onPlayHere).not.toHaveBeenCalled();
-  });
-
-  it("leaves for the episode the cast had moved on to, in its page's place, as that episode ends with nothing next", async () => {
-    // The plan file's "A film played to its end with nothing next goes back to its page", the
-    // case it left open: the cast moved on by Up next, the page above is the episode that ended.
-    const heard: Heard[] = [];
-    const { services, sockets } = await casting(
-      {
-        "GET /files/4/up-next": [200, catNext],
-        "GET /files/5/up-next": [200, {}],
-      },
-      heard,
-      { upward: filmsPage },
-    );
-    services.navigation.go({ screen: "title", itemId: 40 });
-    services.navigation.go({ screen: "play", fileId: 4 });
-    await settleUntil(() => heard.some((each) => each.methodAndPath === "GET /files/4/up-next"));
-    await sockets.live.say({
-      type: "sending",
-      sending: { ...sending, fileId: 5, itemName: "Cat" },
-    });
-    await sockets.live.say({ type: "sending", sending: { ...sending, fileId: 0, itemName: "" } });
-    expect(services.navigation.route()).toEqual({ screen: "title", itemId: 3 });
-  });
-
-  it("stays on its page as a cast that has played nothing from its start is said again", async () => {
-    const { services, sockets } = await casting({}, [], {
-      upward: filmsPage,
-      sent: { ...sending, fileId: 0, itemName: "" },
-    });
-    services.navigation.go({ screen: "play", fileId: 4 });
-    await sockets.live.say({ type: "sending", sending: { ...sending, fileId: 0, itemName: "" } });
-    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 4 });
-  });
-
-  it("goes home, playing nothing here, as a cast with nothing on is stopped (D446 §2)", async () => {
-    const { services, sockets, onPlayHere } = await casting({});
-    await sockets.live.say({ type: "sending", sending: { ...sending, fileId: 0 } });
-    await sockets.session.say({ type: "ended", reason: "stopped" });
-    expect(services.navigation.route()).toEqual({ screen: "home" });
-    expect(onPlayHere).not.toHaveBeenCalled();
-  });
-
-  it("goes home, saying in a pop-up there that the server no longer knows the cast, as its session is gone (D386 §2)", async () => {
-    const { services, sockets, onPlayHere } = await casting({});
-    await sockets.session.say({ type: "ended", reason: "gone" });
-    expect(services.navigation.route()).toEqual({ screen: "home" });
-    expect(onPlayHere).not.toHaveBeenCalled();
-    expect(buttonWithText(mounted!.container, "Play here from 1:01")).toBeUndefined();
-    const notice = currentNotice();
-    expect(notice?.text).toBe("The cast ended: the server no longer knows it.");
-    if (notice !== undefined) {
-      dismissNotice(notice);
-    }
-  });
-
-  it("goes home with no word as its cast ends with the Watch Together session it took a part in, a normal end (D389 §1)", async () => {
-    const { services, sockets, onPlayHere } = await casting({});
-    await sockets.session.say({ type: "ended", reason: "sessionEnded" });
-    expect(services.navigation.route()).toEqual({ screen: "home" });
-    expect(onPlayHere).not.toHaveBeenCalled();
-    expect(currentNotice()).toBeUndefined();
-  });
-
-  it("goes home, saying so, where the server lists the cast no more", async () => {
-    const services = servedBy(
-      { "GET /me/casts": [200, { casts: [] }], "GET /files/4/up-next": [200, {}] },
-      [],
-      "token",
-    );
-    const sockets = liveAndSession();
-    const onPlayHere = vi.fn();
-    mounted = await mount(
-      withServices(
-        <LiveProvider>
-          <CastRemote castId={9} fileId={4} onPlayHere={onPlayHere} />
-        </LiveProvider>,
-        { ...services, openTogetherSocket: sockets.openSocket },
-      ),
-    );
-    await sockets.live.accept();
-    await sockets.live.say({ type: "sending", sending });
-    await settleUntil(() => services.navigation.route().screen === "home");
-    expect(services.navigation.route()).toEqual({ screen: "home" });
-    expect(onPlayHere).not.toHaveBeenCalled();
-    const notice = currentNotice();
-    expect(notice?.text).toBe("The cast ended: the server no longer knows it.");
-    if (notice !== undefined) {
-      dismissNotice(notice);
-    }
-  });
-
   it("offers the film's Up next at its end alone, as over the film, which moves the cast on (plans/up-next.md, D444)", async () => {
     const heard: Heard[] = [];
-    const cat = { ...cast, fileId: 5, itemId: 3, itemName: "Cat", durationMs: 1_200_000 };
     const { sockets } = await casting(
       {
         "GET /files/4/up-next": [200, catNext],
         "GET /files/5/up-next": [200, {}],
-        "POST /me/casts/9/next": [200, cat],
+        "POST /me/casts/9/next": [200, castOnCat],
+        ...catReads,
       },
       heard,
     );
@@ -754,7 +579,8 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
       type: "sending",
       sending: { ...sending, fileId: 5, itemName: "Cat" },
     });
-    expect(mounted!.container.querySelector("h2")?.textContent).toBe("Cat");
+    await settleUntil(() => wayUp(mounted!.container) === "S1E2 Cat");
+    expect(wayUp(mounted!.container)).toBe("S1E2 Cat");
     expect(upNextCard(mounted!.container, "Up next: S1E2 · Cat")).toBeUndefined();
   });
 
@@ -788,10 +614,3 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(reads).toHaveLength(1);
   });
 });
-
-/** The Up next card's own button whose offer says words: the card holds its still and "Play now" too. */
-function upNextCard(container: HTMLElement, words: string): HTMLElement | undefined {
-  return [...container.querySelectorAll<HTMLElement>("button.offer-card__take")].find(
-    (each) => each.querySelector(".offer-card__offer")?.textContent === words,
-  );
-}

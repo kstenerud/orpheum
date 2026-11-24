@@ -99,7 +99,7 @@ async function castFromOneToTheOther(
     .click();
   // The receiver asks nothing (D468): it takes the cast as it is handed, so the sender hands off at
   // once, and it plays, its page pressed at sign-in.
-  await expect(sender.getByText(/^Playing on /u)).toBeVisible({ timeout: 10_000 });
+  await expect(sender.getByText(/^Playing .+ on /u)).toBeVisible({ timeout: 10_000 });
   await expect(sender.getByRole("dialog", { name: "Cast" })).toHaveCount(0); // closed once its receiver took the cast
   await expect(receiver.getByRole("dialog", { name: /wants to use this device/u })).toHaveCount(0);
   await expect(receiver.getByRole("button", { name: "Press OK to start" })).toHaveCount(0);
@@ -151,13 +151,13 @@ test(
         .getByRole("dialog", { name: "Cast" })
         .getByRole("button", { name: "Back to the film" })
         .click();
-      await expect(sender.getByText(/^Playing on /u)).toBeVisible({ timeout: 10_000 });
-      // The remote has joined its session again, which says how the receiver plays: "Playing on"
+      await expect(sender.getByText(/^Playing .+ on /u)).toBeVisible({ timeout: 10_000 });
+      // The remote has joined its session again, which says how the receiver plays: "Playing … on"
       // comes first, from the live connection, and a cast ended as the remote said hello was
       // only "over" to it, the server knowing the session no more (check-pr, 2026-10-29).
       // How it plays is a read-only entry of the remote's ⁝ (D444).
       await sender.locator(".cast-remote").getByRole("button", { name: "Settings" }).click();
-      await expect(sender.getByText(/^Plays (the file as it is|it converted)/u)).toBeVisible({
+      await expect(sender.getByText(/^Playing: /u)).toBeVisible({
         timeout: 10_000,
       });
       await sender.keyboard.press("Escape");
@@ -170,7 +170,7 @@ test(
       expect(receiver.url()).toBe(receiverAddress);
       await expect.poll(async () => await isPlaying(receiver), { timeout: 10_000 }).toBe(true);
       await expect(castSign(sender)).toHaveClass(/icon-button--running/u);
-      await expect(sender.getByText(/^Playing on /u)).toBeVisible();
+      await expect(sender.getByText(/^Playing .+ on /u)).toBeVisible();
     });
   },
 );

@@ -118,7 +118,7 @@ function stepFilm(sound: PlayerSound, direction: -1 | 1): void {
 }
 
 /**
- * The row of sliders 🔈 opens (D440 §2): the film's, marked by a film icon, mute under it, upright
+ * The row of sliders 🔈 opens (D440 §2): the film's, marked by a film icon where a person's follows, mute under it, upright
  * as before (SoundControls), or, where the page cannot set the film's volume, the word that the
  * phone's buttons do; then each other person's in the session, upright, carrying their colour and
  * their first letter (two where first letters collide), the focused one their full name above it.
@@ -139,6 +139,7 @@ export function VolumeRow(props: {
       <FilmSlider
         sound={sound}
         title={props.filmTitle}
+        isMarked={voice !== undefined && row.people.length > 0}
         isFocused={row.focusedAt === 0}
         isFocusable={false}
       />
@@ -202,7 +203,8 @@ export function RemoteVolumeRow(props: {
 }
 
 /**
- * The film's slider in a row, marked by a film icon, mute under it, upright (SoundControls), or,
+ * The film's slider in a row, marked by a film icon where another's slider is beside it (the owner,
+ * 2026-11-23: no icon "for the kind of volume if there's only one"), mute under it, upright (SoundControls), or,
  * where the page cannot set the film's volume, the word that the phone's buttons do. Focusable where
  * the row is part of a page; over the film, the row marks it focused instead. Its mark says what it
  * sets (title): the film's volume, or, on the cast's remote, the film's level on the receiver under
@@ -211,6 +213,8 @@ export function RemoteVolumeRow(props: {
 function FilmSlider(props: {
   readonly sound: PlayerSound;
   readonly title?: string | undefined;
+  /** Whether its film mark is drawn: only beside another's slider, which it tells it from. */
+  readonly isMarked: boolean;
   readonly isFocused: boolean;
   readonly isFocusable: boolean;
 }): JSX.Element {
@@ -222,9 +226,11 @@ function FilmSlider(props: {
       data-volume-slider=""
       data-focused={props.isFocused ? "" : undefined}
     >
-      <span className="volume-row__mark" title={props.title ?? t("playerControls.filmVolume")}>
-        <FilmStripIcon />
-      </span>
+      {props.isMarked ? (
+        <span className="volume-row__mark" title={props.title ?? t("playerControls.filmVolume")}>
+          <FilmStripIcon />
+        </span>
+      ) : null}
       <SoundControls
         sound={sound}
         isOverVideo={false}

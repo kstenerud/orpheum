@@ -64,19 +64,8 @@ export function isSkipOffered(segment: MediaSegment): segment is SkippedSegment 
  */
 export const skipShownAloneMs = 10_000;
 
-/**
- * Where the file's credits start, the last credits segment's start where it has one: where the Up
- * next offer and its countdown start in place of the fixed lead (D139, D339; plans/up-next.md §9).
- */
-export function creditsStartOf(segments: readonly MediaSegment[]): number | undefined {
-  let startMs: number | undefined;
-  for (const segment of segments) {
-    if (segment.type === "credits" && (startMs === undefined || segment.startMs > startMs)) {
-      startMs = segment.startMs;
-    }
-  }
-  return startMs;
-}
+/** Where the file's credits start: the SDK's, which a Chromecast's Up next reads too (D546). */
+export { creditsStartOf } from "@orpheum/sdk";
 
 /** Whether atMs is inside segment: from its start, to just before its end. */
 export function isInside(segment: MediaSegment, atMs: number): boolean {
@@ -84,12 +73,18 @@ export function isInside(segment: MediaSegment, atMs: number): boolean {
 }
 
 /** The video's events at which a skip reads where the film stands. */
-const skipEvents = ["loadedmetadata", "timeupdate", "seeked"];
+const skipEvents = ["loadeddata", "timeupdate", "seeked"];
 
 /** The skip's taking of the video's reading among skipped: the segment it is inside, by its place. */
 function skipTakingOf(skipped: readonly SkippedSegment[]): StandingTaken<number | undefined> {
   return {
-    take: (standing) => {
+    take: (standing, video) => {
+      // Not before the video has a frame where it stands: until then it reads 0:00, before the
+      // resume's seek to where the person left it (play-state-video-events.ts), and a film resumed
+      // past its intro showed Skip intro a moment (the owner, 2026-11-23).
+      if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+        return undefined;
+      }
       const index = skipped.findIndex((segment) => isInside(segment, standing.atMs));
       return index === -1 ? undefined : index;
     },

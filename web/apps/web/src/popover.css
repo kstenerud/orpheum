@@ -66,3 +66,135 @@
   visibility: hidden;
   pointer-events: none;
 }
+
+/* A pop-up grown out of its button (popover.tsx's tab; the owner, 2026-11-23: menus "coming out of
+   the icons themselves"): no box of its own, but its panel, the menu, and under it its tab, the
+   button's size, laid on the button and showing what it shows, the two one surface. The panel's
+   corner over the tab is square where the tab is at its edge (data-tab-at). */
+.popover--grown {
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.popover--grown::backdrop {
+  background: var(--color-backdrop-light);
+}
+
+.popover__panel {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-card-hover);
+}
+
+[data-tab-at="start"] > .popover__panel {
+  border-end-start-radius: 0;
+}
+
+[data-tab-at="end"] > .popover__panel {
+  border-end-end-radius: 0;
+}
+
+/* The tab: over the panel's bottom edge by its width, so the two join with no line between. */
+.popover__tab {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-self: flex-start;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  inline-size: var(--popover-opener-width);
+  block-size: var(--popover-opener-height);
+  margin-block-start: -1px;
+  margin-inline-start: var(--popover-tab-offset, 0);
+  border: 1px solid var(--color-border);
+  border-block-start: 0;
+  border-end-start-radius: var(--radius-card);
+  border-end-end-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+  cursor: pointer;
+}
+
+/* Where the tab meets the panel, the corner either side of it curves into the panel, as a hollow
+   quarter circle, its border the panel's and the tab's run on (the owner, 2026-11-23: "rounded
+   corners as it grows into the menu"); none on a side where the tab is at the panel's edge. Each
+   lies over the tab's side border, so the two lines meet; --popover-fillet-at is the corner its
+   circle is centred on, the panel's side of it. */
+.popover__tab::before,
+.popover__tab::after {
+  --popover-fillet: var(--radius-card);
+
+  position: absolute;
+  inset-block-start: 0;
+  inline-size: var(--popover-fillet);
+  block-size: var(--popover-fillet);
+  background: radial-gradient(
+    circle at var(--popover-fillet-at),
+    transparent calc(var(--popover-fillet) - 1.5px),
+    var(--color-border) calc(var(--popover-fillet) - 1px),
+    var(--color-border) calc(var(--popover-fillet) - 0.5px),
+    var(--color-surface-raised) var(--popover-fillet)
+  );
+  content: "";
+}
+
+.popover__tab::before {
+  inset-inline-end: 100%;
+  --popover-fillet-at: 0 100%;
+}
+
+.popover__tab::after {
+  inset-inline-start: 100%;
+  --popover-fillet-at: 100% 100%;
+}
+
+[data-tab-at="start"] > .popover__tab::before,
+[data-tab-at="end"] > .popover__tab::after {
+  display: none;
+}
+
+/* Grown down, from a button in the screen's upper half, the top bar's (grownPlace): the tab above
+   the panel, over its top edge, its corners and the fillets either side of it mirrored. The
+   dialog's own column is reversed, so the panel stays first for a screen reader, as it is grown up. */
+.popover--grown[data-grow="down"],
+.modal-dialog.modal-dialog--grown[data-grow="down"][open] {
+  flex-direction: column-reverse;
+}
+
+[data-grow="down"][data-tab-at="start"] > .popover__panel {
+  border-start-start-radius: 0;
+  border-end-start-radius: var(--radius-card);
+}
+
+[data-grow="down"][data-tab-at="end"] > .popover__panel {
+  border-start-end-radius: 0;
+  border-end-end-radius: var(--radius-card);
+}
+
+[data-grow="down"] > .popover__tab {
+  margin-block: 0 -1px;
+  border-block-start: 1px solid var(--color-border);
+  border-block-end: 0;
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+}
+
+[data-grow="down"] > .popover__tab::before,
+[data-grow="down"] > .popover__tab::after {
+  inset-block: auto 0;
+}
+
+[data-grow="down"] > .popover__tab::before {
+  --popover-fillet-at: 0 0;
+}
+
+[data-grow="down"] > .popover__tab::after {
+  --popover-fillet-at: 100% 0;
+}

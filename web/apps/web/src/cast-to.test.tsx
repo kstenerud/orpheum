@@ -141,7 +141,7 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
     );
     await server.accept();
     expect(server.heard[0]).toEqual(liveHello);
-    await server.say({ type: "devices", deviceIds: [1, 2] });
+    await server.say({ type: "devices", deviceIds: [1, 2], inFrontDeviceIds: [1, 2] });
     expect(mounted.container.textContent).toContain("Fire TV");
     expect(mounted.container.textContent).not.toContain("Phone, closed");
     expect(buttonWithText(mounted.container, "Laptop")).toBeUndefined();
@@ -174,7 +174,7 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
       ),
     );
     await sockets.live.accept();
-    await sockets.live.say({ type: "devices", deviceIds: [1, 2] });
+    await sockets.live.say({ type: "devices", deviceIds: [1, 2], inFrontDeviceIds: [1, 2] });
     await click(buttonWithText(mounted.container, "Fire TV"));
     expect(heard.find((each) => each.methodAndPath === "POST /me/casts")?.body).toEqual({
       toDeviceId: 2,
@@ -204,7 +204,7 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
       ),
     );
     await sockets.live.accept();
-    await sockets.live.say({ type: "devices", deviceIds: [1, 2] });
+    await sockets.live.say({ type: "devices", deviceIds: [1, 2], inFrontDeviceIds: [1, 2] });
     await click(buttonWithText(mounted.container, "Fire TV"));
     expect(heard.find((each) => each.methodAndPath === "POST /me/casts")?.body).toEqual({
       toDeviceId: 2,
@@ -232,7 +232,7 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
       ),
     );
     await sockets.live.accept();
-    await sockets.live.say({ type: "devices", deviceIds: [1, 2] });
+    await sockets.live.say({ type: "devices", deviceIds: [1, 2], inFrontDeviceIds: [1, 2] });
     await click(buttonWithText(mounted.container, "Fire TV"));
     await sockets.session.accept();
     await sockets.session.say(castWelcome);
@@ -328,13 +328,13 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
       ),
     );
     await sockets.live.accept();
-    await sockets.live.say({ type: "devices", deviceIds: [1, 2] });
+    await sockets.live.say({ type: "devices", deviceIds: [1, 2], inFrontDeviceIds: [1, 2] });
     // The list as the account page, or the menu opened before, left it in the tab.
     rememberAnswer(myDevicesKey, [device(1, "Laptop", true), device(2, "Fire TV")]);
     await click(buttonWithText(mounted.container, "Open the menu"));
     expect(mounted.container.textContent).toContain("Fire TV");
     expect(heard.map((each) => each.methodAndPath)).not.toContain("GET /me/devices");
-    await sockets.live.say({ type: "devices", deviceIds: [1, 2, 4] });
+    await sockets.live.say({ type: "devices", deviceIds: [1, 2, 4], inFrontDeviceIds: [1, 2, 4] });
     await settleUntil(() => mounted?.container.textContent.includes("Phone") === true);
     expect(heard.map((each) => each.methodAndPath)).toContain("GET /me/devices");
     forgetEveryAnswer();
@@ -358,7 +358,7 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
     await server.accept();
     await server.say({ type: "devices", deviceIds: [1] });
     expect(mounted.container.textContent).toContain(
-      "None of your other devices has Orpheum open now",
+      "None of your other devices can take a cast now",
     );
   });
 
@@ -389,7 +389,7 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
       ),
     );
     await server.accept();
-    await server.say({ type: "devices", deviceIds: [1, 2, 3] });
+    await server.say({ type: "devices", deviceIds: [1, 2, 3], inFrontDeviceIds: [1, 2, 3] });
     const phone = markedButton(mounted.container, "Phone");
     const television = markedButton(mounted.container, "Living room TV");
     // The laurel, the favicon's mark, before the phone; Google's Cast icon before the Chromecast.
@@ -429,12 +429,12 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
       ),
     );
     await server.accept();
-    await server.say({ type: "devices", deviceIds: [1, 2, 3] });
+    await server.say({ type: "devices", deviceIds: [1, 2, 3], inFrontDeviceIds: [1, 2, 3] });
     expect(buttonWithText(mounted.container, "Fire TV")).toBeDefined();
     expect(mounted.container.textContent).not.toContain("Mac");
   });
 
-  it("says a device has no Orpheum tab in front, and a cast to it is refused with what to do (D338 §2)", async () => {
+  it("lists no device with no Orpheum tab in front, a row its kind and name alone, and a cast to one raced is refused with what to do (D338 §2)", async () => {
     const services = servedBy(
       {
         "GET /me/devices": [
@@ -457,18 +457,22 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
     );
     await server.accept();
     await server.say({ type: "devices", deviceIds: [1, 2, 3], inFrontDeviceIds: [1, 3] });
+    // The owner, 2026-11-23: "Just show the name and type of anything currently reachable".
     const items = [...mounted.container.querySelectorAll(".cast-to__devices li")].map(
       (item) => item.textContent,
     );
-    expect(items[0]).toContain("no Orpheum tab is in front");
-    expect(items[1]).toContain("Open now");
+    expect(items).toEqual(["Pixel"]);
+    expect(buttonWithText(mounted.container, "Fire TV")).toBeUndefined();
+    expect(mounted.container.textContent).not.toContain("Fire TV");
+    // The Fire TV said in front as its tab went behind: the server refuses the cast.
+    await server.say({ type: "devices", deviceIds: [1, 2, 3], inFrontDeviceIds: [1, 2, 3] });
     await click(buttonWithText(mounted.container, "Fire TV"));
     expect(mounted.container.querySelector("[role=alert]")?.textContent).toBe(
       "Fire TV has no Orpheum tab in front. Bring an Orpheum tab to the front on it, then cast again.",
     );
   });
 
-  it("shows a device receiving a cast unavailable, and a cast to one raced is refused with its name (D386 §1)", async () => {
+  it("lists no device receiving a cast, and a cast to one raced is refused with its name (D386 §1)", async () => {
     const services = servedBy(
       {
         "GET /me/devices": [
@@ -499,9 +503,9 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
     const items = [...mounted.container.querySelectorAll(".cast-to__devices li")].map(
       (item) => item.textContent,
     );
-    expect(items[0]).toContain("Showing another cast");
-    expect(items[1]).toContain("Open now");
-    expect(buttonWithText(mounted.container, "Fire TV")?.matches(":disabled")).toBe(true);
+    expect(items).toEqual(["Pixel"]);
+    expect(buttonWithText(mounted.container, "Fire TV")).toBeUndefined();
+    expect(buttonWithText(mounted.container, "Pixel")?.matches(":disabled")).toBe(false);
     await click(buttonWithText(mounted.container, "Pixel"));
     expect(mounted.container.querySelector("[role=alert]")?.textContent).toBe(
       "Pixel is showing another cast. Cast to it once that cast ends.",
@@ -601,6 +605,28 @@ describe("a film played on a device that casts (D364 §3, §4; D384 §2)", () =>
     membershipCredential: "remote",
   };
 
+  /** Item 2, the cast's film, as GET /items/2 has it: the remote's way up names it. */
+  const metropolis = {
+    id: 2,
+    kind: "film",
+    name: "Metropolis",
+    identificationState: "identified",
+    art: {},
+    versions: [],
+    extras: [],
+  };
+
+  /** The page as the cast's remote: its way up names the cast's film, its sign where it plays. */
+  async function shownAsRemote(): Promise<void> {
+    const page = mounted!.container;
+    const wayUp = (): string | undefined =>
+      page.querySelector(".player-overlay__top .player-overlay__up .player-overlay__title")
+        ?.textContent ?? undefined;
+    await settleUntil(() => wayUp() !== undefined);
+    expect(wayUp()).toBe("Metropolis");
+    expect(page.querySelector(".player-overlay__top h2")?.textContent).toBe("On: Fire TV");
+  }
+
   /**
    * The Play page's film 8, from 30 s, on a device whose live connection says what it sends; the page
    * shows where its film plays here from. The page plays it as the title openedAs, where given.
@@ -618,6 +644,9 @@ describe("a film played on a device that casts (D364 §3, §4; D384 §2)", () =>
         "GET /me/casts": [200, { casts: [listed] }],
         "GET /files/8/up-next": [200, {}],
         "GET /files/4/up-next": [200, {}],
+        "GET /items/2": [200, metropolis],
+        "GET /files/8/segments": [200, { segments: [] }],
+        "GET /files/4/segments": [200, { segments: [] }],
       },
       heard,
       "token",
@@ -673,7 +702,7 @@ describe("a film played on a device that casts (D364 §3, §4; D384 §2)", () =>
       sending: { ...sendingToTheTv, fileId: 8, isAccepted: true },
     });
     expect(services.navigation.route()).toEqual({ screen: "films" });
-    expect(mounted?.container.textContent).toContain("Playing on Fire TV");
+    await shownAsRemote();
     expect(mounted?.container.textContent).not.toContain("playing here");
   });
 
@@ -714,7 +743,7 @@ describe("a film played on a device that casts (D364 §3, §4; D384 §2)", () =>
       sending: { ...sendingToTheTv, fileId: 8, isAccepted: true },
     });
     await remoteJoined(sockets.session);
-    expect(mounted?.container.textContent).toContain("Playing on Fire TV");
+    await shownAsRemote();
     expect(mounted?.container.textContent).not.toContain("playing here");
     expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/play")).toBe(false);
     await sockets.session.say({ type: "ended", reason: "stopped" });

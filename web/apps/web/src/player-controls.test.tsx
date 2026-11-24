@@ -6,7 +6,12 @@ import "./i18n.ts";
 import { act, createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { PlayerControls, useVideoSource, type PlayerSource } from "./player-controls.tsx";
+import {
+  PlayerControls,
+  useVideoSource,
+  type PlayerSource,
+  type SequenceMoves,
+} from "./player-controls.tsx";
 import { buttonNamed, click, mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -106,5 +111,40 @@ describe("the player's bar (D369 §1)", () => {
       video.dispatchEvent(new Event("play"));
     });
     expect(names(mounted.container)).toEqual(["Pause"]);
+  });
+
+  // "The center buttons should always behave in placement as if all 5 were always available" (the
+  // owner, 2026-11-23): in the overlay's row a move there is none of keeps its place.
+  it("keeps the overlay row's place of ⏮ or ⏭ where there is none, so the steps and play never shift", async () => {
+    const { source } = noted(0);
+    /** What the row's leading group holds: a button's label, the centre, or a kept place. */
+    const leading = (): (string | null)[] =>
+      [...(mounted?.container.querySelector(".player-controls__leading")?.children ?? [])].map(
+        (each) => {
+          if (each.classList.contains("player-controls__move-place")) {
+            return "place";
+          }
+          return each.matches("button") ? each.getAttribute("aria-label") : "centre";
+        },
+      );
+    const drawn = async (moves: SequenceMoves): Promise<void> => {
+      mounted?.unmount();
+      mounted = await mount(
+        withServices(
+          <PlayerControls
+            source={source}
+            controls={["previous", "steps", "play", "next"]}
+            isOverlayRow
+            moves={moves}
+          />,
+        ),
+      );
+    };
+    await drawn({ next: () => undefined });
+    expect(leading()).toEqual(["place", "centre", "Next episode"]);
+    await drawn({ previous: () => undefined });
+    expect(leading()).toEqual(["Previous episode", "centre", "place"]);
+    await drawn({});
+    expect(leading()).toEqual(["place", "centre", "place"]);
   });
 });

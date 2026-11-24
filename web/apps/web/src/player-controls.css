@@ -29,6 +29,13 @@
   gap: var(--space-3);
 }
 
+/* The place of a move the overlay's row has none of (ControlButtons), as wide as its button. */
+.player-controls__move-place {
+  flex: none;
+  width: var(--size-control);
+  height: var(--size-control);
+}
+
 /* Mute and the volume beside it, kept together as the row wraps. */
 .player-controls__sound {
   display: inline-flex;
@@ -47,10 +54,11 @@
 }
 
 /* Upright in 🔈's pop-up (D407 §10, Q11), mute under it, as wide as the slider stands (the owner,
-   2026-11-02: "The volume control popup is far too wide"; D408 §2). */
+   2026-11-02: "The volume control popup is far too wide"; D408 §2); above it the room a menu has
+   above its first line (the owner, 2026-11-23). */
 .player-controls__sound--upright {
   flex-direction: column-reverse;
-  padding: var(--space-2);
+  padding: var(--space-4) var(--space-2) var(--space-2);
 }
 
 .player-controls__sound--upright .volume-range {

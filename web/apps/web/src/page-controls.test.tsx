@@ -438,12 +438,16 @@ describe("the player's controls under the film outside full screen (D369 §2, D4
     expect(offer(playButton ?? document.body, "down")).toBe(false);
   });
 
-  it("draws an offer among its buttons, and when the film ends while nothing is on offer", async () => {
+  // The owner, 2026-11-23: "Ends" is no longer replaced by an offer; the offer goes under it.
+  it("draws an offer among its buttons, under when the film ends, and when it ends while nothing is on offer", async () => {
     const { video, videoRef } = stagedVideo(() => true);
     const stage = await drawn(video, videoRef, OfferedAtOnce);
     expect([...stage.children]).toEqual([video]);
     expect(buttonNames(bar()?.querySelector(".page-controls__offers"))).toEqual(["Up next"]);
-    expect(bar()?.querySelector(".convenience-area__ends")).toBeNull();
+    const area = bar()?.querySelector(".page-controls__offers .convenience-area");
+    expect(area?.hasAttribute("data-has-offer")).toBe(true);
+    expect(area?.firstElementChild?.matches(".convenience-area__ends[data-shown]")).toBe(true);
+    expect(area?.children).toHaveLength(2);
     mounted?.unmount();
     const other = stagedVideo(() => true);
     await drawn(other.video, other.videoRef);

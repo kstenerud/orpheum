@@ -384,10 +384,12 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
         const stage = found(mounted.container, ".film-player__stage");
         const overlay = found(mounted.container, ".player-overlay");
         shownByAMouse();
+        // The rows along the film's foot, from the scrub bar down: the overlay spans the stage, its
+        // top row at the film's top (the owner's look 1, 2026-11-23), which lifts nothing.
         const rowsPx = (): number =>
           Math.ceil(
             overlay.getBoundingClientRect().bottom -
-              found(overlay, ".player-overlay__top").getBoundingClientRect().top,
+              found(overlay, ".player-overlay__scrub").getBoundingClientRect().top,
           );
         await expect
           .poll(() => stage.style.getPropertyValue("--player-overlay-lift"))

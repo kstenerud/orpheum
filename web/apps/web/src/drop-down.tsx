@@ -31,6 +31,8 @@ export function DropDown(props: {
   readonly isFromItsTop?: boolean;
   /** Told each time the list opens or closes, as the player's overlay holds its time (D407 §6). */
   readonly onOpenChange?: ((isOpen: boolean) => void) | undefined;
+  /** Whether its pop-up grows out of its button (PopoverButton's isGrownFromOpener): the player's menus. */
+  readonly isGrownFromOpener?: boolean | undefined;
   /** Its entries: ListOption and ListEntry (list-box.tsx). */
   readonly children: ReactNode;
 }): JSX.Element {
@@ -42,6 +44,7 @@ export function DropDown(props: {
       openerClassName={props.openerClassName}
       openerNaming={props.openerNaming}
       isFromItsTop={isFromItsTop}
+      isGrownFromOpener={props.isGrownFromOpener}
       onOpenChange={props.onOpenChange}
     >
       <ListBox isFromItsTop={isFromItsTop}>{props.children}</ListBox>

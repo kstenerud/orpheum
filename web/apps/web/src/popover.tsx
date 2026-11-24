@@ -3,10 +3,13 @@
 import "./popover.css";
 
 import {
+  createContext,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
+  type Context,
   type JSX,
   type ReactNode,
   type RefObject,
@@ -14,7 +17,7 @@ import {
 import { reportFailure } from "@orpheum/sdk";
 
 import { ButtonByRole } from "./button-by-role.tsx";
-import { listPlace, overOpenerPlace, type ScreenBox } from "./drop-down-place.ts";
+import { grownPlace, listPlace, overOpenerPlace, type ScreenBox } from "./drop-down-place.ts";
 import { caretOf, focusTargetsIn, rowAttribute } from "./focus-engine.ts";
 import { directionOfKey, keyCodeOf } from "./input-buttons.ts";
 import { commandEventName } from "./input-commands.ts";
@@ -81,6 +84,11 @@ interface Placing {
    * the owner, 2026-11-03). Undefined for none.
    */
   readonly partOverOpener?: string | undefined;
+  /**
+   * Whether it grows out of its button as a tab at its foot, laid on the button and showing what the
+   * button shows (Popover's tab, grownPlace): the player's menus over the film.
+   */
+  readonly isGrownFromOpener?: boolean | undefined;
 }
 
 /**
@@ -178,6 +186,34 @@ function besideOf(focused: HTMLElement, box: DOMRect): { top: number; bottom: nu
 }
 
 /**
+ * Lays dialog, an open pop-up that grows out of its button (grownPlace), its tab on the button, and
+ * says by its `data-tab-at` whether the tab is at its `start` or `end`, where the menu's corner above
+ * it is square. Its `data-placed` says `grown`. What has focus is brought into view, its list cut.
+ */
+function layGrown(
+  dialog: HTMLDialogElement,
+  at: { readonly opener: DOMRect; readonly box: DOMRect; readonly room: ScreenBox },
+): void {
+  const { opener, box } = at;
+  const place = grownPlace({ opener, popUp: box, room: at.room });
+  dialog.setAttribute("data-placed", "grown");
+  dialog.setAttribute("data-grow", place.isDown ? "down" : "up");
+  const tabAt = tabAtOf(place.tabOffset, box.width - opener.width);
+  if (tabAt === undefined) {
+    dialog.removeAttribute("data-tab-at");
+  } else {
+    dialog.setAttribute("data-tab-at", tabAt);
+  }
+  dialog.style.setProperty("--popover-tab-offset", `${String(place.tabOffset)}px`);
+  dialog.style.setProperty("left", `${String(place.left)}px`);
+  dialog.style.setProperty("top", `${String(place.top)}px`);
+  if (place.height !== undefined) {
+    dialog.style.setProperty("max-height", `${String(place.height)}px`);
+  }
+  focusedIn(dialog)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+
+/**
  * Lays dialog, an open pop-up, at opener (drop-down-place.ts), inside the room at the screen's edges
  * (roomOf): its part over the button where it names one and that fits (layPartOverOpener), else as
  * a list is; on a big screen, where the room's edge cuts it, cuts it to the height shown, its content
@@ -193,9 +229,15 @@ function layAtOpener(
   const openerBox = at.opener.getBoundingClientRect();
   const isPhone = isPhoneWidth();
   dialog.style.setProperty("--popover-opener-width", `${String(openerBox.width)}px`);
+  dialog.style.setProperty("--popover-opener-height", `${String(openerBox.height)}px`);
   dialog.style.removeProperty("max-height");
+  dialog.style.removeProperty("--popover-tab-offset");
   const box = dialog.getBoundingClientRect();
   const room = roomOf(dialog);
+  if (at.isGrownFromOpener === true) {
+    layGrown(dialog, { opener: openerBox, box, room });
+    return;
+  }
   if (
     layPartOverOpener(dialog, { partSelector: at.partOverOpener, opener: openerBox, box, room })
   ) {
@@ -234,7 +276,7 @@ function usePlacedAtOpener(
   openerRef: RefObject<HTMLElement | null>,
   placing: Placing,
 ): void {
-  const { isFromItsTop, partOverOpener } = placing;
+  const { isFromItsTop, partOverOpener, isGrownFromOpener } = placing;
   useEffect(() => {
     const dialog = ref.current;
     if (dialog === null) {
@@ -242,17 +284,34 @@ function usePlacedAtOpener(
     }
     const lay = (): void => {
       if (openerRef.current !== null) {
-        layAtOpener(dialog, { opener: openerRef.current, isFromItsTop, partOverOpener });
+        layAtOpener(dialog, {
+          opener: openerRef.current,
+          isFromItsTop,
+          partOverOpener,
+          isGrownFromOpener,
+        });
       }
     };
     lay();
     window.addEventListener("resize", lay);
     dialog.addEventListener(contentChangedEvent, lay);
+    // Grown out of its button, its bottom is the button's whatever its height: laid again as its
+    // panel's size changes, what it holds arriving after it opens (a dialog's code loaded later, the
+    // owner, 2026-11-23: Cast's ran off the screen's bottom the first time) or changing while open.
+    const panel = dialog.querySelector(".popover__panel");
+    const sized =
+      isGrownFromOpener === true && panel !== null && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(lay)
+        : undefined;
+    if (panel !== null) {
+      sized?.observe(panel);
+    }
     return () => {
       window.removeEventListener("resize", lay);
       dialog.removeEventListener(contentChangedEvent, lay);
+      sized?.disconnect();
     };
-  }, [ref, openerRef, isFromItsTop, partOverOpener]);
+  }, [ref, openerRef, isFromItsTop, partOverOpener, isGrownFromOpener]);
 }
 
 /** What has focus, in a few words for the core's log: its tag and classes, and whether in it. */
@@ -391,7 +450,8 @@ export interface OneControl {
 }
 
 /** What a pop-up is told. */
-interface PopoverProps extends Placing {
+/** A Popover's placing: grown out of its button where it is given a tab, which says what it shows. */
+interface PopoverProps extends Omit<Placing, "isGrownFromOpener"> {
   /** Its name for a screen reader. */
   readonly label: string;
   /** The button that opened it, which it is laid at. */
@@ -399,7 +459,144 @@ interface PopoverProps extends Placing {
   readonly onClose: () => void;
   /** Where it is one control, how Up and Down step it (OneControl); undefined for a column. */
   readonly oneControl?: OneControl | undefined;
+  /**
+   * Where it grows out of its button (Placing's isGrownFromOpener), what its tab shows: what the
+   * button shows. Undefined for none.
+   */
+  readonly tab?: ReactNode;
   readonly children: ReactNode;
+}
+
+/**
+ * Closes dialog, a pop-up grown out of its button, at a press on its tab, which lies where its
+ * button is and so is pressed as the button would be to close it, or on its box beside the tab,
+ * which shows nothing there: neither is its backdrop, which closes it already (modal-layer.tsx).
+ */
+function useGrownTabCloses(
+  ref: RefObject<HTMLDialogElement | null>,
+  isGrown: boolean,
+  onClose: () => void,
+): void {
+  const onCloseRef = useLatest(onClose);
+  useEffect(() => {
+    const dialog = ref.current;
+    if (dialog === null || !isGrown) {
+      return undefined;
+    }
+    const pressed = (event: MouseEvent): void => {
+      const { target } = event;
+      if (target instanceof Element && target.closest(".popover__tab") !== null) {
+        onCloseRef.current();
+        return;
+      }
+      // Its box beside the tab; a press outside the box the modal layer closes it for.
+      const box = dialog.getBoundingClientRect();
+      const isInItsBox =
+        event.clientX >= box.left &&
+        event.clientX <= box.right &&
+        event.clientY >= box.top &&
+        event.clientY <= box.bottom;
+      if (target === dialog && isInItsBox) {
+        onCloseRef.current();
+      }
+    };
+    dialog.addEventListener("click", pressed);
+    return () => {
+      dialog.removeEventListener("click", pressed);
+    };
+  }, [ref, isGrown, onCloseRef]);
+}
+
+/**
+ * What a dialog grows out of, as a menu does out of its button (Popover's tab): the button, and what
+ * its tab shows, what the button shows.
+ */
+export interface GrownFrom {
+  readonly openerRef: RefObject<HTMLElement | null>;
+  readonly tab: ReactNode;
+}
+
+/**
+ * The button a modal dialog opened under it grows out of (modal-dialog.tsx): Watch Together's and
+ * Cast's over the film, in the buttons row with the menus (the owner, 2026-11-23). The dialog takes
+ * it from here and gives what it holds none, so a dialog opened from it is drawn as dialogs are.
+ */
+export const GrownFromContext: Context<GrownFrom | undefined> = createContext<
+  GrownFrom | undefined
+>(undefined);
+
+/**
+ * A dialog opened from openerRef's button grown out of it, its tab showing tab (GrownFromContext);
+ * drawn as dialogs are where openerRef is undefined (a sign not over the film).
+ */
+export function GrownFromOpener(props: {
+  readonly openerRef: RefObject<HTMLElement | null> | undefined;
+  readonly tab: ReactNode;
+  readonly children: ReactNode;
+}): JSX.Element {
+  const { openerRef, tab } = props;
+  const grownFrom = useMemo(
+    () => (openerRef === undefined ? undefined : { openerRef, tab }),
+    [openerRef, tab],
+  );
+  return <GrownFromContext value={grownFrom}>{props.children}</GrownFromContext>;
+}
+
+const noOpener: RefObject<HTMLElement | null> = { current: null };
+
+/**
+ * Lays dialog, open, grown out of grownFrom's button as a menu is (layGrown), as the screen changes
+ * size too, and closes it at a press on its tab; does nothing where grownFrom is undefined.
+ */
+export function useGrownOutOf(
+  ref: RefObject<HTMLDialogElement | null>,
+  grownFrom: GrownFrom | undefined,
+  onClose: () => void,
+): void {
+  usePlacedAtOpener(ref, grownFrom?.openerRef ?? noOpener, {
+    isFromItsTop: true,
+    isGrownFromOpener: grownFrom !== undefined,
+  });
+  useGrownTabCloses(ref, grownFrom !== undefined, onClose);
+}
+
+/**
+ * Where a grown pop-up's tab stands at one of its corners: "start" where it starts at the pop-up's
+ * start, "end" where it ends at its end (lastOffset, the pop-up's width less the opener's), within a
+ * pixel's rounding; undefined between, where both its shoulders are drawn.
+ */
+function tabAtOf(tabOffset: number, lastOffset: number): "start" | "end" | undefined {
+  const edgeRoom = 1;
+  if (tabOffset < edgeRoom) {
+    return "start";
+  }
+  return tabOffset > lastOffset - edgeRoom ? "end" : undefined;
+}
+
+/**
+ * The parts of a pop-up or dialog grown out of its button (popover.css): its panel, holding what it
+ * shows (children), and its tab, laid on the button and showing what the button shows. panelClass
+ * names the panel's own look beside the menus' (the dialog's).
+ */
+export function GrownParts(props: {
+  readonly tab: ReactNode;
+  readonly panelClass?: string | undefined;
+  readonly children: ReactNode;
+}): JSX.Element {
+  return (
+    <>
+      <div
+        className={
+          props.panelClass === undefined ? "popover__panel" : `popover__panel ${props.panelClass}`
+        }
+      >
+        {props.children}
+      </div>
+      <div className="popover__tab" aria-hidden="true">
+        {props.tab}
+      </div>
+    </>
+  );
 }
 
 /** Whether focus is in a text field, where Left and Right are the caret's (focus-engine.ts's caretOf). */
@@ -468,6 +665,14 @@ function isTakenInPopUp(
   return false;
 }
 
+/** A pop-up's classes: one control's, one grown out of its button (its tab), or the plain one. */
+function popoverClassOf(oneControl: OneControl | undefined, isGrown: boolean): string {
+  if (isGrown) {
+    return "popover popover--grown";
+  }
+  return oneControl === undefined ? "popover" : "popover popover--one-control";
+}
+
 /**
  * A pop-up, a quick control at the button that opened it (D408 §2): the modal layer
  * (modal-layer.tsx), so it closes at Escape, Back, the browser's Back and a press outside, which
@@ -493,11 +698,19 @@ export function Popover(props: PopoverProps): JSX.Element {
   useModalLayer(ref, toldRef);
   useChoiceCloses(ref, onClose);
   useFullScreenChangeCloses(onClose);
+  const isGrown = props.tab !== undefined;
   usePlacedAtOpener(ref, props.openerRef, {
     isFromItsTop: props.isFromItsTop,
     partOverOpener: props.partOverOpener,
+    isGrownFromOpener: isGrown,
   });
+  useGrownTabCloses(ref, isGrown, onClose);
   useStuckArrowTold(contentRef, isClosingRef);
+  const content = (
+    <div ref={contentRef} className="popover__content">
+      {props.children}
+    </div>
+  );
   useCommands(contentRef, (detail, event) => {
     if (isTakenInPopUp(detail.command, props.oneControl, onClose)) {
       event.preventDefault();
@@ -506,12 +719,10 @@ export function Popover(props: PopoverProps): JSX.Element {
   return (
     <dialog
       ref={ref}
-      className={props.oneControl === undefined ? "popover" : "popover popover--one-control"}
+      className={popoverClassOf(props.oneControl, isGrown)}
       aria-label={props.label}
     >
-      <div ref={contentRef} className="popover__content">
-        {props.children}
-      </div>
+      {isGrown ? <GrownParts tab={props.tab}>{content}</GrownParts> : content}
       <div className="popover__room" aria-hidden="true" />
     </dialog>
   );
@@ -538,6 +749,8 @@ export function PopoverButton(props: {
   readonly partOverOpener?: string | undefined;
   /** Where the pop-up is one control, how Up and Down step it (Popover's oneControl). */
   readonly oneControl?: OneControl | undefined;
+  /** Whether the pop-up grows out of the button, its tab showing what the button shows (Popover's tab). */
+  readonly isGrownFromOpener?: boolean | undefined;
   readonly onOpenChange?: ((isOpen: boolean) => void) | undefined;
   readonly children: ReactNode;
 }): JSX.Element {
@@ -576,6 +789,7 @@ export function PopoverButton(props: {
           isFromItsTop={props.isFromItsTop}
           partOverOpener={props.partOverOpener}
           oneControl={props.oneControl}
+          tab={props.isGrownFromOpener === true ? props.opener : undefined}
           onClose={close}
         >
           {props.children}

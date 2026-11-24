@@ -9,7 +9,8 @@ import { useTranslation } from "react-i18next";
 
 import { useIsGuest } from "./guest-page.ts";
 import { latestWrite } from "./latest-write.ts";
-import { ListEntry, ListOption } from "./list-box.tsx";
+import { KeptOpen } from "./over-video-menu.tsx";
+import { ListOption } from "./list-box.tsx";
 import { throwIfRefused } from "./problem.ts";
 import type { SuggestedSoundOffset } from "./problem-report.tsx";
 import { useServices } from "./services.tsx";
@@ -143,7 +144,7 @@ function FileTiming(props: {
   const isOwnApart = own !== undefined && own !== now.everyonesMs;
   return (
     <>
-      <ListEntry isKeptOpen isInsetAsChoices>
+      <KeptOpen>
         <SoundOffsetInput
           label={t("play.soundOffset.thisFile")}
           fieldLabel={t("play.soundOffset.thisFileField")}
@@ -160,7 +161,7 @@ function FileTiming(props: {
           failure={shownFailure}
           notKeptKey={`play.soundOffset.${shownFailure?.key ?? "fileNotKept"}`}
         />
-      </ListEntry>
+      </KeptOpen>
       {isOwnApart ? (
         <FileOffsetAction
           isAdmin={isAdmin}

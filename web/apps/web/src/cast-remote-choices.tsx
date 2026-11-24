@@ -21,14 +21,16 @@ import { HowItPlays } from "./how-it-plays.tsx";
 import { ListEntry } from "./list-box.tsx";
 import { PlayOriginal } from "./play-original.tsx";
 import type { PlayerSound, SequenceMoves } from "./player-controls.tsx";
+import { VolumeMenu } from "./player-menus.tsx";
 import {
+  ChoicesSubmenu,
   KeptOpen,
   MoreMenuOf,
-  SoundTrackMenuOf,
+  SoundMenuOf,
   SubtitlesMenuOf,
-  VolumeMenu,
-} from "./player-menus.tsx";
-import { currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
+} from "./over-video-menu.tsx";
+import type { ActionChoice } from "./route-chooser.tsx";
+import { SoundTimingHeading } from "./sound-menu.tsx";
 import { useServices } from "./services.tsx";
 import { SoundOffsetInput } from "./sound-delay.tsx";
 import { Switch } from "./switch.tsx";
@@ -45,13 +47,17 @@ export function noOverlay(): void {
 
 /**
  * The cast's remote's menus, the full-screen overlay's (player-menus.tsx) over the receiver (D444,
- * amending D440 §5): 🔈, the row of sliders, the film's first, its level on the receiver apart from
- * the TV's own; Talk beside it in a Watch Together session; Subtitles and Sound track as the
- * receiver offers them; ⁝ with the receiver's sound timing, levelling, the dialogue boost, the
- * original and How it plays. Each choice is sent to the receiver in the cast's session (D434), which
- * carries it out as its own press and says how it stands after: a Fire TV's own controls are hidden
- * while it is controlled (D407 §12; the owner, VQ116's run). Neither the bare player nor Start over:
- * the bar's ⏮ covers the start (the owner, 2026-11-07). Each waits for the receiver to say it.
+ * amending D440 §5), drawn as the player's are wherever the receiver can do what they do (the owner,
+ * 2026-11-23: "I want the interfaces to look as similar as possible, aside from things that can't be
+ * done due to a device or circumstances"): 🔈, the row of sliders, the film's first, its level on
+ * the receiver apart from the TV's own (useReceiverFilmSound); Talk in a Watch Together session; 💬,
+ * the receiver's subtitle tracks; 🎧, its sound track, Level loudness, the dialogue boost and, under
+ * Sound timing, That device's timing; ⁝, the original and How it plays. Each choice is sent to the
+ * receiver in the cast's session (D434), which carries it out as its own press and says how it stands
+ * after: a Fire TV's own controls are hidden while it is controlled (D407 §12; the owner, VQ116's
+ * run). Neither the bare player nor Start over: the bar's ⏮ covers the start (the owner,
+ * 2026-11-07). A menu with nothing in it is not drawn (the owner: "Any button that would have nothing
+ * in its submenu should not display at all"). Each waits for the receiver to say it.
  */
 export function RemoteMenus(props: {
   readonly playback: PlaybackReport | undefined;
@@ -60,65 +66,71 @@ export function RemoteMenus(props: {
   const { t } = useTranslation();
   const { playback, connection } = props;
   const film = useReceiverFilmSound(playback?.sound?.channels?.[0], connection);
-  const receiver =
-    connection === undefined
-      ? undefined
-      : { connection, sound: playback?.sound, picture: playback?.picture };
   return (
     <>
       {film === undefined ? null : (
         <VolumeMenu sound={film} filmTitle={t("cast.filmLevel")} onOpenChange={noOverlay} />
       )}
       <SessionTalk isOverVideo />
-      {receiver === undefined ? null : <ReceiverTracks receiver={receiver} />}
-      <MoreMenuOf onOpenChange={noOverlay}>
-        {receiver === undefined ? null : <ReceiverMore receiver={receiver} />}
-        <HowItPlays playback={playback} />
-      </MoreMenuOf>
+      {connection === undefined ? null : (
+        <ReceiverChoicesMenus playback={playback} connection={connection} />
+      )}
+      <ReceiverMore playback={playback} connection={connection} />
     </>
   );
 }
 
-/** The receiver as the remote's menus work it: its choices, and its sound and picture as it says. */
-interface WorkedReceiver {
+/** 💬 and 🎧 over what the receiver says of its picture and its sound, each where it says it. */
+function ReceiverChoicesMenus(props: {
+  readonly playback: PlaybackReport | undefined;
   readonly connection: ReceiverChoices;
-  readonly sound: PlaybackSound | undefined;
-  readonly picture: PlaybackPicture | undefined;
-}
-
-/** Subtitles and Sound track over the receiver's, as it offers them. */
-function ReceiverTracks(props: { readonly receiver: WorkedReceiver }): JSX.Element {
-  const { connection, sound, picture } = props.receiver;
+}): JSX.Element {
+  const { connection } = props;
+  const picture = props.playback?.picture;
+  const sound = props.playback?.sound;
   return (
     <>
       {picture === undefined ? null : (
         <ReceiverSubtitles picture={picture} connection={connection} />
       )}
-      {sound === undefined ? null : <ReceiverSoundTrack sound={sound} connection={connection} />}
+      {sound === undefined ? null : <ReceiverSound sound={sound} connection={connection} />}
     </>
   );
 }
 
-/** ⁝'s places over the receiver: its sound's (ReceiverSoundPlaces), and the original where offered. */
-function ReceiverMore(props: { readonly receiver: WorkedReceiver }): JSX.Element {
-  const { connection, sound, picture } = props.receiver;
+/**
+ * ⁝ over the receiver's film: the original where its file can play as it is, and How it plays;
+ * nothing until the receiver says how it plays or that the original can.
+ */
+function ReceiverMore(props: {
+  readonly playback: PlaybackReport | undefined;
+  readonly connection: ReceiverChoices | undefined;
+}): JSX.Element | null {
+  const { playback, connection } = props;
+  const original =
+    connection !== undefined && playback?.picture?.canPlayOriginal === true
+      ? connection
+      : undefined;
+  if (playback === undefined && original === undefined) {
+    return null;
+  }
   return (
-    <>
-      {sound === undefined ? null : <ReceiverSoundPlaces sound={sound} connection={connection} />}
-      {picture?.canPlayOriginal === true ? (
+    <MoreMenuOf onOpenChange={noOverlay}>
+      {original === undefined ? null : (
         <ListEntry>
           <PlayOriginal
             onChosen={() => {
-              connection.choosePicture({ kind: "original" });
+              original.choosePicture({ kind: "original" });
             }}
           />
         </ListEntry>
-      ) : null}
-    </>
+      )}
+      <HowItPlays playback={playback} />
+    </MoreMenuOf>
   );
 }
 
-/** The receiver's subtitles as its own menu names them, Off first; nothing where it offers none. */
+/** 💬 over the receiver's subtitles as its own menu names them, Off first; nothing where it offers none. */
 function ReceiverSubtitles(props: {
   readonly picture: PlaybackPicture;
   readonly connection: CarriesPictureChoices;
@@ -140,26 +152,30 @@ function ReceiverSubtitles(props: {
     })),
   ].map((each) => ({ ...each, onChoose: choose(each.key === "" ? undefined : each.key) }));
   return (
-    <SubtitlesMenuOf options={options} current={currentLabelOf(options)} onOpenChange={noOverlay} />
+    <SubtitlesMenuOf onOpenChange={noOverlay}>
+      <ChoicesSubmenu name={t("play.subtitles.label")} choices={options} />
+    </SubtitlesMenuOf>
   );
 }
 
-/** The receiver's audio tracks, where its file has more than one. */
-function ReceiverSoundTrack(props: {
+/**
+ * 🎧 over the receiver's sound, as the player's Sound menu is (sound-menu.tsx): its sound track
+ * where its file has more than one, Level loudness, the dialogue boost where its film has a boosted
+ * mix, and, under Sound timing, That device's timing where it says one. The file's own timing is the
+ * player's alone until a receiver takes it (plans: the next batch).
+ */
+function ReceiverSound(props: {
   readonly sound: PlaybackSound;
   readonly connection: CarriesSoundChoices;
-}): JSX.Element | null {
+}): JSX.Element {
   const { t, i18n } = useTranslation();
   const { sound, connection } = props;
-  if (sound.audioTracks.length < 2) {
-    return null;
-  }
   const words = {
     unknownLanguage: t("play.audio.unknownLanguage"),
     commentary: t("play.audio.commentary"),
     described: t("play.audio.described"),
   };
-  const options: ActionChoice[] = sound.audioTracks.map((track) => ({
+  const tracks: ActionChoice[] = sound.audioTracks.map((track) => ({
     key: String(track.streamId),
     label: audioTrackLabel(track, i18n.language, words),
     isCurrent: track.streamId === sound.audioStreamId,
@@ -167,26 +183,9 @@ function ReceiverSoundTrack(props: {
       connection.chooseSound({ kind: "audioTrack", streamId: track.streamId });
     },
   }));
-  return <SoundTrackMenuOf options={options} onOpenChange={noOverlay} />;
-}
-
-/**
- * ⁝'s places for the receiver's sound: its timing, levelling, and the dialogue boost where its film
- * has a boosted mix.
- */
-function ReceiverSoundPlaces(props: {
-  readonly sound: PlaybackSound;
-  readonly connection: CarriesSoundChoices;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { sound, connection } = props;
   return (
-    <>
-      {sound.soundOffsetMs === undefined ? null : (
-        <KeptOpen>
-          <RemoteSoundOffset ms={sound.soundOffsetMs} connection={connection} />
-        </KeptOpen>
-      )}
+    <SoundMenuOf onOpenChange={noOverlay}>
+      <ChoicesSubmenu name={t("play.audio.menu")} choices={tracks} />
       <ListEntry>
         <RemoteSwitch
           key={`levelling-${String(sound.isLevellingOn)}`}
@@ -209,7 +208,15 @@ function ReceiverSoundPlaces(props: {
           />
         </ListEntry>
       )}
-    </>
+      {sound.soundOffsetMs === undefined ? null : (
+        <>
+          <SoundTimingHeading />
+          <KeptOpen>
+            <RemoteSoundOffset ms={sound.soundOffsetMs} connection={connection} />
+          </KeptOpen>
+        </>
+      )}
+    </SoundMenuOf>
   );
 }
 
@@ -217,8 +224,8 @@ function ReceiverSoundPlaces(props: {
  * The receiver's sound timing, for a TV that plays its sound late (the owner, 2026-11-06: "Put a
  * control in watch together and cast so that I can adjust the sound timing"): as the receiver said
  * it stands, each arrow moving it a step from there or a number typed setting it, which the receiver
- * keeps with its device as its own press. As an entry of ⁝'s list, the player's stepper
- * (SoundOffsetInput), "Sound there" leading it and its caption below.
+ * keeps with its device as its own press. As an entry of 🎧's list under Sound timing, the player's
+ * stepper (SoundOffsetInput), "That device" leading it, as the player's "This device" does.
  */
 function RemoteSoundOffset(props: {
   readonly ms: number;
@@ -233,10 +240,14 @@ function RemoteSoundOffset(props: {
   }
   return (
     <SoundOffsetInput
-      label={t("cast.soundOffset.row")}
+      label={t("cast.soundOffset.thatDevice")}
       fieldLabel={t("cast.soundOffset.field")}
       valueText={shown}
       ms={ms}
+      stepLabels={{
+        earlier: t("cast.soundOffset.thatDeviceEarlier"),
+        later: t("cast.soundOffset.thatDeviceLater"),
+      }}
       onChange={(next) => {
         connection.chooseSound({ kind: "soundOffset", ms: next });
       }}

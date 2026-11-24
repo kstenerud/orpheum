@@ -7,6 +7,7 @@ import { createRef } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
+import { fillsWindowClass } from "./film-fullscreen.ts";
 import { PlayerOverlay } from "./player-overlay.tsx";
 import { castSignOverTheFilm } from "./status-tray.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
@@ -15,7 +16,9 @@ import { TogetherPanel } from "./together-over-the-film.tsx";
 
 /**
  * The signs in the overlay's top row, over the film: the film fills the window over the status tray
- * (D418 §1), so what the tray's signs open is opened from over the film too (D422, D423).
+ * (D418 §1), so what the tray's signs open is opened from over the film too (D422, D423); only
+ * while it shows full screen, as the page's top bar, which holds them too, is hidden then (the
+ * owner, 2026-11-23).
  */
 describe("the player's overlay's signs over the film", () => {
   let mounted: Mounted | undefined;
@@ -24,7 +27,8 @@ describe("the player's overlay's signs over the film", () => {
     mounted = undefined;
   });
 
-  async function drawn(): Promise<void> {
+  /** Draws the overlay over a stage filling the window, as full screen, or in the page. */
+  async function drawn(isFullScreen = true): Promise<void> {
     const video = document.createElement("video");
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", video);
@@ -32,7 +36,11 @@ describe("the player's overlay's signs over the film", () => {
       withServices(
         // As the signed-in app hands it to the overlay (app.tsx).
         <CastSignOverTheFilmContext value={castSignOverTheFilm}>
-          <div className="film-player__stage">
+          <div
+            className={
+              isFullScreen ? `film-player__stage ${fillsWindowClass}` : "film-player__stage"
+            }
+          >
             <PlayerOverlay
               videoRef={videoRef}
               readLinkKbps={() => undefined}
@@ -70,6 +78,14 @@ describe("the player's overlay's signs over the film", () => {
     const sign = mounted?.container.querySelector('[aria-label="Cast to a device"]');
     expect(sign?.classList.contains("icon-button--over-video")).toBe(true);
     expect(labels).not.toContain("Watch Together is on: its controls");
+  });
+
+  it("draws no sign in its buttons row while the film shows in the page, under the top bar's", async () => {
+    await drawn(false);
+    const labels = trailingLabels();
+    expect(labels).toContain("Full screen");
+    expect(labels).not.toContain("Cast to a device");
+    expect(mounted?.container.querySelector('[aria-label="Cast to a device"]')).toBeNull();
   });
 
   it("draws Watch Together's sign just before Cast's while a session's panel is drawn (D423)", async () => {

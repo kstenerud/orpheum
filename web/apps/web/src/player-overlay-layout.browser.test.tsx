@@ -201,8 +201,12 @@ describe("the player's overlay on a touch phone (D538 §6, player-spec)", () => 
       expect(isOneRowOnScreen(cluster)).toBe(true);
       const middle = (cluster[2]!.left + cluster[2]!.right) / 2;
       expect(Math.abs(middle - window.innerWidth / 2)).toBeLessThan(2);
+      // Midway between the top row and the scrub bar, not the screen's middle: on its side a
+      // phone's laid them over the scrub bar (the owner, 2026-11-23).
       const height = (cluster[2]!.top + cluster[2]!.bottom) / 2;
-      expect(Math.abs(height - window.innerHeight / 2)).toBeLessThan(2);
+      const topRow = overlay().querySelector(".player-overlay__top")!.getBoundingClientRect();
+      const scrubRow = overlay().querySelector(".player-overlay__scrub")!.getBoundingClientRect();
+      expect(Math.abs(height - (topRow.bottom + scrubRow.top) / 2)).toBeLessThan(2);
       expect(cluster.slice(1, 4).map((box) => Math.round(box.width))).toEqual([
         centrePx,
         centrePx,

@@ -7,6 +7,7 @@ import { createRef } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { fillsWindowClass } from "./film-fullscreen.ts";
 import { FullScreenButton } from "./full-screen-button.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { PlayIcon } from "./player-icons.tsx";
@@ -66,6 +67,10 @@ describe("the player's buttons, icons in place of characters a television's font
     );
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", document.createElement("video"));
+    // A television opens the film full screen, and the row draws the tray's signs only then.
+    const stage = document.createElement("div");
+    stage.className = `film-player__stage ${fillsWindowClass}`;
+    document.body.append(stage);
     mounted = await mount(
       withServices(
         // Cast's sign as the signed-in app hands it to the overlay (app.tsx).
@@ -76,6 +81,7 @@ describe("the player's buttons, icons in place of characters a television's font
     );
     const buttons = [...mounted.container.querySelectorAll("button")];
     vi.restoreAllMocks();
+    stage.remove();
     expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
       "Back 10 s",
       "Play",

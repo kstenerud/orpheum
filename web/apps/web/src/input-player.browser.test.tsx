@@ -200,11 +200,11 @@ describe.each(screens)("the player by a remote's keys, on $name", ({ width, heig
       expect.arrayContaining(["Back 10 s", "Play", "Forward 10 s", "Full screen"]),
     );
     // The subtitle and Sound menus are pop-up choosers (the toolkit batch's step 6, D538 §8), no
-    // longer selects: each an opener of its pop-up.
+    // longer selects: each an opener of its pop-up, named by what it holds, "Subtitles" and "Sound".
     expect(controls.some((control) => control.tagName === "SELECT")).toBe(false);
     const menus = controls.filter(
       (control) =>
-        /^(?:Subtitles: |Sound$)/u.test(control.getAttribute("aria-label") ?? "") &&
+        /^(?:Subtitles|Sound)$/u.test(control.getAttribute("aria-label") ?? "") &&
         control.getAttribute("aria-haspopup") === "dialog",
     );
     expect(menus).toHaveLength(2);
@@ -432,7 +432,7 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
     expect(walked).toEqual([
       "Play",
       "Forward 10 s",
-      "Subtitles: Off",
+      "Subtitles",
       "Sound",
       "Settings",
       "Watch Together",

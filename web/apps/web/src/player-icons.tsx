@@ -12,10 +12,10 @@ import { Icon } from "./icon.tsx";
  * may lack (D407).
  */
 
-/** Play: a triangle pointing on. */
-export function PlayIcon(): JSX.Element {
+/** Play: a triangle pointing on; className sizes it where it is not a button's (How it plays). */
+export function PlayIcon(props: { readonly className?: string }): JSX.Element {
   return (
-    <Icon className="player-icons__icon">
+    <Icon className={props.className ?? "player-icons__icon"}>
       <path d="M8 4.5v15l12-7.5z" />
     </Icon>
   );
@@ -182,6 +182,15 @@ export function BackIcon(): JSX.Element {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </Icon>
+  );
+}
+
+/** The connection: rising signal bars, sized by className (How it plays). */
+export function ConnectionIcon(props: { readonly className: string }): JSX.Element {
+  return (
+    <Icon className={props.className}>
+      <path d="M3 17h3v4H3zm5-4h3v8H8zm5-4h3v12h-3zm5-5h3v17h-3z" />
     </Icon>
   );
 }
