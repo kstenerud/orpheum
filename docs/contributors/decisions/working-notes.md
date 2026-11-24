@@ -31528,3 +31528,44 @@ useTakesTheFilmOver and useCastSession, taken up in the redesign batch (D548) on
 5. **Tests:** one of the remote's own per path (Stop here taking the server's answer; taken back;
    the receiver gone with no leader heard; nothing on), each failing when the fallback to 0
    returns; and a `VQ<n>` for the Fire TV walk.
+
+## D550 — The cast remote reaches for a receiver the server no longer hears, and offers to play the film here
+
+**Decided** (2026-11-24), by the project owner: "2: yes.", to the lead's proposal after the owner's
+walk of the redesigned remote (D548) on a phone: *"When I turn the TV off, my phone thinks its
+still casting, and even pauses/plays and advances the time counter."* **Amends** D548 §9, whose
+Reaching state keyed on the remote's own session connection alone, and **refines** D364 §6, whose
+two minutes before a cast with no receiver ends stand: the remote says sooner what the server
+already knows, and lets the person act on it.
+
+**Status:** decided; not built. Its code is `cast-remote.tsx`'s useRemoteSource and RemoteOf, and
+`cast-remote-offer.tsx`'s useNotAnswering, taken up in the redesign batch (D548) after its layout.
+
+1. **What went wrong.** The remote's `isReady` is its own connection to the cast's session with a
+   position heard: a television switched off leaves both standing. The server takes a device
+   silent for three missed pings, 45 s (`together_socket.go`'s silenceLimit; at once for a page
+   closed cleanly), for gone, and tells the person's other devices (the live connection's
+   `devices` message) and the session's roster; but the cast ends only two minutes after that
+   (`ReceiverGoneAfter`, D364 §6). Meanwhile the remote's presses moved the server's group state,
+   and its clock's second (tickEveryMs) advanced the time from the last report heard.
+2. **Reaching as the server loses the receiver.** The remote is Reaching (D548 §9: the Pill, the
+   pad, timeline and menus disabled) also while the receiver's device
+   (`CastSending.receiverDeviceId`) is not among the person's connected devices (the live
+   snapshot's `deviceIds`), or while the cast's session names no device leading once one was
+   heard (a receiver still loading has not led yet, and is not gone). The time stops where the
+   last report stood: no second ticks without a leader heard. A receiver back in seconds, as one
+   reconnecting, clears it by itself.
+3. **Not answering offers Play here.** The StatusNote of D548 §9, "{device} isn't answering" after
+   15 s, keeps Try again and gains **Play here**: it ends the cast from here (reason `stopped`) and
+   plays the film on this device from where the receiver last stood, paused where it was paused,
+   by D549 §2's sources; the page goes home only where nothing was on. The server's two minutes
+   stay: a television back on within them finds its cast where it was.
+4. **No faster signal.** The pictures the remote draws every 3 s (`castFrameEveryMs`) are the
+   server's, taken from the file, not the receiver's heartbeat; the silence limit is the server's
+   gate, and shortening it is a separate change if 45 s proves too long.
+5. **Tests:** the remote's own: the receiver's device leaving `deviceIds` makes it Reaching, with
+   the pad disabled and the time standing; the leader leaving the roster likewise; the loading
+   receiver, never heard, is not Reaching for that; Play here ends the cast `stopped` and opens the
+   film where it stood; each failing when the remote keys on its own connection alone. A `VQ<n>`
+   for the walk: the television switched off while a film plays, the phone's remote within a
+   minute.
