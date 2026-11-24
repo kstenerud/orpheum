@@ -55,33 +55,35 @@ export function RemoteOffer(props: {
   const notAnswering = useNotAnswering(source.isReady);
   const name = sent.receiverName;
   return (
-    <div className="cast-remote__offer">
-      <div className="cast-remote__picture-area" aria-hidden="true">
-        <RemotePicture fileId={sent.fileId} atMs={source.atMs} art={props.art} />
-      </div>
-      <div className="cast-remote__offers">
-        <RemoteOffers sent={sent} source={source} upNext={props.upNext} />
-      </div>
-      <span className="cast-remote__centre">
-        {source.isReady ? (
-          <RemoteVolumePill film={props.film} />
-        ) : (
-          <Pill icon={<span className="cast-remote__spinner" />}>
-            {t("cast.reaching", { name })}
-          </Pill>
-        )}
-      </span>
-      {notAnswering.isLate ? (
-        <div className="cast-remote__note">
-          <StatusNote
-            told={{
-              kind: "problem",
-              text: t("cast.notAnswering", { name }),
-              onTryAgain: notAnswering.tryAgain,
-            }}
-          />
+    <div className="cast-remote__offer-cell">
+      <div className="cast-remote__offer">
+        <div className="cast-remote__picture-area" aria-hidden="true">
+          <RemotePicture fileId={sent.fileId} atMs={source.atMs} art={props.art} />
         </div>
-      ) : null}
+        <div className="cast-remote__offers">
+          <RemoteOffers sent={sent} source={source} upNext={props.upNext} />
+        </div>
+        <span className="cast-remote__centre">
+          {source.isReady ? (
+            <RemoteVolumePill film={props.film} />
+          ) : (
+            <Pill icon={<span className="cast-remote__spinner" />}>
+              {t("cast.reaching", { name })}
+            </Pill>
+          )}
+        </span>
+        {notAnswering.isLate ? (
+          <div className="cast-remote__note">
+            <StatusNote
+              told={{
+                kind: "problem",
+                text: t("cast.notAnswering", { name }),
+                onTryAgain: notAnswering.tryAgain,
+              }}
+            />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

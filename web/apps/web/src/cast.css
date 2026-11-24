@@ -50,6 +50,11 @@ html:has(.cast-remote__stage) {
 
 /* The offer area: 16:9, the picture under any offer, Pill or note (§2). A container, so Up next
    leaves its still out where the area is small (§3). */
+/* Its cell takes no box upright; in two columns it is the offer's grid row, a size container (§8). */
+.cast-remote__offer-cell {
+  display: contents;
+}
+
 .cast-remote__offer {
   container: cast-remote-offer / inline-size;
   position: relative;
@@ -191,8 +196,6 @@ html:has(.cast-remote__stage) {
 @container cast-remote ((orientation: landscape) and (height < 32rem)) or (width >= 60rem) {
   .cast-remote__page {
     --pad-column: 22rem;
-    /* What the bar, the timeline and its time take of the height: the offer area keeps to the rest. */
-    --start-chrome: 12rem;
     display: grid;
     grid-template-columns: minmax(0, 1fr) var(--pad-column);
     grid-template-rows: auto minmax(0, 1fr) auto;
@@ -208,11 +211,20 @@ html:has(.cast-remote__stage) {
     grid-area: bar;
   }
 
-  .cast-remote__offer {
+  /* The offer's row: what the bar, the timeline and its time leave. The card fills it, 16:9. */
+  .cast-remote__offer-cell {
+    display: grid;
     grid-area: offer;
-    align-self: center;
-    justify-self: center;
-    inline-size: min(100% - 2 * var(--space-4), (100cqh - var(--start-chrome)) * 16 / 9);
+    place-items: center;
+    align-self: stretch;
+    container-type: size;
+    min-block-size: 0;
+    min-inline-size: 0;
+  }
+
+  .cast-remote__offer {
+    margin-inline: 0;
+    inline-size: min(100% - 2 * var(--space-4), 100cqh * 16 / 9);
   }
 
   .cast-remote__timeline {
@@ -236,7 +248,6 @@ html:has(.cast-remote__stage) {
 @container cast-remote (orientation: landscape) and (height < 32rem) {
   .cast-remote__page {
     --pad-column: 15rem;
-    --start-chrome: 11.5rem;
   }
 
   .cast-remote__bar {

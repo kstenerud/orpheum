@@ -129,4 +129,14 @@ describe("the cast remote's layout (D548 §1, §8)", () => {
     expect(pad.width).toBeCloseTo(352, 0);
     expect(padSize(wide, "Play")).toBeCloseTo(96, 0);
   });
+
+  it("keeps the card a third or more of the width on a short phone on its side, as a browser's bars leave it", async () => {
+    // The bar, the timeline and the pad keep their heights, so the card has what they leave; a
+    // window this short scrolls the stage a little.
+    const short = await remoteAt(740, 300);
+    expectSixteenByNine(short);
+    const offer = boxOf(short, ".cast-remote__offer");
+    expect(offer.width).toBeGreaterThanOrEqual(740 * 0.3);
+    expect(Math.abs(offer.width / 16 - offer.height / 9) * 9).toBeLessThan(1);
+  });
 });

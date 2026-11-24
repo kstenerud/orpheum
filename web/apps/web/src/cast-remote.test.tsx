@@ -208,7 +208,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     const column = partIn(page, ".cast-remote__page");
     expect([...column.children].map((part) => part.className)).toEqual([
       "cast-remote__bar",
-      "cast-remote__offer",
+      "cast-remote__offer-cell",
       "cast-remote__timeline",
       "cast-remote__pad",
       "cast-remote__buttons",
