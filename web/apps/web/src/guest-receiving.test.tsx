@@ -170,6 +170,10 @@ describe("a guest receiver's page (D469 §4)", () => {
     const { container } = mounted;
     await settleUntil(() => container.textContent.includes("Waiting for the cast from your phone"));
     await sockets.live.accept();
+    // The live connection says, as it opens, that the device casts nothing, as the server's does: not
+    // said, the Play page waited sendingKnownWithinMs, 3 s of real time, before it played here, which
+    // took the test past its 15 s under make check's load (2026-11-24).
+    await sockets.live.say({ type: "sending" });
     await sockets.live.say({ type: "receive", receive: handed });
     await pressToStartTheCast();
     expect(services.navigation.route()).toEqual({ screen: "play", fileId: 7 });
@@ -232,6 +236,8 @@ describe("a guest receiver's page (D469 §4)", () => {
     const { container } = mounted;
     await settleUntil(() => container.textContent.includes("Waiting for the cast from your phone"));
     await sockets.live.accept();
+    // The device casts nothing, as the test above says why.
+    await sockets.live.say({ type: "sending" });
     await sockets.live.say({ type: "receive", receive: handed });
     await pressToStartTheCast();
     await settleUntil(() => container.querySelector("video") !== null);

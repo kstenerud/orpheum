@@ -346,10 +346,13 @@ export function LaterScreen(props: {
   );
 }
 
-/** What shows while a screen's code loads. */
+/**
+ * What shows while a screen's code loads. Marked, so a test that takes a screen's markup waits for
+ * the code itself (test-app.tsx), not for a quiet spell that a busy machine's slow load outlasted.
+ */
 function ScreenLoading(): JSX.Element {
   const { t } = useTranslation();
-  return <p>{t("common.loading")}</p>;
+  return <p data-screen-loading="">{t("common.loading")}</p>;
 }
 
 interface BoundaryState {

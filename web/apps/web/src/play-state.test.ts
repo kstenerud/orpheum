@@ -19,13 +19,13 @@ import { sendReport, tellUnplayable, whenCopyGivenUp } from "./play-state.ts";
 import { decisionTimesKept, decisionTimesOf, noteDecisionTimes } from "./decision-times.ts";
 import { ApiProblem } from "./problem.ts";
 import { testServices } from "./test-services.tsx";
-import { reopenWaitsMs } from "./reopen.ts";
 import {
   mount,
   refusal,
   servedBy,
   settleUntil,
   unreachable,
+  type Answer,
   type Answers,
   type Heard,
   type Mounted,
@@ -231,16 +231,27 @@ describe("play state", () => {
     // The page's reopening line, not the overlay's volume, drawn over the film too (D418 §1).
     const reopening = "output:not(.player-overlay-volume, .stepper__caption)";
     const heard: Heard[] = [];
+    // The server still starting until the test has seen the line and the lost video played on: a
+    // reopen answered after one fixed wait could open the new video before a busy machine's first
+    // look for the line, which then waited for a line gone (make check beside Go's tests,
+    // 2026-11-24).
+    let playbacksAsked = 0;
+    let isServerBack = false;
+    const playback = (): Answer => {
+      playbacksAsked += 1;
+      if (playbacksAsked === 1) {
+        return [200, directDecision({ mediaToken: "lost" })];
+      }
+      return isServerBack
+        ? [200, directDecision({ mediaToken: "again" })]
+        : refusal(502, "notAnswering");
+    };
     mounted = await mount(
       withServices(
         createElement(Play, { fileId: 2 }),
         servedBy(
           {
-            "POST /playback": [
-              [200, directDecision({ mediaToken: "lost" })],
-              refusal(502, "notAnswering"), // the server still starting
-              [200, directDecision({ mediaToken: "again" })],
-            ],
+            "POST /playback": playback,
             "POST /playback/lost/report": refusal(404, "playbackGone"),
             "GET /files/2/waits": [200, {}],
             "GET /files/2/up-next": [200, {}],
@@ -262,22 +273,23 @@ describe("play state", () => {
     });
     // The report's refusal and the reopening it starts take more than settle's few turns on a busy
     // machine (a make check beside three agents' test runs, 2026-11-23): wait for the line itself.
-    await settleUntil(
-      () =>
-        mounted?.container
-          .querySelector(reopening)
-          ?.textContent.includes("Opening the film again where you were") ?? false,
+    // Each note the page says, the newest first: the lost video, whose time the test moves only
+    // once, says it is getting ready over the line within half a second, first of the notes.
+    const notes = (): string[] =>
+      [...(mounted?.container.querySelectorAll(reopening) ?? [])].map((each) => each.textContent);
+    await settleUntil(() =>
+      notes().some((each) => each.includes("Opening the film again where you were")),
     );
     expect(videoOf(mounted)).toBe(lost);
-    expect(mounted.container.querySelector(reopening)?.textContent).toContain(
-      "Opening the film again where you were",
+    expect(notes()).toContainEqual(
+      expect.stringContaining("Opening the film again where you were"),
     );
     lost.currentTime = 612; // it plays on from what it holds
     await act(async () => {
       lost.dispatchEvent(new Event("timeupdate"));
-      await new Promise((resolve) => setTimeout(resolve, reopenWaitsMs[0]));
       await settle();
     });
+    isServerBack = true;
     await settleUntil(() => mounted !== undefined && videoOf(mounted) !== lost);
     const again = videoOf(mounted);
     expect(again).not.toBe(lost);

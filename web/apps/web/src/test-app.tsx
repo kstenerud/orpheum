@@ -29,8 +29,10 @@ export async function signedInMarkupAt(app: JSX.Element, path: string): Promise<
   const mounted = await mount(withServices(app, testServices("token", path, send)));
   const { container } = mounted;
   await settleUntil(() => container.querySelector(".app-shell") !== null);
-  // Unchanged for longer than React holds back a Suspense boundary's reveal, about 300 ms, so a
-  // screen whose code loads lazily is drawn in its fallback's place.
+  // No screen's code still loading (screen-load.tsx marks its fallback), and then unchanged for
+  // longer than React holds back a Suspense boundary's reveal, about 300 ms. The quiet spell alone
+  // was taken while a lazily loaded screen's code was still coming, under make check beside Go's
+  // tests: its fallback's markup was returned (2026-11-24).
   let markup = "";
   let changedAt = Date.now();
   await settleUntil(() => {
@@ -38,7 +40,9 @@ export async function signedInMarkupAt(app: JSX.Element, path: string): Promise<
       markup = container.innerHTML;
       changedAt = Date.now();
     }
-    return Date.now() - changedAt >= 600;
+    return (
+      container.querySelector("[data-screen-loading]") === null && Date.now() - changedAt >= 600
+    );
   });
   mounted.unmount();
   return markup;

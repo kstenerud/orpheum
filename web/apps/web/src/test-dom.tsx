@@ -3,6 +3,7 @@
 import { apiPrefix } from "@orpheum/sdk";
 import { act, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
+import { expect } from "vitest";
 
 import type { Services } from "./services.tsx";
 import { resetLazyScreensOnMount } from "./screen-load.tsx";
@@ -475,6 +476,20 @@ export function politeNotices(container: Element): string[] {
 const SETTLE_FAILURE_LIMIT_MS = 60_000;
 
 /**
+ * Whether the test running now has since ended. A test that timed out is abandoned, not stopped: its
+ * waits went on polling into the tests after it, and a condition reading the next test's page threw
+ * there ("no video", play-state.test.ts, after the test before it timed out under make check's load,
+ * 2026-11-24). A wait that asks this stops with its own test instead.
+ */
+function endOfTheRunningTest(): () => boolean {
+  const { currentTestName, testPath } = expect.getState();
+  return () => {
+    const now = expect.getState();
+    return now.currentTestName !== currentTestName || now.testPath !== testPath;
+  };
+}
+
+/**
  * Lets work outside the page's requests settle until condition holds, for what waits on more than
  * answers (WebCrypto, which runs off the main thread and may take longer than a few turns on a busy
  * machine). It fails the test after about a minute, naming the condition that never held: a wait
@@ -483,7 +498,13 @@ const SETTLE_FAILURE_LIMIT_MS = 60_000;
  */
 export async function settleUntil(condition: () => boolean): Promise<void> {
   const start = Date.now();
+  const hasItsTestEnded = endOfTheRunningTest();
   while (!condition() && Date.now() - start < SETTLE_FAILURE_LIMIT_MS) {
+    if (hasItsTestEnded()) {
+      throw new Error(
+        `settleUntil: its test ended (timed out) while it waited: ${condition.toString()}`,
+      );
+    }
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
     });
@@ -511,6 +532,7 @@ const QUIET_TICKS_NEEDED = 3;
  */
 export async function settleAnswers(): Promise<void> {
   const start = Date.now();
+  const hasItsTestEnded = endOfTheRunningTest();
   let hasMutated: boolean;
   const observer = new MutationObserver(() => {
     hasMutated = true;
@@ -524,6 +546,9 @@ export async function settleAnswers(): Promise<void> {
   try {
     let quietTicks = 0;
     while (quietTicks < QUIET_TICKS_NEEDED) {
+      if (hasItsTestEnded()) {
+        throw new Error("settleAnswers: its test ended (timed out) while it waited");
+      }
       if (Date.now() - start >= SETTLE_FAILURE_LIMIT_MS) {
         const inFlight = [...inFlightRequests.values()];
         throw new Error(
