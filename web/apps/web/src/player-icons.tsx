@@ -105,6 +105,38 @@ export function SoundIcon(): JSX.Element {
   );
 }
 
+/** The cast remote's Volume down (D548 §11): a speaker with one wave, two being the Sound menu's. */
+export function VolumeDownIcon(): JSX.Element {
+  return (
+    <Icon className="player-icons__icon">
+      <path d="M3 9h4l5-4.5v15L7 15H3z" />
+      <path
+        d="M15.5 8.5a5 5 0 0 1 0 7"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </Icon>
+  );
+}
+
+/** The cast remote's Volume up (D548 §11): a speaker with three waves. */
+export function VolumeUpIcon(): JSX.Element {
+  return (
+    <Icon className="player-icons__icon">
+      <path d="M2 9h3.5l4.5-4.5v15L5.5 15H2z" />
+      <path
+        d="M13 9.5a3.5 3.5 0 0 1 0 5M15.75 7a7 7 0 0 1 0 10M18.5 4.5a10.5 10.5 0 0 1 0 15"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+    </Icon>
+  );
+}
+
 /** Sound off: a speaker and a cross. */
 export function MutedIcon(): JSX.Element {
   return (

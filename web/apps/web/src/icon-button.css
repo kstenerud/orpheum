@@ -47,6 +47,49 @@
   background: var(--color-video-card);
 }
 
+/* The cast remote's pad's sizes (D548 §5, §11): round, larger than a fingertip, a 2rem icon, 2.5rem
+   in the 96 px Play. The remote's page sets --remote-size smaller on a phone on its side (cast.css). */
+.icon-button--remote-56 {
+  --remote-size: 3.5rem;
+}
+
+.icon-button--remote-64 {
+  --remote-size: 4rem;
+}
+
+.icon-button--remote-72 {
+  --remote-size: 4.5rem;
+}
+
+.icon-button--remote-96 {
+  --remote-size: 6rem;
+  --remote-icon-size: 2.5rem;
+}
+
+:is(
+  .icon-button--remote-56,
+  .icon-button--remote-64,
+  .icon-button--remote-72,
+  .icon-button--remote-96
+) {
+  width: var(--remote-size);
+  min-width: var(--remote-size);
+  height: var(--remote-size);
+  min-height: var(--remote-size);
+  border-radius: var(--radius-pill);
+}
+
+:is(
+    .icon-button--remote-56,
+    .icon-button--remote-64,
+    .icon-button--remote-72,
+    .icon-button--remote-96
+  )
+  > .icon {
+  width: var(--remote-icon-size, 2rem);
+  height: var(--remote-icon-size, 2rem);
+}
+
 /* A filter it opens is applied (a listing's search): its icon in the accent. */
 .icon-button--applied {
   color: var(--color-accent);

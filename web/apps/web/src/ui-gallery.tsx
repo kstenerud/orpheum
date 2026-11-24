@@ -72,6 +72,8 @@ import {
   SeekForwardIcon,
   SoundIcon,
   SubtitlesIcon,
+  VolumeDownIcon,
+  VolumeUpIcon,
 } from "./player-icons.tsx";
 import { RouteChooser } from "./route-chooser.tsx";
 import { StatusNotes, StatusTray, type CueSubject } from "./status-cues.tsx";
@@ -301,6 +303,8 @@ function Icons(): JSX.Element {
         <SeekForwardIcon />
         <SoundIcon />
         <MutedIcon />
+        <VolumeDownIcon />
+        <VolumeUpIcon />
         <FullScreenIcon />
         <LeaveFullScreenIcon />
         <CloseIcon />

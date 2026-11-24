@@ -74,7 +74,7 @@ it("shows every icon the app draws together, each drawn by Icon (the owner, 2026
     "cast-kind cast-kind--find",
     "volume-row__film-icon",
     "poster__clock",
-    ...Array.from({ length: 15 }, () => "player-icons__icon"),
+    ...Array.from({ length: 17 }, () => "player-icons__icon"),
     "how-it-plays__icon",
   ]);
 });

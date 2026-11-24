@@ -2,11 +2,11 @@
 
 import "./icon-button.css";
 
-import type { JSX, MouseEvent, ReactNode, Ref } from "react";
+import type { JSX, MouseEvent, PointerEvent, ReactNode, Ref } from "react";
 
 /**
  * A button that is an icon alone, the one way to draw one (D369 §1, icon-button.test.ts): one size,
- * a fingertip's (--size-control, 2.75rem), the status tray's too (the owner, 2026-10-27: "Let's try
+ * but the cast remote's pad's (size, D548 §11), a fingertip's (--size-control, 2.75rem), the status tray's too (the owner, 2026-10-27: "Let's try
  * sizing them the same as the others and see how that feels"); its icon drawn by `Icon`, never a text
  * character, which a television's font may lack; its name, which a screen reader says and a test
  * finds it by, given as label. Over a film it is round, on the film's control ground.
@@ -16,6 +16,17 @@ const markClass = {
   running: "icon-button--running",
   applied: "icon-button--applied",
 } as const;
+
+/** Each of the cast remote's sizes' class (D548 §11), written out whole as markClass's are. */
+const sizeClass = {
+  56: "icon-button--remote-56",
+  64: "icon-button--remote-64",
+  72: "icon-button--remote-72",
+  96: "icon-button--remote-96",
+} as const;
+
+/** A size a pad of round buttons takes, in px (the cast remote's pad, D548 §5, §11). */
+export type IconButtonSize = keyof typeof sizeClass;
 
 export function IconButton(props: {
   /** What the button does, in the viewer's words: its accessible name. */
@@ -57,6 +68,13 @@ export function IconButton(props: {
    * where it was, as what it does a keyboard or a remote already does another way.
    */
   readonly isPointerOnly?: boolean | undefined;
+  /**
+   * A pad's size in px, where it is not a fingertip's (the cast remote's pad, D548 §5): round, its
+   * icon 2rem, 2.5rem at 96. Unsized, --size-control.
+   */
+  readonly size?: IconButtonSize | undefined;
+  /** Where a held press repeats it (the cast remote's volume, D548 §6): its pointer's going down. */
+  readonly onPointerDown?: ((event: PointerEvent<HTMLButtonElement>) => void) | undefined;
 }): JSX.Element {
   const { ref, label, icon, onClick, isOverVideo, isExpanded, isDisabled, isOnCard, mark } = props;
   const isPointerOnly = props.isPointerOnly === true;
@@ -69,6 +87,9 @@ export function IconButton(props: {
   }
   if (mark !== undefined) {
     classes.push(markClass[mark]);
+  }
+  if (props.size !== undefined) {
+    classes.push(sizeClass[props.size]);
   }
   const isUnavailable = props.isUnavailable === true;
   return (
@@ -89,6 +110,7 @@ export function IconButton(props: {
             }
           : undefined
       }
+      onPointerDown={isUnavailable ? undefined : props.onPointerDown}
       onClick={isUnavailable ? undefined : onClick}
     >
       {icon}

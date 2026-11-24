@@ -52,6 +52,18 @@ describe("an icon button (D369 §1)", () => {
     );
     expect(draw({})).toContain('class="icon-button"');
   });
+
+  // D548 §11: the cast remote's pad, round buttons larger than a fingertip.
+  it("takes the cast remote's pad's sizes by a named option, each its own class", () => {
+    const draw = (size: 56 | 64 | 72 | 96): string =>
+      renderToStaticMarkup(
+        <IconButton label="Play" icon={<PlayIcon />} onClick={() => undefined} size={size} />,
+      );
+    expect(draw(56)).toContain('class="icon-button icon-button--remote-56"');
+    expect(draw(64)).toContain('class="icon-button icon-button--remote-64"');
+    expect(draw(72)).toContain('class="icon-button icon-button--remote-72"');
+    expect(draw(96)).toContain('class="icon-button icon-button--remote-96"');
+  });
 });
 
 describe("the player's buttons, icons in place of characters a television's font may lack", () => {
