@@ -24,13 +24,14 @@ export const ownMarkLastsMs = 2000;
 export const receiverAnswersWithinMs = 1000;
 
 /** Which of its own moves a mark waits for. */
-export type OwnMove = "seek" | "pause";
+export type OwnMove = "seek" | "pause" | "play";
 
 /** The marks of one player's own moves, on its monotonic clock. */
 export class OwnMoves {
   /** Until when each mark waits for its event; undefined when none waits. */
   #seekUntilMs: number | undefined = undefined;
   #pauseUntilMs: number | undefined = undefined;
+  #playUntilMs: number | undefined = undefined;
   /** Whether the seek under way is its own: its seeking was, so its seeked is. */
   #isOwnSeekUnderWay = false;
   /** Until when a pause or play its element fires answers its own move on a receiver; else undefined. */
@@ -46,6 +47,8 @@ export class OwnMoves {
   mark(move: OwnMove, nowMs: number): void {
     if (move === "seek") {
       this.#seekUntilMs = nowMs + ownMarkLastsMs;
+    } else if (move === "play") {
+      this.#playUntilMs = nowMs + ownMarkLastsMs;
     } else {
       this.#pauseUntilMs = nowMs + ownMarkLastsMs;
     }
@@ -78,6 +81,9 @@ export class OwnMoves {
     if ((event === "pause" || event === "play") && isWaiting(this.#receiverAnswersUntilMs, nowMs)) {
       return true; // the receiver's answer to its own move, never its person's press (D522 §2)
     }
+    if (event === "play") {
+      return isWaiting(this.#playUntilMs, nowMs);
+    }
     return event === "pause" && isWaiting(this.#pauseUntilMs, nowMs);
   }
 
@@ -97,13 +103,15 @@ export class OwnMoves {
       this.#seekUntilMs = undefined;
     } else if (event === "pause") {
       this.#pauseUntilMs = undefined;
+    } else if (event === "play") {
+      this.#playUntilMs = undefined;
     }
     return isOwn;
   }
 
   /** The marks whose event never came by nowMs, given up: each is a move that fired nothing. */
-  expired(nowMs: number): OwnMove[] {
-    const moves: OwnMove[] = [];
+  expired(nowMs: number): Exclude<OwnMove, "play">[] {
+    const moves: Exclude<OwnMove, "play">[] = [];
     if (this.#seekUntilMs !== undefined && !isWaiting(this.#seekUntilMs, nowMs)) {
       this.#seekUntilMs = undefined;
       moves.push("seek");
@@ -111,6 +119,9 @@ export class OwnMoves {
     if (this.#pauseUntilMs !== undefined && !isWaiting(this.#pauseUntilMs, nowMs)) {
       this.#pauseUntilMs = undefined;
       moves.push("pause");
+    }
+    if (this.#playUntilMs !== undefined && !isWaiting(this.#playUntilMs, nowMs)) {
+      this.#playUntilMs = undefined; // a play that fired no event leaves nothing to answer
     }
     return moves;
   }

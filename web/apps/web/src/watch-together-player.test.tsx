@@ -216,11 +216,17 @@ describe("the host's player in a session (D246 §5)", () => {
 
   it("follows the player's new video when it moves to a lower quality, stopping nothing", async () => {
     hostSession();
+    // The film plays, as the host's does when it puts its film on: an element not yet played stands paused.
+    const playingVideo = (): HTMLVideoElement => {
+      const video = document.createElement("video");
+      Object.defineProperty(video, "paused", { value: false, configurable: true });
+      return video;
+    };
     const server = fakeTogetherServer();
     const services = { ...servedBy({}, [], "token"), openTogetherSocket: server.openSocket };
     let showVideo: (video: HTMLVideoElement) => void = () => undefined;
     function Moving(): JSX.Element {
-      const [video, setVideo] = useState(() => document.createElement("video"));
+      const [video, setVideo] = useState(playingVideo);
       showVideo = setVideo;
       return (
         <HostPlaysTogether
@@ -242,7 +248,7 @@ describe("the host's player in a session (D246 §5)", () => {
       roster: [{ ...karl, devices: [{ id: 9, role: "video" }] }],
     });
     await act(async () => {
-      showVideo(document.createElement("video"));
+      showVideo(playingVideo());
       await Promise.resolve();
     });
     await server.say({

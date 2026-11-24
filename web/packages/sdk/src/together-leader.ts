@@ -168,6 +168,8 @@ export class GroupLeader {
       media.paused &&
       !media.ended
     ) {
+      // Its play event is the leader's own, never its person's play at a group that is paused by then.
+      ownMoves.mark("play", monotonicMs());
       play();
     }
   }

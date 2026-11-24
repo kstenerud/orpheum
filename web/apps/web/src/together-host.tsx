@@ -202,7 +202,17 @@ function HostLeading(
   const hostVoice = useHostVoice();
   const isWelcomed = snapshot?.status === "connected";
   const endReason = snapshot?.status === "ended" ? snapshot.endReason : undefined;
-  useLeadingPlayer({ connection, isWelcomed, fileId, video, startPositionMs, delivery });
+  // A session started over a paused film puts it on paused: it stays paused (the owner, 2026-11-23).
+  const isPutOnPaused = video?.paused === true;
+  useLeadingPlayer({
+    connection,
+    isWelcomed,
+    fileId,
+    video,
+    startPositionMs,
+    delivery,
+    isPutOnPaused,
+  });
   useToldCannotKeepUp(connection, props.cannotKeepUp);
   useEffect(() => {
     if (endReason !== undefined) {

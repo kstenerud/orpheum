@@ -4020,3 +4020,17 @@ An item is ticked only by the person who did it, and only with what they saw.
   3. Seek back a few minutes, then to the credits again. Report whether Up next shows again.
   4. Open the menu that says who is signed in, choose Report a problem, and send one saying
      "VQ389". Report that you sent it.
+- [ ] **VQ395** — Report a problem from a cast's remote (D524 §2): the remote's ⁝ menu offers it, and
+  the report says how the TV plays, not the phone.
+  1. Cast a film to the Fire TV's tab from the phone and let it play a while. On the remote, open
+     the ⁝ menu and report whether Report a problem is in it.
+  2. Choose it, write "VQ395" and send. Report that it sent, and whether the report's playback
+     line (in the problems list) names the TV's quality and the film's place, not the phone's.
+  3. Pause on the remote, send another, and report whether its state says paused.
+- [ ] **VQ396** — A Watch Together session started over a paused film stays paused (the owner,
+  2026-11-23; A92).
+  1. Play a film in the browser, press pause, and start a Watch Together session from the pause.
+     Report whether the film stays paused, here and on the second device that joins.
+  2. Press play. Report whether both play. Pause again, leave, and start another session from
+     the playing film; report whether it plays on.
+  3. Do step 1 again in Firefox, and report the same.
