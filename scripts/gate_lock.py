@@ -26,6 +26,14 @@ session (`.claude/hooks/pre_bash.py` runs it through this).
 - **A run's own sub-runs pass through.** The holder marks its environment (GATE_LOCK_HELD), so a
   gate's steps, revert-red's probes, and a commit's spot check inside a locked command do not wait on
   their own lock.
+- **A sub-run ends with the run it rides** (the owner, 2026-11-24, agreeing to the test-time
+  stock-take's item 9). The holder names itself in the environment too (GATE_LOCK_HOLDER, its record's
+  process and start), and a sub-run started through this script runs its command in a process group
+  of its own, ending it when the lock is let go or taken by another run. A check-pr stopped from
+  outside left its revert-red running, in a group the stop did not reach and holding no lock (a
+  Python step closes the lock's descriptor in what it starts), and the make check that took the lock
+  beside it timed out ten Firefox browser tests. A sub-run that cannot see its holder's record as it
+  starts (another checkout's lock, a container without the lock's directory) runs as before.
 - **The lock goes with the run, and the run with its wrapper** (the lock's wargaming, 2026-11-04: a
   wrapper killed by a tool's timeout let the lock go while its tests ran on outside it). The command
   holds the lock too, so it is let go only when the wrapper and the command have both ended; the
@@ -65,6 +73,10 @@ from pathlib import Path
 from typing import IO, Any
 
 GATE_LOCK_HELD = "ORPHEUM_GATE_LOCK_HELD"
+# The run holding the lock, as its record names it ("pid:started"): a sub-run ends once it is gone.
+GATE_LOCK_HOLDER = "ORPHEUM_GATE_LOCK_HOLDER"
+# How often a sub-run asks whether the run it rides still holds the lock.
+RIDE_POLL_SECONDS = 2.0
 # What holds the lock when a holder does not say.
 GATE = "gate"
 PROBE = "probe"
@@ -539,7 +551,7 @@ def _held(root: Path | None, kind: str, lease: float | None) -> Iterator[tuple[I
         if stopped:
             probe.stop(root)
         try:
-            yield lock, {**os.environ, GATE_LOCK_HELD: "1"}
+            yield lock, {**os.environ, GATE_LOCK_HELD: "1", GATE_LOCK_HOLDER: f"{os.getpid()}:{started!r}"}
         finally:
             with contextlib.suppress(OSError):
                 record_hold(root, kind, time.time() - started)
@@ -580,25 +592,63 @@ def holding(root: Path | None = None, kind: str = GATE) -> Iterator[dict[str, st
         yield env
 
 
+def _start_own_group(command: list[str], env: dict[str, str], pass_fds: tuple[int, ...] = ()) -> subprocess.Popen[bytes]:
+    """Starts command in a process group of its own, which this process ends whole when asked to end
+    (TERM, INT, HUP), exiting as the signal would."""
+    group: list[subprocess.Popen[bytes]] = []
+
+    def forward(signum, _frame):
+        if group:
+            end_group(group[0].pid, first=signum, child=group[0])
+        sys.exit(128 + signum)
+
+    # Before the command starts, so no signal finds it running and the wrapper without its handler.
+    for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(signum, forward)
+    child = subprocess.Popen(command, env=env, pass_fds=pass_fds, start_new_session=True)
+    group.append(child)
+    return child
+
+
+def rides(holder_said: str, root: Path | None = None) -> bool | None:
+    """Whether the run holder_said names (GATE_LOCK_HOLDER) holds the lock still: False once nothing
+    holds it or another run does, None for a holder that wrote no record."""
+    record = holder_record(root)
+    if record is None:
+        return False
+    if not record:
+        return None
+    return f"{record.get('pid')}:{record.get('started')!r}" == holder_said
+
+
+def run_riding(command: list[str], env: dict[str, str]) -> int:
+    """Runs a sub-run's command, the lock held by the run it is part of, ending its whole group once
+    that run lets the lock go; run as it is when the holder cannot be seen as it starts."""
+    said = env.get(GATE_LOCK_HOLDER, "")
+    if not said or rides(said) is not True:
+        return subprocess.run(command, env=env, check=False).returncode
+    child = _start_own_group(command, env)
+    while True:
+        try:
+            return child.wait(timeout=RIDE_POLL_SECONDS)
+        except subprocess.TimeoutExpired:
+            if rides(said) is False:
+                print(f"gate lock: the run this is part of (pid {said.partition(':')[0]}) has ended and let the "
+                      f"test lock go, so {command[0]} is ended too: no test runs on without the lock.",
+                      file=sys.stderr, flush=True)
+                end_group(child.pid, child=child)
+                return 128 + signal.SIGTERM
+
+
 def run_holding(command: list[str], kind: str = GATE, lease: float | None = None) -> int:
     """Runs command holding the lock as kind: the command holds it too, in a process group of its own
-    that this wrapper ends when asked to end or when the lease runs out."""
+    that this wrapper ends when asked to end or when the lease runs out. Held already, it is a sub-run
+    (run_riding)."""
     lease = lease_for(kind) if lease is None else lease
     with _held(None, kind, lease) as (lock, env):
         if lock is None:
-            return subprocess.run(command, env=env, check=False).returncode
-        group: list[subprocess.Popen[bytes]] = []
-
-        def forward(signum, _frame):
-            if group:
-                end_group(group[0].pid, first=signum, child=group[0])
-            sys.exit(128 + signum)
-
-        # Before the command starts, so no signal finds it running and the wrapper without its handler.
-        for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
-            signal.signal(signum, forward)
-        child = subprocess.Popen(command, env=env, pass_fds=(lock.fileno(),), start_new_session=True)
-        group.append(child)
+            return run_riding(command, env)
+        child = _start_own_group(command, env, (lock.fileno(),))
         record = holder_record() or {}
         mark(lock, kind, lease, group=child.pid, started=float(record.get("started") or time.time()))
         try:

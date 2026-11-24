@@ -222,6 +222,14 @@ def run_make(make_args: list[str], fail_fast: bool, env: dict[str, str] | None =
         except ProcessLookupError:
             pass
 
+    # Stopped from outside, the gate stops its make, which runs in a session of its own: a check-pr
+    # stopped by its process group left its steps running, revert-red among them (the owner,
+    # 2026-11-24, the test-time stock-take's item 9).
+    def ended(signum: int, _frame: object) -> None:
+        stop(signal.SIGTERM)
+        raise SystemExit(128 + signum)
+
+    previous = {signum: signal.signal(signum, ended) for signum in (signal.SIGTERM, signal.SIGHUP)}
     lines: list[str] = []
     read_up_to: int | None = None
     killer: list[threading.Timer] = []
@@ -237,6 +245,9 @@ def run_make(make_args: list[str], fail_fast: bool, env: dict[str, str] | None =
     except KeyboardInterrupt:
         stop(signal.SIGTERM)
         raise
+    finally:
+        for signum, handler in previous.items():
+            signal.signal(signum, handler)
     code = process.wait()
     # The killer is for steps that outlive the asking; when none did, it would only keep this process
     # alive for the whole grace, which held every failed make check 10 s after it said so (2026-11-20).

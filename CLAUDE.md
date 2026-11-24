@@ -57,7 +57,8 @@ the `AGENTS.md` convention read the same rules. Only Claude-specific mechanics b
   (`scripts/go_test_exec`). A run that finds it held says what holds
   it and waits; `python3 scripts/gate_lock.py --held` prints the holder. The command holds the lock too,
   so a killed wrapper cannot let its tests run on outside it, and ending the wrapper ends the command's
-  whole process group. Each kind of run has a lease (a hung run is ended at it). A foreground command
+  whole process group. A run's sub-run (`gate_lock.py` inside a locked command) ends once its run lets the
+  lock go, and a stopped quiet gate stops its make, so a stopped check-pr leaves no revert-red behind. Each kind of run has a lease (a hung run is ended at it). A foreground command
   whose wait for the lock would use more than half its timeout is refused, naming the holder and the
   queue: run it in the background, or with the longer timeout it names.
 - **Before a shell command**, `.claude/hooks/pre_bash.py` refuses commands that add a

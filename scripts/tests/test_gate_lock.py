@@ -29,7 +29,7 @@ def repository(case: unittest.TestCase) -> Path:
 
 
 def run_lock(root: Path, *command: str, held: bool = False) -> subprocess.Popen[str]:
-    env = {k: v for k, v in os.environ.items() if k != gate_lock.GATE_LOCK_HELD} | HERMETIC
+    env = {k: v for k, v in os.environ.items() if k not in (gate_lock.GATE_LOCK_HELD, gate_lock.GATE_LOCK_HOLDER)} | HERMETIC
     if held:
         env[gate_lock.GATE_LOCK_HELD] = "1"
     return subprocess.Popen([sys.executable, str(SCRIPTS / "gate_lock.py"), *command], cwd=root, env=env,
@@ -232,6 +232,27 @@ class TheLockGoesWithTheRun(unittest.TestCase):
         os.kill(grandchild, 9)
         until(lambda: gate_lock.holder(root) is None)
 
+    def test_a_sub_run_outside_its_holders_group_ends_once_the_holder_lets_the_lock_go(self):
+        # A check-pr stopped from outside left its revert-red running in a session of its own, without the
+        # lock, and the make check beside it timed out ten Firefox tests (2026-11-24, item 9). Its step is
+        # started as quiet_gate starts make: a session of its own, the lock's descriptor closed.
+        root = repository(self)
+        grandchild = root / "grandchild"
+        sub_run = [sys.executable, str(SCRIPTS / "gate_lock.py"), "sh", "-c",
+                   f"sleep 60 & echo $! > {grandchild}; wait"]
+        step = (f"import subprocess, time; subprocess.Popen({sub_run!r}, start_new_session=True); "
+                "time.sleep(60)")
+        run = run_lock(root, sys.executable, "-c", step)
+        self.addCleanup(run.kill)
+        until(lambda: grandchild.exists() and grandchild.read_text().strip() != "")
+        pid = int(grandchild.read_text())
+        self.addCleanup(lambda: alive(pid) and os.kill(pid, 9))
+        time.sleep(gate_lock.RIDE_POLL_SECONDS + 0.5)
+        self.assertTrue(alive(pid), "a sub-run whose holder runs runs on")
+        run.terminate()
+        run.wait(timeout=30)
+        until(lambda: not alive(pid), seconds=gate_lock.RIDE_POLL_SECONDS + gate_lock.GRACE_SECONDS + 5)
+
     def test_a_run_past_its_lease_is_ended_and_says_so(self):
         root = repository(self)
         run, grandchild = self.started_run(root, "--lease", "1")
@@ -364,7 +385,7 @@ class ARunStartedAnyWayHoldsIt(unittest.TestCase):
             binary = root / name
             binary.write_text(f"#!/bin/sh\n{report}\n")
             binary.chmod(0o755)
-        env = {k: v for k, v in os.environ.items() if k != gate_lock.GATE_LOCK_HELD} | HERMETIC
+        env = {k: v for k, v in os.environ.items() if k not in (gate_lock.GATE_LOCK_HELD, gate_lock.GATE_LOCK_HOLDER)} | HERMETIC
 
         def through_exec(name: str) -> str:
             # sh stands for the go command: the wrapper's parent, whose life the hold lasts.

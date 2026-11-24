@@ -107,6 +107,14 @@ class StepTimes(unittest.TestCase):
         self.assertEqual(shell({k: v for k, v in os.environ.items() if k != "STEP_CLOCK"}), "SHELL := bash")
 
 
+def running(pid: int) -> bool:
+    """Whether process pid runs: there, and not a zombie waiting to be reaped."""
+    try:
+        return Path(f"/proc/{pid}/stat").read_text().rpartition(")")[2].split()[:1] != ["Z"]
+    except OSError:
+        return False
+
+
 class Running(unittest.TestCase):
     def run_gate(self, makefile: str, verbose: bool = False, root: Path | None = None,
                  fail_fast: bool = False) -> tuple[int, str, Path]:
@@ -181,6 +189,30 @@ class Running(unittest.TestCase):
         # Its steps ended on the asking: no killer is left to keep the gate's process alive for the grace,
         # which held every failed make check 10 s after it had said so (2026-11-20).
         self.assertEqual([t for t in threading.enumerate() if isinstance(t, threading.Timer) and t.is_alive()], [])
+
+    def test_a_gate_stopped_from_outside_stops_its_steps_too(self):
+        # Its make runs in a session of its own: a check-pr stopped from outside left its steps running,
+        # revert-red among them, without the lock (the owner, 2026-11-24, item 9).
+        root = Path(tempfile.mkdtemp(prefix="quiet-gate-"))
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("GIT_", "MAKE", "MFLAGS"))}
+        subprocess.run(["git", "init", "-q"], cwd=root, check=True, env=env)
+        (root / "Makefile").write_text("gate:\n\t@sleep 60 & echo $$! > step; wait\n")
+        gate = subprocess.Popen([sys.executable, str(Path(qg.__file__)), "make gate", "gate"], cwd=root, env=env,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self.addCleanup(gate.kill)
+        step_file = root / "step"
+        deadline = time.monotonic() + 30
+        while not step_file.exists() or not step_file.read_text().strip():
+            self.assertLess(time.monotonic(), deadline, "the step never started")
+            time.sleep(0.05)
+        step = int(step_file.read_text())
+        self.addCleanup(lambda: subprocess.run(["kill", "-9", str(step)], capture_output=True, check=False))
+        gate.terminate()
+        self.assertEqual(gate.wait(timeout=30), 128 + 15)
+        deadline = time.monotonic() + 15
+        while running(step):
+            self.assertLess(time.monotonic(), deadline, "the step ran on after its gate was stopped")
+            time.sleep(0.05)
 
     def test_without_fail_fast_every_running_step_finishes(self):
         makefile = ("gate:\n\t@$(MAKE) --no-print-directory -j2 fast slow\n"
