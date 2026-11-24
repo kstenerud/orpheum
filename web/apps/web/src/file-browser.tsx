@@ -186,7 +186,7 @@ export function FileBrowser(props: {
   return (
     <div
       ref={rootRef}
-      className={`file-browser file-browser--${props.use}${props.side === undefined ? "" : " file-browser--with-side"}`}
+      className={`file-browser ${props.use === "choose" ? "file-browser--choose" : "file-browser--browse"}${props.side === undefined ? "" : " file-browser--with-side"}`}
     >
       <div className="file-browser__bar">
         {props.barInstead ?? <PathBar crumbs={props.crumbs} />}

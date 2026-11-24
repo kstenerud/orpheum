@@ -17,7 +17,7 @@ export function serverUrl(): string {
 export async function signIn(page: Page): Promise<void> {
   await page.goto(serverUrl());
   await page.getByLabel("Username").fill(owner.name);
-  await page.getByLabel("Password").fill(owner.password);
+  await page.getByLabel("Password", { exact: true }).fill(owner.password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeHidden();
 }

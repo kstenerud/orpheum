@@ -78,7 +78,7 @@ export function Banner(props: { readonly notice: BannerNotice }): JSX.Element {
   return (
     <div
       ref={ref}
-      className={`banner banner--${notice.tone === "warning" ? "warning" : "information"}`}
+      className={`banner ${notice.tone === "warning" ? "banner--warning" : "banner--information"}`}
       role={notice.isAnnounced === true ? "alert" : "note"}
     >
       <span className="banner__icon" aria-hidden="true">

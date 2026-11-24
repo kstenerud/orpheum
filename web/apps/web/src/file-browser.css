@@ -252,7 +252,3 @@
   color: var(--color-muted);
   font-size: var(--font-size-small);
 }
-
-.file-browser__problem {
-  margin: 0;
-}

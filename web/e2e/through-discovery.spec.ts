@@ -201,7 +201,6 @@ async function posterShows(card: Locator): Promise<boolean> {
 async function registerAndOpenFilms(page: Page, name: string): Promise<void> {
   await page.getByLabel("Your name").fill(name);
   await page.getByLabel("Password", { exact: true }).fill("guest-password");
-  await page.getByLabel("The same password again").fill("guest-password");
   await page.getByRole("button", { name: "Set password and sign in" }).click();
   await page.getByRole("link", { name: "Films", exact: true }).click();
 }
