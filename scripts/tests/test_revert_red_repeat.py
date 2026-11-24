@@ -80,5 +80,64 @@ class AStylesheetsOwnBrowserTests(unittest.TestCase):
         self.assertEqual(repeated, [])
 
 
+class TheSheetsTogether(unittest.TestCase):
+    """The sheets go into one browser-mode run, every one reverted: seventeen runs of a sheet each were
+    5795 s of one check-pr, and all passed (2026-11-24). A red still stands only on a run with its
+    sheet alone reverted."""
+
+    SHEETS = ["web/apps/web/src/a.css", "web/apps/web/src/b.css", "web/apps/web/src/c.css"]
+
+    def runs(self, red_with: str | None, names_a_test: bool = True) -> tuple[dict[str, str], list[tuple]]:
+        """What own_browser_mode_reds found, and each run it made: its vitest mode, the sheets it named
+        and the sheets reverted as it ran. A run fails while red_with is reverted."""
+        reverted: set[str] = set()
+        ran: list[tuple] = []
+        failed = FIREFOX_FAILED if names_a_test else UNIT_FAILED
+
+        def checkout(*args, **_kwargs):
+            reverted.add(args[-1])
+            return done(0)
+
+        def run(command, *_args, **_kwargs):
+            mode = "run" if "run" in command and "related" not in command else "related"
+            named = tuple(sorted(part for part in command if part.endswith(".css")))
+            ran.append((mode, named, tuple(sorted(reverted))))
+            return done(1, failed) if red_with in reverted else done(0)
+        with mock.patch.object(sheets, "git_run", checkout), \
+                mock.patch.object(sheets, "restore", lambda _tree, _head, path: reverted.discard(path)), \
+                mock.patch.object(sheets, "run_whole_group", run), mock.patch.object(repeat, "run_whole_group", run), \
+                mock.patch("builtins.print"):
+            found = sheets.own_browser_mode_reds("/t", "base", "head", self.SHEETS, ["vitest", "related"], 60,
+                                                 Timings())
+        return found, ran
+
+    def test_one_run_settles_them_all_when_it_passes(self):
+        found, ran = self.runs(red_with=None)
+        self.assertEqual(found, {})
+        every = tuple(sorted(path.removeprefix("web/") for path in self.SHEETS))
+        self.assertEqual(ran, [("related", every, tuple(self.SHEETS))])
+
+    def test_a_red_is_put_on_the_sheet_whose_revert_alone_fails_the_tests_that_failed(self):
+        found, ran = self.runs(red_with="web/apps/web/src/b.css")
+        self.assertEqual(list(found), ["web/apps/web/src/b.css"])
+        # Together, repeated; then each sheet alone runs the failed test only, b's red repeated; then
+        # the other two together, which pass.
+        alone = [(mode, reverted) for mode, _named, reverted in ran if mode == "run" and len(reverted) == 1]
+        self.assertEqual(sorted(reverted for _mode, reverted in alone),
+                         [("web/apps/web/src/a.css",), ("web/apps/web/src/b.css",), ("web/apps/web/src/b.css",),
+                          ("web/apps/web/src/c.css",)])
+        self.assertEqual(ran[-1], ("related", ("apps/web/src/a.css", "apps/web/src/c.css"),
+                                   ("web/apps/web/src/a.css", "web/apps/web/src/c.css")))
+        self.assertTrue(all(len(reverted) == 1 for mode, _named, reverted in ran if mode == "run"
+                            and reverted != tuple(self.SHEETS)),
+                        "a red stands only on a run with its sheet alone reverted")
+
+    def test_a_red_naming_no_browser_test_sends_each_sheet_to_its_own_run(self):
+        found, ran = self.runs(red_with="web/apps/web/src/c.css", names_a_test=False)
+        self.assertEqual(list(found), ["web/apps/web/src/c.css"])
+        self.assertEqual([(named, reverted) for _mode, named, reverted in ran[1:]],
+                         [((path.removeprefix("web/"),), (path,)) for path in self.SHEETS])
+
+
 if __name__ == "__main__":
     unittest.main()

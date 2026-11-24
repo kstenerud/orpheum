@@ -564,11 +564,14 @@ class RevertRedStylesheetsTogether(unittest.TestCase):
                                               importing)
         self.assertEqual(settled[self.UNCLAIMED].verdict, "RED_TEST")
         self.assertEqual({settled[self.OLD].verdict, settled[self.CLAIMED].verdict}, {"CLAIMED"})
-        # Each sheet alone, before any halving: sixteen grouped runs of every browser-mode test were one
-        # check-pr's 1500 s (the test-regime audit of 2026-10-31, R2).
+        # Every sheet reverted in one run first (seventeen runs of a sheet each were 5795 s of one
+        # check-pr, 2026-11-24); its red names no browser-mode test to put it on one sheet, so then
+        # each sheet alone, before any halving: sixteen grouped runs of every browser-mode test were
+        # one check-pr's 1500 s (the test-regime audit of 2026-10-31, R2).
         self.assertEqual(named.read_text().splitlines(),
-                         ["apps/web/src/a.css", "apps/web/src/b.css", "apps/web/src/c.css"],
-                         "each sheet reverted alone, as vitest related's path, web/ left off")
+                         ["apps/web/src/a.css apps/web/src/b.css apps/web/src/c.css",
+                          "apps/web/src/a.css", "apps/web/src/b.css", "apps/web/src/c.css"],
+                         "the sheets together, then each reverted alone, as vitest related's paths, web/ left off")
         self.assertEqual(repo.git("status", "--porcelain"), "")
 
     def test_the_tests_reading_the_sheets_as_text_run_with_each_reverted_and_their_red_counts(self):

@@ -501,11 +501,13 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
     if readers is None and command is None:
         reading = web_stylesheet_readers(tree)
         readers = [*VITEST_RUN, *reading] if reading else None
-    # Each sheet's own browser-mode tests first, alone, seconds each: a red settles it, and only the
-    # rest go into the halving, over the browser tier alone. The halving's every level ran every
-    # browser-mode test of its group, sixteen runs one after another, about 1500 s of one check-pr
-    # (the test-regime audit of 2026-10-31, R2).
-    # They run side by side, in whichever probe trees come free (spare).
+    # The sheets' own browser-mode tests first, every sheet reverted in one run, a red put on the
+    # sheet whose revert alone fails its failed tests (own_browser_mode_reds): a red settles it, and
+    # only the rest go into the halving, over the browser tier alone. The halving's every level ran
+    # every browser-mode test of its group, sixteen runs one after another, about 1500 s of one
+    # check-pr (the test-regime audit of 2026-10-31, R2); a run of each sheet alone, seventeen,
+    # 5795 s of another (2026-11-24). Runs of a sheet alone go side by side, in whichever probe
+    # trees come free (spare).
     noticed_alone = own_browser_mode_reds(tree, base, head, [change.path for change in sheets], related, timeout,
                                           TIMINGS, spare, readers)
 
