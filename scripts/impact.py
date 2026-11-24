@@ -197,15 +197,18 @@ def web_lint_scope(paths: list[str], base: str, reach_of=reach) -> tuple[list[st
 
 
 def _emits_as_at(commit: str, path: str) -> bool:
-    """Whether the working tree's `path` compiles to the JavaScript it did at `commit`."""
+    """Whether the working tree's `path` compiles to the JavaScript it did at `commit` (or tree)."""
     before = subprocess.run(["git", "show", f"{commit}:{path}"], capture_output=True, text=True, check=False)
     if before.returncode != 0 or not Path(path).is_file():
         return False
     return emits_the_same(path, before.stdout, Path(path).read_text(encoding="utf-8"))
 
 
-def browser_scope(map_dir: Path = browser_map.BROWSER_MAP) -> tuple[list[str] | None, str]:
-    """The tests to run, by name or by spec file, None for every one, and why."""
+def browser_scope(map_dir: Path = browser_map.BROWSER_MAP, paths: list[str] | None = None,
+                  since: str | None = None) -> tuple[list[str] | None, str]:
+    """The tests to run, by name or by spec file, None for every one, and why: for paths, changed since
+    `since` (a commit or tree), or by default for every change since the map's own commit. The map
+    places them as it found them at its commit."""
     stamp = map_dir / browser_map.COMPLETE
     if not stamp.is_file():
         return None, "no complete browser map"
@@ -220,21 +223,22 @@ def browser_scope(map_dir: Path = browser_map.BROWSER_MAP) -> tuple[list[str] | 
     chunks: set[str] = set()
     sheets: list[tuple[str, str]] = []
     specs: list[str] = []
-    for path in changed(commit):
+    before_at = since or commit
+    for path in changed(commit) if paths is None else paths:
         if _matches(path, NOT_IN_THE_TIER) or path == BROWSER_ACCEPTANCE:
             continue
         if BROWSER_SPEC.match(path):
             specs += [PurePosixPath(path).name] if Path(path).exists() else []
             continue
         if CLIENT_STYLESHEET.match(path):
-            before = subprocess.run(["git", "show", f"{commit}:{path}"], capture_output=True, text=True, check=False)
+            before = subprocess.run(["git", "show", f"{before_at}:{path}"], capture_output=True, text=True, check=False)
             if before.returncode != 0:
-                return None, f"{path} is new since the browser map's commit {commit[:12]}, so it holds none of it"
+                return None, f"{path} is new since {before_at[:12]}, so the browser map holds none of it"
             sheets.append((before.stdout, Path(path).read_text(encoding="utf-8") if Path(path).exists() else ""))
             continue
         if not CLIENT_SOURCE.match(path) or CLIENT_TEST.search(path):
             return None, f"{path} changed since the browser map's commit {commit[:12]}, and the map cannot place it"
-        if _emits_as_at(commit, path):
+        if _emits_as_at(before_at, path):
             continue  # types or comments alone: every test's pages ran the same JavaScript (emitted_js.py)
         holding = browser_map.chunks_holding(map_dir, path)
         if holding is None:
@@ -245,7 +249,7 @@ def browser_scope(map_dir: Path = browser_map.BROWSER_MAP) -> tuple[list[str] | 
         return None, "a changed stylesheet's rules may style any page (the browser map)"
     tests = [test for test, scripts in loaded if scripts is None or scripts & chunks or test in styled]
     return [*tests, *sorted(specs)], (f"{len(tests)} of {len(loaded)} tests loaded or drew what changed since "
-                                      f"{commit[:12]}, and {len(specs)} changed spec(s) whole")
+                                      f"{before_at[:12]}, and {len(specs)} changed spec(s) whole")
 
 
 def main(argv: list[str]) -> int:

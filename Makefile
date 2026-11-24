@@ -114,6 +114,8 @@ check-verbose: check-tools web-deps go-warm ## The gate with every step's output
 	@# The browser-mode tests after the rest, never beside it: beside a cold Go build their Firefox
 	@# failed to connect in vitest's 60 s twice, and they took 65 s for 10 s of tests (2026-10-20).
 	@$(MAKE) --no-print-directory web-test-browser
+	@# Then the end-to-end specs a change to the web client reaches, both passes, alone as well.
+	@$(MAKE) --no-print-directory test-e2e-reached
 	@$(PYTHON) scripts/check_stamp.py write
 	@# Named for itself: under make check the quiet gate says the pass, with its time (scripts/quiet_gate.py).
 	@echo "check-verbose: all gates passed"
@@ -557,6 +559,14 @@ test-integration-run:
 	@$(HERMETIC) ORPHEUM_TEST_FFMPEG_DIR="$(FFMPEG_DIR)" ORPHEUM_TEST_MKVTOOLNIX_DIR="$(MKVTOOLNIX_DIR)" \
 		go test -json -tags integration -count=1 -run '^($(INTEGRATION_ONLY_TESTS))$$' $(INTEGRATION_PACKAGES) | \
 		$(GO_TIMINGS) go-integration
+
+# make check's end-to-end step: the specs a change under web/ reaches since the step last passed, by
+# check-pr's reach (scripts/impact.py browser_scope), both passes: ten specs a design cycle left stale
+# were first seen in check-pr's browser tier (the owner, 2026-11-24). Nothing runs when nothing the
+# tier builds or runs changed; what the browser map cannot place runs the whole tier.
+.PHONY: test-e2e-reached
+test-e2e-reached: ## The end-to-end specs a change to the web client reaches since they last passed, both passes; in make check
+	@$(PYTHON) scripts/e2e_reached.py
 
 .PHONY: test-browser
 # Within check-pr (a BASE given), the tier is skipped when nothing it builds or runs changed: docs,

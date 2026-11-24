@@ -219,6 +219,18 @@ class Browser(unittest.TestCase):
         self.setUp()
         self.assertEqual(self.scope({SPEC: None, "web/e2e/acceptance.spec.ts": "x\n"}), ["firefox unvouched"])
 
+    def test_given_paths_and_a_tree_it_places_those_changes_as_they_differ_from_that_tree(self):
+        # make check's end-to-end step asks from the tree it last passed on (e2e_reached.py).
+        self.repo.commit("fix: b, since the map", {OTHER: "2\n", SHEET: ".poster { color: blue; }\n"})
+        with self.repo.cwd():
+            passed = self.repo.git("write-tree")
+            self.repo.write({CLIENT: "2\n"})
+            self.assertEqual(impact.browser_scope(self.map, paths=[CLIENT], since=passed)[0],
+                             ["chromium a", "firefox unvouched"], "not b, changed before the pass")
+            self.repo.write({SHEET: ".poster { color: blue; }\n"})
+            self.assertEqual(impact.browser_scope(self.map, paths=[SHEET], since=passed)[0], ["firefox unvouched"],
+                             "the sheet is as it was at the pass: no rule changed since")
+
     def test_a_map_of_no_commit_behind_head_runs_every_test(self):
         (self.map / browser_map.COMPLETE).write_text("0" * 40 + "\n")
         self.assertIsNone(self.scope({CLIENT: "2\n"}))
