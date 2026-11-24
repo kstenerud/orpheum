@@ -130,6 +130,13 @@ describe("loading a chunk the core is making (D250 §5)", () => {
       false,
     );
   });
+
+  it("does not ask again after a 507, its node's disk too full to prepare it, which may last days (D543)", () => {
+    const retry = chunkLoadPolicy.default.errorRetry;
+    expect(retry?.shouldRetry?.(retry, 0, false, { url: "00001.m4s", code: 507 }, true)).toBe(
+      false,
+    );
+  });
 });
 
 describe("a chunk lost with its connection", () => {
