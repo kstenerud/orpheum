@@ -28,10 +28,10 @@ html:has(.cast-remote__stage) {
 /* Portrait: one column, at most 28rem wide and centred, the pad and the menus at the bottom, where
    a thumb is (§1). */
 .cast-remote__page {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
   box-sizing: border-box;
-  min-block-size: 100%;
+  block-size: 100%;
   max-inline-size: 28rem;
   margin-inline: auto;
   padding-block-end: env(safe-area-inset-bottom, 0px);
@@ -50,9 +50,15 @@ html:has(.cast-remote__stage) {
 
 /* The offer area: 16:9, the picture under any offer, Pill or note (§2). A container, so Up next
    leaves its still out where the area is small (§3). */
-/* Its cell takes no box upright; in two columns it is the offer's grid row, a size container (§8). */
+/* The offer's grid row, a size container: the card fills what the bar, the timeline, the pad and the
+   menus leave, 16:9, and gives way before the page scrolls (§8). */
 .cast-remote__offer-cell {
-  display: contents;
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  container-type: size;
+  min-block-size: 0;
+  min-inline-size: 0;
 }
 
 .cast-remote__offer {
@@ -60,7 +66,7 @@ html:has(.cast-remote__stage) {
   position: relative;
   flex: none;
   overflow: hidden;
-  margin-inline: var(--space-4);
+  inline-size: min(100% - 2 * var(--space-4), 100cqh * 16 / 9);
   aspect-ratio: 16 / 9;
   border-radius: var(--radius-card);
   background: var(--color-placeholder);
@@ -144,8 +150,15 @@ html:has(.cast-remote__stage) {
 
 /* The timeline the whole width, the time under it at the start (§4). */
 .cast-remote__timeline {
-  display: grid;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   margin: var(--space-2) var(--space-4) 0;
+}
+
+.cast-remote__timeline > :first-child {
+  flex: 1 1 0;
+  min-inline-size: 0;
 }
 
 .cast-remote__time {
@@ -160,7 +173,6 @@ html:has(.cast-remote__stage) {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: center;
   gap: var(--space-4) 0;
-  margin-block-start: auto;
   padding: var(--space-4);
 }
 
@@ -211,20 +223,8 @@ html:has(.cast-remote__stage) {
     grid-area: bar;
   }
 
-  /* The offer's row: what the bar, the timeline and its time leave. The card fills it, 16:9. */
   .cast-remote__offer-cell {
-    display: grid;
     grid-area: offer;
-    place-items: center;
-    align-self: stretch;
-    container-type: size;
-    min-block-size: 0;
-    min-inline-size: 0;
-  }
-
-  .cast-remote__offer {
-    margin-inline: 0;
-    inline-size: min(100% - 2 * var(--space-4), 100cqh * 16 / 9);
   }
 
   .cast-remote__timeline {
@@ -235,12 +235,32 @@ html:has(.cast-remote__stage) {
   .cast-remote__pad {
     grid-area: pad;
     align-self: end;
-    margin-block-start: 0;
   }
 
   .cast-remote__buttons {
     grid-area: buttons;
     padding-block: var(--space-2);
+  }
+}
+
+/* A short stage, upright or on its side: the pad at its smaller sizes, so the card keeps its room (§8). */
+@container cast-remote (height < 46rem) {
+  .cast-remote__pad {
+    row-gap: var(--space-2);
+    padding-block: var(--space-2);
+  }
+
+  .cast-remote__pad .icon-button--remote-64,
+  .cast-remote__pad .icon-button--remote-72 {
+    --remote-size: 3.5rem;
+  }
+
+  .cast-remote__pad .icon-button--remote-96 {
+    --remote-size: 4.5rem;
+  }
+
+  .cast-remote__buttons {
+    padding-block: var(--space-1);
   }
 }
 
@@ -252,6 +272,29 @@ html:has(.cast-remote__stage) {
 
   .cast-remote__bar {
     padding-block: var(--space-1);
+  }
+
+  /* The bar on one line: the title cut short, then "On:" and "Ends:" (§8). */
+  .cast-remote__heading {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-4);
+    min-inline-size: 0;
+  }
+
+  .cast-remote__heading > a {
+    flex: 0 1 auto;
+    min-inline-size: 0;
+  }
+
+  .cast-remote__heading .player-overlay__title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cast-remote__where {
+    flex: 1 0 auto;
   }
 
   .cast-remote__pad {

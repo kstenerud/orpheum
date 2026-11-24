@@ -70,6 +70,12 @@ function expectAllInside(container: HTMLElement, width: number, height: number):
   }
 }
 
+/** That nothing scrolls: the menus' bottom is in the window, and the card is 9rem tall or more. */
+function expectFits(container: HTMLElement, height: number): void {
+  expect(boxOf(container, ".cast-remote__buttons").bottom).toBeLessThanOrEqual(height + 0.5);
+  expect(boxOf(container, ".cast-remote__offer").height).toBeGreaterThanOrEqual(144 - 0.5);
+}
+
 /** That the offer area is drawn 16:9. */
 function expectSixteenByNine(container: HTMLElement): void {
   const offer = boxOf(container, ".cast-remote__offer");
@@ -86,6 +92,7 @@ describe("the cast remote's layout (D548 §1, §8)", () => {
   it("lays a phone upright out as one column, the pad at the bottom under the offer area, Play 96 px, the others 72 and 64 px, Mute pressed on the status ground", async () => {
     const upright = await remoteAt(360, 780);
     expectAllInside(upright, 360, 780);
+    expectFits(upright, 780);
     expectSixteenByNine(upright);
     const offer = boxOf(upright, ".cast-remote__offer");
     const timeline = boxOf(upright, ".cast-remote__timeline");
@@ -106,6 +113,7 @@ describe("the cast remote's layout (D548 §1, §8)", () => {
   it("lays a phone on its side out as two columns, the pad's 15rem at the end, Play 72 px and the others 56 px, all within its height", async () => {
     const side = await remoteAt(780, 360);
     expectAllInside(side, 780, 360);
+    expectFits(side, 360);
     expectSixteenByNine(side);
     const offer = boxOf(side, ".cast-remote__offer");
     const pad = boxOf(side, ".cast-remote__pad");
@@ -122,6 +130,7 @@ describe("the cast remote's layout (D548 §1, §8)", () => {
   it("lays a computer out as two columns, the pad's 22rem at the end, Play 96 px", async () => {
     const wide = await remoteAt(1280, 800);
     expectAllInside(wide, 1280, 800);
+    expectFits(wide, 800);
     expectSixteenByNine(wide);
     const offer = boxOf(wide, ".cast-remote__offer");
     const pad = boxOf(wide, ".cast-remote__pad");
@@ -131,12 +140,22 @@ describe("the cast remote's layout (D548 §1, §8)", () => {
   });
 
   it("keeps the card a third or more of the width on a short phone on its side, as a browser's bars leave it", async () => {
-    // The bar, the timeline and the pad keep their heights, so the card has what they leave; a
-    // window this short scrolls the stage a little.
+    // The bar, the timeline and the pad at its smaller sizes keep their heights; the card has what
+    // they leave, and nothing scrolls.
     const short = await remoteAt(740, 300);
     expectSixteenByNine(short);
+    expectFits(short, 300);
     const offer = boxOf(short, ".cast-remote__offer");
     expect(offer.width).toBeGreaterThanOrEqual(740 * 0.3);
     expect(Math.abs(offer.width / 16 - offer.height / 9) * 9).toBeLessThan(1);
+  });
+
+  it("fits a phone upright with its browser's bars, nothing to scroll to", async () => {
+    const bars = await remoteAt(390, 660);
+    expectAllInside(bars, 390, 660);
+    expectFits(bars, 660);
+    expectSixteenByNine(bars);
+    expect(padSize(bars, "Play")).toBeCloseTo(72, 0);
+    expect(boxOf(bars, ".cast-remote__offer").width).toBeCloseTo(390 - 32, 0);
   });
 });
