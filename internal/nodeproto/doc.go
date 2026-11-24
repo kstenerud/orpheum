@@ -17,7 +17,9 @@
 //   - Every hello says the protocol version it speaks (ProtocolVersion), raised with any change the
 //     other side would misread (D233 §9). A change to any message's fields, their types or wire
 //     names, fails until the version is raised and its shape recorded:
-//     TestProtocolVersion_IsRaisedWithAnyChangeToTheWire. A change to what a value means is the
+//     TestProtocolVersion_IsRaisedWithAnyChangeToTheWire. So does a route added, moved or dropped,
+//     until the version is raised and its routes recorded:
+//     TestProtocolVersion_IsRaisedWithAnyChangeToTheRoutes. A change to what a value means is the
 //     review's.
 //   - Every probe says the ProbeVersion that read it, raised with any change to what the probe says
 //     of a file, so a file an older probe read is read again (D535 §1, §2). A change to the probe's

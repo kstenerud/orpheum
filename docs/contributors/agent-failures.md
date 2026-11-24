@@ -49,6 +49,18 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A94 — Blamed a test's failure on two Firefox processes, with its cause in one (2026-11-24)
+
+- **What happened:** timing the browser tier's Firefox run as two processes of three pages each, one
+  run failed `settings-pages.browser.test.tsx`'s "saves a text field on Enter and on leaving it": the
+  field saved after its first letter, as on losing the focus. The agent told the owner that two
+  processes may not keep the focus apart either. The owner asked whether the three pages in each
+  process were not the cause. They were: the same test had failed earlier in a single process of
+  seven pages, in a record the agent had and did not read before answering.
+- **Caught by:** the owner's question.
+- **Gate:** none. The lesson: before naming what a failure comes from, look for it in the runs that
+  lack that suspect.
+
 ### A93 — Told the owner the Quality picker was not built, from a stale note (2026-11-23)
 
 - **What happened:** asked whether the batch's UI work was done, the agent said the menu spec's

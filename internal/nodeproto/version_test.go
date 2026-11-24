@@ -6,8 +6,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"os"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -239,4 +244,87 @@ func fieldsOf(typ reflect.Type, seen map[reflect.Type]bool) []string {
 		fields = append(fields, fieldsOf(field.Type, seen)...)
 	}
 	return fields
+}
+
+// routesByVersion is every route of the node channel and the byte socket, at each version since 72,
+// the first recorded. A route added, moved or dropped is misread by a node or core of another build as
+// surely as a changed field is (a node of 71 answers 72's frame route 404), so it raises
+// ProtocolVersion too (D233 §9). A version is added here with each raise, and never changed after.
+var routesByVersion = map[int][]string{
+	// 72 adds the byte socket's frame route, a key frame for a cast's remote (D545).
+	72: {
+		"PathBytesChunks /bytes/v1/chunks/", "PathBytesFile /bytes/v1/file", "PathBytesFolders /bytes/v1/folders",
+		"PathBytesFrame /bytes/v1/frame", "PathBytesProbe /bytes/v1/probe",
+		"PathBytesRecentLog /bytes/v1/recent-log", "PathBytesResult /bytes/v1/result/",
+		"PathChanged /node/v1/changed", "PathCommands /node/v1/commands", "PathHello /node/v1/hello",
+		"PathLocked /node/v1/locked", "PathProgress /node/v1/progress", "PathResult /node/v1/result",
+		"PathStatus /node/v1/status",
+	},
+}
+
+// TestProtocolVersion_IsRaisedWithAnyChangeToTheRoutes holds that the package's routes, each exported
+// Path constant of its source, are the ones this ProtocolVersion was raised for: a route added, moved
+// or dropped without raising it, or a raise without its routes recorded, fails.
+func TestProtocolVersion_IsRaisedWithAnyChangeToTheRoutes(t *testing.T) {
+	t.Parallel()
+	got := declaredRoutes(t)
+	if want, recorded := routesByVersion[ProtocolVersion]; !recorded || !slices.Equal(want, got) {
+		t.Errorf("the routes are %q; protocol %d records %q. Changing a route raises ProtocolVersion, "+
+			"and the new version's routes are recorded in routesByVersion", got, ProtocolVersion, want)
+	}
+}
+
+// declaredRoutes is each exported constant of the package's source named Path…, with its value,
+// sorted: read from the source, so a route added in any file is counted without being listed here.
+func declaredRoutes(t *testing.T) []string {
+	t.Helper()
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := token.NewFileSet()
+	var routes []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(files, name, nil, parser.SkipObjectResolution)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, declaration := range file.Decls {
+			constants, isGeneral := declaration.(*ast.GenDecl)
+			if !isGeneral || constants.Tok != token.CONST {
+				continue
+			}
+			for _, spec := range constants.Specs {
+				if values, isValues := spec.(*ast.ValueSpec); isValues {
+					routes = append(routes, routesOf(t, values)...)
+				}
+			}
+		}
+	}
+	slices.Sort(routes)
+	return routes
+}
+
+func routesOf(t *testing.T, spec *ast.ValueSpec) []string {
+	t.Helper()
+	var routes []string
+	for i, name := range spec.Names {
+		if !name.IsExported() || !strings.HasPrefix(name.Name, "Path") {
+			continue
+		}
+		literal, isLiteral := spec.Values[i].(*ast.BasicLit)
+		if !isLiteral || literal.Kind != token.STRING {
+			t.Fatalf("route %s is not a string literal, so its value cannot be read from the source", name.Name)
+		}
+		value, err := strconv.Unquote(literal.Value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		routes = append(routes, name.Name+" "+value)
+	}
+	return routes
 }
