@@ -4083,3 +4083,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   2. Do the same with "This file later" and with the 💬 menu's "Subtitles later".
   3. Flip the loudness levelling switch twice quickly. Report whether it ends where you left it and
      the TV agrees.
+- [ ] **VQ399** — The cast's remote reaches for a television that was switched off, and offers to play
+  the film here (D550): only a real receiver that goes silent shows the server's own view. From your
+  phone, casting to the Fire TV:
+  1. Play a film on the Fire TV's tab and switch the television off at the wall or its remote. Within
+     about a minute, report whether the phone's remote says "Reaching Fire TV…", its pad, timeline
+     and menus take no press, and the time stops moving.
+  2. Wait for "Fire TV isn't answering". Report whether it offers both Try again and Play here.
+  3. Press Play here. Report whether the film plays on the phone from about where the TV stood.

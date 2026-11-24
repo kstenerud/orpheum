@@ -420,6 +420,25 @@ function receiverPlaybackIn(snapshot: TogetherSnapshot | undefined): PlaybackRep
 }
 
 /**
+ * Whether the receiver is heard (D550 §2): its device among the person's connected devices (the live
+ * connection's, told once it has said any), and, once a device was heard leading the cast's session,
+ * one still leading it. The remote's own connection stands with a television switched off, so it
+ * alone does not say. A receiver still loading, never heard leading, is not gone.
+ */
+function useReceiverHeard(sent: CastSending, snapshot: TogetherSnapshot | undefined): boolean {
+  const { connectedDeviceIds } = useLive();
+  const isLeading = snapshot !== undefined && leaderOf(snapshot) !== undefined;
+  const [hasLed, setHasLed] = useState(false);
+  if (isLeading && !hasLed) {
+    setHasLed(true); // kept as it renders, so the render that loses the leader already knows
+  }
+  const isDeviceGone =
+    connectedDeviceIds.length > 0 && !connectedDeviceIds.includes(sent.receiverDeviceId);
+  const isLeaderGone = hasLed && !isLeading;
+  return !isDeviceGone && !isLeaderGone;
+}
+
+/**
  * What the remote shows of what plays on the receiver: its own page, laid out for a hand holding a
  * phone (D548 §1, amending D444's full-screen overlay), its stage filling the window under the top
  * bar, kept so a person can go elsewhere (the owner, 2026-11-23), its Cast the dialog, Stop casting
@@ -473,7 +492,8 @@ function RemotePlaying(props: {
   const { t } = useTranslation();
   const { sent, hosted, onAround } = props;
   const worked = hosted ?? props.cast;
-  const source = useRemoteSource({ ...worked, durationMs: sent.durationMs });
+  const isHeard = useReceiverHeard(sent, props.cast.snapshot);
+  const source = useRemoteSource({ ...worked, durationMs: sent.durationMs, isHeard });
   // What plays after the cast's film and before it, read once for its ⏮ and its Up next (D477 §2).
   const around = useAroundFile(sent.fileId, true);
   useEffect(() => {

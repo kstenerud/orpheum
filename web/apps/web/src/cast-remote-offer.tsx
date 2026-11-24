@@ -26,6 +26,7 @@ import { WideArt } from "./poster.tsx";
 import { creditsStartOf } from "./segments.tsx";
 import { useServices } from "./services.tsx";
 import { StatusNote } from "./status-note.tsx";
+import { useCastEnding } from "./stop-casting-here.tsx";
 import { offerState, UpNextCard } from "./up-next.tsx";
 
 /** A title's pictures, as its detail names them. */
@@ -53,6 +54,7 @@ export function RemoteOffer(props: {
   const { t } = useTranslation();
   const { sent, source } = props;
   const notAnswering = useNotAnswering(source.isReady);
+  const playHere = useCastEnding(sent.castId, "stopped"); // the remote's Stop, which plays the film here (D549)
   const name = sent.receiverName;
   return (
     <div className="cast-remote__offer-cell">
@@ -81,6 +83,12 @@ export function RemoteOffer(props: {
                 onTryAgain: notAnswering.tryAgain,
               }}
             />
+            <button type="button" disabled={playHere.isBusy} onClick={playHere.end}>
+              {t("cast.playHere")}
+            </button>
+            {playHere.problem === undefined ? null : (
+              <StatusNote told={{ kind: "problem", text: playHere.problem }} />
+            )}
           </div>
         ) : null}
       </div>

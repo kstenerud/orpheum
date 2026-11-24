@@ -141,8 +141,10 @@ html:has(.cast-remote__stage) {
   z-index: var(--layer-raised);
   inset: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
+  gap: var(--space-3);
   padding: var(--space-3);
   background: var(--color-surface);
   color: var(--color-text);

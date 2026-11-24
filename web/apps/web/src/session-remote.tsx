@@ -70,20 +70,33 @@ export function useRemoteSource(remote: {
   readonly connection: TogetherConnection | undefined;
   /** How long the film lasts, in ms; 0 while not known. */
   readonly durationMs: number;
+  /**
+   * Whether the session's film is heard to play, as the remote's own connection cannot say: false
+   * while the device that plays it is not heard (D550), the remote not ready and its time standing
+   * where the last report left it. True where not given.
+   */
+  readonly isHeard?: boolean;
 }): PlayerSource {
-  const positionMs = usePositionNow(remote.snapshot);
+  const isHeard = remote.isHeard ?? true;
+  const positionMs = usePositionNow(remote.snapshot, isHeard);
   const { connection, durationMs } = remote;
   const ahead = useSeekAhead((atMs) => {
     const most = durationMs > 0 ? durationMs : Number.POSITIVE_INFINITY;
     connection?.command({ command: "seek", positionMs: Math.min(Math.max(0, atMs), most) });
   });
-  return remoteSource({ ...remote, positionMs, ahead });
+  return remoteSource({ ...remote, positionMs, ahead, isHeard });
 }
 
-/** Where the session's film is now, moved on each second while it plays; undefined while unknown. */
-export function usePositionNow(snapshot: TogetherSnapshot | undefined): number | undefined {
+/**
+ * Where the session's film is now, moved on each second while it plays; undefined while unknown.
+ * Where isHeard is false its time stands where the last second left it (D550).
+ */
+export function usePositionNow(
+  snapshot: TogetherSnapshot | undefined,
+  isHeard = true,
+): number | undefined {
   const [nowMs, setNowMs] = useState(monotonicMs);
-  const isPlaying = snapshot?.group?.state === "playing";
+  const isPlaying = snapshot?.group?.state === "playing" && isHeard;
   useEffect(() => {
     if (!isPlaying) {
       return undefined;
@@ -112,6 +125,7 @@ function remoteSource(remote: {
   readonly positionMs: number | undefined;
   readonly durationMs: number;
   readonly ahead: SeekAhead;
+  readonly isHeard: boolean;
 }): PlayerSource {
   const { connection, positionMs, durationMs, ahead } = remote;
   const isPlaying = remote.snapshot?.group?.state === "playing";
@@ -122,7 +136,7 @@ function remoteSource(remote: {
     atMs: ahead.shownMs(positionMs ?? 0),
     durationMs,
     isPaused: !isPlaying,
-    isReady: remote.snapshot?.status === "connected" && positionMs !== undefined,
+    isReady: remote.isHeard && remote.snapshot?.status === "connected" && positionMs !== undefined,
     playOrPause: () => {
       ahead.land();
       send({ command: isPlaying ? "pause" : "play" });
