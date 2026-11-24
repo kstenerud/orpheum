@@ -35,14 +35,27 @@ Chromium's files ended, and each took the keyboard's focus from a running test's
 the keys pressed meanwhile (idiosyncrasies.md, "A page opening in Firefox takes the focus from the
 test frame opened before it"; make check typed "k" for "karl", 2026-11-20). Apart, a full run took
 217 s against 208 s.
+
+With `--lock PATH` (make check's browser-mode run, the Makefile's BROWSER_MODE_LOCK) the run holds
+that lock, one browser-mode run at a time on the machine, and its hold has a lease
+(BROWSER_LEASE_SECONDS). A run finding it held waits while the holder is within its lease; past it,
+it says the browser-mode tests did not run, naming the holder, and fails: a run left behind held it
+for about 12 hours, and every make check in that time hung at the browser tests with nothing said
+(the owner, 2026-11-24, agreeing to the test-time stock-take's item 3).
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
+import datetime
+import fcntl
 import json
+import os
 import subprocess
 import sys
+import time
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -53,6 +66,9 @@ from impact import WEB_SOURCE, web_sources  # noqa: E402
 from revert_red_dependents import web_source_readers  # noqa: E402
 
 WEB = "web"
+# How long a browser-mode run may hold the lock before a run waiting for it gives up: a whole run takes
+# about four minutes, twice that under load.
+BROWSER_LEASE_SECONDS = 20 * 60
 # What every test reads, beside the files it imports.
 EVERY_TEST_READS = ("package.json", "package-lock.json", "vitest.config.ts", "vitest.browser.config.ts", "tsconfig")
 
@@ -198,9 +214,58 @@ def record_pass(stamp: Path, tree: str) -> None:
     stamp.write_text("\n".join(trees) + "\n")
 
 
+def _holder_of(lock, first_seen: float) -> dict:
+    """What holds lock, as it wrote it ({"pid", "started"}); a holder that wrote nothing (flock(1), as
+    a tree on an older Makefile takes it) is dated from when the waiter first found it held."""
+    lock.seek(0)
+    try:
+        said = json.loads(lock.read() or "{}")
+    except json.JSONDecodeError:
+        said = {}
+    said = said if isinstance(said, dict) else {}
+    if not isinstance(said.get("started"), (int, float)):
+        said["started"] = first_seen
+    return said
+
+
+@contextlib.contextmanager
+def browser_lock(path: Path, lease: float = BROWSER_LEASE_SECONDS, sleep: Callable[[float], None] = time.sleep,
+                 now: Callable[[], float] = time.time) -> Iterator[bool]:
+    """Holds path's lock, waiting while its holder is within lease; yields True once held, or False,
+    having said why, when the holder has held it past lease."""
+    first_seen = now()
+    with open(path, "a+", encoding="utf-8") as lock:
+        while True:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                holder = _holder_of(lock, first_seen)
+                held = now() - float(holder["started"])
+                if held > lease:
+                    since = datetime.datetime.fromtimestamp(float(holder["started"]), datetime.timezone.utc)
+                    print(f"web-test-browser: the browser-mode tests did not run: {path} has been held by "
+                          f"pid {holder.get('pid', 'unknown')} since {since:%H:%M} UTC ({held / 60:.0f} min), "
+                          f"past its {lease / 60:.0f} min lease. It is probably a run left behind: end its "
+                          "process group and run the gate again.", flush=True)
+                    yield False
+                    return
+                sleep(1)
+        lock.seek(0)
+        lock.truncate()
+        lock.write(json.dumps({"pid": os.getpid(), "started": now(), "tree": os.getcwd()}) + "\n")
+        lock.flush()
+        try:
+            yield True
+        finally:
+            # A record left behind would date the next holder that writes none.
+            lock.truncate(0)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--browser", action="store_true", help="the browser-mode tests")
+    parser.add_argument("--lock", type=Path, help="hold this lock for the run, its hold leased (browser_lock)")
     parser.add_argument("--due", action="store_true",
                         help="only say whether a run is due (exit 0) or not (exit 1), running nothing")
     arguments = parser.parse_args(argv)
@@ -224,10 +289,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if command is not suite.whole:
         print(f"{suite.step}: only the tests the changes since the nearest pass reach")
-    for each in runs_of(command, suite):
-        done = subprocess.run(each, check=False)
-        if done.returncode != 0:
-            return done.returncode
+    with browser_lock(arguments.lock) if arguments.lock else contextlib.nullcontext(True) as held:
+        if not held:
+            return 1
+        for each in runs_of(command, suite):
+            done = subprocess.run(each, check=False)
+            if done.returncode != 0:
+                return done.returncode
     record_pass(stamp, tree)
     return 0
 

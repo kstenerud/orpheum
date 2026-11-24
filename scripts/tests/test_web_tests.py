@@ -193,6 +193,71 @@ TYPESCRIPT = Path(__file__).resolve().parents[2] / "web" / "node_modules" / "typ
 SETUP = web_tests.Suite("unit", [], [], [], setup=("e2e/setup.ts",))
 
 
+class BrowserLockTest(unittest.TestCase):
+    """A run left behind held the browser-mode lock for about 12 hours, and every make check in that time
+    hung at the browser tests (the owner, 2026-11-24, the test-time stock-take's item 3)."""
+
+    def setUp(self) -> None:
+        import tempfile
+        self.path = Path(tempfile.mkdtemp(prefix="browser-lock-")) / "browser-mode.lock"
+
+    def held_by(self, started: float):  # type: ignore[no-untyped-def]
+        import fcntl
+        import json
+        holder = open(self.path, "a+", encoding="utf-8")  # noqa: SIM115 (released by the test)
+        self.addCleanup(holder.close)
+        fcntl.flock(holder, fcntl.LOCK_EX)
+        holder.write(json.dumps({"pid": 4242, "started": started}))
+        holder.flush()
+        return holder
+
+    def test_a_holder_past_its_lease_is_named_and_the_run_fails_rather_than_waiting(self) -> None:
+        self.held_by(started=1000.0)
+
+        def sleep(_seconds: float) -> None:
+            raise AssertionError("it waited on a holder past its lease")
+        with mock.patch("builtins.print") as printed, \
+                web_tests.browser_lock(self.path, lease=60, sleep=sleep, now=lambda: 1061.0) as held:
+            self.assertFalse(held)
+        said = printed.call_args.args[0]
+        self.assertIn("did not run", said)
+        self.assertIn("pid 4242", said)
+
+    def test_a_holder_within_its_lease_is_waited_for_and_the_lock_then_held(self) -> None:
+        import fcntl
+        holder = self.held_by(started=1000.0)
+
+        def sleep(_seconds: float) -> None:
+            fcntl.flock(holder, fcntl.LOCK_UN)  # the holder ends
+        with web_tests.browser_lock(self.path, lease=60, sleep=sleep, now=lambda: 1030.0) as held:
+            self.assertTrue(held)
+            self.assertIn('"started": 1030.0', self.path.read_text(), "it says it holds it, and since when")
+
+    def test_a_holder_that_wrote_nothing_is_dated_from_when_it_was_found_and_a_release_leaves_no_record(self) -> None:
+        import fcntl
+        with web_tests.browser_lock(self.path, now=lambda: 1.0) as held:
+            self.assertTrue(held)
+        self.assertEqual(self.path.read_text(), "", "a finished holder's record would date the next")
+        holder = open(self.path, "a+", encoding="utf-8")  # noqa: SIM115 (closed below)
+        self.addCleanup(holder.close)
+        fcntl.flock(holder, fcntl.LOCK_EX)  # as flock(1) holds it: no record
+        import os
+        os.utime(self.path, (0, 0))  # the file itself is far older than the lease
+        clock = iter([5000.0, 5010.0, 5020.0])
+
+        def sleep(_seconds: float) -> None:
+            fcntl.flock(holder, fcntl.LOCK_UN)
+        with web_tests.browser_lock(self.path, lease=60, sleep=sleep, now=lambda: next(clock)) as held:
+            self.assertTrue(held, "waited for, though the file is older than the lease")
+
+    def test_make_checks_browser_run_takes_the_leased_lock(self) -> None:
+        makefile = (Path(__file__).resolve().parents[2] / "Makefile").read_text()
+        recipe = re.search(r"(?m)^web-test-browser-run:.*\n\t(.*)", makefile)
+        assert recipe is not None
+        self.assertIn("web_tests.py --browser --lock $(BROWSER_MODE_LOCK)", recipe.group(1))
+        self.assertNotIn("flock", recipe.group(1))
+
+
 class ReachTest(unittest.TestCase):
     """web_test_reach.cjs, run as make check runs it, on REACH_BASE and a change to it."""
 

@@ -292,12 +292,13 @@ web-test-browser:
 	@if $(PYTHON) scripts/web_tests.py --browser --due; then $(MAKE) --no-print-directory web-test-browser-run; fi
 # One browser-mode run at a time on the machine: two gates' runs at once (check-pr's tree, revert-red's
 # worktrees, a sandbox's agents) pushed a walk's 72 round trips to the browser past its timeout
-# (test-weight.md §26). The wait shows as this step's own time (§7).
+# (test-weight.md §26). The wait shows as this step's own time (§7). The hold has a lease: past it, a
+# waiting run says the browser tests did not run and fails, where it hung (scripts/web_tests.py).
 # In the repository's git directory, not /tmp, so it holds across the host and the development
 # container, which do not share /tmp (gate-throughput audit, 2026-10-26).
 BROWSER_MODE_LOCK ?= $(shell git rev-parse --path-format=absolute --git-common-dir)/browser-mode.lock
 web-test-browser-run: browsers
-	@flock $(BROWSER_MODE_LOCK) $(PYTHON) scripts/web_tests.py --browser
+	@$(PYTHON) scripts/web_tests.py --browser --lock $(BROWSER_MODE_LOCK)
 
 .PHONY: web-deps
 web-deps: ## Install web dependencies from the lockfile when they are missing or stale

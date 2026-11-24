@@ -506,7 +506,10 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   presses. The owner agreed (2026-10-26) to two of the remedies: the browser-mode config's
   `testTimeout` is 30 s, and `make web-test-browser` takes a machine-wide `flock`
   (`BROWSER_MODE_LOCK`), so two gates' browser-mode runs never overlap; the wait for it shows as the
-  step's own time (mechanism 7). Splitting the walks per page is left until one fails again.
+  step's own time (mechanism 7). The hold has a 20 min lease (the owner, 2026-11-24): a run left behind
+  held it about 12 hours, and every make check meanwhile hung at the browser tests; past the lease a
+  waiting run names the holder and fails (`scripts/web_tests.py`). Splitting the walks per page is
+  left until one fails again.
 - **Warning sign:** a browser-mode test red only when another gate runs; `expect.poll` or a fixed
   `setTimeout` in a walk; a walk's next test red after its own timed out.
 
