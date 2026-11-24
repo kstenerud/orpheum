@@ -44,7 +44,11 @@ function partsOf(value: string): string[] {
   let depth = 0;
   let part = "";
   for (const character of value) {
-    depth += character === "(" ? 1 : character === ")" ? -1 : 0;
+    if (character === "(") {
+      depth += 1;
+    } else if (character === ")") {
+      depth -= 1;
+    }
     if (character === "," && depth === 0) {
       parts.push(part.trim());
       part = "";
