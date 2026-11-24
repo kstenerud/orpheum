@@ -672,17 +672,20 @@ class NothingTestsBesideCheckPr(unittest.TestCase):
             return ["true"]
 
         running = {"head": "abc"}
+        waiters = []
         with mock.patch.object(on_stop, "PENDING", pending), \
                 mock.patch.object(on_stop.hooklib, "read_event", lambda: {}), \
                 mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: running or None), \
                 mock.patch.object(on_stop, "already_passed", lambda: False), \
                 mock.patch.object(on_stop, "gate_held", lambda: False), \
+                mock.patch.object(on_stop, "start_when_free", lambda: waiters.append(1)), \
                 mock.patch.object(on_stop.worktrees, "clean", lambda root: ([], [])), \
                 mock.patch.object(on_stop.run_gate, "gate_command", command):
             (pending / "check-pending-code").touch()
             on_stop.main()
             self.assertEqual(targets, [])
             self.assertTrue((pending / "check-pending-code").exists())
+            self.assertEqual(waiters, [1], "a waiter runs it once check-pr ends")
             running.clear()
             on_stop.main()
         self.assertEqual(targets, ["check"])

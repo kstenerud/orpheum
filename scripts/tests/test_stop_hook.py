@@ -280,17 +280,60 @@ class StopRunsTheGateForWhatChanged(unittest.TestCase):
         import on_stop  # noqa: PLC0415
 
         pending = Path(tempfile.mkdtemp())
-        targets = []
+        targets, waiters = [], []
         with mock.patch.object(on_stop, "PENDING", pending), \
                 mock.patch.object(on_stop.hooklib, "read_event", lambda: {}), \
                 mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: None), \
                 mock.patch.object(on_stop, "already_passed", lambda: False), \
                 mock.patch.object(on_stop, "gate_held", lambda: True), \
+                mock.patch.object(on_stop, "start_when_free", lambda: waiters.append(1)), \
                 mock.patch.object(on_stop.run_gate, "gate_command", lambda target, env: targets.append(target) or ["true"]):
             (pending / "check-pending-code").touch()
             on_stop.main()
         self.assertEqual(targets, [])
         self.assertTrue((pending / "check-pending-code").exists(), "the gate is still owed")
+        self.assertEqual(waiters, [1], "a waiter runs it as the lock frees")
+
+    def test_a_gate_put_off_by_the_lock_runs_as_it_frees_and_the_next_turn_blocks_on_its_failure(self):
+        # A commit made while check-pr ran was linted by nothing until the next check-pr (the owner,
+        # 2026-11-24, the test-time stock-take's item 7).
+        import tempfile
+        from unittest import mock
+
+        sys.path.insert(0, str(HOOKS))
+        import on_stop  # noqa: PLC0415
+
+        pending = Path(tempfile.mkdtemp())
+        held = iter([True, True, False])
+        slept, targets = [], []
+
+        def command(target, env):
+            targets.append(target)
+            return [sys.executable, "-c", "print('lint: a long line'); raise SystemExit(2)"]
+
+        printed = []
+        with mock.patch.object(on_stop, "PENDING", pending), \
+                mock.patch.object(on_stop.hooklib, "read_event", lambda: {}), \
+                mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: None), \
+                mock.patch.object(on_stop, "already_passed", lambda: False), \
+                mock.patch.object(on_stop, "gate_held", lambda: next(held, False)), \
+                mock.patch.object(on_stop, "ffmpeg_jobs", lambda: 0), \
+                mock.patch.object(on_stop.worktrees, "clean", lambda root: ([], [])), \
+                mock.patch.object(on_stop, "block", lambda target, output: printed.append((target, output))), \
+                mock.patch.object(on_stop.run_gate, "gate_command", command):
+            (pending / "check-pending-code").touch()
+            with mock.patch.object(on_stop.subprocess, "Popen") as started:
+                on_stop.main()  # the lock is held: a waiter is started, nothing runs
+            self.assertEqual((targets, started.call_args.args[0][-1]), ([], on_stop.WHEN_FREE))
+            on_stop.when_free(sleep=slept.append)  # what the waiter runs
+            self.assertEqual((targets, len(slept)), (["check"], 1), "it waited out the hold, then ran the gate")
+            self.assertFalse(on_stop.waiter_running(on_stop.read_put_off() or {}))
+            on_stop.main()  # the next turn's end
+        self.assertEqual(len(printed), 1, "the next turn's end blocks with the put-off run's failure")
+        self.assertEqual(printed[0][0], "check")
+        self.assertIn("lint: a long line", printed[0][1])
+        self.assertIn("put off by the test lock", printed[0][1])
+        self.assertFalse((pending / on_stop.PUT_OFF).exists(), "blocked once, then gone")
 
 
 class StopBehindTheTestLock(unittest.TestCase):

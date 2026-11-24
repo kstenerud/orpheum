@@ -38,7 +38,8 @@ the `AGENTS.md` convention read the same rules. Only Claude-specific mechanics b
   while the owner tests on staging, and remove it after.
 - **While `make check-pr` runs**, it runs on HEAD in its own worktree (`scripts/check_pr_snapshot.py`)
   and holds a lock: edit freely, but `.claude/hooks/pre_bash.py` refuses tests, lints and commits
-  until it ends, and the Stop hook leaves its `make check` for the first turn after. If it fails
+  until it ends, and the Stop hook leaves its `make check` to a waiter that runs it as the lock frees
+  (`on_stop.py --when-free`); the next turn's end blocks on its failure. If it fails
   while you have worked ahead, `git stash`, fix and commit, re-run what failed, then `git stash pop`.
 - **Before an edit**, `.claude/hooks/pre_edit.py` refuses changes to a gate (configuration,
   `Makefile`, `scripts/`, hooks, allowlists, baselines, `internal/archtest/`), to generated code
