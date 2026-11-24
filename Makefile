@@ -418,6 +418,7 @@ check-pr-failed: ## Re-run only the check-pr steps that failed last time (revert
 	  if $(PYTHON) scripts/documentation_only.py --base "$$base"; then \
 	    exec $(MAKE) --no-print-directory check-pr-documentation BASE="$$base"; fi; \
 	  $(PYTHON) scripts/check_pr_steps.py rerun --base "$$base" --jobs $(CHECK_JOBS) \
+	    $(PR_FAST_STEPS:%=--always %) $(PR_MEDIUM_STEPS:%=--always %) \
 	    --last $(PR_CODE_RED_STEP) --last $(PR_LAST_STEP) $(PR_STEPS) && \
 	  $(PYTHON) scripts/check_pr_debt.py owe "$$base"
 

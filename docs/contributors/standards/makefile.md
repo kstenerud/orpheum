@@ -182,7 +182,9 @@ While fixing a failure, re-run only what failed, then run the whole gate once:
 2. **`make check-pr-failed`** re-runs the check-pr steps that failed at the last `make check-pr`
    against the same base, or never ran, and names the ones it skipped with the commit they passed
    on. Revert-red re-runs only the files it failed on (`make check-revert-red-failed`). The head
-   may have moved, since the fixes are new commits; another base is refused.
+   may have moved, since the fixes are new commits; another base is refused. Once it has, the
+   quick and medium tiers run again though they passed: a fix that breaks one (a long line, a
+   commit message) is found in a minute, not by the next full run (the owner, 2026-11-24).
 3. **One full `make check-pr`** when the targeted runs pass, before the branch is done. A
    targeted green is never the gate's: the steps it skipped passed on an older commit. A pure
    step (web-lint-full, the integration tier, the browser tier) whose files, base and toolchain

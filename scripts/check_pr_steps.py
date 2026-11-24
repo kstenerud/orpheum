@@ -18,7 +18,13 @@
   (PR_STEPS, and PR_LAST_STEP, which runs alone after them). It re-runs, the same way, each step
   that failed or has no result (it never ran: the last step runs only after the others pass), and
   names each one it skipped with the commit it passed on. Revert-red, when it ran and failed,
-  re-runs only its failed files (`check_revert_red.py --rerun-failed`).
+  re-runs only its failed files (`check_revert_red.py --rerun-failed`). The steps given as
+  `--always` (the quick and medium tiers) re-run too whenever they passed on a commit other than
+  HEAD: they take a minute or two, and a fix to another step's failure that breaks one of them (a
+  long line, a commit message the lint refuses) was found only by the full check-pr after, a round
+  of it (the owner, 2026-11-24, agreeing to the test-time stock-take's item 8). A step whose inputs
+  are unchanged takes its kept pass, as below, so a fix that did not touch what it reads costs
+  nothing.
 
 A re-run's green is not check-pr's green: the skipped steps passed on an older commit, and the
 fixes since may have broken them. So `rerun` always ends by saying the full `make check-pr` is
@@ -173,12 +179,14 @@ def span(result: dict[str, Any]) -> str:
     return f"  ({utc(result['started'])}–{utc(result['ended'])} UTC)"
 
 
-def plan(results: dict[str, Any], steps: list[str], head: str) -> tuple[list[str], list[str]]:
-    """The steps to re-run, in order, and a line for each one skipped."""
+def plan(results: dict[str, Any], steps: list[str], head: str,
+         always: frozenset[str] = frozenset()) -> tuple[list[str], list[str]]:
+    """The steps to re-run, in order, and a line for each one skipped: each that failed or never ran,
+    and each of `always` that passed on a commit other than head."""
     again, skipped = [], []
     for step in steps:
         result = results.get(step)
-        if result is None or not result["passed"]:
+        if result is None or not result["passed"] or (step in always and result["commit"] != head):
             again.append(step)
             continue
         when = "this commit" if result["commit"] == head else "an older commit"
@@ -186,7 +194,7 @@ def plan(results: dict[str, Any], steps: list[str], head: str) -> tuple[list[str
     return again, skipped
 
 
-def rerun(base: str, steps: list[str], lasts: list[str], jobs: int) -> int:
+def rerun(base: str, steps: list[str], lasts: list[str], jobs: int, always: frozenset[str] = frozenset()) -> int:
     record_ = last_run.read(GATE, NAME)
     if record_ is None:
         print(f"No check-pr run is recorded ({last_run.record_path(GATE, NAME)}); run `make check-pr`.")
@@ -196,7 +204,11 @@ def rerun(base: str, steps: list[str], lasts: list[str], jobs: int) -> int:
               "its results answer a different question. Run `make check-pr` against this base.")
         return 1
     results = record_.get("results", {})
-    again, skipped = plan(results, [*steps, *lasts], last_run.commit_of("HEAD") or "")
+    head = last_run.commit_of("HEAD") or ""
+    again, skipped = plan(results, [*steps, *lasts], head, always)
+    moved = [s for s in again if s in always and results.get(s, {}).get("passed")]
+    if moved:
+        print(f"Again, though they passed: HEAD moved since, and they are quick: {' '.join(moved)}")
     if skipped:
         print("Skipped: these passed at the last check-pr, and the fixes since may have broken them:")
         print("\n".join(skipped))
@@ -248,6 +260,8 @@ def main() -> int:
     again.add_argument("--base", required=True)
     again.add_argument("--last", required=True, action="append", help="a revert-red step, run alone after "
                        "the steps before it, in the order given (the code's, then the stylesheets')")
+    again.add_argument("--always", action="append", default=[], help="a step re-run whenever it passed on a "
+                       "commit other than HEAD (the quick and medium tiers)")
     again.add_argument("--jobs", type=int, default=4)
     again.add_argument("steps", nargs="+")
     args = ap.parse_args()
@@ -261,7 +275,8 @@ def main() -> int:
     if args.action == "record":
         command = args.command[1:] if args.command[:1] == ["--"] else args.command
         return record(args.step, command)
-    return rerun(last_run.commit_of(args.base) or args.base, args.steps, args.last, args.jobs)
+    return rerun(last_run.commit_of(args.base) or args.base, args.steps, args.last, args.jobs,
+                 frozenset(args.always))
 
 
 if __name__ == "__main__":

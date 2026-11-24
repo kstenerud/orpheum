@@ -134,10 +134,11 @@ class CheckPrFailed(unittest.TestCase):
             self.make("pr-step-check-revert-red")
         (self.repo.root / "ran.log").unlink()
 
-    def rerun(self) -> tuple[int, str, list[str]]:
+    def rerun(self, *always: str) -> tuple[int, str, list[str]]:
         # In a process of its own, so the makes it runs print into what the test reads, not the
         # suite's output, where their expected failures would read as the suite's.
         done = subprocess.run([sys.executable, str(SCRIPTS / "check_pr_steps.py"), "rerun", "--base", self.base,
+                               *[f"--always={step}" for step in always],
                                "--last", "check-revert-red", "--jobs", "2", "fast", "slow"],
                               cwd=self.repo.root, capture_output=True, text=True, check=False)
         log = self.repo.root / "ran.log"
@@ -163,6 +164,21 @@ class CheckPrFailed(unittest.TestCase):
         self.assertEqual((status, ran), (0, []), out)
         self.assertIn("the full `make check-pr` is still required", out)
         self.assertFalse((self.repo.root / ".git" / "orpheum-check-passed").exists(), "a re-run wrote the stamp")
+
+    def test_a_quick_step_runs_again_once_head_moved_since_it_passed_and_not_before(self):
+        # A fix to the slow step's failure broke the quick one, found only by the full check-pr after
+        # (the owner, 2026-11-24: "a lint issue shouldn't cause check-pr to fail after an hour").
+        (self.repo.root / "fail-slow").write_text("")
+        self.check_pr()
+        status, out, ran = self.rerun("fast")
+        self.assertEqual(ran, ["slow"], "HEAD has not moved: fast's pass is this commit's")
+        self.repo.commit("fix: slow\n\nIt was slow.", {"two.txt": "2\n"})
+        (self.repo.root / "fail-slow").unlink()
+        (self.repo.root / "fail-fast").write_text("")
+        status, out, ran = self.rerun("fast")
+        self.assertEqual((status != 0, sorted(ran)), (True, ["fast", "slow"]), out)
+        self.assertIn("HEAD moved since", out)
+        self.assertIn("check-revert-red did not run", out)
 
     def test_revert_red_that_ran_and_failed_reruns_only_its_failed_files(self):
         (self.repo.root / "fail-check-revert-red").write_text("")
@@ -249,6 +265,9 @@ class Wiring(unittest.TestCase):
         self.assertRegex(self.MAKEFILE,
                          r"(?m)^PR_STEPS := \$\(PR_FAST_STEPS\) \$\(PR_MEDIUM_STEPS\) \$\(PR_SLOW_STEPS\)$")
         self.assertRegex(self.MAKEFILE, r"(?m)^\t.*\$\(PR_LAST_STEP:%=pr-step-%\)")
+        # check-pr-failed runs the quick and medium tiers again once HEAD moved (the owner, 2026-11-24).
+        self.assertRegex(self.MAKEFILE, r"check_pr_steps\.py rerun .*\\\n\t +\$\(PR_FAST_STEPS:%=--always %\) "
+                         r"\$\(PR_MEDIUM_STEPS:%=--always %\)")
         self.assertRegex(self.MAKEFILE, r"(?m)^pr-step-%:\n\t.*check_pr_steps\.py record \$\*")
         self.assertRegex(self.MAKEFILE, r"(?m)^\t.*check_pr_steps\.py durations \$\(PR_STEPS\) "
                          r"\$\(PR_CODE_RED_STEP\) \$\(PR_SERIAL_STEP\) \$\(PR_LAST_STEP\)")
