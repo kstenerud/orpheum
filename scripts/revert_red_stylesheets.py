@@ -21,6 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Callable
 
+import revert_red_repeat as repeat
 from revert_red_dependents import git_run
 from revert_red_run import run_whole_group
 from revert_red_timings import Timings, timed
@@ -82,7 +83,9 @@ def own_browser_mode_reds(tree: str, base: str, head: str, sheets: list[str], re
 
     The runs go side by side, each in tree or in a probe tree it borrows from spare as one comes
     free: one after another in one tree, about two minutes each, they were 1000 s of a check-pr while
-    the other three trees sat idle (2026-11-03)."""
+    the other three trees sat idle (2026-11-03). So a red's failed tests run again, the sheet still
+    reverted, one repeat at a time, and must fail again (revert_red_repeat): title.css's red was a
+    test failing beside the others (2026-11-24)."""
     if not related and not readers:
         return {}
     noticed: dict[str, str] = {}
@@ -114,7 +117,11 @@ def own_browser_mode_reds(tree: str, base: str, head: str, sheets: list[str], re
             done = timed(timings, path, "vitest related (browser mode)", None,
                          functools.partial(run_whole_group, [*related, path.removeprefix("web/")], here, timeout))
             if done.returncode != 0:
-                noticed[path] = done.stdout + done.stderr
+                output = done.stdout + done.stderr
+                # A red stands once its failed browser tests fail again, on their own (revert_red_repeat).
+                if repeat.did_not_repeat(timings, path, related, output, here, timeout):
+                    return
+                noticed[path] = output
         except subprocess.TimeoutExpired:
             pass
         finally:

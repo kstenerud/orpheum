@@ -105,6 +105,7 @@ from revert_red_tags import TYPECHECK, other_builds  # noqa: F401 (tests reach o
 from revert_red_stylesheets import own_browser_mode_reds, settle as settle_stylesheets
 from revert_red_trees import hold_probe_trees, link_installed_packages, probe_trees, seed_type_builds  # noqa: F401 (tests reach them here)
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
+import revert_red_repeat as repeat
 from revert_red_clean import clean_failure, clean_run, failed_pass_clean, probe_kind, runs_clean, sampled
 from revert_red_unreachable import is_unreachable_removal
 from revert_red_web import added_file_scope, direct_then_types
@@ -407,10 +408,13 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
             if done.returncode == RUNNER_MISSING:
                 return Outcome(change.path, "NO_RUNNER", f"the tests could not start: {attempt.command[0]} "
                                "found no runner, so nothing was checked")
+            combined = done.stdout + done.stderr
+            # Its failed browser tests again, still reverted: a red passes a file (revert_red_repeat).
+            if repeat.did_not_repeat(TIMINGS, change.path, attempt.command, combined, tree, timeout, env):
+                continue
             for path in (change.path, *unit):
                 restore(tree, head, path)
             kind = probe_kind(attempt.command, attempt.label, attempt.env)
-            combined = done.stdout + done.stderr
             failed_runs = [] if attempt.compile_only or is_build_failure(combined) else \
                 known_red.runs_of(sampled(known_red.failed_tests(combined, go_module(toplevel()), attempt.command), head))
             again, said = failed_pass_clean(failed_runs, lambda command: timed(

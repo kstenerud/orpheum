@@ -456,6 +456,18 @@ class RevertRedClaims(unittest.TestCase):
         self.assertIn("fix the environment", rr.report([outcome]))
         self.assertEqual(repo.git("status", "--porcelain"), "", "the reverted file is put back")
 
+    def test_a_red_whose_failed_browser_tests_pass_run_again_is_not_taken(self):
+        # check-pr took title.css's revert as red from a browser test failing beside it, and the next
+        # run found nothing testing it (2026-11-24): such a red must repeat (revert_red_repeat).
+        for repeated, verdict in ((False, "GREEN"), (True, "RED_TEST")):
+            repo, base = self.repo()
+            repo.commit("fix(tool): answer two\n\nIt answered one.", {
+                self.CODE: "def f():\n    return 2\n",
+                self.TEST: (repo.root / self.TEST).read_text() + "        assert tool.f() == 2\n"})
+            with mock.patch.object(rr.repeat, "did_not_repeat", lambda *_args, again=repeated, **_kwargs: not again):
+                self.assertEqual(self.probe(repo, base).verdict, verdict)
+            self.assertEqual(repo.git("status", "--porcelain"), "", "the reverted file is put back")
+
     def test_a_ticked_verification_covers_a_file_no_test_notices(self):
         repo, base = self.repo()
         repo.commit("docs: queue", {rr.VQ_FILE: "- [x] **VQ7** — seen on the television\n"})

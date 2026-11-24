@@ -851,6 +851,24 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   all.
 - **Warning sign:** a "nothing reverted" row as long as the red before it.
 
+### 40. A browser test failing under load, taken as a revert's red
+
+- **Mechanism:** a stylesheet's own browser-mode tests run side by side in four probe trees, each
+  with Chromium and Firefox, and any failing run was the revert's red. A red passes a file, and a
+  kept red holds until the code changes.
+- **Instance** (check-pr, 2026-11-24): the second run took `title.css`'s revert as red, and the third,
+  over the same `title.css` and the same tests, found nothing testing it: a whole hour's run spent
+  learning what the second had wrongly passed. The same day, ten Firefox browser tests timed out at
+  30 s in a `make check` beside a revert-red run, and all passed alone.
+- **Why it was invisible:** the record kept the verdict, not the test that failed; the red looked
+  like coverage.
+- **Fix** (the owner, 2026-11-24, agreeing to the test-time stock-take's item 10): a red whose failed
+  tests include browser-mode files has those files run again, the file still reverted, one repeat at
+  a time (`revert_red_repeat.py`); they must fail again for the red to stand, and one that does not
+  is printed as "Not taken as …'s red". It costs a run of the failed files per browser red.
+- **Warning sign:** a file one run finds covered and the next, over the same code, finds untested;
+  or "Not taken as" lines in a revert-red log, each a browser test failing for its own reasons.
+
 ### Looked for and left: a seed built once and copied (2026-11-19)
 
 The owner asked whether the tests that spend their time seeding could copy a seeded database into
