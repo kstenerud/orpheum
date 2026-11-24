@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // postLocked posts a locked node's report, in this build's protocol unless it names one.
@@ -34,6 +35,26 @@ func (harness *fixture) postLocked(t *testing.T, report nodeproto.LockedReport) 
 		}
 	}
 	return reply, response.status
+}
+
+// A connected node whose next word is a locked report has its long-poll answered at once, told to
+// say hello first: the core forgets the node it held, and the poll waiting on it must not find nil
+// when it wakes (the queue audit, 2026-11-23).
+func TestLocked_ALongPollWaitingForANodeThatReportsLockedIsToldAtOnceToSayHelloFirst(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Hour)
+	settingstest.Set(t, harness.settings, settings.ShouldScanOnNodeHello, "false")
+	nodeID := harness.hello(t, nodeproto.Hello{Name: "nas"}).NodeID
+	answered := harness.pollCommands(t, nodeID)
+	lacking := []nodeproto.Confinement{{Mechanism: "landlock", CauseCode: "disabledAtBoot"}}
+	if _, status := harness.postLocked(t, nodeproto.LockedReport{Name: "nas", Confinement: lacking}); status !=
+		http.StatusOK {
+		t.Fatalf("the locked report answered %d, want 200", status)
+	}
+	if status := testutil.Receive(t, answered, "the waiting long-poll's answer"); status != http.StatusConflict {
+		t.Errorf("the long-poll of a node that reported locked as it waited answered %d, want %d: say hello first",
+			status, http.StatusConflict)
+	}
 }
 
 // A locked node is enrolled by its report and shown locked with what it lacks, held until an admin

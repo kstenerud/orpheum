@@ -216,6 +216,20 @@ func TestRemoveNode_ALongPollWaitingForTheRetiredNodeIsToldAtOnceToSayHelloFirst
 	harness := newFixture(t, time.Hour)
 	settingstest.Set(t, harness.settings, settings.ShouldScanOnNodeHello, "false")
 	retired := harness.hello(t, nodeproto.Hello{Name: "local"}).NodeID
+	answered := harness.pollCommands(t, retired)
+	if err := harness.service.RemoveNode(t.Context(), retired); err != nil {
+		t.Fatal(err)
+	}
+	if status := testutil.Receive(t, answered, "the waiting long-poll's answer"); status != http.StatusConflict {
+		t.Errorf("the long-poll of a node retired as it waited answered %d, want %d: say hello first", status,
+			http.StatusConflict)
+	}
+}
+
+// pollCommands holds a long-poll for a node's commands open, as the node does, and returns the
+// channel its answer's status arrives on (0 when the poll failed), once the core holds it.
+func (harness *fixture) pollCommands(t *testing.T, nodeID int64) <-chan int {
+	t.Helper()
 	answered := make(chan int, 1)
 	go func() {
 		url := harness.server.URL + nodeproto.PathCommands + "?" + nodeproto.QueryAfterCommandSeq + "=0"
@@ -224,7 +238,7 @@ func TestRemoveNode_ALongPollWaitingForTheRetiredNodeIsToldAtOnceToSayHelloFirst
 			answered <- 0
 			return
 		}
-		request.Header.Set(NodeIDHeader, strconv.FormatInt(retired, 10))
+		request.Header.Set(NodeIDHeader, strconv.FormatInt(nodeID, 10))
 		// On a connection of its own: one reused would be tried again, unseen, once the handler failed.
 		client := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}}
 		response, err := client.Do(request)
@@ -235,16 +249,10 @@ func TestRemoveNode_ALongPollWaitingForTheRetiredNodeIsToldAtOnceToSayHelloFirst
 		_ = response.Body.Close() //nolint:errcheck // read-only
 		answered <- response.StatusCode
 	}()
-	for !harness.isPolling(retired) {
+	for !harness.isPolling(nodeID) {
 		runtime.Gosched()
 	}
-	if err := harness.service.RemoveNode(t.Context(), retired); err != nil {
-		t.Fatal(err)
-	}
-	if status := testutil.Receive(t, answered, "the waiting long-poll's answer"); status != http.StatusConflict {
-		t.Errorf("the long-poll of a node retired as it waited answered %d, want %d: say hello first", status,
-			http.StatusConflict)
-	}
+	return answered
 }
 
 // isPolling is whether a node holds a long-poll for its commands open.
