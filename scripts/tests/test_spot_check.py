@@ -23,12 +23,25 @@ IMPORTERS = {
 
 
 class Planning(unittest.TestCase):
-    def test_a_go_change_runs_its_package_and_its_direct_importers_only(self):
+    def test_a_go_change_tests_its_package_and_type_checks_its_direct_importers_only(self):
+        # The importers' tests made a spot run of 35 to 53 packages (the owner, 2026-11-24).
         spot = spot_check.plan(["internal/a/x.go"], MODULE, IMPORTERS)
-        self.assertEqual(spot.go_packages, [f"{MODULE}/cmd/c", f"{MODULE}/internal/a", f"{MODULE}/internal/b"])
+        self.assertEqual(spot.go_packages, [f"{MODULE}/internal/a"])
+        self.assertEqual(spot.go_checked, [f"{MODULE}/cmd/c", f"{MODULE}/internal/b"])
         spot = spot_check.plan(["internal/b/y_test.go"], MODULE, IMPORTERS)
-        self.assertEqual(spot.go_packages, [f"{MODULE}/cmd/c", f"{MODULE}/internal/b"])
-        self.assertIn("what imports the importers", " ".join(spot.not_run))
+        self.assertEqual(spot.go_packages, [f"{MODULE}/internal/b"])
+        self.assertEqual(spot.go_checked, [f"{MODULE}/cmd/c"])
+        gaps = " ".join(spot.not_run)
+        self.assertIn("the tests of the packages importing the change, type-checked here", gaps)
+        self.assertIn("what imports the importers", gaps)
+
+    def test_an_importer_another_change_or_a_read_file_calls_for_is_tested_not_only_checked(self):
+        spot = spot_check.plan(["internal/a/x.go", "internal/b/y.go"], MODULE, IMPORTERS)
+        self.assertEqual(spot.go_packages, [f"{MODULE}/internal/a", f"{MODULE}/internal/b"])
+        self.assertEqual(spot.go_checked, [f"{MODULE}/cmd/c"])
+        spot = spot_check.plan(["internal/a/x.go"], MODULE, IMPORTERS, readers={"internal/a/x.go": {f"{MODULE}/cmd/c"}})
+        self.assertEqual(spot.go_packages, [f"{MODULE}/cmd/c", f"{MODULE}/internal/a"])
+        self.assertEqual(spot.go_checked, [f"{MODULE}/internal/b"])
 
     def test_a_removed_packages_files_are_left_out_and_the_rest_kept(self):
         present = {"internal/kept", "."}
@@ -103,11 +116,13 @@ class Planning(unittest.TestCase):
         commands = [run.command for run in spot_check.runs(spot, MODULE)]
         # As make check's go-test runs them, so Go's test cache serves one from the other.
         self.assertEqual(commands[0][:4], ["bash", "-o", "pipefail", "-c"])
-        self.assertRegex(commands[0][4], r"^go test -json ./cmd/c ./internal/a ./internal/b \| .*"
+        self.assertRegex(commands[0][4], r"^go test -json ./internal/a \| .*"
                                          r"scripts/go_test_timings.py go-spot$")
+        # As make check's first go-vet line runs it, so Go's build cache serves one from the other.
+        self.assertEqual(commands[1], ["go", "vet", "./cmd/c", "./internal/b"])
         # a.tsx is not here: a deleted file calls for the whole web suite, make check's, and has nothing to lint.
-        self.assertEqual(commands[1], spot_check.WEB_TYPECHECK)
-        self.assertEqual(commands[2][1:], ["scripts/py_tests.py"])
+        self.assertEqual(commands[2], spot_check.WEB_TYPECHECK)
+        self.assertEqual(commands[3][1:], ["scripts/py_tests.py"])
         self.assertIn(spot_check.WHOLE_WEB_SUITE, spot.not_run)
 
     def test_a_go_change_lints_its_own_package_and_not_its_importers(self):

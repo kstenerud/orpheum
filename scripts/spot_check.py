@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# ABOUTME: `make spot`: the tests of what the working tree changed, and of what imports it, in
-# ABOUTME: about 30 seconds, for checking a small change while working (D279, principles §23).
+# ABOUTME: `make spot`: the tests of what the working tree changed, and a type check of what imports
+# ABOUTME: it, in about 30 seconds, for checking a small change while working (D279, principles §23).
 """The spot check: run only what a change can affect, within 30 seconds (D279).
 
 A small change is checked in seconds; `make check` waits for the commit and `make check-pr` for an
 accumulated batch (testing.md §10). This finds what changed since `--base` (by default HEAD, with
 the working tree's uncommitted and untracked files), and runs, at once:
 
-* **Go:** `go test` of each package a changed Go file is in, and of every package that imports one
-  of them directly (its tests included). What imports those in turn is `make check`'s. And
+* **Go:** `go test` of each package a changed Go file is in, and `go vet` of every package that
+  imports one of them directly (its tests included), which type-checks them: their tests, and what
+  imports those in turn, are `make check`'s. Their tests made a spot run of 35 to 53 packages for a
+  change to one, past its 30 s (the owner, 2026-11-24: "a-d: yes. e, f, h: yes"). And
   golangci-lint of each changed package alone, with make check's integration build tag: a long line
   or an unchecked error was found only by the turn's-end gate, four whole runs in one session (the
   owner, 2026-10-31: "lint the one package first" was a habit, not a check).
@@ -106,7 +108,10 @@ CLIMBING_LITERAL = re.compile(r'"(\.\./[^"\n]*)"')
 class Plan:
     """What the spot check runs, and what it names as left to `make check`."""
 
+    # The Go packages whose tests run: the changed ones and those whose tests read a changed file.
     go_packages: list[str] = field(default_factory=list)
+    # The packages importing a changed one, type-checked alone (go vet): their tests are make check's.
+    go_checked: list[str] = field(default_factory=list)
     lint_packages: list[str] = field(default_factory=list)
     web_files: list[str] = field(default_factory=list)
     # Every changed path under web/, which make check's choice of web tests reads (web_tests.command_for).
@@ -184,17 +189,20 @@ def plan(paths: list[str], module: str, importers: dict[str, set[str]],
         if result.python_tests == []:
             result.python = False
             result.not_run.append("the gates' Python tests: none reaches " + ", ".join(python_paths))
-    packages = set(changed_packages)
-    for package in changed_packages:
-        packages |= importers.get(package, set())
-    result.go_packages = sorted(packages | read_by)
+    tested = changed_packages | read_by
+    result.go_packages = sorted(tested)
+    result.go_checked = sorted({importer for package in changed_packages for importer in importers.get(package, set())}
+                               - tested)
     # Lint takes the changed packages alone: an importer's lint does not change with them.
     result.lint_packages = sorted(changed_packages)
     if styles:
         result.not_run.append("stylesheets, which only the browser tier renders: " + ", ".join(styles))
     if any(is_browser_test(path) for path in result.web_files):
         result.not_run.append("browser-mode tests, which run in a browser (`make check`)")
-    if result.go_packages:
+    if result.go_checked:
+        result.not_run.append("the tests of the packages importing the change, type-checked here, and what imports "
+                              "the importers, the dev build's tests and its Go lint (`make check`)")
+    elif result.go_packages:
         result.not_run.append("what imports the importers, the dev build's tests and its Go lint (`make check`)")
     result.not_run = list(dict.fromkeys(result.not_run))
     return result
@@ -272,6 +280,9 @@ def runs(spot: Plan, module: str, base: str = "HEAD") -> list[Run]:
     if spot.go_packages:
         relative = [relative_package(p, module) for p in spot.go_packages]
         out.append(Run(f"go test, {len(relative)} package(s)", go_test_as_make_check(relative)))
+    if spot.go_checked:
+        checked = [relative_package(p, module) for p in spot.go_checked]
+        out.append(Run(f"go vet, {len(checked)} importing package(s)", go_vet_as_make_check(checked)))
     tested = web_test_run(spot.web_changes, base)
     if isinstance(tested, Run):
         out.append(tested)
@@ -310,6 +321,13 @@ def go_lint_as_make_check(packages: list[str]) -> list[str]:
     """golangci-lint of packages as make check's go-lint runs it (Makefile), waiting for the machine's
     lint lock rather than failing beside another run, so its cache serves both."""
     return ["golangci-lint", "run", "--allow-serial-runners", "--build-tags", "integration", *packages]
+
+
+def go_vet_as_make_check(packages: list[str]) -> list[str]:
+    """go vet of packages, their tests included, as make check's first go-vet line runs it (Makefile),
+    so Go's build cache serves each from the other: what a change broke in a package importing it, a
+    signature or a type, without running that package's tests."""
+    return ["go", "vet", *packages]
 
 
 def go_test_as_make_check(packages: list[str]) -> list[str]:

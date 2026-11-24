@@ -38,8 +38,8 @@ A branch also passes `make check-pr` (the integration tier, revert-red, test wea
 lint) before it merges.
 `make help` lists everything.
 
-**While working, `make spot`**: the tests of what changed and of what imports it, in about 30
-seconds; a commit runs it too. `make check` waits for the turn's end, and `make check-pr` for an accumulated batch, never a
+**While working, `make spot`**: the tests of what changed (the web's: of what uses it too) and a
+type check of the Go packages importing it, in about 30 seconds; a commit runs it too. `make check` waits for the turn's end, and `make check-pr` for an accumulated batch, never a
 single small fix (principles §23, D279).
 
 **Iterating on a look with the owner, defer the gate for the whole cycle** and take it up once at

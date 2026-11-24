@@ -84,12 +84,13 @@ check: hooks ## The gate: everything that runs on every change, quietly (VERBOSE
 	@if $(PYTHON) scripts/run_gate.py --hops check; then exec $(PYTHON) scripts/in_dev_image.py check; \
 	  else $(GATE_LOCK) --as check $(PYTHON) scripts/quiet_gate.py --fail-fast "make check" check-verbose; fi
 
-# The spot check, while working: the tests of what changed and of what imports it, about 30 s; not
+# The spot check, while working: the tests of what changed (the web's: of what uses it too) and a
+# type check of the Go packages importing it, about 30 s; not
 # the gate, which make check is at the turn's end; the pre-commit hook runs it (D279, testing.md §10).
 # It holds the test lock, so agents' commits wait for each other's tests (the owner, 2026-11-04).
 # BASE=<rev> checks commits.
 .PHONY: spot
-spot: hooks ## Spot check while working: tests of what changed since BASE (default HEAD, so uncommitted) and its importers, ~30 s
+spot: hooks ## Spot check while working: tests of what changed since BASE (default HEAD, so uncommitted), its Go importers type-checked, ~30 s
 	@# In the gate's container, as make check: one Go test cache for both (the caching audit's finding 4).
 	@if $(PYTHON) scripts/run_gate.py --hops spot; then exec $(PYTHON) scripts/in_dev_image.py spot $(if $(BASE),BASE='$(BASE)') $(if $(SPOT_JOBS),SPOT_JOBS=$(SPOT_JOBS)); \
 	  else $(GATE_LOCK) --as spot $(PYTHON) scripts/spot_check.py $(if $(BASE),--base '$(BASE)') $(if $(SPOT_JOBS),--jobs $(SPOT_JOBS)); fi
