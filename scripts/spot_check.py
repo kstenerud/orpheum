@@ -360,7 +360,7 @@ def main() -> int:
                     "uncommitted changes)")
     ap.add_argument("--jobs", type=int, default=DEFAULT_JOBS, help=f"runs at once (default {DEFAULT_JOBS})")
     args = ap.parse_args()
-    started, began, load_before = time.monotonic(), time.time(), gate_runs.load()
+    started, began, load_before, cpu_before = time.monotonic(), time.time(), gate_runs.load(), gate_runs.cpu_now()
     paths = changed_paths(args.base)
     if not paths:
         print(f"spot: nothing changed since {args.base}; give --base to check commits (e.g. --base HEAD~1)")
@@ -381,7 +381,7 @@ def main() -> int:
     took = time.monotonic() - started
     gate_runs.record({"start": gate_runs.started_at(began), "target": "spot", "seconds": round(took),
                       "exit": 1 if failed else 0, "worktree": gate_runs.worktree(), "loadBefore": load_before,
-                      "loadAfter": gate_runs.load(), "paths": len(paths),
+                      "loadAfter": gate_runs.load(), "cpu": gate_runs.cpu_used(cpu_before), "paths": len(paths),
                       "steps": [[run.label, round(seconds, 1)] for run, _, seconds, _ in
                                 sorted(results, key=lambda done: -done[2])][:gate_runs.STEPS_KEPT]})
     over = f", over its {BUDGET_S} s budget (D279)" if took > BUDGET_S else ""

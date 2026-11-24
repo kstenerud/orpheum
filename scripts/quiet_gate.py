@@ -275,7 +275,7 @@ def main(argv: list[str]) -> int:
     log = log_path(make_args[0])
     clock = log.with_name(f"{make_args[0]}.clock")
     clock.write_text("", encoding="utf-8")
-    started, load_before = time.time(), gate_runs.load()
+    started, load_before, cpu_before = time.time(), gate_runs.load(), gate_runs.cpu_now()
     code, output, read = run_make(make_args, fail_fast, {**os.environ, "STEP_CLOCK": str(clock)})
     seconds = time.time() - started
     log.write_text(output, encoding="utf-8")
@@ -285,6 +285,7 @@ def main(argv: list[str]) -> int:
     gate_runs.record({"start": gate_runs.started_at(started), "target": label.removeprefix("make "),
                       "seconds": round(seconds), "exit": code, "worktree": gate_runs.worktree(),
                       "loadBefore": load_before, "loadAfter": gate_runs.load(),
+                      "cpu": gate_runs.cpu_used(cpu_before),
                       "steps": [[target, round(took, 1)] for target, took in leaves[:gate_runs.STEPS_KEPT]]})
     if code == 0:
         last = next((line for line in reversed(output.splitlines()) if line.strip()), "")

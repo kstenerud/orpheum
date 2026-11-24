@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import os
 import re
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -55,6 +57,53 @@ class Record(unittest.TestCase):
         makefile = (SCRIPTS.parent / "Makefile").read_text()
         self.assertEqual(int(re.search(r"^CHECK_PR_BUDGET_S := (\d+)$", makefile, re.M).group(1)),
                          gate_runs.BUDGET_S["check-pr"])
+
+
+class Cpu(unittest.TestCase):
+    def write(self, text: str) -> Path:
+        path = Path(tempfile.mkdtemp()) / "stat"
+        path.write_text(text)
+        return path
+
+    def test_the_host_counts_its_work_and_not_its_idle_its_disk_waits_or_its_steal(self):
+        # user nice system idle iowait irq softirq steal: 100 + 50 + 30 + 10 + 10 ticks of work.
+        stat = self.write("cpu  100 50 30 9000 400 10 10 700 0 0\ncpu0 1 2 3 4 5 6 7 8 0 0\n")
+        self.assertEqual(gate_runs.host_busy_s(stat), 200 / os.sysconf("SC_CLK_TCK"))
+
+    def test_the_sandbox_reads_its_cgroups_usage(self):
+        stat = self.write("usage_usec 2500000\nuser_usec 2000000\nsystem_usec 500000\n")
+        self.assertEqual(gate_runs.sandbox_busy_s(stat), 2.5)
+
+    def test_a_counter_not_there_is_none(self):
+        missing = Path(tempfile.mkdtemp()) / "none"
+        self.assertIsNone(gate_runs.host_busy_s(missing))
+        self.assertIsNone(gate_runs.sandbox_busy_s(missing))
+        self.assertIsNone(gate_runs.sandbox_busy_s(self.write("user_usec 5\n")))
+
+    def test_the_cpu_used_is_split_between_the_gate_the_sandbox_and_the_host(self):
+        before = {"host": 1000.0, "sandbox": 400.0, "gate": 1.0}
+        after = {"host": 1100.0, "sandbox": 460.0, "gate": 41.0}
+        self.assertEqual(gate_runs.cpu_used(before, after),
+                         {"gate": 40.0, "sandboxOthers": 20.0, "hostOthers": 40.0})
+
+    def test_without_a_cgroup_the_host_others_are_what_the_gate_did_not_use(self):
+        before = {"host": 1000.0, "sandbox": None, "gate": 0.0}
+        after = {"host": 1100.0, "sandbox": None, "gate": 30.0}
+        self.assertEqual(gate_runs.cpu_used(before, after), {"gate": 30.0, "hostOthers": 70.0})
+
+    def test_a_gates_own_children_are_counted(self):
+        before = gate_runs.cpu_now()
+        subprocess.run([sys.executable, "-c", "sum(range(3_000_000))"], check=True)
+        used = gate_runs.cpu_used(before)
+        self.assertGreater(used["gate"], 0.0)
+
+    def test_the_report_says_the_cores_each_used(self):
+        runs = [{**run("check", 100), "cpu": {"gate": 200.0, "sandboxOthers": 100.0, "hostOthers": 300.0}},
+                {**run("check", 50), "cpu": {"gate": 150.0, "sandboxOthers": 0.0, "hostOthers": 50.0}},
+                run("check", 70)]
+        report = gate_runs.report(runs, "2026-11-20T00:00:00Z")
+        self.assertIn("cores used, the median of 2 run(s): the gate 2.5, the sandbox's other work 0.5, "
+                      "the host's other work 2.0", report)
 
 
 if __name__ == "__main__":

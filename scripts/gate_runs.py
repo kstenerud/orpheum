@@ -9,7 +9,8 @@ Each run of `make check` and `make check-pr` (scripts/quiet_gate.py) and of `mak
 (scripts/spot_check.py) appends a line to `gate-logs/runs.jsonl` in the git common directory, so
 every worktree's runs and every way of starting one (the Stop hook, the pre-commit hook, an agent, the
 owner's terminal) land in one record: when it started, its seconds and exit, the worktree, the load
-before and after, and its longest steps. The Stop hook's `.claude/.cache/gate-runs.jsonl` measures the
+before and after, the CPU seconds the gate, the sandbox's other work and the host's other work used
+over it (cpu_used), and its longest steps. The Stop hook's `.claude/.cache/gate-runs.jsonl` measures the
 turn's wait instead, the lock and the image's start included.
 
 `python3 scripts/gate_runs.py` (`make gate-times`) reports each target's runs over the last days:
@@ -21,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import resource
 import subprocess
 import sys
 import time
@@ -49,6 +51,66 @@ def load() -> float:
         return round(os.getloadavg()[0], 1)
     except OSError:
         return -1.0
+
+
+# The machine's CPU counters: /proc/stat's first line is the host's whole (a sandbox's included), and
+# the cgroup's cpu.stat the sandbox's own, every process in it. A load average says only that the
+# machine was busy; these say whose work it was (the owner, 2026-11-24).
+HOST_STAT = Path("/proc/stat")
+SANDBOX_STAT = Path("/sys/fs/cgroup/cpu.stat")
+
+
+def host_busy_s(stat: Path = HOST_STAT) -> float | None:
+    """The host's busy CPU seconds since it started: user, nice, system, irq and softirq, in clock
+    ticks; idle, waiting on disk and stolen by a hypervisor are not work done here."""
+    try:
+        fields = stat.read_text(encoding="utf-8").splitlines()[0].split()
+        ticks = [int(each) for each in fields[1:8]]
+        return (ticks[0] + ticks[1] + ticks[2] + ticks[5] + ticks[6]) / os.sysconf("SC_CLK_TCK")
+    except (OSError, IndexError, ValueError):
+        return None
+
+
+def sandbox_busy_s(stat: Path = SANDBOX_STAT) -> float | None:
+    """The CPU seconds every process in this cgroup has used, or None where there is no cgroup v2."""
+    try:
+        for line in stat.read_text(encoding="utf-8").splitlines():
+            name, _, value = line.partition(" ")
+            if name == "usage_usec":
+                return int(value) / 1e6
+    except (OSError, ValueError):
+        return None
+    return None
+
+
+def own_busy_s() -> float:
+    """The CPU seconds this process and every child it has waited for have used: a gate's own work,
+    its make and all that runs under it."""
+    own, children = resource.getrusage(resource.RUSAGE_SELF), resource.getrusage(resource.RUSAGE_CHILDREN)
+    return own.ru_utime + own.ru_stime + children.ru_utime + children.ru_stime
+
+
+def cpu_now() -> dict:
+    """The CPU counters as a run starts, for cpu_used at its end."""
+    return {"host": host_busy_s(), "sandbox": sandbox_busy_s(), "gate": own_busy_s()}
+
+
+def cpu_used(before: dict, after: dict | None = None) -> dict:
+    """The CPU seconds used since before, by whom: the gate itself; the sandbox's other work (another
+    agent's tests, a staging transcode); and the host's other work (another sandbox, the host's own).
+    A counter not readable at both ends is left out."""
+    after = after or cpu_now()
+    used: dict[str, float] = {}
+    gate = after["gate"] - before["gate"]
+    used["gate"] = round(gate, 1)
+    sandbox = None
+    if before.get("sandbox") is not None and after.get("sandbox") is not None:
+        sandbox = after["sandbox"] - before["sandbox"]
+        used["sandboxOthers"] = round(max(0.0, sandbox - gate), 1)
+    if before.get("host") is not None and after.get("host") is not None:
+        host = after["host"] - before["host"]
+        used["hostOthers"] = round(max(0.0, host - (sandbox if sandbox is not None else gate)), 1)
+    return used
 
 
 def worktree() -> str:
@@ -127,7 +189,25 @@ def report(runs: list[dict], since: str) -> str:
                 lines.append(f"    the longest step of the runs over it: {led}")
         else:
             lines.append(line)
+        shares = cpu_shares(all_runs)
+        if shares:
+            lines.append(f"    {shares}")
     return "\n".join(lines)
+
+
+def cpu_shares(runs: list[dict]) -> str:
+    """The median cores the runs' gates used, and the median the sandbox's and the host's other work
+    used beside them, over the runs that recorded their CPU: "" where none did."""
+    measured = [run for run in runs if isinstance(run.get("cpu"), dict) and run.get("seconds", 0) > 0]
+    if not measured:
+        return ""
+    parts = []
+    for key, name in (("gate", "the gate"), ("sandboxOthers", "the sandbox's other work"),
+                      ("hostOthers", "the host's other work")):
+        cores = [run["cpu"][key] / run["seconds"] for run in measured if key in run["cpu"]]
+        if cores:
+            parts.append(f"{name} {median(cores):.1f}")
+    return f"cores used, the median of {len(measured)} run(s): " + ", ".join(parts)
 
 
 def main(argv: list[str]) -> int:
