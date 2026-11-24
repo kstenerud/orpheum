@@ -232,11 +232,27 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
     await click(opener("Subtitles"));
     expect(mounted!.container.textContent).toContain("Subtitles show 1.5 s later");
     await click(buttonNamed(mounted!.container, "Subtitles later"));
-    await session.say(shows({ subtitles, subtitleKey: "s5" })); // the receiver says it is in step
+    await session.say(shows({ subtitles, subtitleKey: "s5", subtitleOffsetMs: 1600 })); // it took the step
+    await session.say(shows({ subtitles, subtitleKey: "s5" })); // then says it is in step
     await click(buttonNamed(mounted!.container, "Subtitles earlier"));
     expect(session.heard.filter((each) => each["type"] === "picture")).toEqual([
       { v: 3, type: "picture", picture: { kind: "subtitleOffset", ms: 1600 } },
       { v: 3, type: "picture", picture: { kind: "subtitleOffset", ms: -100 } },
+    ]);
+  });
+
+  it("steps the receiver's subtitle timing from the value last pressed for two quick presses, the receiver's earlier word not snapping it back", async () => {
+    const { session } = await casting({});
+    const subtitles = [{ key: "s5", label: "English" }];
+    await session.say(shows({ subtitles, subtitleKey: "s5", subtitleOffsetMs: 1500 }));
+    await click(opener("Subtitles"));
+    await click(buttonNamed(mounted!.container, "Subtitles later"));
+    await click(buttonNamed(mounted!.container, "Subtitles later"));
+    await session.say(shows({ subtitles, subtitleKey: "s5", subtitleOffsetMs: 1600 })); // the first step, late
+    expect(mounted!.container.textContent).toContain("Subtitles show 1.7 s later");
+    expect(session.heard.filter((each) => each["type"] === "picture")).toEqual([
+      { v: 3, type: "picture", picture: { kind: "subtitleOffset", ms: 1600 } },
+      { v: 3, type: "picture", picture: { kind: "subtitleOffset", ms: 1700 } },
     ]);
   });
 

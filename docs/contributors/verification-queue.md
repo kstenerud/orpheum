@@ -4075,3 +4075,11 @@ An item is ticked only by the person who did it, and only with what they saw.
      where (not 0:00 unless it never played).
   4. If the remote ever shows every control disabled at 0:00, capture the Fire TV Silk browser's
      log (D549 §4) and send it with the time.
+- [ ] **VQ398** — The remote's steppers and switches are as pressed until the receiver says (the owner,
+  2026-11-24): only a real receiver answers at its own pace. From your phone, casting to the Fire TV:
+  1. Open the phone's Sound menu and press "That device later" five times fast. Report whether the
+     value climbs by five steps (250 ms) and settles there, with no flicker back, and whether the TV
+     ends at the same value after you close and reopen the menu.
+  2. Do the same with "This file later" and with the 💬 menu's "Subtitles later".
+  3. Flip the loudness levelling switch twice quickly. Report whether it ends where you left it and
+     the TV agrees.

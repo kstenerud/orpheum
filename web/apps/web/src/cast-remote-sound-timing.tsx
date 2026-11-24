@@ -6,6 +6,7 @@ import type { CarriesSoundChoices, FileSoundOffsetNow } from "@orpheum/sdk";
 import { use, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useAsPressed } from "./as-pressed.ts";
 import { FileOffsetAction, fileTimingText } from "./file-sound-offset.tsx";
 import { KeptOpen } from "./over-video-menu.tsx";
 import { ProblemReportDialog, type SuggestedSoundOffset } from "./problem-report.tsx";
@@ -30,7 +31,9 @@ export function RemoteFileTiming(props: {
   const isAdmin = use(IsAdminContext);
   const { offset, connection, onTellTheAdmin } = props;
   const own = offset.ownMs;
-  const ms = own ?? offset.everyonesMs;
+  const [ms, press] = useAsPressed(own ?? offset.everyonesMs, (next) => {
+    connection.chooseSound({ kind: "fileSoundOffset", ms: next });
+  });
   return (
     <>
       <KeptOpen>
@@ -43,9 +46,7 @@ export function RemoteFileTiming(props: {
             earlier: t("play.soundOffset.thisFileEarlier"),
             later: t("play.soundOffset.thisFileLater"),
           }}
-          onChange={(next) => {
-            connection.chooseSound({ kind: "fileSoundOffset", ms: next });
-          }}
+          onChange={press}
         />
       </KeptOpen>
       {own === undefined || own === offset.everyonesMs ? null : (

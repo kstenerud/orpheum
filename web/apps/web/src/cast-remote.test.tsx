@@ -356,12 +356,31 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(page.textContent).toContain("Sound there: 200 ms earlier");
     await click(buttonNamed(page, "That device earlier"));
     expect(page.querySelector("dialog")).not.toBeNull(); // kept open for the next step
-    await said(0);
+    await said(-250); // the receiver took the step
+    await said(0); // and later says it is in step: nothing is outstanding, its word is adopted
     expect(page.textContent).toContain("Sound there: in step with the picture");
     await click(buttonNamed(page, "That device later"));
     expect(server.heard.filter((each) => each["type"] === "sound")).toEqual([
       { v: 3, type: "sound", sound: { kind: "soundOffset", ms: -250 } },
       { v: 3, type: "sound", sound: { kind: "soundOffset", ms: 50 } },
+    ]);
+  });
+
+  it("steps the receiver's sound timing from the value last pressed, not the one the receiver last said, for two quick presses", async () => {
+    const { sockets } = await casting({});
+    const page = mounted!.container;
+    const server = sockets.session;
+    await receiverSays(server, {
+      delivery: "direct",
+      sound: { isLevellingOn: false, audioTracks: [], soundOffsetMs: -200 },
+    });
+    await openedMenu(page, "Sound");
+    await click(buttonNamed(page, "That device earlier"));
+    await click(buttonNamed(page, "That device earlier"));
+    expect(page.textContent).toContain("Sound there: 300 ms earlier");
+    expect(server.heard.filter((each) => each["type"] === "sound")).toEqual([
+      { v: 3, type: "sound", sound: { kind: "soundOffset", ms: -250 } },
+      { v: 3, type: "sound", sound: { kind: "soundOffset", ms: -300 } },
     ]);
   });
 

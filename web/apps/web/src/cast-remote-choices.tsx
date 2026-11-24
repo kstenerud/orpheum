@@ -33,6 +33,7 @@ import type { ActionChoice } from "./route-chooser.tsx";
 import { SoundTimingHeading } from "./sound-menu.tsx";
 import { useServices } from "./services.tsx";
 import { SoundOffsetInput } from "./sound-delay.tsx";
+import { useAsPressed } from "./as-pressed.ts";
 import { Switch } from "./switch.tsx";
 import { SessionTalk } from "./together-voice.tsx";
 import type { Previous } from "./around-file.ts";
@@ -265,7 +266,6 @@ function ReceiverSound(props: {
       <ChoicesSubmenu name={t("play.audio.menu")} choices={tracks} />
       <ListEntry>
         <RemoteSwitch
-          key={`levelling-${String(sound.isLevellingOn)}`}
           label={t("play.level.switch")}
           isOn={sound.isLevellingOn}
           onSwitched={(isOn) => {
@@ -276,7 +276,6 @@ function ReceiverSound(props: {
       {sound.isBoostOn === undefined ? null : (
         <ListEntry>
           <RemoteSwitch
-            key={`boost-${String(sound.isBoostOn)}`}
             label={t("play.boost")}
             isOn={sound.isBoostOn}
             onSwitched={(isOn) => {
@@ -335,7 +334,10 @@ function RemoteSoundOffset(props: {
   readonly connection: CarriesSoundChoices;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { ms, connection } = props;
+  const { connection } = props;
+  const [ms, press] = useAsPressed(props.ms, (next) => {
+    connection.chooseSound({ kind: "soundOffset", ms: next });
+  });
   let shown = t("cast.soundOffset.inStep");
   if (ms !== 0) {
     shown =
@@ -351,33 +353,22 @@ function RemoteSoundOffset(props: {
         earlier: t("cast.soundOffset.thatDeviceEarlier"),
         later: t("cast.soundOffset.thatDeviceLater"),
       }}
-      onChange={(next) => {
-        connection.chooseSound({ kind: "soundOffset", ms: next });
-      }}
+      onChange={press}
     />
   );
 }
 
 /**
- * One of the receiver's switches on the remote (switch.tsx): as the receiver said it stands, and as pressed here
- * until the receiver says again (its key changes with what it says).
+ * One of the receiver's switches on the remote (switch.tsx): as the receiver said it stands, and as
+ * pressed here until the receiver says it (useAsPressed).
  */
 function RemoteSwitch(props: {
   readonly label: string;
   readonly isOn: boolean;
   readonly onSwitched: (isOn: boolean) => void;
 }): JSX.Element {
-  const [isOn, setIsOn] = useState(props.isOn);
-  return (
-    <Switch
-      label={props.label}
-      isOn={isOn}
-      onSwitch={(isNowOn) => {
-        setIsOn(isNowOn);
-        props.onSwitched(isNowOn);
-      }}
-    />
-  );
+  const [isOn, press] = useAsPressed(props.isOn, props.onSwitched);
+  return <Switch label={props.label} isOn={isOn} onSwitch={press} />;
 }
 
 /** A channel as chosen on the remote (next), and as the receiver said it when it was (said). */
