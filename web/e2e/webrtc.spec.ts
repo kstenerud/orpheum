@@ -86,17 +86,12 @@ test(
     const shown = host.locator("output.share__link");
     await expect(shown).toContainText("#");
     const link = (await shown.textContent()) ?? "";
-    // The link's dialog is modal (D281 §5): it is closed before the page is used again.
-    await host
-      .getByRole("dialog")
-      .filter({ has: host.locator("output.share__link") })
-      .last()
-      .locator(":scope > .modal-dialog__close button")
-      .click();
-    await host
-      .getByRole("dialog", { name: "Watch Together" })
-      .locator(":scope > .modal-dialog__close button")
-      .click();
+    // The link's dialog is modal (D281 §5), drawn in Watch Together's: each is closed by Escape
+    // (D538 §2) before the page is used again, the link's first, showing Watch Together's again.
+    await host.keyboard.press("Escape");
+    await expect(shown).toBeHidden();
+    await host.keyboard.press("Escape");
+    await expect(host.getByRole("dialog")).toHaveCount(0);
 
     const guest = await (await browser.newContext()).newPage();
     await guest.goto(link);

@@ -94,18 +94,18 @@ test(
     await expect.poll(() => isPlaying(guest), { timeout: 30_000 }).toBe(true);
 
     // A browser that would play the film only muted, as an iPhone does long after the Join tap, gets
-    // Tap for sound over the picture, and the tap turns the sound on.
+    // the sound-on Pill over the picture, in this device's words, and its press turns the sound on.
     const video = guest.locator("video");
     await video.evaluate((element: HTMLVideoElement) => {
       // eslint-disable-next-line no-param-reassign -- muting the guest's video is what is simulated
       element.muted = true;
       element.dispatchEvent(new Event("orpheumplayedmuted"));
     });
-    const soundOn = guest.getByRole("button", { name: "Tap to turn the sound back on" });
+    const soundOn = guest.getByRole("button", { name: /^(?:Tap|Click) to turn the sound on$/u });
     const [picture, button] = await Promise.all([video.boundingBox(), soundOn.boundingBox()]);
     expect(
       picture !== null && button !== null && button.y + button.height <= picture.y + picture.height,
-      "Tap to turn the sound back on is over the picture",
+      "the sound-on Pill is over the picture",
     ).toBe(true);
     await soundOn.click();
     expect(await video.evaluate((element: HTMLVideoElement) => element.muted)).toBe(false);

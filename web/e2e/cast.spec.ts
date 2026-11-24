@@ -54,6 +54,18 @@ function castSign(page: Page): ReturnType<Page["locator"]> {
   );
 }
 
+/** The remote of a cast, by its heading, the receiver it plays on: "On: Chrome on Windows". */
+function castRemote(sender: Page): ReturnType<Page["getByRole"]> {
+  return sender.getByRole("heading", { name: /^On: /u });
+}
+
+/** The film the remote's cast plays, named over its heading as a link to the film's page. */
+function castRemoteFilm(sender: Page, film: string): ReturnType<Page["getByRole"]> {
+  return sender
+    .getByRole("region", { name: /^On: /u })
+    .getByRole("link", { name: film, exact: true });
+}
+
 /**
  * Signs two devices in, plays the film on the first and casts to the second from the tray's Cast,
  * the film moving with it: the second takes it as it is handed and plays it; then runs what
@@ -99,7 +111,7 @@ async function castFromOneToTheOther(
     .click();
   // The receiver asks nothing (D468): it takes the cast as it is handed, so the sender hands off at
   // once, and it plays, its page pressed at sign-in.
-  await expect(sender.getByText(/^Playing .+ on /u)).toBeVisible({ timeout: 10_000 });
+  await expect(castRemote(sender)).toBeVisible({ timeout: 10_000 });
   await expect(sender.getByRole("dialog", { name: "Cast" })).toHaveCount(0); // closed once its receiver took the cast
   await expect(receiver.getByRole("dialog", { name: /wants to use this device/u })).toHaveCount(0);
   await expect(receiver.getByRole("button", { name: "Press OK to start" })).toHaveCount(0);
@@ -133,7 +145,7 @@ test(
       const firstAddress = receiver.url();
       await openFilm(sender, secondFilm);
       await playFromTheStart(sender).click();
-      await expect(sender.getByRole("heading", { name: secondFilm })).toBeVisible({
+      await expect(castRemoteFilm(sender, secondFilm)).toBeVisible({
         timeout: 10_000,
       });
       await expect(sender.locator("video")).toHaveCount(0);
@@ -143,16 +155,12 @@ test(
       );
       await expect.poll(async () => await isPlaying(receiver), { timeout: 30_000 }).toBe(true);
 
-      // The remote is found again from any page, by the tray's sign's dialog, on the film's page
-      // (D364 §8, D384 §2).
+      // The remote is found again from any page by the tray's sign, which goes to it, on the film's
+      // page (D364 §8, D384 §2).
       await sender.goto(new URL("/films", sender.url()).href);
       await castSign(sender).click();
-      await sender
-        .getByRole("dialog", { name: "Cast" })
-        .getByRole("button", { name: "Back to the film" })
-        .click();
-      await expect(sender.getByText(/^Playing .+ on /u)).toBeVisible({ timeout: 10_000 });
-      // The remote has joined its session again, which says how the receiver plays: "Playing … on"
+      await expect(castRemote(sender)).toBeVisible({ timeout: 10_000 });
+      // The remote has joined its session again, which says how the receiver plays: "On: ‹device›"
       // comes first, from the live connection, and a cast ended as the remote said hello was
       // only "over" to it, the server knowing the session no more (check-pr, 2026-10-29).
       // How it plays is a read-only entry of the remote's ⁝ (D444).
@@ -170,7 +178,7 @@ test(
       expect(receiver.url()).toBe(receiverAddress);
       await expect.poll(async () => await isPlaying(receiver), { timeout: 10_000 }).toBe(true);
       await expect(castSign(sender)).toHaveClass(/icon-button--running/u);
-      await expect(sender.getByText(/^Playing .+ on /u)).toBeVisible();
+      await expect(castRemote(sender)).toBeVisible();
     });
   },
 );
@@ -182,16 +190,15 @@ test(
     const thirdContext = await browser.newContext();
     try {
       await castBetweenTwo(browser, async ({ sender, receiver }) => {
-        // A third device's Cast dialog shows the receiver unavailable while it receives (D386 §1).
+        // A third device's Cast dialog lists only what can take a cast now: the sender, its tab in
+        // front, and not the receiver while it receives (D386 §1; the owner, 2026-11-23: "Just show
+        // the name and type of anything currently reachable").
         const third = await thirdContext.newPage();
         await signIn(third);
         await castSign(third).click();
-        const receiving = third
-          .getByRole("dialog", { name: "Cast" })
-          .locator(".cast-to__devices li")
-          .filter({ hasText: "Showing another cast" });
-        await expect(receiving).toHaveCount(1, { timeout: 10_000 });
-        await expect(receiving.getByRole("button")).toBeDisabled();
+        const listed = third.getByRole("dialog", { name: "Cast" }).locator(".cast-to__devices li");
+        await expect(listed).toHaveCount(1, { timeout: 10_000 });
+        await expect(listed.getByRole("button")).toBeEnabled();
 
         // The remote brings the film back by Stop casting alone (D388), in its Cast sign's dialog
         // (D444).
@@ -211,8 +218,8 @@ test(
         await expect.poll(() => new URL(receiver.url()).pathname, { timeout: 10_000 }).toBe("/");
         await expect.poll(async () => await isPlaying(sender), { timeout: 30_000 }).toBe(true);
         expect(sender.url()).toBe(playAddress);
-        // Its cast over, the receiver is a target again (D386 §1).
-        await expect(receiving).toHaveCount(0, { timeout: 10_000 });
+        // Its cast over, the receiver is a target again (D386 §1), listed beside the sender.
+        await expect(listed).toHaveCount(2, { timeout: 10_000 });
       });
     } finally {
       await thirdContext.close();

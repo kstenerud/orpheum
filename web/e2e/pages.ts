@@ -116,3 +116,14 @@ export async function shownOverTheFilm(
   }
   return page.locator(".player-overlay").getByRole("button", { name });
 }
+
+/**
+ * Opens the overlay's Subtitles menu and its list of tracks, a submenu ("Subtitles: Off ›", D538),
+ * and returns the menu, its tracks' buttons in it.
+ */
+export async function subtitlesChoices(page: Page): Promise<ReturnType<Page["getByRole"]>> {
+  await (await shownOverTheFilm(page, "Subtitles")).click();
+  const menu = page.getByRole("dialog", { name: "Subtitles" });
+  await menu.getByRole("button", { name: /^Subtitles: /u }).click();
+  return menu;
+}

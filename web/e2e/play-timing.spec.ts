@@ -10,8 +10,8 @@ import {
   openFilmOnItsLadder,
   playFromTheStart,
   serverUrl,
-  shownOverTheFilm,
   signIn,
+  subtitlesChoices,
 } from "./pages.ts";
 import { longTrackName, timingFilm, warmUpFilm } from "./server.ts";
 
@@ -79,9 +79,8 @@ test("on a phone's screen, the play page is no wider than the screen, whatever i
   await playFromTheStart(page).click();
   // The subtitles' chooser, the overlay's Subtitles menu (D418 §1), open on its list, the long name
   // in it.
-  await (await shownOverTheFilm(page, /^Subtitles: /u)).click();
   await expect(
-    page.getByRole("dialog", { name: "Subtitles" }).getByRole("button", { name: longTrackName }),
+    (await subtitlesChoices(page)).getByRole("button", { name: longTrackName }),
   ).toBeVisible();
   const widths = await page.evaluate(() => ({
     page: document.documentElement.scrollWidth,

@@ -3,7 +3,7 @@
 import { expect, type Page } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
-import { isPlaying, openFilm, playFromTheStart, shownOverTheFilm, signIn } from "./pages.ts";
+import { isPlaying, openFilm, playFromTheStart, signIn, subtitlesChoices } from "./pages.ts";
 import { longTrackName, timingFilm } from "./server.ts";
 
 /** The video's subtitle text tracks: how each is shown, and how many captions it has loaded. */
@@ -26,11 +26,7 @@ test("a chosen subtitle track is also the browser's own captions, shown only in 
   await playFromTheStart(page).click();
   await expect.poll(() => isPlaying(page), { timeout: 30_000 }).toBe(true);
   // The subtitles' chooser, the overlay's Subtitles menu (D418 §1). The film's one track, after "Off".
-  await (await shownOverTheFilm(page, /^Subtitles: /u)).click();
-  await page
-    .getByRole("dialog", { name: "Subtitles" })
-    .getByRole("button", { name: longTrackName })
-    .click();
+  await (await subtitlesChoices(page)).getByRole("button", { name: longTrackName }).click();
   // Loaded, and hidden: on the page the drawn layer shows the track as its author styled it.
   await expect
     .poll(() => subtitleTracks(page), { timeout: 30_000 })
