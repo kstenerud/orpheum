@@ -502,6 +502,28 @@ function offerButton(name: string): HTMLElement {
 }
 
 describe("the offers in the film's top-right corner (D538 §1, player-spec's OfferCard)", () => {
+  // A screen reader says a button by its name, and the card's words sit in an <output>, whose
+  // content a button's name leaves out: the name is given them, the line under them describing it.
+  it("names a card pressed itself by its words, as a screen reader says it", async () => {
+    // The episode's place is the card's own words, which these tests do not repeat.
+    const upNext = /^Up next: \S+ · Cat$/u;
+    const taken: readonly { readonly offer: number; readonly name: string | RegExp }[] = [
+      { offer: 0, name: "Skip intro" },
+      { offer: 1, name: upNext },
+      { offer: 2, name: upNext },
+    ];
+    for (const { offer, name } of taken) {
+      await drawnOn(screens[1]!, { offer: offers[offer]!.piece([]) });
+      await shown();
+      const named = page.getByRole("button", { name, exact: true }).element();
+      expect(named).toBe(offerButton(offers[offer]!.take));
+      for (const each of mounted) {
+        each.unmount();
+      }
+      mounted = [];
+    }
+  });
+
   for (const screen of screens) {
     const at = `${String(screen.width)}×${String(screen.height)}`;
     for (const offer of offers) {

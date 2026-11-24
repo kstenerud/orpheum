@@ -2,7 +2,7 @@
 
 import "./offer-card.css";
 
-import type { JSX, ReactNode, RefObject } from "react";
+import { useId, type JSX, type ReactNode, type RefObject } from "react";
 
 /**
  * A card over a film offering one thing to take or leave (standards/ui.md, over the film, rule 15;
@@ -13,7 +13,8 @@ import type { JSX, ReactNode, RefObject } from "react";
  * offer is taken by pressing the card itself (Skip, Up next), the still and the words are one
  * button; otherwise its buttons follow the words (Still watching's Continue and Stop). It has no ✕:
  * Back, the remote's or the player's own, puts an offer away where it can be (the owner,
- * 2026-11-23; plans' "Up next's ✕").
+ * 2026-11-23; plans' "Up next's ✕"). A card pressed itself is named by its words and described by
+ * the line under them: the words sit in the `<output>`, whose content a button's name leaves out.
  */
 export function OfferCard(props: {
   /** What it offers: "Up next: Episode 3", "Still watching?". */
@@ -32,16 +33,20 @@ export function OfferCard(props: {
   readonly buttons?: ReactNode;
 }): JSX.Element {
   const { onTake, takeRef, buttons } = props;
+  const wordsId = useId();
+  const detailId = useId();
   const content = (
     <>
       {props.still === undefined ? null : <span className="offer-card__still">{props.still}</span>}
       <span className="offer-card__words">
         <output className="offer-card__offer">
-          {props.words}
+          <span id={wordsId}>{props.words}</span>
           {props.said === undefined ? null : <span className="offer-card__said">{props.said}</span>}
         </output>
         {props.detail === undefined ? null : (
-          <span className="offer-card__detail">{props.detail}</span>
+          <span id={detailId} className="offer-card__detail">
+            {props.detail}
+          </span>
         )}
       </span>
     </>
@@ -56,6 +61,8 @@ export function OfferCard(props: {
             ref={takeRef}
             type="button"
             className="offer-card__content offer-card__take"
+            aria-labelledby={wordsId}
+            aria-describedby={props.detail === undefined ? undefined : detailId}
             onClick={onTake}
           >
             {content}
