@@ -60,9 +60,9 @@ export function OfferCard(props: {
           <button
             ref={takeRef}
             type="button"
-            className="offer-card__content offer-card__take"
             aria-labelledby={wordsId}
             aria-describedby={props.detail === undefined ? undefined : detailId}
+            className="offer-card__content offer-card__take"
             onClick={onTake}
           >
             {content}
