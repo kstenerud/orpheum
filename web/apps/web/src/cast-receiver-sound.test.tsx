@@ -12,7 +12,7 @@ import { FilmTiming } from "./file-sound-offset.tsx";
 import { soundOffsetKeptAfterMs } from "./sound-delay.tsx";
 import { newSoundPanel, SoundPanelContext } from "./sound-panel.ts";
 import { BoostSwitch } from "./sound.tsx";
-import { mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import { mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
 import { fakeTogetherServer } from "./test-together.ts";
@@ -288,15 +288,23 @@ describe("the receiver's sound, worked by its remote (sound-panel.ts)", () => {
     });
     expect(lastSound()?.fileSoundOffset).toEqual({ everyonesMs: 100, ownMs: 250 });
 
-    await server.say({
-      type: "sound",
-      fromDeviceId: 5,
-      sound: { kind: "fileSoundOffset", ms: 250, isEveryones: true },
-    });
-    await act(async () => {
-      // The own write waits for presses to settle (soundOffsetKeptAfterMs), every person's after it.
-      await new Promise((resolve) => setTimeout(resolve, soundOffsetKeptAfterMs + 100));
-    });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+    try {
+      await server.say({
+        type: "sound",
+        fromDeviceId: 5,
+        sound: { kind: "fileSoundOffset", ms: 250, isEveryones: true },
+      });
+      await act(async () => {
+        // The own write waits for presses to settle (soundOffsetKeptAfterMs), every person's after it.
+        await vi.advanceTimersByTimeAsync(soundOffsetKeptAfterMs);
+      });
+      await settleUntil(
+        () => heard.filter((each) => each.methodAndPath.startsWith("PUT /files/4/")).length >= 3,
+      );
+    } finally {
+      vi.useRealTimers();
+    }
     // The person's own kept first, then every person's made it, as the menu's own press does.
     expect(heard.filter((each) => each.methodAndPath.startsWith("PUT /files/4/"))).toEqual([
       { methodAndPath: "PUT /files/4/preferences", body: { soundOffsetMs: 250 } },
