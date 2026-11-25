@@ -60,10 +60,11 @@
 //     cast stands, to lead it.
 //     Enforced by TestRegistry_StartingWatchTogetherWhileCastingHandsTheReceiverItsPart and, through
 //     the API, TestCast_AHostStartingWatchTogetherWhileCastingHasTheReceiverLeadIt in internal/core/api.
-//   - A cast whose receiver was handed its person's part in a Watch Together session ends as that
-//     session ends (EndPartIn, D389 §1), its sender told, its session ended as sessionEnded (the
-//     assembly's wiring). Enforced by TestRegistry_ASessionsEndEndsTheCastsThatTakeAPartInIt and,
-//     through the API, TestCast_ASessionsEndEndsTheCastsThatTakeAPartInIt in internal/core/api.
+//   - A cast whose receiver was handed its person's part in a Watch Together session, and that did
+//     not move to play on alone as it ended (HandAgain, D555 §7), ends as that session ends
+//     (EndPartIn), its sender told, its session ended as sessionEnded (the assembly's wiring).
+//     Enforced by TestRegistry_ASessionsEndEndsTheCastsThatTakeAPartInIt and, through the API,
+//     TestCast_AGuestsCastOfTheHostsFilmEndsWithTheSession in internal/core/api.
 //   - A device removed (D218 §4) is told its sign-in ended on each of its connections, and no other
 //     device is, so its page goes to sign in at once. Enforced by
 //     TestRegistry_ARemovedDeviceIsToldItsSignInEnded and, through the socket,

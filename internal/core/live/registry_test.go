@@ -589,11 +589,11 @@ func TestRegistry_EndSilentEndsTheCastByItsIDItsSenderTold(t *testing.T) {
 	if _, _, err := registry.Cast(ownCast, "a"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := registry.EndSilent(owner, 6); err == nil {
+	if _, err := registry.EndHubEnded(owner, 6); err == nil {
 		t.Error("EndSilent ended a cast its person has not")
 	}
-	if ended, err := registry.EndSilent(owner, 5); err != nil || ended.ID != 5 {
-		t.Fatalf("EndSilent(5) = %+v, %v; want cast 5", ended, err)
+	if ended, err := registry.EndHubEnded(owner, 5); err != nil || ended.ID != 5 {
+		t.Fatalf("EndHubEnded(5) = %+v, %v; want cast 5", ended, err)
 	}
 	if told, _ := sender.last(MessageSending); told.Sending != nil {
 		t.Errorf("the sender was told it sends %+v; want none", told.Sending)

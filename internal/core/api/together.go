@@ -324,13 +324,7 @@ func (server *Server) openTogether(ctx context.Context, input *AuthorizationHead
 		"sessionId", opened.SessionID, "hostUserId", principal.UserID)
 	// A host who casts has one session, not two: their receiver takes their part in this one, leading
 	// it with the film it plays from where it stands (D364 §11, D371 §4, D372 §8).
-	for _, each := range dependencies.Live.PartChanged(principal.UserID, func(castID int64) (int64, bool) {
-		positionMs, _, positionErr := dependencies.Together.CastPosition(castID, principal.UserID)
-		return positionMs, positionErr == nil
-	}) {
-		server.logger.InfoContext(ctx, "cast: a receiver takes its host's part in the session they opened",
-			"castId", each.ID, "sessionId", opened.SessionID, "fileId", each.FileID, logKeyUserID, each.UserID)
-	}
+	server.castsTakePart(ctx, dependencies, principal.UserID, opened.SessionID)
 	output := &OpenTogetherOutput{}
 	output.Body.SessionID, output.Body.MembershipCredential = opened.SessionID, opened.MembershipCredential
 	// Read after a receiver took the host's part, so the details name it among the members.
@@ -484,6 +478,19 @@ func signedInBy(
 	return nil, fmt.Errorf("check a session token: %w", err)
 }
 
+// castsTakePart hands each cast userID sends again to its receiver, which takes their part in the
+// Watch Together session sessionID they opened or joined: the castee goes where its member goes, the
+// film it plays on from where it stands (D364 §11, D371 §4, D555 §7).
+func (server *Server) castsTakePart(ctx context.Context, dependencies *Dependencies, userID, sessionID int64) {
+	for _, each := range dependencies.Live.PartChanged(userID, func(castID int64) (int64, bool) {
+		positionMs, _, positionErr := dependencies.Together.CastPosition(castID, userID)
+		return positionMs, positionErr == nil
+	}) {
+		server.logger.InfoContext(ctx, "cast: a receiver takes its person's part in the session they are in",
+			"castId", each.ID, "sessionId", sessionID, "fileId", each.FileID, logKeyUserID, each.UserID)
+	}
+}
+
 func (server *Server) joinTogether(ctx context.Context, input *JoinTogetherInput) (*JoinTogetherOutput, error) {
 	dependencies, err := server.readyDependencies()
 	if err != nil {
@@ -510,6 +517,9 @@ func (server *Server) joinTogether(ctx context.Context, input *JoinTogetherInput
 	}
 	server.logger.InfoContext(ctx, "watch together: someone joined by a link",
 		"sessionId", joined.SessionID, "memberId", joined.MemberID, "name", name, "isSignedIn", person != nil)
+	if person != nil { // a guest's cast goes into the session they join (D555 §7)
+		server.castsTakePart(ctx, dependencies, person.UserID, joined.SessionID)
+	}
 	output := &JoinTogetherOutput{}
 	output.Body.SessionID, output.Body.MemberID = joined.SessionID, joined.MemberID
 	output.Body.MembershipCredential, output.Body.Locator = joined.MembershipCredential, joined.Locator

@@ -36,7 +36,8 @@ type Credential func(castID, userID int64) (string, error)
 
 // TogetherPart is the Watch Together session the cast castID that userID cast is their part in, 0 for
 // a cast alone, and whether they host it, its receiver then leading it as their player, else following
-// it (D555 §1, §2): the hub's CastPart. The session is the one whose end ends the cast (EndPartIn).
+// it (D555 §1, §2): the hub's CastPart. The session is the one whose end ends the cast where it did
+// not move to play on alone (EndPartIn, HandAgain).
 type TogetherPart func(castID, userID int64) (sessionID int64, isHost bool)
 
 // UnansweredAfter is how long a cast's receiver may leave its question unanswered before the core
@@ -120,7 +121,7 @@ type heldCast struct {
 	// askedAt is when the receiver was asked whether to be used (EndUnanswered).
 	askedAt time.Time
 	// partIn is the Watch Together session the receiver was last handed its person's part in, 0 for
-	// none: its end ends the cast (EndPartIn, D389 §1).
+	// none: its end ends the cast where it did not move to play on alone (EndPartIn, HandAgain).
 	partIn int64
 }
 
@@ -333,9 +334,10 @@ func (registry *Registry) End(userID, deviceID, castID int64) (Cast, error) {
 	return registry.endHeld(userID, owner.castByEither(castID, deviceID))
 }
 
-// EndSilent ends userID's cast castID, which the hub ended as its castee went silent (D555 §3), and
-// returns it, its sender told it sends no more.
-func (registry *Registry) EndSilent(userID, castID int64) (Cast, error) {
+// EndHubEnded ends userID's cast castID, which the hub ended: its castee went silent (D555 §3), or it
+// left its caster's part for a film they have no right to without it (§7). It returns it, its sender
+// told it sends no more.
+func (registry *Registry) EndHubEnded(userID, castID int64) (Cast, error) {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
 	owner := registry.people[userID]
@@ -430,18 +432,50 @@ func (registry *Registry) PartChanged(userID int64, positionOf func(castID int64
 	}
 	handed := []Cast{}
 	for _, held := range owner.casts {
-		holder := owner.connections[held.heldBy]
-		if holder == nil {
-			continue // the next connection of the receiver is handed it, with the part as it is then
+		if registry.handAgain(owner, held, positionOf) {
+			handed = append(handed, held.Cast)
 		}
-		if positionMs, isKnown := positionOf(held.ID); isKnown && held.FileID != 0 {
-			held.PositionMs = &positionMs
-		}
-		registry.handOff(held, holder)
-		handed = append(handed, held.Cast)
 	}
 	slices.SortFunc(handed, func(one, other Cast) int { return cmp.Compare(one.ID, other.ID) })
 	return handed
+}
+
+// HandAgain hands userID's cast castID again to its receiver, by the connection that holds it, as
+// its part moved: its caster's Watch Together session ended or they left it, and it plays on in a
+// session of one of its own (D555 §7). Where it stands is positionOf's, as PartChanged's. Whether it
+// was handed: false where the cast is not the registry's, or its receiver holds no connection now,
+// whose next is handed it with the part as it is then.
+func (registry *Registry) HandAgain(userID, castID int64, positionOf func(castID int64) (int64, bool)) bool {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	owner := registry.people[userID]
+	if owner == nil {
+		return false
+	}
+	for _, held := range owner.casts {
+		if held.ID != castID {
+			continue
+		}
+		if registry.togetherPart != nil { // its old session's end is not its own (EndPartIn)
+			held.partIn, _ = registry.togetherPart(held.ID, held.UserID)
+		}
+		return registry.handAgain(owner, held, positionOf)
+	}
+	return false
+}
+
+// handAgain hands held to the connection of owner's that holds it, from where positionOf says it
+// stands: whether one did. The caller holds the mutex.
+func (registry *Registry) handAgain(owner *person, held *heldCast, positionOf func(castID int64) (int64, bool)) bool {
+	holder := owner.connections[held.heldBy]
+	if holder == nil {
+		return false // the next connection of the receiver is handed it, with the part as it is then
+	}
+	if positionMs, isKnown := positionOf(held.ID); isKnown && held.FileID != 0 {
+		held.PositionMs = &positionMs
+	}
+	registry.handOff(held, holder)
+	return true
 }
 
 // EndUnanswered ends every cast whose receiver has not taken it within UnansweredAfter of being

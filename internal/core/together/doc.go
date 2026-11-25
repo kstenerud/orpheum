@@ -164,11 +164,18 @@
 //     TestTogether_JoiningAnotherSessionAsksToLeaveTheOneYouAreIn.
 //   - Every way a Watch Together session ends, its host's end, its host starting or joining another,
 //     or its idle end, goes through one (endSession): each device told why, and whoever registered
-//     (OnSessionEnded) told the session once the hub's lock is let go; the casts that are a part in
-//     it end with it, their devices told sessionEnded (D389 §1); CastPart says which session a cast
-//     is a part in. A cast's own end is no Watch Together session's. Enforced by
-//     TestHub_EveryWayASessionEndsIsToldWithThePartsCastsEndWith and, through the API,
-//     TestCast_ASessionsEndEndsTheCastsThatTakeAPartInIt in internal/core/api.
+//     (OnSessionEnded) told the session once the hub's lock is let go; CastPart says which session a
+//     cast is a part in. A cast's own end is no Watch Together session's. Enforced by
+//     TestHub_EveryWayASessionEndsIsToldWithThePartsCastsEndWith.
+//   - The castee goes where its member goes (D555 §7): a signed-in person's cast that is a part in a
+//     session plays on alone, in a session of one, as the session ends or they leave it (castsLeave),
+//     whoever registered (OnCastMoved) told once the lock is let go, to hand it again or end it where
+//     the film is not the caster's by right without the session; a guest's by link ends with it.
+//     Joining or opening a session takes a running cast into the new part (CastCredential). Enforced
+//     by TestHub_LeavingASessionMovesTheGuestsCastToPlayAlone and, through the API,
+//     TestCast_ACastPlaysOnAloneAsTheSessionItTookAPartInEnds,
+//     TestCast_AGuestsCastOfTheHostsFilmEndsWithTheSession, TestCast_JoiningASessionTakesTheCastIntoIt
+//     and TestCast_AHostOpeningAnotherSessionKeepsTheCast in internal/core/api.
 //   - A Watch Together invitation is short-term (D346): a link admits its person for its lifetime
 //     from when it was made, then no one, and leaves the host's list and the discovery's links; a
 //     session idle for its idle end, neither played to a player nor acted in by a member, is ended

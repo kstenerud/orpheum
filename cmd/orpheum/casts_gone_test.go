@@ -37,7 +37,7 @@ func (gone *goneOnce) End(_, _, castID int64) (live.Cast, error) {
 	return live.Cast{ID: castID}, nil
 }
 
-func (gone *goneOnce) EndSilent(_, castID int64) (live.Cast, error) {
+func (gone *goneOnce) EndHubEnded(_, castID int64) (live.Cast, error) {
 	gone.endedSilent = append(gone.endedSilent, castID)
 	return live.Cast{ID: castID}, nil
 }

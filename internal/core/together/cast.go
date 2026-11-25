@@ -34,7 +34,8 @@ const (
 	// CastUnanswered is the receiver's question left unanswered for a minute (D358 §4).
 	CastUnanswered = "unanswered"
 	// CastSessionEnded is the end of the Watch Together session the receiver took its person's part
-	// in (D389 §1): the cast ends with it.
+	// in, or its caster's leaving it, where the film was theirs only through the session (D389 §1,
+	// D555 §7): the cast ends with it.
 	CastSessionEnded = "sessionEnded"
 	// CastIdle is a cast to a guest receiver a device code made, ended after nothing played in it
 	// for its idle end (D469 §3).
@@ -100,6 +101,10 @@ type casting struct {
 	// openedAt is when the cast began: a guest's castee that says nothing for the unanswered wait
 	// from then ends it (EndGuestCasts).
 	openedAt time.Time
+	// movedDevices are the devices that said hello by its credentials in the Watch Together part it
+	// left to play alone (moveCastAlone), handed it again on their live connections: its end tells
+	// them, as a page not yet back on the cast's own session still listens on them.
+	movedDevices []*device
 }
 
 // isGuests is whether the cast is a guest's by link, cast by their device sender.
@@ -277,8 +282,14 @@ func (hub *Hub) castIntoPart(into *casting) bool {
 // taking its id. The caller holds the mutex.
 func (hub *Hub) castAlone(into *casting, host Person) {
 	hub.lastID++
+	hub.openAlone(into, host, hub.lastID)
+}
+
+// openAlone opens the cast's own session of one, id, hosted by host, nothing playing. The caller
+// holds the mutex.
+func (hub *Hub) openAlone(into *casting, host Person, id int64) {
 	alone := &session{
-		id: hub.lastID, hostUserID: host.UserID, isCast: true, links: map[int64]*link{},
+		id: id, hostUserID: host.UserID, isCast: true, links: map[int64]*link{},
 		members: map[int64]*member{}, group: group{state: GroupIdle, rate: 1, at: hub.clock.Now()},
 		logger: hub.logger, snapSeeksBeyond: StartingSnapSeeksBeyond,
 		lastRights: everyRight(),
@@ -387,31 +398,76 @@ func (hub *Hub) endCast(ended *casting, reason string) {
 	told := Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: reason}
 	if ended.isOwn {
 		where.broadcast(told)
+		for _, moved := range ended.movedDevices {
+			moved.send(told)
+		}
 		delete(hub.sessions, where.id)
 		return
 	}
 	where.letCastGo(now, caster, ended.id, told)
 }
 
-// endCastsIn ends every cast that is a part where the Watch Together session ended as it ends, each of
-// its devices told sessionEnded rather than the session's own reason (D389 §1). The caller holds the
+// castsLeave takes each cast that is a part in the Watch Together session from as it ends, or as its
+// caster gone leaves it (nil for every member's), out of it: the castee goes where its member goes
+// (D555 §7). A signed-in person's moves to a session of one, playing on (moveCastAlone), whose
+// caster's right to its film without the session is weighed once the lock is let go (OnCastMoved);
+// a guest's by link, whose rights came from the session, ends, told reason. The caller holds the
 // mutex.
-func (hub *Hub) endCastsIn(ended *session) {
+func (hub *Hub) castsLeave(from *session, gone *member, reason string) {
 	for _, each := range hub.casts {
-		if each.sessionID == ended.id && !each.isOwn {
-			hub.endCast(each, CastSessionEnded)
+		if each.isOwn || each.sessionID != from.id || (gone != nil && each.memberID != gone.id) {
+			continue
 		}
+		if each.isGuests() {
+			hub.endCast(each, reason)
+			continue
+		}
+		hub.moveCastAlone(each)
 	}
+}
+
+// moveCastAlone moves the cast, a part in a Watch Together session, to a session of one of its own,
+// whose id it takes, playing what it played from where it stood (D88, D555 §7): its devices leave
+// the session told nothing, to be handed their new part (onCastMoved), and its credentials go with
+// it, so a device saying hello by one comes to the cast where it is now. The caller holds the mutex.
+func (hub *Hub) moveCastAlone(cast *casting) {
+	where, caster := hub.castersPart(cast)
+	if where == nil {
+		delete(hub.casts, cast.id)
+		return
+	}
+	playing := where.group
+	taken, devices := where.takeCastOut(hub.clock.Now(), caster, cast.id, nil)
+	cast.movedDevices = devices
+	hub.openAlone(cast, Person{UserID: cast.userID, Name: caster.name}, cast.id)
+	alone, own := hub.castersPart(cast)
+	alone.group = playing
+	own.credentials = append(own.credentials, taken...)
+	cast.held = ""
+	hub.movedToTell = append(hub.movedToTell, EndedCast{CastID: cast.id, UserID: cast.userID})
+	hub.logger.Info("watch together: a cast left its caster's part, to play alone",
+		"castId", cast.id, sessionIDAttribute, where.id)
 }
 
 // letCastGo takes back the credentials of the cast castID from its caster and lets go each device
 // that said hello with one, telling it told; the lead passes on as a device's going passes it. The
 // caller holds the mutex.
 func (current *session) letCastGo(now time.Time, caster *member, castID int64, told Outbound) {
+	current.takeCastOut(now, caster, castID, &told)
+}
+
+// takeCastOut is letCastGo telling each device told, or nothing for nil, and returns the credentials
+// it took and the devices it let go. The caller holds the mutex.
+func (current *session) takeCastOut(
+	now time.Time, caster *member, castID int64, told *Outbound,
+) ([]credential, []*device) {
 	hashes := map[[sha256.Size]byte]bool{}
+	var taken []credential
+	var gone []*device
 	caster.credentials = slices.DeleteFunc(caster.credentials, func(kept credential) bool {
 		if kept.castID == castID {
 			hashes[kept.hash] = true
+			taken = append(taken, kept)
 			return true
 		}
 		return false
@@ -420,7 +476,10 @@ func (current *session) letCastGo(now time.Time, caster *member, castID int64, t
 		if !hashes[attached.credentialHash] {
 			continue
 		}
-		attached.send(told)
+		if told != nil {
+			attached.send(*told)
+		}
+		gone = append(gone, attached)
 		delete(caster.devices, id)
 		current.endRun(caster, attached, string(goneRemoved))
 		if id == current.leaderID {
@@ -428,6 +487,7 @@ func (current *session) letCastGo(now time.Time, caster *member, castID int64, t
 		}
 	}
 	current.sendRoster()
+	return taken, gone
 }
 
 // endedCastsKeptAt is the ended casts' credentials still kept at now (endedCastKept), the oldest

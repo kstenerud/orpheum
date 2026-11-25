@@ -244,7 +244,7 @@ func Build(ctx context.Context, parts Parts) (*Services, error) {
 	})
 	dependencies.Playback, dependencies.Subtitles, dependencies.Artwork, dependencies.Chunks =
 		services.playback, services.subtitles, services.artwork, services.chunks
-	if err := services.wireJobsInto(parts); err != nil {
+	if err := services.wireJobsInto(ctx, parts); err != nil {
 		return nil, err
 	}
 	dependencies.NodeReports, dependencies.NodeWork = services.nodes, services.Exchanges
@@ -294,8 +294,9 @@ func warnSignInLimitFull(ctx context.Context, logger *slog.Logger) func() {
 }
 
 // endCastsOfSession ends, as a Watch Together session ends, every cast whose receiver was handed its
-// person's part in it: a member's cast of the group's film, the host's included (D389 §1). Each
-// cast's session ends as sessionEnded, so its receiver goes home and its sender's page is told.
+// person's part in it and was not moved to play on alone (castMoved, D555 §7): one the hub no longer
+// holds, a guest's whose rights came from the session (D389 §1). Each cast's session ends as
+// sessionEnded, so its receiver goes home and its sender's page is told.
 func endCastsOfSession(casts *live.Registry, hub *together.Hub, logger *slog.Logger) func(sessionID int64) {
 	return func(sessionID int64) {
 		for _, ended := range casts.EndPartIn(sessionID) {
@@ -306,15 +307,49 @@ func endCastsOfSession(casts *live.Registry, hub *together.Hub, logger *slog.Log
 	}
 }
 
+// castMoved hands each cast that left its caster's part in a Watch Together session, to play on in a
+// session of one, to its receiver again from where it stands, where its caster may play its film by
+// their own rights (D555 §7); one whose film their rights reach only through the session, a guest's
+// in their host's library, ends with it, as sessionEnded, its receiver going home. Nothing playing is
+// kept: there is no film to weigh.
+// It reads the store by ctx, the core's.
+func castMoved(
+	ctx context.Context, casts *live.Registry, hub *together.Hub,
+	mayPlay func(ctx context.Context, userID, fileID int64) bool, logger *slog.Logger,
+) func(together.EndedCast) {
+	return func(moved together.EndedCast) {
+		if film := hub.CastPlays(moved.CastID, moved.UserID); film.FileID != 0 &&
+			!mayPlay(ctx, moved.UserID, film.FileID) {
+			//nolint:errcheck // ended either way
+			_ = hub.EndCast(moved.CastID, moved.UserID, together.CastSessionEnded)
+			_, _ = casts.EndHubEnded(moved.UserID, moved.CastID) //nolint:errcheck // ended either way
+			logger.InfoContext(ctx, "cast: a cast ended, its film not its caster's without the session",
+				"castId", moved.CastID, "userId", moved.UserID, "reason", together.CastSessionEnded)
+			return
+		}
+		casts.HandAgain(moved.UserID, moved.CastID, func(castID int64) (int64, bool) {
+			positionMs, _, err := hub.CastPosition(castID, moved.UserID)
+			return positionMs, err == nil
+		})
+		logger.InfoContext(ctx, "cast: a cast left its caster's part, to play on alone",
+			"castId", moved.CastID, "userId", moved.UserID)
+	}
+}
+
 // newTogether is the Watch Together sessions, whose host may change what plays only to what they reach
 // (D243 §4), read from dependencies when asked: the hub is made before the library, so the discovery
 // may find its links (discovery-core.md K7).
 func newTogether(dependencies *api.Dependencies, parts Parts) *together.Hub {
-	mayPlay := func(ctx context.Context, userID, fileID int64) bool {
+	return together.NewHub(parts.Clock, parts.Random, mayPlayBy(dependencies), parts.Logger)
+}
+
+// mayPlayBy is whether a person may play a file by their own rights, read from dependencies when
+// asked.
+func mayPlayBy(dependencies *api.Dependencies) func(ctx context.Context, userID, fileID int64) bool {
+	return func(ctx context.Context, userID, fileID int64) bool {
 		reach, err := dependencies.Auth.ReachOfUser(ctx, userID)
 		return err == nil && dependencies.Browser.ReachFile(ctx, reach, fileID) == nil
 	}
-	return together.NewHub(parts.Clock, parts.Random, mayPlay, parts.Logger)
 }
 
 // neighbourFor is the film a Watch Together next or previous puts on (D471 §2): the episode after or
@@ -435,7 +470,7 @@ func (services *Services) libraryAdmin(parts Parts) *library.Admin {
 // wireJobsInto gives the API the job queue, the outside hosts' provider services, and makes a backup
 // a job, the scheduled ones and an admin's (D243 §11); the Watch Together sessions; and what orders
 // the work by interest (D324).
-func (services *Services) wireJobsInto(parts Parts) error {
+func (services *Services) wireJobsInto(ctx context.Context, parts Parts) error {
 	dependencies := &services.API
 	dependencies.Together.SnapSeeksBy(dependencies.Chunks.KeyframeAtOrBefore)
 	dependencies.Together.MovesAlongBy(neighbourFor(dependencies))
@@ -443,8 +478,12 @@ func (services *Services) wireJobsInto(parts Parts) error {
 	dependencies.Live = live.NewRegistry(dependencies.Together.CastCredential, parts.Clock)
 	// A cast's receiver plays the Watch Together session its person hosts, if any (D364 §11).
 	dependencies.Live.TakesPartBy(dependencies.Together.CastPart)
-	// A Watch Together session's end ends every cast whose receiver takes a part in it (D389 §1).
+	// A Watch Together session's end ends every cast whose receiver takes a part in it and did not
+	// move to play on alone (D555 §7).
 	dependencies.Together.OnSessionEnded(endCastsOfSession(dependencies.Live, dependencies.Together, parts.Logger))
+	// A cast whose caster's part ended plays on alone where its film is theirs by right (D555 §7).
+	dependencies.Together.OnCastMoved(castMoved(ctx, dependencies.Live, dependencies.Together, mayPlayBy(dependencies),
+		parts.Logger))
 	// The last resort when the server's upload cannot carry its players at their lowest (D286 §5).
 	dependencies.Playback.SendAwayBy(func() (int64, int64, bool) {
 		return dependencies.Together.SendAwayNewest(playback.UploadFullReason)

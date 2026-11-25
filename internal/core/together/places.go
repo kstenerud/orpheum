@@ -146,6 +146,7 @@ func (hub *Hub) leavePlace(held place) {
 		hub.endSession(held.in, "hostEnded")
 		return
 	}
+	hub.castsLeave(held.in, held.as, "left")
 	held.in.remove(now, held.as, "left")
 }
 

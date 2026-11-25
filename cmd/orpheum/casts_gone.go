@@ -24,7 +24,7 @@ type goneReceivers interface {
 	IsGuest(userID, deviceID int64) bool
 	GuestCastsEndingIdle() []live.Cast
 	End(userID, deviceID, castID int64) (live.Cast, error)
-	EndSilent(userID, castID int64) (live.Cast, error)
+	EndHubEnded(userID, castID int64) (live.Cast, error)
 }
 
 // guestRemover removes a guest receiver's device, its sign-in with it: auth.Service.
@@ -63,7 +63,7 @@ func endGoneCasts(
 		case <-tick:
 		}
 		for _, silent := range hub.EndSilentCasts() {
-			gone, err := casts.EndSilent(silent.UserID, silent.CastID)
+			gone, err := casts.EndHubEnded(silent.UserID, silent.CastID)
 			if err != nil {
 				continue // ended meanwhile
 			}

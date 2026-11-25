@@ -93,6 +93,9 @@ type Hub struct {
 	// onSessionEnded is told each Watch Together session that ends, after the hub's lock is let go
 	// (OnSessionEnded); nil tells nothing.
 	onSessionEnded func(sessionID int64)
+	// onCastMoved is told each cast that moved to a session of one as its caster's part ended, after
+	// the hub's lock is let go (OnCastMoved); nil tells nothing.
+	onCastMoved func(moved EndedCast)
 
 	mutex sync.Mutex
 	// lifetimes are what links made now live for, and when an idle session ends (EndStale); guarded
@@ -107,6 +110,9 @@ type Hub struct {
 	// endedToTell are the sessions ended since the lock was taken, which onSessionEnded is told as
 	// it is let go (unlockTellingEnds); guarded by mutex.
 	endedToTell []int64
+	// movedToTell are the casts moved to a session of one since the lock was taken (moveCastAlone),
+	// which onCastMoved is told as it is let go; guarded by mutex.
+	movedToTell []EndedCast
 	lastID      int64 // the last id given a session, link, member or device; guarded by mutex
 }
 
@@ -403,7 +409,7 @@ type Joined struct {
 // credential admits nothing more (D119). Only the host ejects, and never themselves.
 func (hub *Hub) Eject(sessionID, hostUserID, memberID int64) error {
 	hub.mutex.Lock()
-	defer hub.mutex.Unlock()
+	defer hub.unlockTellingEnds()
 	hosted, err := hub.hostedSession(sessionID, hostUserID)
 	if err != nil {
 		return err
@@ -412,6 +418,7 @@ func (hub *Hub) Eject(sessionID, hostUserID, memberID int64) error {
 	if !found || ejected.isHost {
 		return ErrNoMember
 	}
+	hub.castsLeave(hosted, ejected, "ejected")
 	hosted.remove(hub.clock.Now(), ejected, "ejected")
 	return nil
 }
@@ -419,7 +426,7 @@ func (hub *Hub) Eject(sessionID, hostUserID, memberID int64) error {
 // Leave takes a member out of the session at their own asking (D246 §5); the host ends it instead.
 func (hub *Hub) Leave(credential string) error {
 	hub.mutex.Lock()
-	defer hub.mutex.Unlock()
+	defer hub.unlockTellingEnds()
 	left, leaving := hub.memberByCredential(credential)
 	if leaving == nil {
 		return ErrNoSession
@@ -427,6 +434,7 @@ func (hub *Hub) Leave(credential string) error {
 	if leaving.isHost {
 		return ErrNotHost
 	}
+	hub.castsLeave(left, leaving, "left")
 	left.remove(hub.clock.Now(), leaving, "left")
 	return nil
 }
@@ -444,18 +452,28 @@ func (hub *Hub) End(sessionID, hostUserID int64) error {
 }
 
 // OnSessionEnded has ended called with each Watch Together session that ends, however it ends: its
-// host's end, its host starting another, or its idle end; a cast's own end is not one. The casts
-// whose receiver takes a part in it end with it (D389 §1). Called before the hub is used; ended is
-// called once the hub's lock is let go, so it may call the hub.
+// host's end, its host starting another, or its idle end; a cast's own end is not one. A guest's
+// cast by link that was a part in it ended with it; a signed-in person's moved to a session of one
+// (OnCastMoved, D555 §7). Called before the hub is used; ended is called once the hub's lock is let
+// go, so it may call the hub.
 func (hub *Hub) OnSessionEnded(ended func(sessionID int64)) {
 	hub.onSessionEnded = ended
+}
+
+// OnCastMoved has moved called with each cast that moved to a session of one as its caster's part
+// in a Watch Together session ended, the session ended or the caster gone from it (D555 §7): its
+// castee is to be handed its new part, or the cast ended where its caster has no right to the film
+// without the session. Called before the hub is used; moved is called once the hub's lock is let go,
+// before any session's end is told, so it may call the hub.
+func (hub *Hub) OnCastMoved(moved func(EndedCast)) {
+	hub.onCastMoved = moved
 }
 
 // endSession ends the Watch Together session ended: each of its devices is told why, every
 // credential and link admits nothing more, and onSessionEnded is told as the lock is let go
 // (unlockTellingEnds). The one way a Watch Together session ends; the caller holds the mutex.
 func (hub *Hub) endSession(ended *session, reason string) {
-	hub.endCastsIn(ended)
+	hub.castsLeave(ended, nil, CastSessionEnded)
 	ended.broadcast(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: reason})
 	delete(hub.sessions, ended.id)
 	hub.endedToTell = append(hub.endedToTell, ended.id)
@@ -464,9 +482,14 @@ func (hub *Hub) endSession(ended *session, reason string) {
 // unlockTellingEnds lets the mutex go, then tells onSessionEnded each session ended while it was
 // held (endSession): every method that may end a session lets its lock go here.
 func (hub *Hub) unlockTellingEnds() {
-	ended := hub.endedToTell
-	hub.endedToTell = nil
+	ended, moved := hub.endedToTell, hub.movedToTell
+	hub.endedToTell, hub.movedToTell = nil, nil
 	hub.mutex.Unlock()
+	if hub.onCastMoved != nil {
+		for _, each := range moved {
+			hub.onCastMoved(each)
+		}
+	}
 	if hub.onSessionEnded == nil {
 		return
 	}
