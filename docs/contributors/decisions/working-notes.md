@@ -31832,7 +31832,15 @@ again, so let's just make it give up after it fails to reconnect."* **Amends** D
 server's silence limit as the one judge of a receiver gone) and D550 §3 (the not-answering note's
 Try again).
 
-**Status:** decided; not built.
+**Status:** decided; built. §1 is `cast-remote-offer.tsx`'s `useGivesUpTheReceiver`, its wait
+keyed on `cast-remote-heard.ts`'s `useReceiverHeard`, not on the remote's readiness, so a receiver
+held for its press (D468 §2) is not given up; Try again and its `cast.notAnswering` words are gone.
+§2 is the same wait's `isServerLost`. §3 is `cast-remote-ends.ts`'s `toldCastIds`: the notice was
+shown anew each time the same end was met again, a new notice object that OK's dismissal of the
+last one did not reach; it is now shown once per cast. The Cast sender SDK's session loss counts
+only while the cast's session shows no leader, and is forgotten as the leader is heard
+(`useReceiverHeard`, `cast-session-lost.ts`). The server's `receiverGone` end, which a sender may
+send, is unchanged.
 
 1. **A receiver unheard for `notAnsweringAfterMs` is given up by the remote**: unheard as
    `useReceiverHeard` says (its device gone from the live roster, its session lost, its lead lost

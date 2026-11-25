@@ -4147,3 +4147,18 @@ An item is ticked only by the person who did it, and only with what they saw.
   5. Cast a film to the Chromecast, then switch the phone's Wi-Fi off for 20 s (no mobile data) and
      on again. Report whether the remote says "Can't reach the server" meanwhile, whether the
      Chromecast plays on, and whether the remote comes back working once the Wi-Fi is on.
+- [ ] **VQ404** — A receiver unheard for about 15 s is given up, Try again gone, and the host's
+  notice closes on OK (D554): only a real Chromecast, a real Fire TV and a phone's real Wi-Fi show
+  it. On the phone's Chrome:
+  1. Host a Watch Together session on the phone and join it from a second device, then cast the
+     session's film to the Chromecast and switch the Chromecast off at the wall. Report whether,
+     within about 15 s, the phone plays the film itself with the notice "‹TV› unreachable. Playing
+     here so your session goes on"; whether OK closes the notice and it stays closed; and whether
+     the second device carried on playing.
+  2. Alone, cast a film to the Fire TV and pull its power. Report whether, within about 15 s, the
+     remote says "Fire TV unreachable" with Play here and no Try again, nothing playing on the phone
+     by itself; then power the Fire TV on, open Orpheum on it, and report whether Cast again appears
+     once it is back.
+  3. Alone, cast a film to the Chromecast, then put the phone in airplane mode for 30 s and take it
+     out again. Report whether the remote says "Can't reach the server" meanwhile, then returns to
+     its controls, the Chromecast playing on, and whether nothing ends.
