@@ -5321,3 +5321,11 @@ Agreed in the design conversation (the owner, 2026-11-25), to be carried into th
 - **The server alone decides a castee is gone,** and the caster reflects it. Two minutes
   (D364 §6) is too long to sit before a screen that looks dead: the limit becomes shorter, its
   number still to agree.
+- **A castee silent for 20 s is gone; one that closes or leaves its page ends its cast at once.**
+  While the castee is silent the caster shows a reconnecting sign on the key frames, never a
+  dialog to dismiss.
+- **A bottom-bar control shows only where it has a use,** and of a control's parts only those
+  that do something in the situation: so the cast screen has the castee's volume, and a phone
+  playing itself has none.
+- **A by-link guest's top bar** carries the session's name, cast and leave.
+- **Joining or leaving a session mid-cast** takes the castee along; the cast does not end.
