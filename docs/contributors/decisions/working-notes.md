@@ -31820,3 +31820,37 @@ accepted `receiverGone` is unchanged.
   `internal/core/together/new_leader_test.go` and `leader_test.go`, VQ403
 - 4: `web/apps/web/src/cast-remote-reaching.test.tsx`, VQ403
 - 5: `web/apps/web/src/google-cast.test.tsx`, `web/apps/web/src/cast-remote-ends.test.tsx`, VQ403
+
+## D554 — A receiver that stops answering is given up as the remote would offer Try again, and the host's notice closes
+
+**Decided** (2026-11-25), by the project owner, walking VQ403 step 3 on the phone, hosting Watch
+Together with the Chromecast switched off: *"It says the tv isn't answering and has buttons "try
+again" and "play here". Then after 2 minutes it plays on the local device with the notification.
+When I press the OK button, nothing happens (it doesn't go away). I think that it should give up
+playing earlier (at the point where it should show the try again button). It's easy enough to cast
+again, so let's just make it give up after it fails to reconnect."* **Amends** D553 §4–5 (the
+server's silence limit as the one judge of a receiver gone) and D550 §3 (the not-answering note's
+Try again).
+
+**Status:** decided; not built.
+
+1. **A receiver unreached for `notAnsweringAfterMs` is given up by the remote**: where the
+   not-answering note would show Try again (D548 §9, D550 §3), the remote ends the cast instead,
+   with the reason `receiverGone`, and the cast's end is met as D553 says: alone, *"‹TV›
+   unreachable"* with Play here and Cast again, nothing playing by itself (D553 §2); hosting Watch
+   Together, the film plays here with the notice (D553 §3). Try again is no more: casting again is
+   as easy (the owner). A receiver that comes back later finds its cast over and goes home
+   (D384 §1); the person casts again. The Cast sender SDK's session loss (D553 §5) still only
+   starts the remote reaching: the same wait gives it up.
+2. **The sender's own connection lost still counts no time against the receiver** (D553 §4): the
+   wait runs while the remote hears the server and not the receiver. The server's silence limit
+   (D364 §6) stays for a sender gone, and for a receiver whose sender is gone too.
+3. **The host's notice closes on OK**: the notice *"‹TV› unreachable. Playing here so your session
+   goes on"* (D553 §3) stayed after OK on the owner's phone; it is shown once, as the film is
+   brought here, and OK dismisses it as any notice.
+
+**Proven by:**
+
+- 1: `web/apps/web/src/cast-remote-ends.test.tsx`, VQ404
+- 2: `web/apps/web/src/cast-remote-reaching.test.tsx`
+- 3: `web/apps/web/src/cast-remote-ends.test.tsx`, VQ404
