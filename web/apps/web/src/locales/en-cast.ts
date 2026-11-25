@@ -84,12 +84,11 @@ export const enCast = {
     },
     /** The cast remote's receiver not yet reached (D548 §9). */
     reaching: "Reaching {{name}}…",
-    notAnswering: "{{name}} isn't answering",
     /** The cast remote's own connection to the server lost, reconnecting (D553 §4). */
     serverLost: "Can't reach the server",
     /** The remote's note as its cast ended with its receiver gone (D552 §1, §4). */
     receiverGone: "{{name}} unreachable",
-    /** Ends the cast from the remote and plays the film here, where the receiver is not heard (D550 §3). */
+    /** Plays the film here from the remote: its cast ended, or ending it stopped (D550 §3, D553 §2). */
     playHere: "Play here",
     /** The cast remote's Up next put away on this device (D548 §3). */
     dismissUpNext: "Dismiss",

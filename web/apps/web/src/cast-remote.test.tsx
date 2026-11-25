@@ -32,6 +32,7 @@ import {
   receiverLeads,
 } from "./test-cast-remote.tsx";
 import {
+  bodyField,
   buttonNamed,
   buttonWithText,
   click,
@@ -430,8 +431,12 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     ]);
   });
 
-  it("says it is reaching the receiver while it is not reached, its pad and menus taking no press, and after 15 s that it isn't answering, with Try again (D548 §9)", async () => {
-    const { sockets } = await casting({});
+  it("says it is reaching the receiver while it is not reached, its pad and menus taking no press, and after 15 s gives it up, ending the cast with its receiver gone, no Try again (D548 §9, D554 §1)", async () => {
+    const heard: Heard[] = [];
+    const { sockets } = await casting(
+      { "POST /me/casts/9/end": [200, { positionMs: 61_000, isPlaying: false }] },
+      heard,
+    );
     await sockets.session.say({ type: "roster", roster: receiverLeads });
     const page = mounted!.container;
     const pill = (): string | undefined =>
@@ -449,22 +454,25 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
       expect(page.querySelector(".cast-remote__buttons")?.getAttribute("aria-disabled")).toBe(
         "true",
       );
-      const note = (): string | undefined =>
-        page.querySelector(".cast-remote__note")?.textContent ?? undefined;
+      const ends = (): unknown[] =>
+        heard
+          .filter((each) => each.methodAndPath === "POST /me/casts/9/end")
+          .map((each) => bodyField(each, "reason"));
       act(() => {
         vi.advanceTimersByTime(notAnsweringAfterMs - 1_000);
       });
-      expect(note()).toBeUndefined();
+      expect(page.querySelector(".cast-remote__note")).toBeNull();
+      expect(ends()).toEqual([]);
       act(() => {
         vi.advanceTimersByTime(1_000);
       });
-      expect(note()).toContain("Fire TV isn't answering");
-      await click(buttonWithText(page, "Try again"));
-      expect(note()).toBeUndefined(); // waiting again
+      await settleUntil(() => ends().length > 0);
+      expect(ends()).toEqual(["receiverGone"]);
+      expect(buttonWithText(page, "Try again")).toBeUndefined();
       act(() => {
         vi.advanceTimersByTime(notAnsweringAfterMs);
       });
-      expect(note()).toContain("Fire TV isn't answering");
+      expect(ends()).toEqual(["receiverGone"]); // given up once
     } finally {
       vi.useRealTimers();
     }

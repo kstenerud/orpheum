@@ -371,9 +371,9 @@ let sentCastId: number | undefined;
  * Links channel's Cast session to the cast castId made to its device: the session ended from
  * Chrome's own Cast control ends the cast, as Stop casting does (endCastRetrying, "stopped"); one
  * ended with no Stop there, its device switched off, out of reach, or the phone's own Wi-Fi gone,
- * ends nothing: it is a hint the remote reaches for its receiver by (tellCastSessionLost), a
- * Chromecast still playing left to play on, and the server's silence limit ends a cast whose
- * receiver is truly gone (D553 §5, amending D552 §5). The cast's end ends the session (castSentNow).
+ * ends nothing: it is a hint the remote reaches for its receiver by (tellCastSessionLost) while the
+ * cast's session shows no leader, a Chromecast still leading left to play on, and the remote gives
+ * up a receiver unheard for its wait (D553 §5, D554 §1, §4, amending D552 §5). The cast's end ends the session (castSentNow).
  */
 export function linkCastSession(api: Api, channel: CastChannel, castId: number): void {
   if (linked !== undefined && linked.castId !== castId) {

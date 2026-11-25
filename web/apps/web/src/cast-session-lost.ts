@@ -3,9 +3,9 @@
 /**
  * The Google Cast session of a cast lost without the person's Stop (D553 §5): a hint that its
  * Chromecast may be gone, not an end. The Cast link (google-cast.ts's linkCastSession) tells it, and
- * the cast's remote reads it as its receiver not heard (cast-remote-heard.ts's useReceiverHeard), so
- * it reaches for the receiver and, unanswered, offers Play here (D550 §3), while the server's silence
- * limit stays the one judge of a receiver gone (D364 §6, D553 §4).
+ * the cast's remote reads it as its receiver not heard (cast-remote-heard.ts's useReceiverHeard)
+ * while the cast's session shows no leader, so it reaches for the receiver and, unheard for the
+ * remote's wait, gives it up (D554 §1, §4); the receiver heard leading overrides it and forgets it.
  */
 
 import { useSyncExternalStore } from "react";
@@ -26,7 +26,10 @@ export function tellCastSessionLost(castId: number): void {
   tellChanged();
 }
 
-/** Says the cast castId has a Cast session again, linked anew: lost no more. */
+/**
+ * Says the cast castId is lost no more: it has a Cast session again, linked anew, or its receiver is
+ * heard leading its session after the loss (D554 §4).
+ */
 export function tellCastSessionLinked(castId: number): void {
   if (lostCastId === castId) {
     lostCastId = undefined;

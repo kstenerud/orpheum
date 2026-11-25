@@ -71,22 +71,38 @@ export function useEndWay(
 }
 
 /**
+ * The casts whose host has been told why the film plays here (useTellsTheHost), so each end is told
+ * once: a remote shown again for the same ended cast, its end met again as the cast's state settles,
+ * showed the notice anew after its OK, and OK seemed to do nothing (the owner's phone, 2026-11-25:
+ * D554 §3).
+ */
+const toldCastIds = new Set<number>();
+
+/**
  * Plays the film here as the take-over does (playHere), and, where this tab hosts Watch Together
- * (isHosting) and the cast ended with its receiver gone, says over the Play page why it plays here
- * (D553 §3): "‹TV› unreachable. Playing here so your session goes on", a reminder of the session its
- * host is in, shown after the play, so a page moved to the cast's film shows it too. A notice takes
- * no action (notice.ts): Cast again is not in it, and Leave session is the Watch Together panel's.
+ * (isHosting) and the cast castId ended with its receiver gone, says over the Play page why it plays
+ * here (D553 §3): "‹TV› unreachable. Playing here so your session goes on", a reminder of the session
+ * its host is in, shown after the play, so a page moved to the cast's film shows it too, and once per
+ * cast, so its OK closes it (D554 §3: toldCastIds). A notice takes no action (notice.ts): Cast again
+ * is not in it, and Leave session is the Watch Together panel's.
  */
 export function useTellsTheHost(
   playHere: (atMs: number | undefined, isPaused?: boolean) => void,
-  end: { readonly reason: string | undefined; readonly isHosting: boolean; readonly name: string },
+  end: {
+    readonly castId: number;
+    readonly reason: string | undefined;
+    readonly isHosting: boolean;
+    readonly name: string;
+  },
 ): (atMs: number | undefined, isPaused?: boolean) => void {
   const { t } = useTranslation();
+  const { castId } = end;
   const isTold = end.isHosting && end.reason === "receiverGone";
   const text = t("cast.over.goesOn", { name: end.name });
   return (atMs, isPaused) => {
     playHere(atMs, isPaused);
-    if (isTold) {
+    if (isTold && !toldCastIds.has(castId)) {
+      toldCastIds.add(castId);
       showNotice(text);
     }
   };

@@ -16,7 +16,7 @@ import { page } from "vitest/browser";
 import { notAnsweringAfterMs } from "./cast-remote-offer.tsx";
 import { CastRemote } from "./cast-remote.tsx";
 import { castingRemote, receiverSays } from "./test-cast-remote.tsx";
-import type { Mounted } from "./test-dom.tsx";
+import { settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
 
 let mounted: Mounted | undefined;
 let drawnSockets: Awaited<ReturnType<typeof castingRemote>>["sockets"] | undefined;
@@ -37,10 +37,17 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** The remote on film 4's Play page in a window width × height, its receiver saying the film's level, muted. */
-async function remoteAt(width: number, height: number): Promise<HTMLElement> {
+/** The remote on film 4's Play page in a window width × height, its receiver saying the film's level, muted; served answers its requests and records them in heard. */
+async function remoteAt(
+  width: number,
+  height: number,
+  served: { answers?: Parameters<typeof castingRemote>[0]; heard?: Heard[] } = {},
+): Promise<HTMLElement> {
   await page.viewport(width, height);
-  const drawn = await castingRemote({}, [], { remote: CastRemote, onPlayHere: vi.fn() });
+  const drawn = await castingRemote(served.answers ?? {}, served.heard ?? [], {
+    remote: CastRemote,
+    onPlayHere: vi.fn(),
+  });
   mounted = drawn.mounted;
   drawnSockets = drawn.sockets;
   await receiverSays(drawn.sockets.session, {
@@ -166,8 +173,14 @@ describe("the cast remote's layout (D548 §1, §8)", () => {
 
   // The note is a size container with no width of its own as a flex item: beside Play here it was a
   // column one word wide, the button drawn over its overflow (the owner's phone, 2026-11-25).
-  it("lays the not-answering note out the width of the card, its words on few lines and Play here under them, apart", async () => {
-    const phone = await remoteAt(390, 844);
+  // Given up as it is not reached, the receiver's cast ends, and the note says it is unreachable
+  // (D554 §1, D553 §2).
+  it("lays the unreachable note out the width of the card, its words on few lines and Play here under them, apart", async () => {
+    const heard: Heard[] = [];
+    const answers = {
+      "POST /me/casts/9/end": [200, { positionMs: 61_000, isPlaying: false }],
+    } as const;
+    const phone = await remoteAt(390, 844, { answers, heard });
     const devices = { type: "devices", inFrontDeviceIds: [], receivingDeviceIds: [2] };
     await sockets().live.say({ ...devices, deviceIds: [1, 2] });
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
@@ -175,6 +188,10 @@ describe("the cast remote's layout (D548 §1, §8)", () => {
     act(() => {
       vi.advanceTimersByTime(notAnsweringAfterMs);
     });
+    await settleUntil(() => heard.some((each) => each.methodAndPath === "POST /me/casts/9/end"));
+    await sockets().live.say({ type: "sending" });
+    await sockets().session.say({ type: "ended", reason: "receiverGone" });
+    expect(phone.querySelector(".cast-remote__note")?.textContent).toContain("Fire TV unreachable");
     const words = boxOf(phone, ".cast-remote__note .status-line__words");
     const playHere = boxOf(phone, ".cast-remote__note > button");
     expect(words.width).toBeGreaterThan(200);

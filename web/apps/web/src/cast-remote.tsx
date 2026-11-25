@@ -174,7 +174,12 @@ function Remote(props: {
   const playHere = usePlaysHere(sent, pageFileId, props.onPlayHere);
   const reason = over?.reason;
   const way = useEndWay(sent.castId, { reason, fileId: sent.fileId, isHosting });
-  const takeOver = useTellsTheHost(playHere, { reason, isHosting, name: sent.receiverName });
+  const takeOver = useTellsTheHost(playHere, {
+    castId: sent.castId,
+    reason,
+    isHosting,
+    name: sent.receiverName,
+  });
   useTakesTheFilmOver(sent.castId, way === "takenOver" ? over : undefined, {
     stoodRef,
     playHere: takeOver,
@@ -445,6 +450,11 @@ function endOf(cast: {
 /** A session as the remote works it: what it says, and its connection. */
 type WorkedSession = Pick<ReturnType<typeof useTogether>, "snapshot" | "connection">;
 
+/** Whether the remote's own connection to the server is lost: any of its sessions reconnecting (D553 §4). */
+function isServerLostIn(sessions: readonly (WorkedSession | undefined)[]): boolean {
+  return sessions.some((each) => each?.snapshot?.status === "reconnecting");
+}
+
 /**
  * How the receiver plays, as it says in the cast's session: there it leads, or, while its person
  * hosts Watch Together and it leads that session instead, it is the one device besides this remote,
@@ -550,9 +560,8 @@ function RemotePlaying(props: {
         art={title.art}
         film={volume.isShown ? film : undefined}
         ended={props.ended}
-        isServerLost={[props.cast, hosted].some(
-          (each) => each?.snapshot?.status === "reconnecting",
-        )}
+        isHeard={isHeard}
+        isServerLost={isServerLostIn([props.cast, hosted])}
       />
       <RemoteTimeline source={source} isDisabled={isDisabled} />
       <RemotePad

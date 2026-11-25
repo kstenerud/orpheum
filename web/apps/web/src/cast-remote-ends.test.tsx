@@ -3,11 +3,12 @@
 
 import "./i18n.ts";
 
-import { act } from "react";
+import { act, useEffect } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { endCast } from "./cast.ts";
 import { notAnsweringAfterMs } from "./cast-remote-offer.tsx";
 import { tellCastSessionLinked, tellCastSessionLost } from "./cast-session-lost.ts";
+import { useTellsTheHost } from "./cast-remote-ends.ts";
 import { CastRemote } from "./cast-remote.tsx";
 import { LiveProvider } from "./live.tsx";
 import { currentNotice, dismissNotice } from "./notice.ts";
@@ -23,6 +24,7 @@ import {
   welcome,
 } from "./test-cast-remote.tsx";
 import {
+  bodyField,
   buttonWithText,
   click,
   mount,
@@ -322,7 +324,7 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
    * The remote on film 4's Play page while this tab hosts Watch Together (D364 §11): its sockets the
    * live connection's, the hosted session's, its film paused at 61 s, and the cast's.
    */
-  async function castingWhileHosting(): Promise<{
+  async function castingWhileHosting(heard: Heard[] = []): Promise<{
     readonly castSession: ReturnType<typeof fakeTogetherServer>;
     readonly onPlayHere: ReturnType<typeof vi.fn>;
   }> {
@@ -338,9 +340,10 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
       {
         "GET /me/casts": [200, { casts: [cast] }],
         "GET /files/4/up-next": [200, {}],
+        "POST /me/casts/9/end": [200, { positionMs: 61_000, isPlaying: false }],
         ...filmReads,
       },
-      [],
+      heard,
       "token",
     );
     const onPlayHere = vi.fn();
@@ -382,6 +385,109 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
     }
   });
 
+  // The owner, 2026-11-25, the Chromecast switched off while hosting: "I think that it should give
+  // up playing earlier (at the point where it should show the try again button)." (D554 §1)
+  it("gives its receiver up once it has not been reached for the wait while this tab hosts Watch Together, ending the cast with its receiver gone, and plays the film here as the end comes (D554 §1, D553 §3)", async () => {
+    const heard: Heard[] = [];
+    const { castSession, onPlayHere } = await castingWhileHosting(heard);
+    const ends = (): unknown[] =>
+      heard
+        .filter((each) => each.methodAndPath === "POST /me/casts/9/end")
+        .map((each) => bodyField(each, "reason"));
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+    try {
+      await castSession.say({ type: "roster", roster: [] }); // the receiver no longer leads
+      act(() => {
+        vi.advanceTimersByTime(notAnsweringAfterMs - 1_000);
+      });
+      expect(ends()).toEqual([]);
+      act(() => {
+        vi.advanceTimersByTime(1_000);
+      });
+      await settleUntil(() => ends().length > 0);
+      expect(ends()).toEqual(["receiverGone"]);
+      expect(buttonWithText(mounted!.container, "Try again")).toBeUndefined();
+      await castSession.say({ type: "ended", reason: "receiverGone" });
+      await settleUntil(() => onPlayHere.mock.calls.length > 0);
+      expect(onPlayHere).toHaveBeenCalledExactlyOnceWith(61_000, true);
+    } finally {
+      vi.useRealTimers();
+      const notice = currentNotice();
+      if (notice !== undefined) {
+        dismissNotice(notice);
+      }
+    }
+  });
+
+  // The owner's Fire TV, 2026-11-25: a receiver page held for its press (D468 §2) is connected and
+  // answering with no place yet; the remote said it wasn't answering. Only one unheard is given up.
+  it("gives up no receiver that is heard but holds no place yet, held for its press, and says nothing of it not answering; one that leaves the person's devices is given up after the wait (D554 §1, D468 §2)", async () => {
+    const heard: Heard[] = [];
+    const noPlace = { ...welcome, group: { state: "paused", rate: 1, fileId: 4 } };
+    const { sockets } = await casting(
+      { "POST /me/casts/9/end": [200, { positionMs: 0, isPlaying: false }] },
+      heard,
+      { welcome: noPlace },
+    );
+    const devices = { type: "devices", inFrontDeviceIds: [], receivingDeviceIds: [2] };
+    await sockets.session.say({ type: "roster", roster: receiverLeads });
+    await sockets.live.say({ ...devices, deviceIds: [1, 2] });
+    const ends = (): unknown[] =>
+      heard
+        .filter((each) => each.methodAndPath === "POST /me/casts/9/end")
+        .map((each) => bodyField(each, "reason"));
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+    try {
+      act(() => {
+        vi.advanceTimersByTime(notAnsweringAfterMs * 3);
+      });
+      expect(ends()).toEqual([]);
+      expect(mounted!.container.querySelector(".cast-remote__note")).toBeNull();
+      expect(mounted!.container.textContent).not.toContain("answering");
+      await sockets.live.say({ ...devices, deviceIds: [1], receivingDeviceIds: [] });
+      act(() => {
+        vi.advanceTimersByTime(notAnsweringAfterMs - 1_000);
+      });
+      expect(ends()).toEqual([]);
+      act(() => {
+        vi.advanceTimersByTime(1_000);
+      });
+      await settleUntil(() => ends().length > 0);
+      expect(ends()).toEqual(["receiverGone"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // The owner's phone, 2026-11-25: "When I press the OK button, nothing happens (it doesn't go
+  // away)." The end met again, a remote shown again for the same ended cast, showed it anew (D554 §3).
+  it("tells the host once per cast end, so that its notice, dismissed, stays closed as the same end is met again (D554 §3)", async () => {
+    const played = vi.fn();
+    const ended = { castId: 77, reason: "receiverGone", isHosting: true, name: "Fire TV" };
+    function MeetsTheEnd(): null {
+      const takeOver = useTellsTheHost(played, ended);
+      useEffect(() => {
+        takeOver(61_000, true);
+      }, [takeOver]);
+      return null;
+    }
+    const first = await mount(<MeetsTheEnd />);
+    const notice = currentNotice();
+    expect(notice?.text).toBe("Fire TV unreachable. Playing here so your session goes on");
+    if (notice !== undefined) {
+      dismissNotice(notice); // its OK
+    }
+    first.unmount();
+    const again = await mount(<MeetsTheEnd />);
+    const shownAgain = currentNotice();
+    again.unmount();
+    if (shownAgain !== undefined) {
+      dismissNotice(shownAgain); // so no later test finds it
+    }
+    expect(shownAgain).toBeUndefined();
+    expect(played).toHaveBeenCalledWith(61_000, true); // the film played here each time, told once
+  });
+
   it("stays, saying the receiver took control with Play here, playing nothing by itself, as control is taken back while this tab hosts Watch Together (D553 §3)", async () => {
     const { castSession, onPlayHere } = await castingWhileHosting();
     await castSession.say({ type: "ended", reason: "takenBack" });
@@ -394,10 +500,14 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
 
   // The owner, 2026-11-25, a Chromecast switched off: Chrome's Cast session ended with no Stop, and
   // the remote said nothing of it; the cast is ended by the server's receiverGone alone (D553 §5).
-  it("reaches a guest receiver whose Cast session was lost, then says it isn't answering, then, as the server ends the cast with its receiver gone, that it is unreachable, with Play here (D553 §5)", async () => {
+  it("reaches a guest receiver whose Cast session was lost, no leader shown, then, unheard for the wait, gives it up, ending the cast with its receiver gone, and says it is unreachable, with Play here (D553 §5, D554 §1, §4)", async () => {
     const heard: Heard[] = [];
-    const { sockets } = await casting({}, heard, { sent: { ...sending, isGuestReceiver: true } });
-    await sockets.session.say({ type: "roster", roster: receiverLeads });
+    const { sockets } = await casting(
+      { "POST /me/casts/9/end": [200, { positionMs: 61_000, isPlaying: false }] },
+      heard,
+      { sent: { ...sending, isGuestReceiver: true } },
+    );
+    // The cast's session shows no leader: the hint counts (D554 §4).
     const pill = (): string | undefined =>
       mounted?.container.querySelector(".cast-remote__centre .pill")?.textContent ?? undefined;
     expect(pill()).toBeUndefined();
@@ -415,12 +525,17 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
       });
       const note = (): string | undefined =>
         mounted?.container.querySelector(".cast-remote__note")?.textContent ?? undefined;
-      expect(note()).toContain("Fire TV isn't answering");
+      const ends = (): unknown[] =>
+        heard
+          .filter((each) => each.methodAndPath.startsWith("POST /me/casts/"))
+          .map((each) => bodyField(each, "reason"));
+      await settleUntil(() => ends().length > 0);
+      expect(ends()).toEqual(["receiverGone"]);
       await sockets.live.say({ type: "sending" });
       await sockets.session.say({ type: "ended", reason: "receiverGone" });
       expect(note()).toContain("Fire TV unreachable");
       expect(buttonWithText(mounted!.container, "Play here")).toBeDefined();
-      expect(heard.filter((each) => each.methodAndPath.startsWith("POST /me/casts/"))).toEqual([]);
+      expect(buttonWithText(mounted!.container, "Try again")).toBeUndefined();
     } finally {
       vi.useRealTimers();
       act(() => {

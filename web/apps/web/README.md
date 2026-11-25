@@ -378,8 +378,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   level, its keys the player's) and the menus at the bottom (`src/cast-remote-choices.tsx`'s
   `RemoteMenus`); two columns, the pad's at the end, on a phone on its side or a page 60rem wide
   (`src/cast-remote-layout.browser.test.tsx`). While the receiver is not reached it says *Reaching
-  ‹Device›…*, the pad and the menus taking no press, and after 15 s that it isn't answering, with
-  Try again (D548 §9). With a film playing, the sign *‹film› · Playing on ‹Device›*, Up next only at
+  ‹Device›…*, the pad and the menus taking no press (D548 §9); a receiver unheard for 15 s
+  (`src/cast-remote-heard.ts`'s `useReceiverHeard`, the remote's own connection to the server up)
+  is given up, the remote ending its cast with its receiver gone, met as the server's end of it
+  (D554 §1–2); one heard with no place yet, held for its press (D468 §2), is not; and the Cast
+  sender SDK's session loss counts only while the cast's session shows no leader (D554 §4). With a film playing, the sign *‹film› · Playing on ‹Device›*, Up next only at
   the episode's end, with a ✕ that puts it away on this device (D548 §3), the signs over the film (Watch Together's, and Cast's, whose dialog holds Stop
   casting, the one way to bring the film back, D388: the page has no Stop of its own); the timeline
   and the bar (`useRemoteSource`, `src/session-remote.tsx`), working the session the tab hosts while
