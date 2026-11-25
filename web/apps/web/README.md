@@ -1218,9 +1218,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   (`useCasteeTarget`, `src/castee-target.ts`), its place, play or pause, seeks, sound and the
   choices its menus make, which one entry point draws, `TargetMenus` (`src/target-menus.tsx`), on
   the Play page's bar and overlay and the cast remote alike, a choice the target has no use for not
-  drawn (a castee's has no 🔈). A castee's key frames are asked for at its `reportedAtMs`, where it last
+  drawn (a castee's has no 🔈); and one Up next, `TargetUpNext` (`src/up-next.tsx`), which over the
+  video here counts down and Back puts away, and over a castee counts nothing and its ✕ puts away
+  (`src/castee-up-next.tsx`). A castee's key frames are asked for at its `reportedAtMs`, where it last
   said it stands, never where a seek chosen on the remote aims. `src/castee-target.test.tsx`,
-  `src/cast-remote-frame.test.tsx`, `src/target-menus.test.tsx`.
+  `src/cast-remote-frame.test.tsx`, `src/target-menus.test.tsx`, `src/target-up-next.test.tsx`.
 - **A failure about what was typed marks the fields it is about** (plans 11-22 batch, item 6):
   `aria-invalid="true"` and described by the line that says why, from one hook, `useFormFields`
   (`src/field.tsx`), fed the fields a refusal names by `failedFields` (`src/problem.ts`: its

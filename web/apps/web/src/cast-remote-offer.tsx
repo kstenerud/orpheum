@@ -11,23 +11,22 @@ import "./play-words.ts";
 import "./cast-words.ts";
 
 import type { components, CastSending } from "@orpheum/sdk";
-import { useState, type JSX } from "react";
+import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { UpNext } from "./around-file.ts";
 import { CastFrame } from "./cast-frame.tsx";
+import { isCasteeNearItsEnd } from "./castee-up-next.tsx";
 import type { CastAgain } from "./cast-remote-again.ts";
 import { RemoteSkipOffer, useFileSegments } from "./cast-segments.tsx";
 import { moveCastOn } from "./cast.ts";
-import { IconButton } from "./icon-button.tsx";
 import type { PlaybackTarget, PlayerSound } from "./playback-target.ts";
-import { CloseIcon } from "./player-icons.tsx";
 import { Pill } from "./pill.tsx";
 import { WideArt } from "./poster.tsx";
 import { creditsStartOf } from "./segments.tsx";
 import { useServices } from "./services.tsx";
 import { StatusNote } from "./status-note.tsx";
-import { offerState, UpNextCard } from "./up-next.tsx";
+import { TargetUpNext } from "./up-next.tsx";
 
 /** A title's pictures, as its detail names them. */
 type ArtBody = components["schemas"]["ArtBody"];
@@ -148,9 +147,9 @@ function RemoteVolumePill(props: { readonly film: PlayerSound | undefined }): JS
 }
 
 /**
- * The offer at the offer area's top-right, as the player's (PlayersOffers, D546): Up next from the
- * film's credits, or its fixed lead where it has none (RemoteUpNext), until it is dismissed here,
- * offered again once the film is moved back from its end; else the skip of the segment the cast is
+ * The offer at the offer area's top-right, as the player's (PlayersOffers, D546): Up next over the
+ * castee from the film's credits, or its fixed lead where it has none (TargetUpNext), until it is
+ * dismissed here, offered again once the film is moved back from its end; else the skip of the segment the cast is
  * in, Skip credits left to Up next where an episode plays next (RemoteSkipOffer), its press seeking
  * the cast past it.
  */
@@ -160,29 +159,18 @@ function RemoteOffers(props: {
   readonly upNext: UpNext | undefined;
 }): JSX.Element | null {
   const { sent, source, upNext } = props;
+  const { api } = useServices();
   const segments = useFileSegments(sent.fileId);
-  const [isDismissed, setIsDismissed] = useState(false);
+  const creditsStartMs = creditsStartOf(segments);
   const isNextPlayable = upNext !== undefined && upNext.episode.unavailable === undefined;
-  const isAtTheEnd = offerState(
-    {
-      atMs: source.atMs,
-      durationMs: source.durationMs,
-      hasEnded: false,
-      creditsStartMs: creditsStartOf(segments),
-    },
-    { isDismissed: false, isCancelled: false },
-    false,
-  ).isNearTheEnd;
-  if (isDismissed && !isAtTheEnd) {
-    setIsDismissed(false); // moved back from its end: offered again as it comes back
-  }
-  if (isAtTheEnd && isNextPlayable) {
-    return isDismissed ? null : (
-      <RemoteUpNext
-        sent={sent}
+  if (isNextPlayable && isCasteeNearItsEnd(source, creditsStartMs)) {
+    return (
+      <TargetUpNext
+        target={source}
         upNext={upNext}
-        onDismiss={() => {
-          setIsDismissed(true);
+        creditsStartMs={creditsStartMs}
+        onPlay={() => {
+          moveCastOn(api, sent.castId).catch(() => undefined); // the cast goes on as it was
         }}
       />
     );
@@ -230,42 +218,4 @@ function RemoteArt(props: { readonly art: ArtBody | undefined }): JSX.Element | 
     return null;
   }
   return <WideArt sourceSha256={wide} size="landscape-l" className="cast-remote__picture" />;
-}
-
-/**
- * The remote's Up next, near the film's end (upNextLeadMs, RemoteOffers): the cast's film's next
- * episode, the Up next card with no count (UpNextCard, D538 §1), which moves the cast on to it, the
- * receiver handed it (plans/up-next.md), and its ✕, Dismiss, which puts it away on this device alone
- * (D548 §3, amending the owner's 2026-11-23 none): the remote's page has no Back to put it away;
- * nothing where none can play next.
- */
-function RemoteUpNext(props: {
-  readonly sent: CastSending;
-  readonly upNext: UpNext | undefined;
-  readonly onDismiss: () => void;
-}): JSX.Element | null {
-  const { t } = useTranslation();
-  const { api } = useServices();
-  const { sent, upNext } = props;
-  if (upNext === undefined || upNext.episode.unavailable !== undefined) {
-    return null;
-  }
-  return (
-    <UpNextCard
-      upNext={upNext}
-      play={{
-        onPlay: () => {
-          moveCastOn(api, sent.castId).catch(() => undefined); // the cast goes on as it was
-        },
-      }}
-      buttons={
-        <IconButton
-          label={t("cast.dismissUpNext")}
-          icon={<CloseIcon />}
-          isOverVideo
-          onClick={props.onDismiss}
-        />
-      }
-    />
-  );
 }

@@ -23,22 +23,20 @@ import {
   type Ending,
   type OfferChoice,
 } from "@orpheum/sdk";
-import { useTranslation } from "react-i18next";
 
+import { CasteeUpNext } from "./castee-up-next.tsx";
+import type { PlaybackTarget } from "./playback-target.ts";
 import { useAroundFile, type Previous, type UpNext } from "./around-file.ts";
 import { moveBack, moveOnOrReady, type Receiving } from "./cast-receiver.tsx";
 import { useFocusAsItShows, useTellsOffered, type OfferPlace } from "./convenience-area.tsx";
-import { placeCode } from "./episode-place.ts";
 import type { FilmParts, FilmPiece } from "./film-player.tsx";
-import { OfferCard } from "./offer-card.tsx";
 import type { MediaTracks } from "./input-commands.ts";
 import { useCommands } from "./input-layer.tsx";
 import { useAtTheEndWithNothingNext } from "./film-end.ts";
 import { useLatest } from "./latest.ts";
 import { OverTheFilm, PageControls } from "./page-controls.tsx";
 import { overlayUpClass, PlayUpwardContext } from "./play-up.tsx";
-import type { SequenceMoves } from "./player-controls.tsx";
-import { Still } from "./poster.tsx";
+import { useVideoTarget, type SequenceMoves } from "./player-controls.tsx";
 import {
   noteAutoplayed,
   StillWatching,
@@ -54,6 +52,7 @@ import {
   type MediaSegment,
 } from "./segments.tsx";
 import { useServices } from "./services.tsx";
+import { UpNextCard, upNextCountdownMs } from "./up-next-card.tsx";
 import { parentOf } from "./upward.ts";
 import { useVideoStanding, type StandingTaken, type VideoStanding } from "./video-standing.ts";
 import { watchingOf } from "./watching.ts";
@@ -61,13 +60,8 @@ import { watchingOf } from "./watching.ts";
 // Up next's choice is the SDK's (D555 §3); the cast's remote reads it from here.
 export { offerState };
 
-/**
- * How long autoplay counts down before it plays the next episode, in ms: long enough to read the
- * offer and press, as every service's countdown is. A justified constant. It starts at the start
- * of the film's credits, where a segment says where they are, else at its end, so a fixed lead never
- * cuts the programme's last seconds (D139, D339; plans/up-next.md §3, §9).
- */
-export const upNextCountdownMs = 10_000;
+// The card and its count are up-next-card.tsx's, which a castee's Up next draws too (castee-up-next.tsx).
+export { UpNextCard, upNextCountdownMs };
 
 /**
  * Whether video has played fileId: true from its first playing, or a timeupdate while it plays,
@@ -276,20 +270,69 @@ export function UpNextOver(props: FilmParts & OfferPlace): JSX.Element | null {
   const upNext = offered?.upNext;
   const isHere = offered?.receiving === undefined;
   const warmUpNext = useWarmsUpNext(upNext?.episode, isHere);
+  // Read at the video's own events alone: the offer reads where it stands itself (UpNextOffer).
+  const target = useVideoTarget(props.videoRef, true);
   if (upNext === undefined || next === undefined) {
     return null; // a next episode that cannot be read now is not offered (plans/up-next.md §7)
   }
   return (
-    <UpNextOffer
+    <TargetUpNext
       key={upNext.episode.fileId}
+      target={target}
       upNext={upNext}
       isAutoplayOn={offered?.isAutoplayOn ?? false}
       creditsStartMs={creditsStartOf(segments)}
-      videoRef={props.videoRef}
       isOverlayFull={props.isOverlayFull}
       onOffered={props.onOffered}
       onShown={warmUpNext}
       onPlay={next}
+    />
+  );
+}
+
+/**
+ * Up next over the playback target (D555 §8), the one the Play page and the cast's remote draw: the
+ * next episode offered near the target's end, from its credits where creditsStartMs says where they
+ * start, and onPlay, how the page moves on to it (the sequence's next here, the cast moved on to it
+ * there). Over the video here, where it stands is read off the video at its own events, and the offer
+ * counts down with autoplay on, asks Still watching, and Back puts it away (UpNextOffer); over a
+ * castee, where the session says it stands, no count, and ✕ puts it away on this device alone, the
+ * remote's page having no Back (CasteeUpNext, D548 §3).
+ */
+export function TargetUpNext(
+  props: OfferPlace & {
+    readonly target: PlaybackTarget;
+    readonly upNext: UpNext;
+    readonly creditsStartMs: number | undefined;
+    readonly onPlay: () => void;
+    /** Whether autoplay counts the offer down, over the video here. */
+    readonly isAutoplayOn?: boolean | undefined;
+    /** Told each time the offer comes to show over the video here, to warm the next one up. */
+    readonly onShown?: (() => void) | undefined;
+  },
+): JSX.Element | null {
+  const { target, upNext, creditsStartMs, onPlay } = props;
+  const { choices } = target;
+  if (choices.kind === "castee") {
+    return (
+      <CasteeUpNext
+        target={target}
+        upNext={upNext}
+        creditsStartMs={creditsStartMs}
+        onPlay={onPlay}
+      />
+    );
+  }
+  return (
+    <UpNextOffer
+      upNext={upNext}
+      isAutoplayOn={props.isAutoplayOn ?? false}
+      creditsStartMs={creditsStartMs}
+      videoRef={choices.videoRef}
+      isOverlayFull={props.isOverlayFull}
+      onOffered={props.onOffered}
+      onShown={props.onShown}
+      onPlay={onPlay}
     />
   );
 }
@@ -488,52 +531,6 @@ function useAutoplay(
     onPlay();
   });
   return { isAsking, secondsLeft };
-}
-
-/**
- * The Up next card (OfferCard, D538 §1): the next episode's still, "Up next: S1E3 · ‹name›", then
- * "Plays in 10 s" while the count runs, said once as it starts and not at each second, or "Play now"
- * where it is pressed; the card plays it, and has no ✕ (Back puts it away: UpNextOffer). Where
- * nothing here presses it (a cast's receiver), its words alone. The cast's remote's Up next is this
- * card, playing it there.
- */
-export function UpNextCard(props: {
-  readonly upNext: UpNext;
-  /** The count's seconds left while it runs; none, no count. */
-  readonly secondsLeft?: number | undefined;
-  /** Its press, where it is pressed here. */
-  readonly play?:
-    | {
-        readonly onPlay: () => void;
-        readonly playRef?: RefObject<HTMLButtonElement | null>;
-      }
-    | undefined;
-  /** Its buttons beside it, where its user has any: the cast remote's ✕ (D548 §3). */
-  readonly buttons?: ReactNode;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { upNext, secondsLeft, play } = props;
-  const { episode } = upNext;
-  const place = placeCode(t, upNext.ordering, { ...episode, isOnlyGroup: upNext.isOnlyGroup });
-  const isCounting = secondsLeft !== undefined;
-  const countdown = isCounting ? t("upNext.countdown", { seconds: secondsLeft }) : undefined;
-  return (
-    <OfferCard
-      words={t("upNext.offer", { place, name: episode.name ?? "" })}
-      said={
-        isCounting
-          ? t("upNext.countdownSaid", { seconds: Math.round(upNextCountdownMs / 1000) })
-          : undefined
-      }
-      detail={countdown ?? (play === undefined ? undefined : t("upNext.playNow"))}
-      still={
-        <Still sourceSha256={upNext.stillSha256} className="up-next__still" isNoPosterMarked />
-      }
-      onTake={play?.onPlay}
-      takeRef={play?.playRef}
-      buttons={props.buttons}
-    />
-  );
 }
 
 /** Tells onShown, where given, as the offer comes to show: once each time it does. */
