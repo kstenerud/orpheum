@@ -3,6 +3,7 @@
 
 import "./i18n.ts";
 
+import { startGateOf } from "@orpheum/sdk";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { mount, servedBy } from "./test-dom.tsx";
@@ -18,10 +19,21 @@ beforeEach(() => {
   );
 });
 
-/** The host's player on film 5, its video paused or playing, welcomed to a session with nothing on. */
-async function startedWith(isPaused: boolean): Promise<ReturnType<typeof fakeTogetherServer>> {
+/**
+ * The host's player on film 5, its video paused or playing, or paused only until its start gate
+ * plays it (isGettingReady: film-player.tsx's useStartsWithEnoughAhead), welcomed to a session with
+ * nothing on.
+ */
+async function startedWith(
+  isPaused: boolean,
+  isGettingReady = false,
+): Promise<ReturnType<typeof fakeTogetherServer>> {
   const video = document.createElement("video");
   Object.defineProperty(video, "paused", { value: isPaused, configurable: true });
+  Object.defineProperty(video, "error", { value: null, configurable: true });
+  if (isGettingReady) {
+    startGateOf(video).play(() => undefined);
+  }
   const server = fakeTogetherServer();
   const services = { ...servedBy({}, [], "token"), openTogetherSocket: server.openSocket };
   await mount(
@@ -52,6 +64,14 @@ describe("a Watch Together session started over a paused film (the owner, 2026-1
     const server = await startedWith(true);
     const commands = server.heard.filter((message) => message["type"] === "command");
     expect(commands.map((message) => message["command"])).toEqual(["changeItem", "pause"]);
+  });
+
+  // Every session's first film waited paused, and no guest ever played (the browser tier, 2026-11-25):
+  // a film just opened stands paused until its start gate plays it, which is not a person's pause.
+  it("puts a film still getting ready to play on playing, its pause its start gate's, not a person's", async () => {
+    const server = await startedWith(true, true);
+    const commands = server.heard.filter((message) => message["type"] === "command");
+    expect(commands.map((message) => message["command"])).toEqual(["changeItem"]);
   });
 
   it("puts a playing film on and leaves it playing", async () => {

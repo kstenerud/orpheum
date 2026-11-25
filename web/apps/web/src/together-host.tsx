@@ -25,6 +25,7 @@ import { SoundOnPill } from "./sound-on-pill.tsx";
 import { useHostsSessionOver } from "./together-session-end.ts";
 import type { Membership } from "./together-storage.ts";
 import { followFilmVolume } from "./film-volume.ts";
+import { isPausedAsAsked } from "./film-waits.tsx";
 import { FilmVolumeSlider } from "./film-volume-slider.tsx";
 import { ComingAndGoing, onTheFilmsStage, TogetherPanel } from "./together-over-the-film.tsx";
 import { OnlyOnThePanelsPage } from "./together-panel-place.tsx";
@@ -203,7 +204,9 @@ function HostLeading(
   const isWelcomed = snapshot?.status === "connected";
   const endReason = snapshot?.status === "ended" ? snapshot.endReason : undefined;
   // A session started over a paused film puts it on paused: it stays paused (the owner, 2026-11-23).
-  const isPutOnPaused = video?.paused === true;
+  // A film just opened stands paused too, until its start gate plays it: that is meant to play, not
+  // paused (isPausedAsAsked), or every session's first film would wait paused (2026-11-25).
+  const isPutOnPaused = video !== null && isPausedAsAsked(video);
   useLeadingPlayer({
     connection,
     isWelcomed,
