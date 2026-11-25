@@ -112,6 +112,9 @@ type casting struct {
 	// state is what state its castee last said it is in (D555 §4), kept with its position for a
 	// caster coming back; empty until it says, read as CastStarting.
 	state CastState
+	// handed is what the cast hands its castee to play, from where, and whether the castee took it
+	// (cast_handed.go, D555 §2): the live registry keeps none of it.
+	handed handed
 }
 
 // isGuests is whether the cast is a guest's by link, cast by their device sender.
@@ -126,12 +129,14 @@ type EndedCast struct {
 }
 
 // CastHeard notes that the castee of the cast castID that userID cast took it now (its OK, or a cast
-// taken asking nothing): its deadline runs from now (D555 §3).
+// taken asking nothing, D468 §1): it is accepted, asked no more, and its deadline runs from now (D555
+// §3).
 func (hub *Hub) CastHeard(castID, userID int64) {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
 	if heard, found := hub.casts[castID]; found && heard.userID == userID && !heard.isGuests() {
 		heard.heardAt = hub.clock.Now()
+		heard.handed.isAccepted = true
 	}
 }
 
@@ -364,10 +369,12 @@ func (hub *Hub) CastCredential(castID, userID int64) (string, error) {
 	}
 	caster := place.caster
 	if place.cast.isOwn {
-		alone := place.cast.sessionID
+		alone := place.where
 		if hub.castIntoPart(place.cast) {
-			delete(hub.sessions, alone)
-			_, caster = hub.castersPart(place.cast)
+			delete(hub.sessions, alone.id)
+			var into *session
+			into, caster = hub.castersPart(place.cast)
+			place.cast.handed.anchor(alone, into, hub.clock.Now()) // it plays on from where it stood
 		}
 	}
 	caster.addCastPart(credential, castID)

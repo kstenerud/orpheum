@@ -5,6 +5,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 
@@ -201,20 +202,25 @@ func (server *Server) moveCast(ctx context.Context, input *MoveCastOnInput, way 
 	if err != nil {
 		return nil, server.libraryError(ctx, "read what a cast plays", err)
 	}
-	moved, err := dependencies.Live.Play(principal.UserID, principal.DeviceID, cast.ID, live.Film{
+	film := together.CastFilm{
 		FileID: member.FileID, ItemID: work.TitleID, ItemName: work.Name, DurationMs: work.DurationMs,
-	}, nil)
+	}
+	if err = dependencies.Together.CastPuts(cast.ID, principal.UserID, film, nil, false); err != nil {
+		// ended as it moved
+		return nil, server.castRefused(ctx, principal, request, live.ErrNoCast, "castId", input.CastID)
+	}
+	moved, err := dependencies.Live.Play(principal.UserID, principal.DeviceID, cast.ID, liveFilmOf(film), nil)
 	if err != nil {
 		return nil, server.castRefused(ctx, principal, request, err, "castId", input.CastID)
 	}
-	credential, err := dependencies.Together.CastCredential(moved.ID, principal.UserID)
+	body, err := server.castBodyFor(dependencies, moved, principal)
 	if err != nil {
 		// ended as it moved
 		return nil, server.castRefused(ctx, principal, request, live.ErrNoCast, "castId", input.CastID)
 	}
 	server.logger.InfoContext(ctx, "cast: a cast moved along its sequence", "castId", moved.ID,
-		logKeyUserID, moved.UserID, "by", principal.DeviceID, "fileId", moved.FileID, "way", request)
-	return &StartCastOutput{Body: castBodyOf(moved, principal.DeviceID, credential)}, nil
+		logKeyUserID, moved.UserID, "by", principal.DeviceID, "fileId", film.FileID, "way", request)
+	return &StartCastOutput{Body: body}, nil
 }
 
 // castMovesTo is the member a cast of the opened file, as the title the cast holds it as, moves to,
@@ -271,6 +277,9 @@ func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*St
 	if film.FileID == 0 && opened.TogetherSessionID != 0 {
 		film = server.sessionsFilm(ctx, dependencies, principal, opened.CastID)
 	}
+	//nolint:errcheck // just opened: one ended meanwhile is gone from the hub, its body empty
+	_ = dependencies.Together.CastPuts(opened.CastID, principal.UserID, film, input.Body.PositionMs,
+		input.Body.IsPaused)
 	cast := live.Cast{
 		ID: opened.CastID, UserID: principal.UserID, SenderDeviceID: principal.DeviceID,
 		ReceiverDeviceID: input.Body.ToDeviceID, SenderName: senderName, ReceiverName: receiverName,
@@ -288,8 +297,9 @@ func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*St
 		_ = dependencies.Together.EndCast(each.ID, principal.UserID, together.CastStopped)
 	}
 	server.logger.InfoContext(ctx, "cast: a device cast to another", "castId", cast.ID, logKeyUserID, cast.UserID,
-		"from", cast.SenderDeviceID, "to", cast.ReceiverDeviceID, "fileId", cast.FileID, "left", len(left))
-	return &StartCastOutput{Body: castBodyOf(cast, principal.DeviceID, opened.SenderCredential)}, nil
+		"from", cast.SenderDeviceID, "to", cast.ReceiverDeviceID, "fileId", film.FileID, "left", len(left))
+	handed, _ := dependencies.Together.CastHandedOf(cast.ID, principal.UserID) //nolint:errcheck // as it began
+	return &StartCastOutput{Body: castBodyOf(cast, handed, principal.DeviceID, opened.SenderCredential)}, nil
 }
 
 // opened is the file a cast is to play, as the title it was opened from.
@@ -304,15 +314,15 @@ func (item CastItem) opened() library.Opened {
 // membership (D246 §3).
 func (server *Server) sessionsFilm(
 	ctx context.Context, dependencies *Dependencies, principal auth.Principal, castID int64,
-) live.Film {
+) together.CastFilm {
 	played := dependencies.Together.CastPlays(castID, principal.UserID)
 	if played.FileID == 0 {
-		return live.Film{}
+		return together.CastFilm{}
 	}
 	opened := library.Opened{FileID: played.FileID, TitleID: played.ItemID}
 	film, err := server.castFilmOf(ctx, dependencies, principal, opened)
 	if err != nil {
-		return live.Film{FileID: played.FileID, ItemID: played.ItemID}
+		return together.CastFilm{FileID: played.FileID, ItemID: played.ItemID}
 	}
 	return film
 }
@@ -321,19 +331,26 @@ func (server *Server) sessionsFilm(
 // person must reach; nothing, the receiver ready, for 0 (D364 §5).
 func (server *Server) castFilmOf(
 	ctx context.Context, dependencies *Dependencies, principal auth.Principal, opened library.Opened,
-) (live.Film, error) {
+) (together.CastFilm, error) {
 	fileID := opened.FileID
 	if fileID == 0 {
-		return live.Film{}, nil
+		return together.CastFilm{}, nil
 	}
 	if err := dependencies.Browser.ReachFile(ctx, principal.Reach, fileID); err != nil {
-		return live.Film{}, server.playbackError(ctx, "reach a file", err)
+		return together.CastFilm{}, server.playbackError(ctx, "reach a file", err)
 	}
 	work, err := dependencies.Browser.WorkOfFile(ctx, principal.Reach, opened)
 	if err != nil {
-		return live.Film{}, server.libraryError(ctx, "read what a cast plays", err)
+		return together.CastFilm{}, server.libraryError(ctx, "read what a cast plays", err)
 	}
-	return live.Film{FileID: fileID, ItemID: work.TitleID, ItemName: work.Name, DurationMs: work.DurationMs}, nil
+	return together.CastFilm{
+		FileID: fileID, ItemID: work.TitleID, ItemName: work.Name, DurationMs: work.DurationMs,
+	}, nil
+}
+
+// liveFilmOf is film as the live registry keeps it.
+func liveFilmOf(film together.CastFilm) live.Film {
+	return live.Film{FileID: film.FileID, ItemID: film.ItemID, ItemName: film.ItemName, DurationMs: film.DurationMs}
 }
 
 // PlayInCastInput plays a film on a cast's receiver, the asking device its sender or its receiver.
@@ -368,25 +385,37 @@ func (server *Server) playInCast(ctx context.Context, input *PlayInCastInput) (*
 	if err != nil {
 		return nil, err
 	}
+	if !sendsOrReceives(dependencies.Live.CastsOf(principal.UserID, principal.DeviceID), input.CastID) {
+		return nil, server.castRefused(ctx, principal, "play", live.ErrNoCast, "castId", input.CastID)
+	}
 	if film.FileID == 0 {
 		err = dependencies.Together.CastReady(input.CastID, principal.UserID)
 		if err != nil {
 			return nil, server.castRefused(ctx, principal, "play", live.ErrNoCast, "castId", input.CastID)
 		}
 	}
-	played, err := dependencies.Live.Play(principal.UserID, principal.DeviceID, input.CastID, film,
+	err = dependencies.Together.CastPuts(input.CastID, principal.UserID, film, input.Body.PositionMs, false)
+	if err != nil {
+		return nil, server.castRefused(ctx, principal, "play", live.ErrNoCast, "castId", input.CastID)
+	}
+	played, err := dependencies.Live.Play(principal.UserID, principal.DeviceID, input.CastID, liveFilmOf(film),
 		input.Body.PositionMs)
 	if err != nil {
 		return nil, server.castRefused(ctx, principal, "play", err, "castId", input.CastID)
 	}
-	credential, err := dependencies.Together.CastCredential(played.ID, principal.UserID)
+	body, err := server.castBodyFor(dependencies, played, principal)
 	if err != nil {
 		// ended as it played
 		return nil, server.castRefused(ctx, principal, "play", live.ErrNoCast, "castId", input.CastID)
 	}
 	server.logger.InfoContext(ctx, "cast: a cast plays another film", "castId", played.ID,
-		logKeyUserID, played.UserID, "by", principal.DeviceID, "fileId", played.FileID)
-	return &StartCastOutput{Body: castBodyOf(played, principal.DeviceID, credential)}, nil
+		logKeyUserID, played.UserID, "by", principal.DeviceID, "fileId", film.FileID)
+	return &StartCastOutput{Body: body}, nil
+}
+
+// sendsOrReceives is whether casts, a device's, hold the cast castID.
+func sendsOrReceives(casts []live.Cast, castID int64) bool {
+	return slices.ContainsFunc(casts, func(each live.Cast) bool { return each.ID == castID })
 }
 
 // AcceptCastInput is the receiver's Use to a cast it was asked about.
@@ -409,13 +438,13 @@ func (server *Server) acceptCast(ctx context.Context, input *AcceptCastInput) (*
 		return nil, server.castRefused(ctx, principal, "accept", err, "castId", input.CastID)
 	}
 	dependencies.Together.CastHeard(accepted.ID, principal.UserID) // its deadline runs (D555 §3)
-	credential, err := dependencies.Together.CastCredential(accepted.ID, principal.UserID)
+	body, err := server.castBodyFor(dependencies, accepted, principal)
 	if err != nil {
 		return nil, server.castRefused(ctx, principal, "accept", live.ErrNoCast, "castId", input.CastID)
 	}
 	server.logger.InfoContext(ctx, "cast: a receiver took it", "castId", accepted.ID, logKeyUserID,
 		accepted.UserID, "by", principal.DeviceID)
-	return &StartCastOutput{Body: castBodyOf(accepted, principal.DeviceID, credential)}, nil
+	return &StartCastOutput{Body: body}, nil
 }
 
 // castNames are the names of the asking device and of the one it casts to, which must be another of
@@ -462,14 +491,13 @@ func (server *Server) listMyCasts(ctx context.Context, input *AuthorizationHeade
 	output := &MyCastsOutput{}
 	output.Body.Casts = []CastBody{}
 	for _, cast := range dependencies.Live.CastsOf(principal.UserID, principal.DeviceID) {
-		credential, err := dependencies.Together.CastCredential(cast.ID, principal.UserID)
+		body, err := server.castBodyFor(dependencies, cast, principal)
 		if errors.Is(err, together.ErrNoSession) {
 			continue // ended as it was read
 		}
 		if err != nil {
 			return nil, server.logInternalError(ctx, "make a cast's credential", err)
 		}
-		body := castBodyOf(cast, principal.DeviceID, credential)
 		// A caster coming back is told where its cast stands (D555 §4), its remote drawn from there.
 		body.PositionMs, body.IsPlaying, _ = dependencies.Together.CastPosition(cast.ID, principal.UserID) //nolint:errcheck,lll // none ended as it was read
 		body.CastState = string(dependencies.Together.CastStateOf(cast.ID, principal.UserID))
@@ -505,13 +533,29 @@ func (server *Server) endCast(ctx context.Context, input *EndCastInput) (*EndCas
 	return output, nil
 }
 
-// castBodyOf is cast as the device thisDeviceID sees it, with its credential.
-func castBodyOf(cast live.Cast, thisDeviceID int64, credential string) CastBody {
+// castBodyFor is cast as the asking device sees it, with a new credential for it: what it plays and
+// whether its castee took it are the hub's (D555 §2). ErrNoSession for a cast the hub no longer holds.
+func (server *Server) castBodyFor(
+	dependencies *Dependencies, cast live.Cast, principal auth.Principal,
+) (CastBody, error) {
+	credential, err := dependencies.Together.CastCredential(cast.ID, principal.UserID)
+	if err != nil {
+		return CastBody{}, fmt.Errorf("make cast %d's credential: %w", cast.ID, err)
+	}
+	handed, err := dependencies.Together.CastHandedOf(cast.ID, principal.UserID)
+	if err != nil {
+		return CastBody{}, fmt.Errorf("read what cast %d hands: %w", cast.ID, err)
+	}
+	return castBodyOf(cast, handed, principal.DeviceID, credential), nil
+}
+
+// castBodyOf is cast as the device thisDeviceID sees it, handed as the hub has it, with its
+// credential.
+func castBodyOf(cast live.Cast, handed together.CastHanded, thisDeviceID int64, credential string) CastBody {
 	return CastBody{
-		CastID: cast.ID, IsSender: cast.SenderDeviceID == thisDeviceID, IsAccepted: cast.IsAccepted,
-		FileID: cast.FileID,
-		ItemID: cast.ItemID, ItemName: cast.ItemName, DurationMs: cast.DurationMs,
-		SenderDeviceID: cast.SenderDeviceID, SenderName: cast.SenderName,
+		CastID: cast.ID, IsSender: cast.SenderDeviceID == thisDeviceID, IsAccepted: handed.IsAccepted,
+		FileID: handed.Film.FileID, ItemID: handed.Film.ItemID, ItemName: handed.Film.ItemName,
+		DurationMs: handed.Film.DurationMs, SenderDeviceID: cast.SenderDeviceID, SenderName: cast.SenderName,
 		ReceiverDeviceID: cast.ReceiverDeviceID, ReceiverName: cast.ReceiverName, MembershipCredential: credential,
 	}
 }
