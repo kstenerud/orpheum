@@ -190,7 +190,9 @@
 //     by TestCast_AHelloJustAfterTheEndIsToldWhyForAMinute. A cast whose castee has said nothing
 //     for CastSilentAfter, from its first word or its taking the cast on, ends by its own deadline,
 //     receiverGone, the hub's end alone, no sender's (D555 §3), enforced by
-//     TestCast_ACastWhoseCasteeIsSilentForItsWaitEnds. Ready between videos it plays
+//     TestCast_ACastWhoseCasteeIsSilentForItsWaitEnds. A host moving their session to another device
+//     keeps their castee, a device and its castee one place (D555 §2), enforced by
+//     TestHostHere_KeepsTheHostsCastee. Ready between videos it plays
 //     nothing, so the next is put on afresh (D364 §5), enforced by
 //     TestCast_ReadyPlaysNothingSoTheNextIsPutOnAfresh; a receiver takes its person's part in the
 //     Watch Together session they are in, by the cast's own credential, a host's leading it (D364

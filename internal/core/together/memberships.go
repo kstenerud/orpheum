@@ -213,7 +213,8 @@ func (each *member) signedInDevices() []int64 {
 // HostHere moves the session hostUserID hosts to the device that asks, which becomes the host's one
 // device: a new credential for it, every other device of the host's told the session moved away and
 // cut off, none of their credentials admitting anything more, so the host plays in one place (D267
-// §3, D442 §2). A lead of theirs passes on as a gone device's does.
+// §3, D442 §2). A lead of theirs passes on as a gone device's does. The castee of a cast of theirs
+// stays, and its cast's credentials with it: a device and its castee are one place (D555 §2).
 func (hub *Hub) HostHere(sessionID, hostUserID int64) (string, error) {
 	made, err := newCredential(hub.random)
 	if err != nil {
@@ -229,7 +230,7 @@ func (hub *Hub) HostHere(sessionID, hostUserID int64) (string, error) {
 		if !host.isHost {
 			continue
 		}
-		host.cutOff()
+		host.cutOffButCastees()
 		host.addCredential(madeCredential{credential: made.credential}) // the host's has no locator
 		now := hub.clock.Now()
 		hosted.touch(now)

@@ -140,6 +140,34 @@ func TestHostHere_MakesTheAskingDeviceTheHostsOne(t *testing.T) {
 	}
 }
 
+// Moving the session here keeps the host's castee: a device and its castee are one place, so the
+// castee plays on in the session, its cast's credential admitting it, while the host's other
+// devices are told they moved away (D555 §2).
+func TestHostHere_KeepsTheHostsCastee(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	cast, err := stage.hub.OpenCast(stage.owner, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, castee := stage.attach(t, cast.ReceiverCredential, RoleVideo)
+	_, laptop := stage.attach(t, stage.opened.MembershipCredential, RoleBoth)
+	if _, err = stage.hub.HostHere(stage.opened.SessionID, stage.owner.UserID); err != nil {
+		t.Fatal(err)
+	}
+	if ended := laptop.last(MessageEnded); ended.Reason != "movedAway" {
+		t.Errorf("the laptop was told %+v; want ended, movedAway", ended)
+	}
+	if castee.count(MessageEnded) != 0 {
+		t.Errorf("the castee was told %+v; want it playing on", castee.last(MessageEnded))
+	}
+	if sessionID, _, isMember := stage.hub.MemberOf(cast.ReceiverCredential); !isMember ||
+		sessionID != stage.opened.SessionID {
+		t.Errorf("the castee's credential is of %d (member %v); want it admitting to %d", sessionID,
+			isMember, stage.opened.SessionID)
+	}
+}
+
 // A member keeps the newest credentialsKeptPerMember of their devices' credentials: a page reloaded
 // again and again does not add without end, and the oldest device asks again.
 func TestMine_KeepsAMembersNewestCredentials(t *testing.T) {
