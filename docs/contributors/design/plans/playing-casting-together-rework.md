@@ -69,6 +69,20 @@ castee must play the session's film. It passes at the end of phase 1.
    idle close and its fills for an old engine, and loses what served the lab's sender, D288's
    pairing with it.
 
+**Built (2026-11-25):** the regular cast's own handler on the Google Cast receiver, the lab's
+sender and D288's pairing gone from it; and in the SDK one way each to put a leading player's
+film on, to ask how a film plays, and to choose Up next.
+
+**Left for after phase 1,** as each changes what the Google Cast receiver sends:
+
+- **Following a session.** The receiver keeps its own follower, which seeks only when more than
+  3 s off and plays on while waiting; the SDK's `followGroup` reports buffering, loaded chunks
+  and quality besides.
+- **Sound and picture commands.** The web receiver's are React hooks; the receiver's own stay.
+
+**Found:** `idempotent.test.ts` scans the app alone, so the two playback requests, now in the
+SDK, are outside its reading. Until phase 5 the lab's Chromecast sender pages get no answer.
+
 ### Phase 3: one target under one set of controls (D555 §8, §10)
 
 1. **`PlayerSource` grows into the playback target:** play, pause, seek, sound, and the choices
