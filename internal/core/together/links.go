@@ -165,10 +165,15 @@ func (hub *Hub) Join(secret, name string, person *Person, leaving Leaving) (Join
 		}
 	}
 	taking.addCredential(made)
+	var moved []int64
+	if person != nil { // the castee goes where its member goes, at the join (D555 §7)
+		moved = hub.castsIntoPart(person.UserID)
+	}
 	joined.sendRoster()
 	hub.linksChanged()
 	return Joined{
 		SessionID: joined.id, MemberID: taking.id, MembershipCredential: made.credential, Locator: made.locator,
+		CastsMoved: moved,
 	}, nil
 }
 

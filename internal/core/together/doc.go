@@ -171,11 +171,15 @@
 //     session plays on alone, in a session of one, as the session ends or they leave it (castsLeave),
 //     whoever registered (OnCastMoved) told once the lock is let go, to hand it again or end it where
 //     the film is not the caster's by right without the session; a guest's by link ends with it.
-//     Joining or opening a session takes a running cast into the new part (CastCredential). Enforced
-//     by TestHub_LeavingASessionMovesTheGuestsCastToPlayAlone and, through the API,
+//     Opening a session takes a running cast into the new part (CastCredential), leading with its
+//     film; joining one by link takes it in at the join (Joined.CastsMoved), following the session's
+//     film from where the session stands; leaving, it plays on with the session's film from where the
+//     session stood as they left. Enforced by TestHub_LeavingASessionMovesTheGuestsCastToPlayAlone,
+//     TestCast_ACastJoiningASessionByLinkFollowsTheSessionAndLeavesWithItsFilm and, through the API,
 //     TestCast_ACastPlaysOnAloneAsTheSessionItTookAPartInEnds,
-//     TestCast_AGuestsCastOfTheHostsFilmEndsWithTheSession, TestCast_JoiningASessionTakesTheCastIntoIt
-//     and TestCast_AHostOpeningAnotherSessionKeepsTheCast in internal/core/api.
+//     TestCast_AGuestsCastOfTheHostsFilmEndsWithTheSession, TestCast_JoiningASessionTakesTheCastIntoIt,
+//     TestCast_JoiningASessionWhileCastingAFilmPutsTheSessionsFilmOn and
+//     TestCast_AHostOpeningAnotherSessionKeepsTheCast in internal/core/api.
 //   - A Watch Together invitation is short-term (D346): a link admits its person for its lifetime
 //     from when it was made, then no one, and leaves the host's list and the discovery's links; a
 //     session idle for its idle end, neither played to a player nor acted in by a member, is ended

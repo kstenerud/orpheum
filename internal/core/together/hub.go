@@ -408,6 +408,9 @@ type Joined struct {
 	MembershipCredential string
 	// Locator is what the membership's device finds the core by through a discovery (OfferKey).
 	Locator string
+	// CastsMoved are the casts alone of the person who joined, signed in, that the join took into
+	// their part (D555 §7), each castee to be handed it again; none for any other.
+	CastsMoved []int64
 }
 
 // Eject removes a member: each of their devices is told the session ended for them, and their

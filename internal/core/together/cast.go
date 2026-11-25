@@ -368,17 +368,54 @@ func (hub *Hub) CastCredential(castID, userID int64) (string, error) {
 		return "", err
 	}
 	caster := place.caster
-	if place.cast.isOwn {
-		alone := place.where
-		if hub.castIntoPart(place.cast) {
-			delete(hub.sessions, alone.id)
-			var into *session
-			into, caster = hub.castersPart(place.cast)
-			place.cast.handed.anchor(alone, into, hub.clock.Now()) // it plays on from where it stood
-		}
+	if place.cast.isOwn && hub.moveIntoPart(place.cast) {
+		_, caster = hub.castersPart(place.cast)
 	}
 	caster.addCastPart(credential, castID)
 	return credential, nil
+}
+
+// castsIntoPart moves each cast alone of userID's into their part in the Watch Together session
+// they are in now, as they join it (D555 §7): the castee goes where its member goes at the join, not
+// once a page of theirs comes back. It returns the casts moved. The caller holds the mutex.
+func (hub *Hub) castsIntoPart(userID int64) []int64 {
+	var moved []int64
+	for _, each := range hub.casts {
+		if each.userID == userID && each.isOwn && !each.isGuests() && hub.moveIntoPart(each) {
+			moved = append(moved, each.id)
+		}
+	}
+	// One moved alone as its person left another session for this one is in this one now: the join
+	// hands it, and nothing weighs its film as a cast alone.
+	hub.movedToTell = slices.DeleteFunc(hub.movedToTell, func(told EndedCast) bool {
+		return slices.Contains(moved, told.CastID)
+	})
+	slices.Sort(moved)
+	return moved
+}
+
+// moveIntoPart moves the cast, alone in its own session of one, into its person's part in the Watch
+// Together session they are in, its own session let go, its devices to say hello again by the
+// credential handed them (D555 §2): whether they are in one. As the host's player it leads that
+// session with the film it plays, from where it stood; as a guest's it follows the session, handed
+// the session's film from where the session stands, its own film left behind (§1, §7). The caller
+// holds the mutex.
+func (hub *Hub) moveIntoPart(cast *casting) bool {
+	alone, _ := hub.castersPart(cast)
+	if alone == nil || !hub.castIntoPart(cast) {
+		return false
+	}
+	delete(hub.sessions, alone.id)
+	into, caster := hub.castersPart(cast)
+	now := hub.clock.Now()
+	if caster.isHost {
+		cast.handed.anchor(alone, into, now) // it plays on from where it stood
+	} else {
+		cast.handed.follow(into, now)
+	}
+	hub.logger.Info("watch together: a cast took its caster's part in the session they are in",
+		"castId", cast.id, sessionIDAttribute, into.id, "isHost", caster.isHost)
+	return true
 }
 
 // EndCast ends the cast castID that userID cast: each of its devices is told why and let go, and its
@@ -451,12 +488,14 @@ func (hub *Hub) moveCastAlone(cast *casting) {
 		delete(hub.casts, cast.id)
 		return
 	}
+	now := hub.clock.Now()
 	playing := where.group
-	taken, devices := where.takeCastOut(hub.clock.Now(), caster, cast.id, nil)
+	taken, devices := where.takeCastOut(now, caster, cast.id, nil)
 	cast.movedDevices = devices
 	hub.openAlone(cast, Person{UserID: cast.userID, Name: caster.name}, cast.id)
 	alone, own := hub.castersPart(cast)
 	alone.group = playing
+	cast.handed.leave(where, alone, now)
 	own.credentials = append(own.credentials, taken...)
 	cast.held = ""
 	hub.movedToTell = append(hub.movedToTell, EndedCast{CastID: cast.id, UserID: cast.userID})

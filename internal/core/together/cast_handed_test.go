@@ -91,6 +91,81 @@ func TestCast_ACastMovingIntoItsCastersPartPlaysOnFromWhereItStood(t *testing.T)
 	}
 }
 
+// A person casting alone who joins another's session by its link takes the cast into their part at
+// the join, before any device of theirs says hello there: the castee follows the session, handed the
+// session's film from where the session stands, not its own film from where that stood (D555 §1,
+// §7). Leaving, the cast plays on alone with the session's film from where the session stood as they
+// left, not from where it stood at the join, and is told moved once (the walk on staging,
+// 2026-11-25: the castee kept its own film, then at the leave was handed it from the join's
+// position).
+func TestCast_ACastJoiningASessionByLinkFollowsTheSessionAndLeavesWithItsFilm(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	var moved []EndedCast
+	stage.hub.OnCastMoved(func(each EndedCast) { moved = append(moved, each) })
+	host, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+	stage.command(t, host, CommandChangeItem, 9)
+	stage.ready(t, host, false)
+	stage.clock.Advance(40 * time.Second)
+	cast, err := stage.hub.OpenCast(alone, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	own := CastFilm{FileID: 7, ItemID: 70, ItemName: "synthetic film", DurationMs: 3_600_000}
+	if err = stage.hub.CastPuts(cast.CastID, alone.UserID, own, nil, false); err != nil {
+		t.Fatal(err)
+	}
+	castee, _ := stage.attach(t, cast.ReceiverCredential, RoleVideo)
+	stage.command(t, castee, CommandChangeItem, own.FileID)
+	stage.ready(t, castee, false)
+	stage.clock.Advance(30 * time.Second)
+	made, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "a friend", Rights{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined, err := stage.hub.Join(made.Secret, "Friend", &alone, Leaving{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(joined.CastsMoved) != 1 || joined.CastsMoved[0] != cast.CastID {
+		t.Fatalf("the join moved casts %v; want cast %d", joined.CastsMoved, cast.CastID)
+	}
+	if sessionID, isHost := stage.hub.CastPart(cast.CastID, alone.UserID); sessionID != stage.opened.SessionID ||
+		isHost {
+		t.Fatalf("the cast is a part in session %d (host %v); want a guest's in %d", sessionID, isHost,
+			stage.opened.SessionID)
+	}
+	sessionMs := stage.groupPositionMs(stage.opened.SessionID)
+	stage.wantPlaying(t, cast.CastID, "a cast that joined a session", 9, sessionMs)
+	stage.clock.Advance(20 * time.Second)
+	leftMs := stage.groupPositionMs(stage.opened.SessionID)
+	if err = stage.hub.Leave(joined.MembershipCredential); err != nil {
+		t.Fatal(err)
+	}
+	if sessionID, _ := stage.hub.CastPart(cast.CastID, alone.UserID); sessionID != 0 {
+		t.Fatalf("after the leave the cast is a part in session %d; want it alone", sessionID)
+	}
+	stage.wantPlaying(t, cast.CastID, "a cast whose caster left the session", 9, leftMs)
+	if len(moved) != 1 || moved[0].CastID != cast.CastID {
+		t.Errorf("the hub told casts moved %+v; want cast %d once", moved, cast.CastID)
+	}
+}
+
+// wantPlaying fails the test, saying what, unless alone's cast castID hands its castee the film
+// fileID from positionMs, playing.
+func (stage sessionStage) wantPlaying(t *testing.T, castID int64, what string, fileID, positionMs int64) {
+	t.Helper()
+	handed, err := stage.hub.CastHandedOf(castID, alone.UserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if handed.Film.FileID != fileID || handed.PositionMs == nil || *handed.PositionMs != positionMs ||
+		handed.IsPaused {
+		t.Fatalf("%s is handed %+v from %v; want film %d from %d ms, playing", what, handed, handed.PositionMs,
+			fileID, positionMs)
+	}
+}
+
 // A cast its castee has not taken within CastUnansweredAfter of its start ends, its castee told
 // unanswered, and not before; one taken goes on however long (D358 §4, principles §28): a castee
 // never handed the question, its caster's page gone, left the caster asking (the owner, 2026-11-03).

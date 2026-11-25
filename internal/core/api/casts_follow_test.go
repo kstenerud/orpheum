@@ -137,6 +137,50 @@ func TestCast_JoiningASessionTakesTheCastIntoIt(t *testing.T) {
 	}
 }
 
+// A person casting a film alone who joins a session playing another takes the cast into their part
+// as its follower (D555 §7): the TV is handed the session's film, by name, from where the session
+// stands, and the caster's remote is told it, not the film it played alone (the walk on staging,
+// 2026-11-25: the TV kept its own film while joined to the session, the remote naming it too).
+func TestCast_JoiningASessionWhileCastingAFilmPutsTheSessionsFilmOn(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	hostToken := harness.createAdminAndSignIn(t)
+	partnerToken := harness.signInPartner(t)
+	harness.shelveFilms(t)
+	harness.fileFilmAsTitle(t, "Metropolis")
+	tvToken := harness.signIn(t, "partner", "partner-password")
+	tv := harness.thisDevice(t, tvToken)
+	tvSocket := harness.dialLive(t, tvToken)
+	tvSocket.awaitDevices(tv)
+	phoneSocket := harness.dialLive(t, partnerToken)
+	cast := startedCast(t, harness.do(t, http.MethodPost, "/me/casts", partnerToken, map[string]any{"toDeviceId": tv}))
+	playPath := fmt.Sprintf("/me/casts/%d/play", cast.CastID)
+	if played := harness.do(t, http.MethodPost, playPath, partnerToken,
+		map[string]any{"fileId": 2, "positionMs": 7_000}); played.status != http.StatusOK {
+		t.Fatalf("POST %s = %d %s", playPath, played.status, played.body)
+	}
+	tvSocket.await(live.MessageReceive, func(message live.Outbound) bool { return message.Receive.FileID == 2 })
+	hosted := harness.openTogether(t, hostToken)
+	player := harness.dialCast(t, hosted.Body.MembershipCredential, together.RoleVideo)
+	player.awaitWelcome()
+	player.send(together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageCommand, Command: together.CommandChangeItem, FileID: 1,
+	})
+	player.send(together.Inbound{V: together.ProtocolVersion, Type: together.MessageState, IsPlaying: true, FileID: 1})
+	player.awaitGroup(together.GroupPlaying)
+	harness.joinByLinkAs(t, hostToken, partnerToken, hosted.Body.SessionID)
+	handed := tvSocket.await(live.MessageReceive, func(message live.Outbound) bool {
+		return message.Receive.CastID == cast.CastID && message.Receive.TogetherCredential != "" &&
+			message.Receive.FileID == 1 && message.Receive.ItemName == "Metropolis"
+	}).Receive
+	if !handed.IsTogetherFollower || handed.PositionMs == nil {
+		t.Errorf("the TV was handed %+v; want the session's film 1 from where it stands, following", handed)
+	}
+	phoneSocket.await(live.MessageSending, func(message live.Outbound) bool {
+		return message.Sending != nil && message.Sending.FileID == 1 && message.Sending.ItemName == "Metropolis"
+	})
+}
+
 // A host starting another session keeps their cast (D555 §7): the host casts their part in one
 // session, opens another, and their TV is handed the cast again with their part in the new one,
 // leading it, rather than ending with the first.

@@ -494,6 +494,35 @@ func (server *Server) castsTakePart(ctx context.Context, dependencies *Dependenc
 	}
 }
 
+// castsFollowIn names, by the joining person's rights, the session's film each cast the join took
+// into their part as a guest's follows (D555 §1, §7), so its castee is handed it and its remote shows
+// it by name, as a cast opened in the session is (sessionsFilm); one they cannot reach stays named by
+// its ids, the castee playing it by the membership (D246 §3). The hub put it on, from where the
+// session stands, as the cast moved.
+func (server *Server) castsFollowIn(
+	ctx context.Context, dependencies *Dependencies, token string, joined together.Joined,
+) {
+	if len(joined.CastsMoved) == 0 {
+		return
+	}
+	principal, err := dependencies.Auth.Authenticate(ctx, token)
+	if err != nil {
+		return // signed in a moment ago: the castee follows the film by its ids
+	}
+	for _, castID := range joined.CastsMoved {
+		if _, isHost := dependencies.Together.CastPart(castID, principal.UserID); isHost {
+			continue // the host's player leads with its own film
+		}
+		handed, err := dependencies.Together.CastHandedOf(castID, principal.UserID)
+		if err != nil || handed.Film.FileID == 0 {
+			continue
+		}
+		film := server.sessionsFilm(ctx, dependencies, principal, castID)
+		//nolint:errcheck // a cast ended meanwhile is handed nothing
+		_ = dependencies.Together.CastPuts(castID, principal.UserID, film, handed.PositionMs, handed.IsPaused)
+	}
+}
+
 func (server *Server) joinTogether(ctx context.Context, input *JoinTogetherInput) (*JoinTogetherOutput, error) {
 	dependencies, err := server.readyDependencies()
 	if err != nil {
@@ -521,6 +550,7 @@ func (server *Server) joinTogether(ctx context.Context, input *JoinTogetherInput
 	server.logger.InfoContext(ctx, "watch together: someone joined by a link",
 		"sessionId", joined.SessionID, "memberId", joined.MemberID, "name", name, "isSignedIn", person != nil)
 	if person != nil { // a guest's cast goes into the session they join (D555 §7)
+		server.castsFollowIn(ctx, dependencies, bearerToken(input.Authorization), joined)
 		server.castsTakePart(ctx, dependencies, person.UserID, joined.SessionID)
 	}
 	output := &JoinTogetherOutput{}

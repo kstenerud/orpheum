@@ -92,6 +92,35 @@ func (kept *handed) anchor(from, into *session, now time.Time) {
 	kept.putSeq = into.group.seq
 }
 
+// follow has the cast, moved into a guest's part in into, hand the film into plays from where into
+// stands, as any guest's player follows it (D555 §1, §7): its own film is left behind, so the castee
+// is not handed a film the session does not play. The film is named by its ids alone until the
+// caster's rights name it (the API's CastPuts); nothing, the castee ready, while into plays nothing.
+func (kept *handed) follow(into *session, now time.Time) {
+	kept.video = CastFilm{FileID: into.group.fileID, ItemID: into.group.itemID}
+	kept.startMs, kept.isPaused = nil, false
+	if into.group.fileID != 0 {
+		positionMs := into.positionAt(now).Milliseconds()
+		kept.startMs, kept.isPaused = &positionMs, into.group.state == GroupPaused
+	}
+	kept.putSeq = into.group.seq
+}
+
+// leave has the film handed be the one from played as the cast left it for into, its own session of
+// one, from where from stood then (D555 §5, §7: every move keeps the position): a castee that
+// followed the session, or led it on to another film, plays on with that film, never the one it was
+// handed before, nor from where that was put. Where from played nothing, what was handed stands.
+func (kept *handed) leave(from, into *session, now time.Time) {
+	if from.group.fileID != 0 {
+		if kept.video.FileID != from.group.fileID {
+			kept.video = CastFilm{FileID: from.group.fileID, ItemID: from.group.itemID}
+		}
+		positionMs := from.positionAt(now).Milliseconds()
+		kept.startMs, kept.isPaused = &positionMs, from.group.state == GroupPaused
+	}
+	kept.putSeq = into.group.seq
+}
+
 // CastUnansweredAfter is how long a cast's castee may leave its question unanswered before the hub
 // ends the cast itself (D358 §4; principles §28): the castee ends it at its own minute and the caster
 // a few seconds after, but a castee never handed the question, or a caster whose page went away, ends
