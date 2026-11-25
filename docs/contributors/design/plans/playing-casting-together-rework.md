@@ -136,6 +136,44 @@ Its pages, routes, words, menu entry and the server's `/lab/` endpoints.
 Package documents and invariants, the amended decisions' status lines, the device walks
 (verification-queue.md), one `make check-pr`, staging.
 
+## Walked on staging (2026-11-25, after phase 1)
+
+By the lead, on headless browsers, the Fire TV, the Pixel and the Chromecast, with two test
+accounts.
+
+**Passes:** a cast from a page naming no film while in a session; a castee loaded again (it comes
+back within 1–3 s of where it stood, headless); the host's Move here ends the cast; the host
+ending the session mid-cast; a signed-in guest's "Move it here" on a second device, casting and
+not; a plain cast from the Pixel to the Chromecast, and its Stop.
+
+**Fails, being fixed in this batch:**
+
+1. **A signed-in person casting alone who joins a session by a link:** their castee is told
+   nothing at the join and plays its own film on. At their leave it is handed twice, the second
+   time the session's film from 0:00.
+2. **A page left open does not learn its person's part changed elsewhere:** it offers Start a
+   session while they are in one on another device, or Move here after the session ended. Nothing
+   is pushed, and the dialog asks nothing when it opens.
+
+**Fails phase 4 builds:** a silent castee's cast ends at 20 s as it should, with no reconnecting
+sign from 5 s, and its caster stays a remote showing the old unreachable note; Stop casting alone
+plays on at the caster where D555 §6 says paused.
+
+**Not walked:** a by-link guest's cast to the Chromecast (the Pixel's Chrome showed no device
+picker after its local-network question); a castee switched off at the wall; the Fire TV's reload
+after phase 1's last step.
+
+**Next batch, or the phase named:**
+
+- A signed-in person opening their own session's invitation link is let in as a by-link guest
+  under a name, a second place in the session for one person.
+- The cast picker lists two devices of one name alike ("Chrome on Linux" twice).
+- A session guest who casts has no Stop control within reach on its page (phase 4's page).
+- While a guest follows a session, their tray still says they cast their own film (phase 4).
+- The Chromecast's remote has back, pause and forward alone (phase 3's one set of controls).
+- "Cast again" goes 30–45 s after the unreachable note (phase 4 removes the note).
+- HTTP 425 answers repeat in the console while a film plays.
+
 ## Tests
 
 About 165 tests walk the cast remote, 57 the receiver, 188 Watch Together and 98 the lab, with
