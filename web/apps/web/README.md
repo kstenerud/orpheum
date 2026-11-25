@@ -1207,11 +1207,18 @@ The web client: the browser and phone interface, served embedded by the core. MP
   the form's Save; a setting applied at once is a Switch. `src/choices.browser.test.tsx`.
 - **The player is drawn from one set of widgets** (D369 §1): a button that is an icon alone is an
   `IconButton` (`src/icon-button.tsx`), one size, 2.75rem, the status tray's too; a film's timeline
-  is a `Timeline` (`src/timeline.tsx`), in milliseconds, touched anywhere; and the controls over a
-  film or for one elsewhere are one bar, `PlayerControls` (`src/player-controls.tsx`), fed by the
-  video here (`useVideoTarget`) or by a cast's remote, the TV overlay, a computer's and a phone's
-  controls and the cast remote alike. `src/icon-button.test.tsx`, `src/timeline.test.tsx`,
+  is a `Timeline` (`src/timeline.tsx`), in milliseconds, touched anywhere, drawn over a playback
+  target by `TargetTimeline` (`src/target-timeline.tsx`) in the bar, the overlay and the cast
+  remote alike; and the controls over a film or for one elsewhere are one bar, `PlayerControls`
+  (`src/player-controls.tsx`), the TV overlay, a computer's and a phone's controls and the cast
+  remote alike. `src/icon-button.test.tsx`, `src/timeline.test.tsx`,
   `src/player-controls.test.tsx`, `src/cast-remote.test.tsx`.
+- **The controls command a playback target** (D555 §8, §10): a `PlaybackTarget`
+  (`src/playback-target.ts`), the video here (`useVideoTarget`) or the castee through the session
+  (`useCasteeTarget`, `src/castee-target.ts`), its place, play or pause, seeks, sound and the
+  choices its menus make. A castee's key frames are asked for at its `reportedAtMs`, where it last
+  said it stands, never where a seek chosen on the remote aims. `src/castee-target.test.tsx`,
+  `src/cast-remote-frame.test.tsx`.
 - **A failure about what was typed marks the fields it is about** (plans 11-22 batch, item 6):
   `aria-invalid="true"` and described by the line that says why, from one hook, `useFormFields`
   (`src/field.tsx`), fed the fields a refusal names by `failedFields` (`src/problem.ts`: its

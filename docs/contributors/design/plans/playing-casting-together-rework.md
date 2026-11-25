@@ -126,6 +126,31 @@ SDK, are outside its reading. Until phase 5 the lab's Chromecast sender pages ge
    for the target, or no right for a guest, is not shown.
 3. **Key frames are asked for at the castee's reported position.**
 
+**Built (2026-11-25):** the target, `PlaybackTarget` (`web/apps/web/src/playback-target.ts`): the
+bar's `PlayerSource` with which device plays, where it last said its film stands with no seek
+chosen here counted (`reportedAtMs`), and its menus' choices. Its two implementations,
+`useVideoTarget` for the video here and `useCasteeTarget` for the castee, which the cast remote
+now uses. The one timeline, `TargetTimeline`, drawn by the bar, the overlay and the remote. The
+remote's key frame is asked for at the castee's reported place: while a seek is sent it stays on
+the frame it showed, and moves once the castee says it got there.
+
+**Left:**
+
+- **One set of menus.** The Play page still draws `PlayerMenus` over the video and the remote
+  `RemoteMenus` over the castee's choices (`CasteeChoices`). Making them one entry point that
+  reads the target's choices is next; making them one body needs the video here to say its
+  sound and picture as a castee does, which the receiver's command core moving into a package
+  gives.
+- **One Up next.** The Play page's (`up-next.tsx`) runs off the video, with its countdown; the
+  remote's (`cast-remote-offer.tsx`) moves the cast on. Neither reads the target yet.
+- **A guest's rights.** No choice is hidden for a guest that was not hidden before.
+
+**Found:** the server does not tell a caster the castee's own reports: the castee's report of
+its place only moves the group's position on the server (`followLeader`,
+`internal/core/together/group.go`), and the roster carries no position. So `reportedAtMs` on a
+castee is the group's position as last heard, moved on by the clock, without the remote's seek
+aim. A frame at the place the castee reports itself needs the server to pass that report on.
+
 ### Phase 4: the one Play page (D555 §5, §6, §8–11)
 
 1. **The top bar shows when the page is not full screen;** the stage fills the window only in
