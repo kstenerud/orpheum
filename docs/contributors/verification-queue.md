@@ -4091,7 +4091,7 @@ An item is ticked only by the person who did it, and only with what they saw.
      and menus take no press, and the time stops moving.
   2. Wait for "Fire TV isn't answering". Report whether it offers both Try again and Play here.
   3. Press Play here. Report whether the film plays on the phone from about where the TV stood.
-- [ ] **VQ400** — A page whose discovery requests are never answered leaves "Connecting" for its wait
+- [x] **VQ400** — A page whose discovery requests are never answered leaves "Connecting" for its wait
   for the network (D551): only the owner's phone, with uBlock Origin, holds the requests. On the
   Samsung phone's Firefox for Android:
   1. Turn uBlock Origin back on for the site (undo the trusted mark or the disable).
@@ -4099,3 +4099,5 @@ An item is ticked only by the person who did it, and only with what they saw.
      for "Waiting for the network", and whether it then tries again by itself (a new "Connecting",
      after 5 s, then longer waits), instead of staying at "Connecting".
   3. Press Try again. Report whether it tries at once.
+  **Passed 2026-11-25 (the owner, staging, Firefox for Android with uBlock Origin on):** "FF android
+  now works through a reload with ublock origin enabled again."
