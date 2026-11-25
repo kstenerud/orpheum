@@ -194,6 +194,14 @@ shows the castee's key frame and its own bar; Play, Pause and both 10 s steps re
 Chromecast; Stop casting brings the film back here paused at the Chromecast's place, with no
 note.
 
+A Watch Together session started and ended during the cast keeps the page's controls on the
+Chromecast (the session's end still sends the page Home, from where the cast's sign leads back).
+Stop casting after such a session failed, the page left empty: the server sent the cast's end on
+a closed connection and panicked. Fixed (`fix(cast): a device gone since its cast left a session
+is sent nothing at the cast's end`) and walked again. Seen once, not looked into: with that Stop
+failing, the page showed nothing and Cast's dialog opened; what the page shows when a Stop fails
+is for the next batch.
+
 ### Phase 5: the lab goes (D555 §12)
 
 Its pages, routes, words, menu entry and the server's `/lab/` endpoints.
