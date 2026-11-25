@@ -469,9 +469,12 @@ func (registry *Registry) HandAgain(userID, castID int64) bool {
 	return false
 }
 
-// handAgain hands held to the connection of owner's that holds it: whether one did. The caller holds
-// the mutex.
+// handAgain hands held to the connection of owner's that holds it: whether one did. Its sender's
+// pages are told the cast as it is now either way, what it plays the hub's: a castee that went with
+// its member plays what their part does, and the remote shows that, not the film it put before. The
+// caller holds the mutex.
 func (registry *Registry) handAgain(owner *person, held *heldCast) bool {
+	defer registry.tellSending(owner, held.SenderDeviceID)
 	holder := owner.connections[held.heldBy]
 	if holder == nil {
 		return false // the next connection of the receiver is handed it, with the part as it is then

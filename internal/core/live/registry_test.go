@@ -603,6 +603,28 @@ func TestRegistry_StartingWatchTogetherWhileCastingHandsTheReceiverItsPart(t *te
 	}
 }
 
+// A cast its person takes into a session playing another film is handed again with that film, and
+// the sender's pages are told it too, so the remote names the film the receiver now plays, not the
+// one it played alone (D555 §7; the walk on staging, 2026-11-25: the remote kept the old film).
+func TestRegistry_ACastHandedAgainTellsItsSenderTheFilmItNowPlays(t *testing.T) {
+	t.Parallel()
+	registry := NewRegistry(minted(), newClock())
+	sessions := map[int64]int64{}
+	registry.TakesPartBy(func(_, userID int64) (int64, bool) { return sessions[userID], false })
+	facts := handsFrom(registry)
+	facts[5] = Handed{FileID: 3, ItemName: "synthetic film"}
+	sender, _ := castWithNothingOn(t, registry)
+	sessions[owner] = 1
+	facts[5] = Handed{FileID: 9, ItemName: "movie name"} // the session's film, which the cast now follows
+	if handed := registry.PartChanged(owner); len(handed) != 1 {
+		t.Fatalf("PartChanged handed %+v again; want cast 5 alone", handed)
+	}
+	if told, _ := sender.last(MessageSending); told.Sending == nil || told.Sending.FileID != 9 ||
+		told.Sending.ItemName != "movie name" {
+		t.Errorf("the phone was told it sends %+v; want the session's film 9", told.Sending)
+	}
+}
+
 // A cast the hub ended silent ends by its id alone, its sender told it sends nothing (D555 §3).
 func TestRegistry_EndSilentEndsTheCastByItsIDItsSenderTold(t *testing.T) {
 	t.Parallel()
