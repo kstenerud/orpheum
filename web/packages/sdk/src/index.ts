@@ -245,6 +245,7 @@ export {
   createTogetherConnection,
   expectedGroupPositionMs,
   pingEveryMs,
+  castReportEveryMs,
 } from "./together-connection.ts";
 export { isLeaderOf, leaderOf } from "./together-roster.ts";
 export { createLiveConnection } from "./live-connection.ts";

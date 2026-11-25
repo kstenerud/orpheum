@@ -91,6 +91,11 @@ export interface TogetherConnectionOptions {
    * video viewer, when not given.
    */
   readonly role?: DeviceRole | undefined;
+  /**
+   * How often it says where it is when nothing changes, in ms: stateEveryMs when not given; a cast's
+   * castee says it each castReportEveryMs, its silence ending its cast (D555 §3).
+   */
+  readonly stateEveryMs?: number | undefined;
   readonly openSocket: OpenTogetherSocket;
   /** A monotonic clock in ms (performance.now): no clock is shared with the server (D66). */
   readonly monotonicMs: () => number;

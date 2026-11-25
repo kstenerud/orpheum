@@ -560,7 +560,6 @@ function RemotePlaying(props: {
         art={title.art}
         film={volume.isShown ? film : undefined}
         ended={props.ended}
-        isHeard={isHeard}
         isServerLost={isServerLostIn([props.cast, hosted])}
       />
       <RemoteTimeline source={source} isDisabled={isDisabled} />

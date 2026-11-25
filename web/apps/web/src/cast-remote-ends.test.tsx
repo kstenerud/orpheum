@@ -6,7 +6,6 @@ import "./i18n.ts";
 import { act, useEffect } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { endCast } from "./cast.ts";
-import { notAnsweringAfterMs } from "./cast-remote-offer.tsx";
 import { tellCastSessionLinked, tellCastSessionLost } from "./cast-session-lost.ts";
 import { useTellsTheHost } from "./cast-remote-ends.ts";
 import { CastRemote } from "./cast-remote.tsx";
@@ -36,6 +35,9 @@ import {
 import { withServices } from "./test-services.tsx";
 import { fakeTogetherServer, liveAndSession } from "./test-together.ts";
 import type { Upward } from "./upward.ts";
+
+/** Longer than any wait the remote once gave its receiver up after (D554 §1), none now (D555 §3). */
+const longWaitMs = 30_000;
 
 describe("a Play page's video area as the cast's remote as its cast is taken back, ends or moves on (D364 §8; D385)", () => {
   let mounted: Mounted | undefined;
@@ -385,9 +387,8 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
     }
   });
 
-  // The owner, 2026-11-25, the Chromecast switched off while hosting: "I think that it should give
-  // up playing earlier (at the point where it should show the try again button)." (D554 §1)
-  it("gives its receiver up once it has not been reached for the wait while this tab hosts Watch Together, ending the cast with its receiver gone, and plays the film here as the end comes (D554 §1, D553 §3)", async () => {
+  // The Chromecast switched off while hosting: the server ends its silent cast (D555 §3).
+  it("ends nothing itself as its receiver goes unreached while this tab hosts Watch Together, and plays the film here as the server's end comes, its receiver gone (D555 §3, D553 §3)", async () => {
     const heard: Heard[] = [];
     const { castSession, onPlayHere } = await castingWhileHosting(heard);
     const ends = (): unknown[] =>
@@ -398,14 +399,9 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
     try {
       await castSession.say({ type: "roster", roster: [] }); // the receiver no longer leads
       act(() => {
-        vi.advanceTimersByTime(notAnsweringAfterMs - 1_000);
+        vi.advanceTimersByTime(longWaitMs);
       });
       expect(ends()).toEqual([]);
-      act(() => {
-        vi.advanceTimersByTime(1_000);
-      });
-      await settleUntil(() => ends().length > 0);
-      expect(ends()).toEqual(["receiverGone"]);
       expect(buttonWithText(mounted!.container, "Try again")).toBeUndefined();
       await castSession.say({ type: "ended", reason: "receiverGone" });
       await settleUntil(() => onPlayHere.mock.calls.length > 0);
@@ -420,8 +416,8 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
   });
 
   // The owner's Fire TV, 2026-11-25: a receiver page held for its press (D468 §2) is connected and
-  // answering with no place yet; the remote said it wasn't answering. Only one unheard is given up.
-  it("gives up no receiver that is heard but holds no place yet, held for its press, and says nothing of it not answering; one that leaves the person's devices is given up after the wait (D554 §1, D468 §2)", async () => {
+  // answering with no place yet; the remote said it wasn't answering.
+  it("gives up no receiver that is heard but holds no place yet, held for its press, and says nothing of it not answering (D554 §1, D468 §2)", async () => {
     const heard: Heard[] = [];
     const noPlace = { ...welcome, group: { state: "paused", rate: 1, fileId: 4 } };
     const { sockets } = await casting(
@@ -439,21 +435,11 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
     try {
       act(() => {
-        vi.advanceTimersByTime(notAnsweringAfterMs * 3);
+        vi.advanceTimersByTime(longWaitMs);
       });
       expect(ends()).toEqual([]);
       expect(mounted!.container.querySelector(".cast-remote__note")).toBeNull();
       expect(mounted!.container.textContent).not.toContain("answering");
-      await sockets.live.say({ ...devices, deviceIds: [1], receivingDeviceIds: [] });
-      act(() => {
-        vi.advanceTimersByTime(notAnsweringAfterMs - 1_000);
-      });
-      expect(ends()).toEqual([]);
-      act(() => {
-        vi.advanceTimersByTime(1_000);
-      });
-      await settleUntil(() => ends().length > 0);
-      expect(ends()).toEqual(["receiverGone"]);
     } finally {
       vi.useRealTimers();
     }
@@ -500,7 +486,7 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
 
   // The owner, 2026-11-25, a Chromecast switched off: Chrome's Cast session ended with no Stop, and
   // the remote said nothing of it; the cast is ended by the server's receiverGone alone (D553 §5).
-  it("reaches a guest receiver whose Cast session was lost, no leader shown, then, unheard for the wait, gives it up, ending the cast with its receiver gone, and says it is unreachable, with Play here (D553 §5, D554 §1, §4)", async () => {
+  it("reaches a guest receiver whose Cast session was lost, no leader shown, ends nothing itself however long, and, the server ending the cast with its receiver gone, says it is unreachable, with Play here (D553 §5, D554 §4, D555 §3)", async () => {
     const heard: Heard[] = [];
     const { sockets } = await casting(
       { "POST /me/casts/9/end": [200, { positionMs: 61_000, isPlaying: false }] },
@@ -521,7 +507,7 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
       });
       expect(pill()).toBe("Reaching Fire TV…");
       act(() => {
-        vi.advanceTimersByTime(notAnsweringAfterMs);
+        vi.advanceTimersByTime(longWaitMs);
       });
       const note = (): string | undefined =>
         mounted?.container.querySelector(".cast-remote__note")?.textContent ?? undefined;
@@ -529,8 +515,7 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
         heard
           .filter((each) => each.methodAndPath.startsWith("POST /me/casts/"))
           .map((each) => bodyField(each, "reason"));
-      await settleUntil(() => ends().length > 0);
-      expect(ends()).toEqual(["receiverGone"]);
+      expect(ends()).toEqual([]);
       await sockets.live.say({ type: "sending" });
       await sockets.session.say({ type: "ended", reason: "receiverGone" });
       expect(note()).toContain("Fire TV unreachable");

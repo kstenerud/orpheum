@@ -8,6 +8,7 @@ import {
   longestReconnectWaitMs,
   pingEveryMs,
   stateEveryMs,
+  castReportEveryMs,
   youngPingEveryMs,
   youngPings,
 } from "./together-connection.ts";
@@ -431,6 +432,41 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
       vi.advanceTimersByTime(pingEveryMs);
     }
     expect(states()).toHaveLength(3);
+  });
+});
+
+describe("a connection given its own report interval (D555 §3)", () => {
+  it("reports the player's state each stateEveryMs it is given", () => {
+    vi.useFakeTimers();
+    try {
+      const sockets = fakeSockets();
+      const connection = createTogetherConnection({
+        credential: "c",
+        openSocket: sockets.open,
+        monotonicMs,
+        stateEveryMs: castReportEveryMs,
+      });
+      connection.open();
+      connection.setPlayer(() => ({
+        fileId: 7,
+        positionMs: 0,
+        isPlaying: false,
+        isBuffering: false,
+      }));
+      sockets.opened[0]!.onOpen();
+      sockets.opened[0]!.onMessage(JSON.stringify(welcome));
+      const states = (): number => sockets.sent.filter((each) => each["type"] === "state").length;
+      const welcomed = states();
+      vi.advanceTimersByTime(castReportEveryMs - 1);
+      expect(states()).toBe(welcomed);
+      vi.advanceTimersByTime(1);
+      expect(states()).toBe(welcomed + 1);
+      vi.advanceTimersByTime(castReportEveryMs * 2);
+      expect(states()).toBe(welcomed + 3);
+      connection.close();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

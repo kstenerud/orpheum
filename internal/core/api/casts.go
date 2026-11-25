@@ -82,7 +82,7 @@ type EndCastInput struct {
 	AuthorizationHeader
 	CastID int64 `minimum:"1" path:"id"`
 	Body   struct {
-		Reason string `doc:"takenBack on the receiver, stopped on the remote, receiverGone on the sender as the remote gives a receiver unheard for its wait up (D554 §1), declined or unanswered as the receiver was asked (D358); no receiver takes the cast over (D446 §4)" enum:"takenBack,stopped,receiverGone,declined,unanswered" json:"reason"` //nolint:lll // one struct tag
+		Reason string `doc:"takenBack on the receiver, stopped on the remote, declined or unanswered as the receiver was asked (D358); no receiver takes the cast over (D446 §4), and a castee unheard is the server's end alone, no sender's (D555 §3)" enum:"takenBack,stopped,declined,unanswered" json:"reason"` //nolint:lll // one struct tag
 	}
 }
 
@@ -405,6 +405,7 @@ func (server *Server) acceptCast(ctx context.Context, input *AcceptCastInput) (*
 	if err != nil {
 		return nil, server.castRefused(ctx, principal, "accept", err, "castId", input.CastID)
 	}
+	dependencies.Together.CastHeard(accepted.ID, principal.UserID) // its deadline runs (D555 §3)
 	credential, err := dependencies.Together.CastCredential(accepted.ID, principal.UserID)
 	if err != nil {
 		return nil, server.castRefused(ctx, principal, "accept", live.ErrNoCast, "castId", input.CastID)

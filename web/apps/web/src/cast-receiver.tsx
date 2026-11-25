@@ -4,6 +4,7 @@ import "./cast.css";
 import "./cast-words.ts";
 
 import {
+  castReportEveryMs,
   pageActivation,
   playedMutedEvent,
   soundOnAtTap,
@@ -248,6 +249,7 @@ function useReceiversSessions(cast: CastToReceive): {
     credential: cast.membershipCredential,
     sessionToken: token,
     role: isLeadingHosted ? "panel" : undefined,
+    stateEveryMs: castReportEveryMs, // its silence ends the cast (D555 §3)
   });
   const hosted = useTogether({
     credential: isOne ? undefined : cast.togetherCredential,

@@ -39,6 +39,8 @@ export interface TogetherDevice {
   readonly sessionToken?: string | undefined;
   /** What the device does for its member (D120): "video" when not given; a cast's remote plays nothing. */
   readonly role?: DeviceRole | undefined;
+  /** How often it says where it is, in ms: the connection's own when not given (D555 §3). */
+  readonly stateEveryMs?: number | undefined;
 }
 
 /**
@@ -58,7 +60,7 @@ export function useTogether(device: TogetherDevice): {
   readonly snapshot: TogetherSnapshot | undefined;
 } {
   const { openTogetherSocket, onPathBack } = useServices();
-  const { credential, sessionToken, role } = device;
+  const { credential, sessionToken, role, stateEveryMs } = device;
   const connection = useMemo(
     () =>
       credential === undefined
@@ -70,6 +72,7 @@ export function useTogether(device: TogetherDevice): {
             client: builtScriptOf(document),
             sessionToken,
             role,
+            stateEveryMs,
             openSocket: openTogetherSocket,
             monotonicMs,
             // Shown again, its socket is checked at once: an unlocked phone's may have died unseen.
@@ -80,7 +83,7 @@ export function useTogether(device: TogetherDevice): {
             // as closing the tab does; back from that cache, it connects again (the owner, 2026-10-29).
             leftPage: window,
           }),
-    [credential, sessionToken, role, openTogetherSocket, onPathBack],
+    [credential, sessionToken, role, stateEveryMs, openTogetherSocket, onPathBack],
   );
   useEffect(() => {
     connection?.open();

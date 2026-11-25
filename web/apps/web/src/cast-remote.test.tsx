@@ -6,7 +6,6 @@ import "./i18n.ts";
 import { useState, type JSX } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";
-import { notAnsweringAfterMs } from "./cast-remote-offer.tsx";
 import { CastRemote } from "./cast-remote.tsx";
 import { startCast } from "./cast.ts";
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
@@ -76,6 +75,9 @@ function partIn(container: Element, selector: string): Element {
   }
   return part;
 }
+
+/** Longer than any wait the remote once gave its receiver up after (D554 §1), none now (D555 §3). */
+const longWaitMs = 30_000;
 
 describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", () => {
   let mounted: Mounted | undefined;
@@ -431,7 +433,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     ]);
   });
 
-  it("says it is reaching the receiver while it is not reached, its pad and menus taking no press, and after 15 s gives it up, ending the cast with its receiver gone, no Try again (D548 §9, D554 §1)", async () => {
+  it("says it is reaching the receiver while it is not reached, its pad and menus taking no press, and ends nothing itself however long it goes unreached, the server's end alone (D548 §9, D555 §3)", async () => {
     const heard: Heard[] = [];
     const { sockets } = await casting(
       { "POST /me/casts/9/end": [200, { positionMs: 61_000, isPlaying: false }] },
@@ -459,20 +461,11 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
           .filter((each) => each.methodAndPath === "POST /me/casts/9/end")
           .map((each) => bodyField(each, "reason"));
       act(() => {
-        vi.advanceTimersByTime(notAnsweringAfterMs - 1_000);
+        vi.advanceTimersByTime(longWaitMs);
       });
       expect(page.querySelector(".cast-remote__note")).toBeNull();
       expect(ends()).toEqual([]);
-      act(() => {
-        vi.advanceTimersByTime(1_000);
-      });
-      await settleUntil(() => ends().length > 0);
-      expect(ends()).toEqual(["receiverGone"]);
-      expect(buttonWithText(page, "Try again")).toBeUndefined();
-      act(() => {
-        vi.advanceTimersByTime(notAnsweringAfterMs);
-      });
-      expect(ends()).toEqual(["receiverGone"]); // given up once
+      expect(pill()).toBe("Reaching Fire TV…");
     } finally {
       vi.useRealTimers();
     }

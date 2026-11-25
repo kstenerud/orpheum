@@ -39,11 +39,6 @@ type Credential func(castID, userID int64) (string, error)
 // it (D555 §1, §2): the hub's CastPart. The session is the one whose end ends the cast (EndPartIn).
 type TogetherPart func(castID, userID int64) (sessionID int64, isHost bool)
 
-// ReceiverGoneAfter is how long a cast's receiver may have no connection before its cast ends, the
-// sender told (D364 §6): a television switched off or its page closed, not one loaded again or
-// reconnecting, which comes back in seconds. The owner's two minutes.
-const ReceiverGoneAfter = 2 * time.Minute
-
 // UnansweredAfter is how long a cast's receiver may leave its question unanswered before the core
 // ends the cast itself (D358 §4; principles §28): the receiver ends it at its own minute and the
 // sender a few seconds after, but a receiver never handed the question, or a sender whose page went
@@ -122,8 +117,6 @@ type connection struct {
 type heldCast struct {
 	Cast
 	heldBy int64
-	// goneSince is when the receiver's last connection closed, zero while it has one (EndGone).
-	goneSince time.Time
 	// askedAt is when the receiver was asked whether to be used (EndUnanswered).
 	askedAt time.Time
 	// partIn is the Watch Together session the receiver was last handed its person's part in, 0 for
@@ -172,9 +165,6 @@ func (registry *Registry) Connect(userID, deviceID int64, isInFront bool, send S
 		opened.frontSince = registry.fronts
 	}
 	owner.connections[opened.id] = opened
-	if held := owner.casts[deviceID]; held != nil {
-		held.goneSince = time.Time{}
-	}
 	send(owner.sendingMessage(deviceID)) // before the devices, so the page knows both at once
 	if wasConnected && wasInFront == owner.isInFront(deviceID) {
 		send(owner.devicesMessage())
@@ -213,8 +203,8 @@ func (registry *Registry) ShowFront(shown Connection, isInFront bool) {
 }
 
 // Disconnect removes a connection that ended: its person's other connections are told when its
-// device is no longer connected, and a cast it held waits for the device's next connection, ended by
-// EndGone if none comes within ReceiverGoneAfter.
+// device is no longer connected, and a cast it held waits for the device's next connection, the hub
+// ending it once its castee is silent (D555 §3).
 func (registry *Registry) Disconnect(gone Connection) {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
@@ -231,9 +221,6 @@ func (registry *Registry) Disconnect(gone Connection) {
 		if held.heldBy == gone.ID {
 			held.heldBy = 0
 		}
-	}
-	if held := owner.casts[gone.DeviceID]; held != nil && !owner.isConnected(gone.DeviceID) {
-		held.goneSince = registry.clock.Now()
 	}
 	if !owner.isConnected(gone.DeviceID) || wasInFront != owner.isInFront(gone.DeviceID) {
 		owner.tellDevices()
@@ -343,10 +330,33 @@ func (registry *Registry) End(userID, deviceID, castID int64) (Cast, error) {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
 	owner := registry.people[userID]
-	held := owner.castByEither(castID, deviceID)
+	return registry.endHeld(userID, owner.castByEither(castID, deviceID))
+}
+
+// EndSilent ends userID's cast castID, which the hub ended as its castee went silent (D555 §3), and
+// returns it, its sender told it sends no more.
+func (registry *Registry) EndSilent(userID, castID int64) (Cast, error) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	owner := registry.people[userID]
+	var silent *heldCast
+	if owner != nil {
+		for _, held := range owner.casts {
+			if held.ID == castID {
+				silent = held
+			}
+		}
+	}
+	return registry.endHeld(userID, silent)
+}
+
+// endHeld ends held, a cast of userID's, its sender and their devices told; ErrNoCast for none. The
+// caller holds the mutex.
+func (registry *Registry) endHeld(userID int64, held *heldCast) (Cast, error) {
 	if held == nil {
 		return Cast{}, ErrNoCast
 	}
+	owner := registry.people[userID]
 	delete(owner.casts, held.ReceiverDeviceID)
 	owner.tellSending(held.SenderDeviceID)
 	owner.tellDevices()
@@ -432,17 +442,6 @@ func (registry *Registry) PartChanged(userID int64, positionOf func(castID int64
 	}
 	slices.SortFunc(handed, func(one, other Cast) int { return cmp.Compare(one.ID, other.ID) })
 	return handed
-}
-
-// EndGone ends every cast whose receiver has had no connection for ReceiverGoneAfter (D364 §6), its
-// sender's pages told, and returns them for their sessions to be ended.
-func (registry *Registry) EndGone() []Cast {
-	registry.mutex.Lock()
-	defer registry.mutex.Unlock()
-	now := registry.clock.Now()
-	return registry.endEvery(func(held *heldCast) bool {
-		return !held.goneSince.IsZero() && now.Sub(held.goneSince) >= ReceiverGoneAfter
-	})
 }
 
 // EndUnanswered ends every cast whose receiver has not taken it within UnansweredAfter of being

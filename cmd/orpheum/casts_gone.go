@@ -11,20 +11,20 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/together"
 )
 
-// castsGoneEvery is how often the casts whose receiver is gone, or never answered, are looked for: a
-// bound on how late, past live.ReceiverGoneAfter's two minutes or live.UnansweredAfter, a sender is
-// told (D364 §6, D358 §4); a look reads memory alone.
-const castsGoneEvery = 10 * time.Second
+// castsGoneEvery is how often the casts whose castee is silent, or never answered, are looked for: a
+// bound on how late, past together.CastSilentAfter's 20 s or live.UnansweredAfter, a cast ends and
+// its sender is told (D555 §3, D358 §4); a look reads memory alone.
+const castsGoneEvery = time.Second
 
-// goneReceivers is what knows which casts' receivers are gone or never answered, and which guest
-// receivers' casts are over: live.Registry.
+// goneReceivers is what knows which casts' receivers never answered, and which guest receivers'
+// casts are over, and tells a cast's sender it ended: live.Registry.
 type goneReceivers interface {
-	EndGone() []live.Cast
 	EndUnanswered() []live.Cast
 	EndGuests() []live.Guest
 	IsGuest(userID, deviceID int64) bool
 	GuestCastsEndingIdle() []live.Cast
 	End(userID, deviceID, castID int64) (live.Cast, error)
+	EndSilent(userID, castID int64) (live.Cast, error)
 }
 
 // guestRemover removes a guest receiver's device, its sign-in with it: auth.Service.
@@ -33,15 +33,17 @@ type guestRemover interface {
 	RemoveEveryGuestReceiver(ctx context.Context, isLive func(userID, deviceID int64) bool) error
 }
 
-// castEnder ends a cast's session, each of its devices told why: together.Hub.
+// castEnder ends a cast, each of its devices told why, and those whose castee is silent of itself:
+// together.Hub.
 type castEnder interface {
 	EndCast(sessionID, userID int64, reason string) error
+	EndSilentCasts() []together.EndedCast
 	CastIdleFor(sessionID, userID int64) (time.Duration, error)
 }
 
-// endGoneCasts ends, at each tick until ctx ends, the casts whose receiver has been gone for
-// live.ReceiverGoneAfter, their sessions ended as receiverGone so their senders are told (D364 §6),
-// and those whose receiver left its question unanswered for live.UnansweredAfter, ended as
+// endGoneCasts ends, at each tick until ctx ends, the casts whose castee the hub heard nothing from
+// for together.CastSilentAfter, by each cast's own deadline, their senders told (D555 §3), and those
+// whose receiver left its question unanswered for live.UnansweredAfter, ended as
 // unanswered (D358 §4), and the casts to a guest receiver a device code made with nothing played for
 // live.GuestIdleAfter, ended as idle (D469 §3); then it removes each guest receiver whose cast is
 // over, or that none was cast to in time (D465 §1). As it starts, it removes the guest receivers a stopped core left.
@@ -58,9 +60,12 @@ func endGoneCasts(
 			return
 		case <-tick:
 		}
-		for _, gone := range casts.EndGone() {
-			_ = hub.EndCast(gone.ID, gone.UserID, together.CastReceiverGone) //nolint:errcheck // gone is ended
-			logger.InfoContext(ctx, "cast: a cast ended, its receiver gone", "castId", gone.ID,
+		for _, silent := range hub.EndSilentCasts() {
+			gone, err := casts.EndSilent(silent.UserID, silent.CastID)
+			if err != nil {
+				continue // ended meanwhile
+			}
+			logger.InfoContext(ctx, "cast: a cast ended, its castee silent", "castId", gone.ID,
 				"userId", gone.UserID, "to", gone.ReceiverDeviceID)
 		}
 		for _, unanswered := range casts.EndUnanswered() {

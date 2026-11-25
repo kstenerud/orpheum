@@ -106,7 +106,7 @@ func startBackgroundLoops(ctx context.Context, opened openedServices, logger *sl
 // startUpkeep starts, on loops, the loops that keep things tidy until ctx ends: the artwork
 // cache's ceiling, the sessions' remembered uses written in batches (D303 §4), the players' share of
 // the server's upload (D286 §5), Watch Together's links and sessions past their lifetimes (D346),
-// the casts whose receiver is gone (D364 §6; the two minutes seen on devices, VQ90), the
+// the casts whose castee is silent for together.CastSilentAfter (D555 §3), the
 // record of what the core and each node use of their machines, each minute (internal/core/resourceuse;
 // a minute's ticker no test waits out, VQ257), and the problem reports past their 60 days, deleted as
 // the core starts and each hour after (D524 §4).

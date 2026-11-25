@@ -26,7 +26,8 @@ const (
 	CastTakenBack = "takenBack"
 	// CastStopped is the remote's Stop casting.
 	CastStopped = "stopped"
-	// CastReceiverGone is the receiver gone, no page of it connected, for two minutes (D364 §6).
+	// CastReceiverGone is the castee silent for CastSilentAfter, the hub's end alone (D555 §3): no
+	// sender may end a cast so.
 	CastReceiverGone = "receiverGone"
 	// CastDeclined is the receiver's Not now, asked whether to play it (D358 §3).
 	CastDeclined = "declined"
@@ -39,6 +40,12 @@ const (
 	// for its idle end (D469 §3).
 	CastIdle = "idle"
 )
+
+// CastSilentAfter is how long a cast's castee may say nothing before the hub ends its cast, its
+// devices told receiverGone (D555 §3): it says where it is each 5 s while it plays, so four of those
+// missed, a television switched off or its page closed, while a page loaded again says hello well
+// within it. The owner's 20 s.
+const CastSilentAfter = 20 * time.Second
 
 // endedCastKept is how long a cast's end is kept for a device of it that says hello after it: a
 // remote opened as the cast ends reads the cast, then says hello a moment later, and is told why it
@@ -82,6 +89,62 @@ type casting struct {
 	// who joined their own session as a guest from another device casts as that guest); "" for the
 	// person's own. A secret: never logged.
 	held string
+	// heardAt is when its castee last said anything, its deadline CastSilentAfter on (EndSilentCasts);
+	// zero until it first does or takes the cast (CastHeard), the wait for its OK bounded by the
+	// live registry's (D358 §4).
+	heardAt time.Time
+}
+
+// EndedCast is a cast the hub ended of itself, for its caster's pages to be told: its id and whose.
+type EndedCast struct {
+	CastID int64
+	UserID int64
+}
+
+// CastHeard notes that the castee of the cast castID that userID cast took it now (its OK, or a cast
+// taken asking nothing): its deadline runs from now (D555 §3).
+func (hub *Hub) CastHeard(castID, userID int64) {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	if heard, found := hub.casts[castID]; found && heard.userID == userID {
+		heard.heardAt = hub.clock.Now()
+	}
+}
+
+// heardFrom notes that from, a device of sender's, said something now: where it plays a cast, by a
+// credential of it, the cast's castee is heard (D555 §3). The caller holds the mutex.
+func (hub *Hub) heardFrom(sender *member, from *device, now time.Time) {
+	if !from.role.plays() {
+		return
+	}
+	for _, held := range sender.credentials {
+		if held.castID == 0 || held.hash != from.credentialHash {
+			continue
+		}
+		if heard, found := hub.casts[held.castID]; found {
+			heard.heardAt = now
+		}
+		return
+	}
+}
+
+// EndSilentCasts ends each cast whose castee has said nothing for CastSilentAfter, by the cast's own
+// deadline, each of its devices told receiverGone, and returns them for their casters' pages to be
+// told (D555 §3). A castee whose socket only closed is silent too: a page loaded again says hello
+// within the wait and keeps its cast.
+func (hub *Hub) EndSilentCasts() []EndedCast {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	now := hub.clock.Now()
+	ended := []EndedCast{}
+	for _, each := range hub.casts {
+		if each.heardAt.IsZero() || now.Sub(each.heardAt) < CastSilentAfter {
+			continue
+		}
+		ended = append(ended, EndedCast{CastID: each.id, UserID: each.userID})
+		hub.endCast(each, CastReceiverGone)
+	}
+	return ended
 }
 
 // castCredentialsKept is how many credentials a cast keeps, its castee's and its remote's, each page

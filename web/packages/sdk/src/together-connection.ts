@@ -41,6 +41,12 @@ export type { ConnectionStatus, TogetherConnectionOptions, TogetherSnapshot };
 export const stateEveryMs = 60_000;
 
 /**
+ * How often a cast's castee says where it is (TogetherConnectionOptions.stateEveryMs): the server
+ * ends a cast whose castee is silent for 20 s, four of these missed (D555 §3).
+ */
+export const castReportEveryMs = 5_000;
+
+/**
  * How often a device pings. The minimum round trip is the sample kept (D66); a ping every 15 s
  * finds the new one soon after a phone moves from Wi-Fi to cellular, at a cost of a few bytes.
  */
@@ -581,7 +587,7 @@ class SessionConnection
     this.#timers = [
       setInterval(this.#ping, pingEveryMs),
       setInterval(this.#pingYoung, youngPingEveryMs),
-      setInterval(this.reportState, stateEveryMs),
+      setInterval(this.reportState, this.#options.stateEveryMs ?? stateEveryMs),
     ];
   }
 

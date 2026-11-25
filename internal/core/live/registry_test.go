@@ -578,9 +578,34 @@ func TestRegistry_StartingWatchTogetherWhileCastingHandsTheReceiverItsPart(t *te
 	}
 }
 
-// A cast ends once its receiver has had no connection for ReceiverGoneAfter, its sender told, and not
-// before; a receiver that comes back in time, loaded again, keeps it (D364 §6).
-func TestRegistry_ACastEndsOnceItsReceiverIsGoneForTwoMinutes(t *testing.T) {
+// A cast the hub ended silent ends by its id alone, its sender told it sends nothing (D555 §3).
+func TestRegistry_EndSilentEndsTheCastByItsIDItsSenderTold(t *testing.T) {
+	t.Parallel()
+	registry := NewRegistry(minted(), newClock())
+	sender := &inbox{}
+	registry.Connect(owner, phone, inFront, sender.send)
+	registry.Connect(owner, television, inFront, (&inbox{}).send)
+	ownCast := Cast{ID: 5, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television}
+	if _, _, err := registry.Cast(ownCast, "a"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := registry.EndSilent(owner, 6); err == nil {
+		t.Error("EndSilent ended a cast its person has not")
+	}
+	if ended, err := registry.EndSilent(owner, 5); err != nil || ended.ID != 5 {
+		t.Fatalf("EndSilent(5) = %+v, %v; want cast 5", ended, err)
+	}
+	if told, _ := sender.last(MessageSending); told.Sending != nil {
+		t.Errorf("the sender was told it sends %+v; want none", told.Sending)
+	}
+	if casts := registry.CastsOf(owner, phone); len(casts) != 0 {
+		t.Errorf("the sender still has %+v", casts)
+	}
+}
+
+// A receiver whose connection closed keeps its cast: a page loaded again takes it on, the registry
+// ending none for its absence, the hub's silence end alone ending it (D555 §3).
+func TestRegistry_AReceiverComingBackKeepsItsCast(t *testing.T) {
 	t.Parallel()
 	fake := newClock()
 	registry := NewRegistry(minted(), fake)
@@ -592,28 +617,10 @@ func TestRegistry_ACastEndsOnceItsReceiverIsGoneForTwoMinutes(t *testing.T) {
 		t.Fatal(err)
 	}
 	registry.Disconnect(tvPage)
-	fake.Advance(ReceiverGoneAfter - time.Second)
-	if ended := registry.EndGone(); len(ended) != 0 {
-		t.Fatalf("a receiver gone %s had its cast ended: %+v", ReceiverGoneAfter-time.Second, ended)
-	}
-	tvPage = registry.Connect(owner, television, inFront, (&inbox{}).send)
 	fake.Advance(time.Hour)
-	if ended := registry.EndGone(); len(ended) != 0 {
-		t.Fatalf("a receiver that came back had its cast ended: %+v", ended)
-	}
-	registry.Disconnect(tvPage)
-	fake.Advance(ReceiverGoneAfter)
-	if ended := registry.EndGone(); len(ended) != 1 || ended[0].ID != 5 {
-		t.Fatalf("a receiver gone %s ended %+v; want cast 5", ReceiverGoneAfter, ended)
-	}
-	if told, _ := sender.last(MessageSending); told.Sending != nil {
-		t.Errorf("the sender was told it sends %+v; want none", told.Sending)
-	}
-	if casts := registry.CastsOf(owner, phone); len(casts) != 0 {
-		t.Errorf("the sender still has %+v", casts)
-	}
-	if told, _ := sender.last(MessageDevices); len(told.ReceivingDeviceIDs) != 0 {
-		t.Errorf("the sender was told %v receive; want none, the cast over", told.ReceivingDeviceIDs)
+	registry.Connect(owner, television, inFront, (&inbox{}).send)
+	if casts := registry.CastsOf(owner, phone); len(casts) != 1 || casts[0].ID != 5 {
+		t.Errorf("the sender has %+v after its receiver came back; want cast 5 on", casts)
 	}
 }
 

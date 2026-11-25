@@ -41,8 +41,10 @@
 //     Enforced by TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt,
 //     TestRegistry_EachFilmPlayedInACastIsHandedToItsReceiver and
 //     TestRegistry_ACastIsASessionTheSenderIsToldOf.
-//   - A cast ends once its receiver has had no connection for ReceiverGoneAfter, and never sooner;
-//     the sender is told (D364 §6). Enforced by TestRegistry_ACastEndsOnceItsReceiverIsGoneForTwoMinutes.
+//   - A cast's receiver with no connection keeps its cast for its next one: the registry ends none
+//     for it; the hub ends a cast whose castee is silent (D555 §3), and End tells its sender.
+//     Enforced by TestRegistry_AReceiverComingBackKeepsItsCast and
+//     TestRegistry_EndSilentEndsTheCastByItsIDItsSenderTold.
 //   - A cast its receiver has not taken within UnansweredAfter of being asked ends, its sender
 //     told; an accepted one never does by this (D358 §4, principles §28: no wait without a bound).
 //     Enforced by TestRegistry_ACastNeverAnsweredEndsAndOneAcceptedGoesOn.

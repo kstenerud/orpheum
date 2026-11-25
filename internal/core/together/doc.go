@@ -187,7 +187,10 @@
 //     TestCast_AloneIsASessionOfOneAndAPartyTakesItIn, TestCast_AnEndedCastLeavesTheWatchTogetherSessionGoingOn
 //     and TestCast_TheRemoteCommandsTheReceiverAndEndingTellsBothWhy; a device saying hello with
 //     one of its credentials within a minute of its end is told why too (CastEndedError), enforced
-//     by TestCast_AHelloJustAfterTheEndIsToldWhyForAMinute. Ready between videos it plays
+//     by TestCast_AHelloJustAfterTheEndIsToldWhyForAMinute. A cast whose castee has said nothing
+//     for CastSilentAfter, from its first word or its taking the cast on, ends by its own deadline,
+//     receiverGone, the hub's end alone, no sender's (D555 §3), enforced by
+//     TestCast_ACastWhoseCasteeIsSilentForItsWaitEnds. Ready between videos it plays
 //     nothing, so the next is put on afresh (D364 §5), enforced by
 //     TestCast_ReadyPlaysNothingSoTheNextIsPutOnAfresh; a receiver takes its person's part in the
 //     Watch Together session they are in, by the cast's own credential, a host's leading it (D364

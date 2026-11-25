@@ -14,16 +14,18 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// goneOnce is a registry with casts whose receiver is gone, casts never answered and guest receivers
-// whose cast is over, which its first look ends, and the guest receivers live now.
+// goneOnce is a registry with casts never answered and guest receivers whose cast is over, which its
+// first look ends, and the guest receivers live now.
 type goneOnce struct {
-	casts      []live.Cast
 	unanswered []live.Cast
 	guests     []live.Guest
 	liveGuest  int64
-	// idleable are the casts to guest receivers by code, and endedIdle the ones End ended.
-	idleable  []live.Cast
-	endedIdle []int64
+	// idleable are the casts to guest receivers by code, and endedIdle the ones End ended, their
+	// senders told.
+	idleable []live.Cast
+	// endedSilent are the ids of the casts ended silent, the hub having ended them.
+	endedSilent []int64
+	endedIdle   []int64
 }
 
 func (gone *goneOnce) GuestCastsEndingIdle() []live.Cast {
@@ -32,6 +34,11 @@ func (gone *goneOnce) GuestCastsEndingIdle() []live.Cast {
 
 func (gone *goneOnce) End(_, _, castID int64) (live.Cast, error) {
 	gone.endedIdle = append(gone.endedIdle, castID)
+	return live.Cast{ID: castID}, nil
+}
+
+func (gone *goneOnce) EndSilent(_, castID int64) (live.Cast, error) {
+	gone.endedSilent = append(gone.endedSilent, castID)
 	return live.Cast{ID: castID}, nil
 }
 
@@ -72,21 +79,16 @@ func noRemovals() removals {
 	return removals{removed: make(chan int64, 8), kept: make(chan []int64, 1)}
 }
 
-func (gone *goneOnce) EndGone() []live.Cast {
-	ended := gone.casts
-	gone.casts = nil
-	return ended
-}
-
 func (gone *goneOnce) EndUnanswered() []live.Cast {
 	ended := gone.unanswered
 	gone.unanswered = nil
 	return ended
 }
 
-// endings keeps each cast's session ended, and why.
+// endings keeps each cast's session ended, and why, and has the casts in silent end silent, once.
 type endings struct {
-	ended chan string
+	ended  chan string
+	silent chan together.EndedCast
 	// idleFor is how long nothing has played in each cast, by id.
 	idleFor map[int64]time.Duration
 }
@@ -95,30 +97,39 @@ func (ender endings) CastIdleFor(sessionID, _ int64) (time.Duration, error) {
 	return ender.idleFor[sessionID], nil
 }
 
+func (ender endings) EndSilentCasts() []together.EndedCast {
+	ended := []together.EndedCast{}
+	for {
+		select {
+		case each := <-ender.silent:
+			ended = append(ended, each)
+		default:
+			return ended
+		}
+	}
+}
+
 func (ender endings) EndCast(sessionID, _ int64, reason string) error {
 	ender.ended <- reason + " " + strconv.FormatInt(sessionID, 10)
 	return nil
 }
 
-// Each tick ends the casts whose receiver is gone, their sessions told receiverGone, so their senders
-// are told (D364 §6).
-func TestEndGoneCasts_EndsEachGoneReceiversSessionAtATick(t *testing.T) {
+// Each tick tells the senders of the casts the hub ended, their castee silent, each by the registry's
+// EndSilent (D555 §3).
+func TestEndGoneCasts_TellsTheSenderOfEachCastTheHubEndedSilent(t *testing.T) {
 	t.Parallel()
-	registry := &goneOnce{casts: []live.Cast{{ID: 7, UserID: 1, ReceiverDeviceID: 11}}}
-	ender := endings{ended: make(chan string, 1)}
+	registry := &goneOnce{}
+	ender := endings{ended: make(chan string, 1), silent: make(chan together.EndedCast, 1)}
+	ender.silent <- together.EndedCast{CastID: 7, UserID: 1}
 	tick := make(chan time.Time)
-	stopped := make(chan struct{})
 	ctx, cancel := context.WithCancel(t.Context())
-	go func() {
-		endGoneCasts(ctx, registry, ender, noRemovals(), tick, slog.New(slog.DiscardHandler))
-		close(stopped)
-	}()
+	defer cancel()
+	go endGoneCasts(ctx, registry, ender, noRemovals(), tick, slog.New(slog.DiscardHandler))
 	tick <- time.Time{}
-	if ended := testutil.Receive(t, ender.ended, "the gone cast's end"); ended != together.CastReceiverGone+" 7" {
-		t.Errorf("the session was ended as %q; want cast 7 as %s", ended, together.CastReceiverGone)
+	tick <- time.Time{} // the first tick's work is done once the second is taken
+	if len(registry.endedSilent) != 1 || registry.endedSilent[0] != 7 {
+		t.Errorf("the registry ended casts %v; want the silent cast 7, its sender told", registry.endedSilent)
 	}
-	cancel()
-	testutil.Receive(t, stopped, "the loop's stop as its context ends")
 }
 
 // Each tick ends the casts never answered too, their sessions told unanswered, so a sender asking a

@@ -2,7 +2,10 @@
 
 package together
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 // A cast ended, by its receiver's Stop casting here, its sender's Stop casting or its receiver gone,
 // leaves the Watch Together session its person is in going on, the host's own device a member (D446
@@ -40,5 +43,50 @@ func TestCast_AnEndedCastLeavesTheWatchTogetherSessionGoingOn(t *testing.T) {
 		if _, err = stage.hub.Mine(stage.owner.UserID); err != nil {
 			t.Errorf("after a cast ended %s, the host's session: %v; want it going on", reason, err)
 		}
+	}
+}
+
+// A cast whose castee says nothing for CastSilentAfter ends by its own deadline, the castee told
+// receiverGone and the session going on; its remote saying something keeps nothing on, and a cast
+// whose castee has not yet said hello waits for it (D555 §3).
+func TestCast_ACastWhoseCasteeIsSilentForItsWaitEnds(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	waiting, err := stage.hub.OpenCast(alone, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cast, err := stage.hub.OpenCast(stage.owner, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	casteeAt, castee := stage.attach(t, cast.ReceiverCredential, RoleVideo)
+	remote, _ := stage.attach(t, cast.SenderCredential, RolePanel)
+	stage.clock.Advance(10 * time.Second)
+	stage.ready(t, casteeAt, false)
+	stage.clock.Advance(CastSilentAfter / 2)
+	stage.command(t, remote, CommandPause, 0)
+	stage.clock.Advance(CastSilentAfter/2 - time.Second)
+	if ended := stage.hub.EndSilentCasts(); len(ended) != 0 {
+		t.Fatalf("a castee heard %s ago had its cast ended: %+v", CastSilentAfter-time.Second, ended)
+	}
+	stage.clock.Advance(time.Second)
+	ended := stage.hub.EndSilentCasts()
+	if len(ended) != 1 || ended[0] != (EndedCast{CastID: cast.CastID, UserID: stage.owner.UserID}) {
+		t.Fatalf("a castee silent for %s ended %+v; want cast %d alone", CastSilentAfter, ended, cast.CastID)
+	}
+	if told := castee.last(MessageEnded).Reason; told != CastReceiverGone {
+		t.Errorf("the silent castee was told %q; want %s", told, CastReceiverGone)
+	}
+	if _, err = stage.hub.Mine(stage.owner.UserID); err != nil {
+		t.Errorf("the host's session after its cast ended silent: %v; want it going on", err)
+	}
+	if _, err = stage.hub.CastCredential(waiting.CastID, alone.UserID); err != nil {
+		t.Errorf("a cast whose castee has not said hello: %v; want it waiting on", err)
+	}
+	stage.hub.CastHeard(waiting.CastID, alone.UserID)
+	stage.clock.Advance(CastSilentAfter)
+	if ended = stage.hub.EndSilentCasts(); len(ended) != 1 || ended[0].CastID != waiting.CastID {
+		t.Errorf("a cast taken %s ago, its castee silent since, ended %+v; want it", CastSilentAfter, ended)
 	}
 }

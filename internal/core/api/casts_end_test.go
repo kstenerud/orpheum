@@ -15,6 +15,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/live"
 	"github.com/kstenerud/orpheum/internal/core/together"
 )
@@ -82,10 +83,10 @@ func TestCast_ADeclinedOrUnansweredCastTellsItsSenderWhy(t *testing.T) {
 	}
 }
 
-// A sender whose Google Cast session was lost, its Chromecast switched off, ends its cast with its
-// receiver gone, not stopped, and its remote is told so: the remote then keeps itself, saying the
-// receiver is unreachable, and plays nothing by itself (D552 §5).
-func TestCast_ASenderEndsItsCastWithItsReceiverGone(t *testing.T) {
+// No sender ends a cast as its receiver gone, its Google Cast session lost or its receiver unheard:
+// a castee unheard is the server's end alone, by the cast's own deadline (D555 §3), and the cast
+// goes on, its remote told nothing.
+func TestCast_NoSenderEndsACastAsItsReceiverGone(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	phoneToken := harness.createAdminAndSignIn(t)
@@ -94,14 +95,13 @@ func TestCast_ASenderEndsItsCastWithItsReceiverGone(t *testing.T) {
 	tv := harness.thisDevice(t, tvToken)
 	harness.dialLive(t, tvToken).awaitDevices(tv)
 	started := startedCast(t, harness.startCast(t, phoneToken, tv, 0))
-	remote := harness.dialCast(t, started.MembershipCredential, together.RolePanel)
-	remote.awaitWelcome()
 	ended := harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", started.CastID), phoneToken,
 		map[string]string{"reason": together.CastReceiverGone})
-	if ended.status != http.StatusOK {
-		t.Fatalf("the phone's end with its receiver gone = %d %s; want it accepted", ended.status, ended.body)
-	}
-	if told := remote.awaitEnded(); told != together.CastReceiverGone {
-		t.Errorf("the phone's remote was told %q, want %q", told, together.CastReceiverGone)
+	wantError(t, ended, http.StatusUnprocessableEntity, api.CodeInvalidRequest)
+	stopped := harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", started.CastID), phoneToken,
+		map[string]string{"reason": together.CastStopped})
+	if stopped.status != http.StatusOK {
+		t.Errorf("the phone's Stop after the refused end = %d %s; want the cast on till then",
+			stopped.status, stopped.body)
 	}
 }

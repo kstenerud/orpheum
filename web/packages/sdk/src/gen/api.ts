@@ -3562,10 +3562,10 @@ export interface components {
         };
         EndCastInputBody: {
             /**
-             * @description takenBack on the receiver, stopped on the remote, receiverGone on the sender as the remote gives a receiver unheard for its wait up (D554 §1), declined or unanswered as the receiver was asked (D358); no receiver takes the cast over (D446 §4)
+             * @description takenBack on the receiver, stopped on the remote, declined or unanswered as the receiver was asked (D358); no receiver takes the cast over (D446 §4), and a castee unheard is the server's end alone, no sender's (D555 §3)
              * @enum {string}
              */
-            reason: "takenBack" | "stopped" | "receiverGone" | "declined" | "unanswered";
+            reason: "takenBack" | "stopped" | "declined" | "unanswered";
         };
         EndCastOutputBody: {
             isPlaying: boolean;

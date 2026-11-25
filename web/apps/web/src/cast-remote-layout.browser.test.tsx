@@ -9,14 +9,12 @@ import "./tokens.css";
 import "./base.css";
 import "./i18n.ts";
 
-import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 
-import { notAnsweringAfterMs } from "./cast-remote-offer.tsx";
 import { CastRemote } from "./cast-remote.tsx";
 import { castingRemote, receiverSays } from "./test-cast-remote.tsx";
-import { settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
+import type { Heard, Mounted } from "./test-dom.tsx";
 
 let mounted: Mounted | undefined;
 let drawnSockets: Awaited<ReturnType<typeof castingRemote>>["sockets"] | undefined;
@@ -173,8 +171,8 @@ describe("the cast remote's layout (D548 §1, §8)", () => {
 
   // The note is a size container with no width of its own as a flex item: beside Play here it was a
   // column one word wide, the button drawn over its overflow (the owner's phone, 2026-11-25).
-  // Given up as it is not reached, the receiver's cast ends, and the note says it is unreachable
-  // (D554 §1, D553 §2).
+  // The castee silent, the server ends its cast, and the note says it is unreachable (D555 §3,
+  // D553 §2).
   it("lays the unreachable note out the width of the card, its words on few lines and Play here under them, apart", async () => {
     const heard: Heard[] = [];
     const answers = {
@@ -183,12 +181,7 @@ describe("the cast remote's layout (D548 §1, §8)", () => {
     const phone = await remoteAt(390, 844, { answers, heard });
     const devices = { type: "devices", inFrontDeviceIds: [], receivingDeviceIds: [2] };
     await sockets().live.say({ ...devices, deviceIds: [1, 2] });
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
     await sockets().live.say({ ...devices, deviceIds: [1], receivingDeviceIds: [] });
-    act(() => {
-      vi.advanceTimersByTime(notAnsweringAfterMs);
-    });
-    await settleUntil(() => heard.some((each) => each.methodAndPath === "POST /me/casts/9/end"));
     await sockets().live.say({ type: "sending" });
     await sockets().session.say({ type: "ended", reason: "receiverGone" });
     expect(phone.querySelector(".cast-remote__note")?.textContent).toContain("Fire TV unreachable");

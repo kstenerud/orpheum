@@ -549,6 +549,7 @@ func (hub *Hub) Attach(
 		role: role, canSetRate: canSetRate, send: send,
 	}
 	attachedMember.devices[hub.lastID] = attachedDevice
+	hub.heardFrom(attachedMember, attachedDevice, now)
 	send(Outbound{
 		V: ProtocolVersion, Type: MessageWelcome, Seq: attached.group.seq, SessionID: attached.id,
 		MemberID: attachedMember.id, DeviceID: hub.lastID, IsHost: attachedMember.isHost,
@@ -614,6 +615,7 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 		return
 	}
 	now := hub.clock.Now()
+	hub.heardFrom(sender, from, now)
 	switch message.Type {
 	case MessagePing:
 		// The pong says where the group is as it answers, so a follower can place the group by the

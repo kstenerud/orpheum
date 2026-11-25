@@ -3,6 +3,7 @@
 
 import "./i18n.ts";
 
+import { castReportEveryMs } from "@orpheum/sdk";
 import { act, useState, type JSX } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -35,6 +36,59 @@ const welcome = {
   group: { state: "idle", positionMs: 0, rate: 1, fileId: 0 },
   roster: [],
 };
+
+describe("a cast's receiver says where it is each 5 s, its silence ending the cast (D555 §3)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+    document.body.replaceChildren();
+    vi.useRealTimers();
+  });
+
+  it("reports its state to the cast's session each castReportEveryMs", async () => {
+    const services = servedBy({}, [], "token");
+    const servers: FakeTogetherServer[] = [];
+    const video = document.createElement("video");
+    document.body.append(video);
+    playingVideo(video, 1_200);
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"], shouldAdvanceTime: true });
+    mounted = await mount(
+      withServices(
+        <CastReceiver
+          receiving={{ cast, onLeave: vi.fn() }}
+          fileId={4}
+          video={video}
+          startPositionMs={0}
+        />,
+        {
+          ...services,
+          openTogetherSocket: (listeners) => {
+            const server = fakeTogetherServer();
+            servers.push(server);
+            return server.openSocket(listeners);
+          },
+        },
+      ),
+    );
+    const castServer = servers[0];
+    await castServer?.accept();
+    await castServer?.say({
+      ...welcome,
+      group: { state: "playing", positionMs: 1_200, rate: 1, fileId: 4 },
+    });
+    const states = (): number =>
+      castServer?.heard.filter((each) => each["type"] === "state").length ?? 0;
+    const before = states();
+    for (let report = 1; report <= 3; report += 1) {
+      act(() => {
+        vi.advanceTimersByTime(castReportEveryMs);
+      });
+      expect(states() - before).toBeGreaterThanOrEqual(report);
+      await castServer?.say({ type: "pong", tMono: 0 }); // alive
+    }
+  });
+});
 
 describe("a cast's receiver and its person's Watch Together session (D364 §11, D372 §8)", () => {
   let mounted: Mounted | undefined;
