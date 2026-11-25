@@ -219,6 +219,91 @@ after phase 1's last step.
 - "Cast again" goes 30–45 s after the unreachable note (phase 4 removes the note).
 - HTTP 425 answers repeat in the console while a film plays.
 
+## Walked on staging (2026-11-25, after phase 2)
+
+By the lead, the Pixel casting to the Chromecast, its video read over the Chromecast's devtools,
+and a headless by-link guest.
+
+**Passes:** the remote's place runs with the Chromecast's own video within 0.3 s; Pause, Play and
+both 10 s steps reach it at once, paused and playing; a by-link guest who joins the caster's
+session plays within 0.2 s of the Chromecast, and both follow the caster's pause, steps and play;
+the host ending the session leaves the cast playing alone, its remote working; Stop casting ends
+it.
+
+**Failed, fixed and walked again the same day:**
+
+1. **A person casting to the Chromecast who starts a session lost the cast 20 s later:** the
+   receiver took the cast handed again in the session for the same hand repeated and stayed in the
+   session it had left ("fix(cast-receiver): a Chromecast joins the session its cast moves to").
+
+2. The caster's remote said "Casting ended" once they started a session while casting, the cast
+   alive and its buttons working; a reload cleared it. The cast's own session of one was let go
+   without a word, and the remote took its loss for the cast's end. The server now tells that
+   session's devices `castMoved`, and the remote reads its casts again and joins where the cast
+   went. Walked again: 45 s into the session the remote shows the cast live, and Pause and Play
+   reach the Chromecast.
+3. A host whose cast was the session's only player ended the session, and the Chromecast loaded
+   its film again paused. The cast read where the session stood after its own leaving had paused
+   it. It now reads it before. Walked again: the Chromecast plays on, and the remote's Pause
+   reaches it.
+
+**Seen, not faults of this batch's design, for the owner:** each move of a cast between sessions
+has the Chromecast load its film again, about 3 s without a picture moving; and ending a session
+from the remote takes the caster's page Home, the cast's sign still in the header.
+
+**Not walked:** a by-link guest's cast to the Chromecast (the Pixel's Chrome showed no device
+picker after its local-network question); a castee switched off at the wall; the Fire TV's reload
+after phase 1's last step.
+
+**Next batch, or the phase named:**
+
+- A guest who leaves a session while casting lands on Home, the cast's remote behind the cast
+  button (phase 4's landing).
+- One change of part sends its "together" message five or six times, and a leave its "ended"
+  several times; a "together" message lost while the live socket reconnects is not asked for again.
+- The Watch Together dialog names the other device for one who was moved away from, and says
+  "another of your devices" on a page that never held the part.
+
+- A signed-in person opening their own session's invitation link is let in as a by-link guest
+  under a name, a second place in the session for one person.
+- The cast picker lists two devices of one name alike ("Chrome on Linux" twice).
+- A session guest who casts has no Stop control within reach on its page (phase 4's page).
+- While a guest follows a session, their tray still says they cast their own film (phase 4).
+- The Chromecast's remote has back, pause and forward alone (phase 3's one set of controls).
+- "Cast again" goes 30–45 s after the unreachable note (phase 4 removes the note).
+- HTTP 425 answers repeat in the console while a film plays.
+
+## Walked on staging (2026-11-25, after phase 2)
+
+By the lead, the Pixel casting to the Chromecast, its video read over the Chromecast's devtools,
+and a headless by-link guest.
+
+**Passes:** the remote's place runs with the Chromecast's own video within 0.3 s; Pause, Play and
+both 10 s steps reach it at once, paused and playing; a by-link guest who joins the caster's
+session plays within 0.2 s of the Chromecast, and both follow the caster's pause, steps and play;
+the host ending the session leaves the cast playing alone, its remote working; Stop casting ends
+it.
+
+**Failed, fixed and walked again the same day:**
+
+1. **A person casting to the Chromecast who starts a session lost the cast 20 s later:** the
+   receiver took the cast handed again in the session for the same hand repeated and stayed in the
+   session it had left ("fix(cast-receiver): a Chromecast joins the session its cast moves to").
+
+**Failed, its fix being built:** the caster's remote says "Casting ended" once they start a
+session while casting, the cast alive and its buttons working; a reload clears it. The remote
+takes the end of the cast's own session of one for the cast's end and does not read its casts
+again.
+
+**Not walked:** a small seek (under 3 s) on the device; the Fire TV's reload.
+
+**Next batch:**
+
+- A by-link guest's page is still the viewer with the browser's own controls (phase 4's page).
+- The server's log of a loaded chunk gives a film position a thousandth of the real one
+  (`chunkLoaded filmMs`), on the Chromecast at least.
+- A voice call's step fails again and again between a guest's device and a panel of the host's.
+
 ## Tests
 
 About 165 tests walk the cast remote, 57 the receiver, 188 Watch Together and 98 the lab, with
