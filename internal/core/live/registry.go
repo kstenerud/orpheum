@@ -563,7 +563,7 @@ func (owner *person) sendingMessage(deviceID int64) Outbound {
 	return Outbound{Type: MessageSending, Sending: &Sending{
 		CastID: held.ID, ReceiverDeviceID: held.ReceiverDeviceID, ReceiverName: held.ReceiverName,
 		FileID: held.FileID, ItemName: held.ItemName, TitleName: held.ItemName, DurationMs: held.DurationMs,
-		IsAccepted: held.IsAccepted,
+		IsAccepted: held.IsAccepted, IsGuestReceiver: owner.guests[held.ReceiverDeviceID] != nil,
 	}}
 }
 

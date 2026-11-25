@@ -31569,3 +31569,11 @@ already knows, and lets the person act on it.
    film where it stood; each failing when the remote keys on its own connection alone. A `VQ<n>`
    for the walk: the television switched off while a film plays, the phone's remote within a
    minute.
+
+**Amended 2026-11-25: a guest receiver is heard by its session alone.** A guest receiver (a
+Chromecast's, D465 §1) is in no devices message, so §2's first test, its device not among the
+person's connected devices, held from the cast's first moment: the owner's phone was Reaching a
+Chromecast that played (staging, 2026-11-25). The sending message says `isGuestReceiver`, and the
+remote then keys on the session's leader alone; the server ends a guest's cast as the guest goes,
+which ends the remote. Test: the remote's own, a guest receiver among no connected devices, leading,
+is not Reaching, and is once the leader leaves.

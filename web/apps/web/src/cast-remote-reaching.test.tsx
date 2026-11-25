@@ -7,7 +7,13 @@ import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { notAnsweringAfterMs } from "./cast-remote-offer.tsx";
 import { CastRemote } from "./cast-remote.tsx";
-import { castingRemote, receiverLeads, welcome, type RemoteShown } from "./test-cast-remote.tsx";
+import {
+  castingRemote,
+  receiverLeads,
+  sending,
+  welcome,
+  type RemoteShown,
+} from "./test-cast-remote.tsx";
 import {
   bodyField,
   buttonNamed,
@@ -109,6 +115,22 @@ describe("the cast remote reaches for a receiver the server no longer hears (D55
     await sockets.live.say(bothConnected);
     expect(pill()).toBeUndefined();
     expect(isPadDisabled()).toBe(false);
+  });
+
+  // A Chromecast is a guest receiver, in no devices message (D465 §1): a phone's cast to one was
+  // Reaching from its start, the film playing on the television (the owner, 2026-11-25).
+  it("hears a guest receiver, among no connected devices, by its session alone", async () => {
+    const { sockets } = await casting({}, { welcome: playing });
+    await sockets.live.say({ type: "sending", sending: { ...sending, isGuestReceiver: true } });
+    await sockets.live.say(receiverGone);
+    await sockets.session.say({ type: "roster", roster: receiverLeads });
+    expect(pill()).toBeUndefined();
+    expect(isPadDisabled()).toBe(false);
+    await sockets.session.say({
+      type: "roster",
+      roster: [{ id: 2, name: "owner", isHost: true, devices: [{ id: 5, role: "panel" }] }],
+    });
+    expect(pill()).toBe("Reaching Fire TV…");
   });
 
   it("clears by itself as the receiver comes back", async () => {

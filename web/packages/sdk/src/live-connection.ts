@@ -61,6 +61,11 @@ export interface CastSending {
   readonly durationMs: number;
   /** Whether the receiver said Use, asked once (D364 §2). */
   readonly isAccepted: boolean;
+  /**
+   * Whether the receiver is a guest receiver (D465 §1): a Chromecast's, in no devices message, which
+   * its sender hears by the cast's session alone (D550 §2).
+   */
+  readonly isGuestReceiver: boolean;
 }
 
 /** What the live connection knows now. */
@@ -223,6 +228,7 @@ function parseSending(value: unknown): CastSending | undefined {
     itemName: stringIn(record, "itemName"),
     durationMs: numberIn(record, "durationMs") ?? 0,
     isAccepted: record["isAccepted"] === true,
+    isGuestReceiver: record["isGuestReceiver"] === true,
   };
 }
 

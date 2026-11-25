@@ -45,6 +45,11 @@ func TestRegistry_AGuestReceiverIsUnlisted(t *testing.T) {
 	if slices.Contains(devices.ReceivingDeviceIDs, television) {
 		t.Errorf("the phone was told the guest receiver receives: %+v", devices)
 	}
+	// Listed nowhere, the sender is told its receiver is a guest, to hear it by its session alone
+	// (D550 §2): a phone's cast to a Chromecast was Reaching from its start (the owner, 2026-11-25).
+	if sending, _ := phoneBox.last(MessageSending); sending.Sending == nil || !sending.Sending.IsGuestReceiver {
+		t.Errorf("the phone was told it sends %+v; want its receiver a guest", sending.Sending)
+	}
 }
 
 // Only the device that sent a guest receiver its grant casts to it, once, and it casts to no one;

@@ -117,6 +117,9 @@ type Sending struct {
 	TitleName  string `json:"titleName"`
 	DurationMs int64  `json:"durationMs"`
 	IsAccepted bool   `json:"isAccepted"`
+	// IsGuestReceiver says the receiver is a guest receiver (D465 §1), in no devices message: its
+	// sender hears it by its session alone (D550 §2, amended 2026-11-25).
+	IsGuestReceiver bool `json:"isGuestReceiver,omitempty"`
 }
 
 // ChannelLive is the channel a live connection's hello names on the socket (D416 §11).

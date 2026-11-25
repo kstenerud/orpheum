@@ -423,7 +423,9 @@ function receiverPlaybackIn(snapshot: TogetherSnapshot | undefined): PlaybackRep
  * Whether the receiver is heard (D550 §2): its device among the person's connected devices (the live
  * connection's, told once it has said any), and, once a device was heard leading the cast's session,
  * one still leading it. The remote's own connection stands with a television switched off, so it
- * alone does not say. A receiver still loading, never heard leading, is not gone.
+ * alone does not say. A receiver still loading, never heard leading, is not gone. A guest receiver
+ * (a Chromecast's, D465 §1) is in no devices message, so it is heard by its session alone: the
+ * server ends its cast as it goes.
  */
 function useReceiverHeard(sent: CastSending, snapshot: TogetherSnapshot | undefined): boolean {
   const { connectedDeviceIds } = useLive();
@@ -433,7 +435,9 @@ function useReceiverHeard(sent: CastSending, snapshot: TogetherSnapshot | undefi
     setHasLed(true); // kept as it renders, so the render that loses the leader already knows
   }
   const isDeviceGone =
-    connectedDeviceIds.length > 0 && !connectedDeviceIds.includes(sent.receiverDeviceId);
+    !sent.isGuestReceiver &&
+    connectedDeviceIds.length > 0 &&
+    !connectedDeviceIds.includes(sent.receiverDeviceId);
   const isLeaderGone = hasLed && !isLeading;
   return !isDeviceGone && !isLeaderGone;
 }
