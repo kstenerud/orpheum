@@ -62,8 +62,15 @@ export function SessionRemote(props: {
 }
 
 /**
+ * A remote's bar's source (PlayerSource), with where the session last said its film stands, moved on
+ * by the clock while it plays and no seek chosen here counted (reportedAtMs, PlaybackTarget's): 0
+ * while unknown.
+ */
+export type RemoteSource = PlayerSource & { readonly reportedAtMs: number };
+
+/**
  * A session's film as a remote's bar plays it (remoteSource), from what the session says and the
- * clock: SessionRemote's, and the cast's remote's laid out as the full-screen overlay (D444).
+ * clock: SessionRemote's, and the castee's through the session (useCasteeTarget).
  */
 export function useRemoteSource(remote: {
   readonly snapshot: TogetherSnapshot | undefined;
@@ -76,7 +83,7 @@ export function useRemoteSource(remote: {
    * where the last report left it. True where not given.
    */
   readonly isHeard?: boolean;
-}): PlayerSource {
+}): RemoteSource {
   const isHeard = remote.isHeard ?? true;
   const positionMs = usePositionNow(remote.snapshot, isHeard);
   const { connection, durationMs } = remote;
@@ -126,7 +133,7 @@ function remoteSource(remote: {
   readonly durationMs: number;
   readonly ahead: SeekAhead;
   readonly isHeard: boolean;
-}): PlayerSource {
+}): RemoteSource {
   const { connection, positionMs, durationMs, ahead } = remote;
   const isPlaying = remote.snapshot?.group?.state === "playing";
   const send = (command: GroupCommand): void => {
@@ -134,6 +141,7 @@ function remoteSource(remote: {
   };
   return {
     atMs: ahead.shownMs(positionMs ?? 0),
+    reportedAtMs: positionMs ?? 0,
     durationMs,
     isPaused: !isPlaying,
     isReady: remote.isHeard && remote.snapshot?.status === "connected" && positionMs !== undefined,

@@ -10,7 +10,6 @@ import {
   pingEveryMs,
   type components,
   type CastSending,
-  type PlaybackReport,
   type TogetherSnapshot,
 } from "@orpheum/sdk";
 import {
@@ -25,7 +24,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { tabStorage } from "./browser-storage.ts";
-import { RemoteMenus, useReceiverFilmSound, useRemotePrevious } from "./cast-remote-choices.tsx";
+import { RemoteMenus, useRemotePrevious } from "./cast-remote-choices.tsx";
 import { RemotePad, remoteSoundMovesOf } from "./cast-remote-pad.tsx";
 import { listMyCasts, moveCastOn, myCastsKey, takeEndAnswerOf, type Cast } from "./cast.ts";
 import { useLeavesFullScreen } from "./film-fullscreen.ts";
@@ -51,7 +50,8 @@ import { homeTold } from "./notice.ts";
 import type { ReopenAt } from "./reopen.ts";
 import { useServices, useToken } from "./services.tsx";
 import { titleCrumb } from "./upward.ts";
-import { usePositionNow, useRemoteSource } from "./session-remote.tsx";
+import { usePositionNow } from "./session-remote.tsx";
+import { useCasteeTarget, type WorkedSession } from "./castee-target.ts";
 import { useMembership } from "./together-membership.ts";
 import { TogetherBehindTheRemote } from "./together-on-the-remote.tsx";
 import { useAroundFile, type AroundFile } from "./around-file.ts";
@@ -447,28 +447,9 @@ function endOf(cast: {
   return { reason: endReason ?? "gone", stood };
 }
 
-/** A session as the remote works it: what it says, and its connection. */
-type WorkedSession = Pick<ReturnType<typeof useTogether>, "snapshot" | "connection">;
-
 /** Whether the remote's own connection to the server is lost: any of its sessions reconnecting (D553 §4). */
 function isServerLostIn(sessions: readonly (WorkedSession | undefined)[]): boolean {
   return sessions.some((each) => each?.snapshot?.status === "reconnecting");
-}
-
-/**
- * How the receiver plays, as it says in the cast's session: there it leads, or, while its person
- * hosts Watch Together and it leads that session instead, it is the one device besides this remote,
- * a panel saying its playback alone (D364 §11).
- */
-function receiverPlaybackIn(snapshot: TogetherSnapshot | undefined): PlaybackReport | undefined {
-  if (snapshot === undefined) {
-    return undefined;
-  }
-  const devices = snapshot.roster.flatMap((member) => member.devices);
-  const receiver =
-    leaderOf(snapshot) ??
-    devices.find((each) => each.id !== snapshot.deviceId && each.playback !== undefined);
-  return receiver?.playback;
 }
 
 /**
@@ -515,7 +496,10 @@ function RemoteOf(props: {
  * in a thumb's reach (RemotePad, D548 §5), its volume the film's level on the receiver
  * (useReceiverFilmSound, §6); the menus over the receiver (RemoteMenus). Two columns where the window
  * is landscape and short or wide (§7, §8: cast.css). While the receiver is not reached the pad, the
- * timeline and the menus take no press (§9).
+ * timeline and the menus take no press (§9). The castee is the playback target (D555 §8); its sound
+ * and choices are the cast session's, whatever else it plays in (the owner, 2026-11-06: "It
+ * shouldn't be watch together's business at all which TV has what offset or playback
+ * characteristics").
  */
 function RemotePlaying(props: {
   readonly sent: CastSending;
@@ -529,7 +513,7 @@ function RemotePlaying(props: {
   const { sent, hosted, onAround } = props;
   const worked = hosted ?? props.cast;
   const isHeard = useReceiverHeard(sent, props.cast.snapshot);
-  const source = useRemoteSource({ ...worked, durationMs: sent.durationMs, isHeard });
+  const source = useCasteeTarget({ worked, cast: props.cast, sent, isHeard });
   // What plays after the cast's film and before it, read once for its ⏮ and its Up next (D477 §2).
   const around = useAroundFile(sent.fileId, true);
   useEffect(() => {
@@ -539,10 +523,8 @@ function RemotePlaying(props: {
   }, [around, onAround]);
   const moves = useRemoteMoves(sent, around);
   // How the receiver plays and sounds is said in the cast's session, and its sound chosen there,
-  // whatever else it plays in (the owner, 2026-11-06: "It shouldn't be watch together's business at
-  // all which TV has what offset or playback characteristics").
-  const playback = receiverPlaybackIn(props.cast.snapshot);
-  const film = useReceiverFilmSound(playback?.sound?.channels?.[0], props.cast.connection);
+  // whatever else it plays in (the owner, 2026-11-06), the target's sound and choices (D555 §8).
+  const film = source.sound;
   const volume = useVolumeShown();
   const title = useRemoteTitle(props.casts, sent);
   const isDisabled = !source.isReady;
@@ -571,9 +553,9 @@ function RemotePlaying(props: {
       />
       <RemoteButtons isDisabled={isDisabled}>
         <RemoteMenus
-          playback={playback}
-          connection={props.cast.connection}
-          report={{ fileId: sent.fileId, snapshot: worked.snapshot }}
+          playback={source.choices.playback}
+          connection={source.choices.connection}
+          report={source.choices.report}
         />
       </RemoteButtons>
     </PlayUpwardContext>
