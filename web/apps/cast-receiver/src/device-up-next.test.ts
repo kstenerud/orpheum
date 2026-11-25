@@ -90,7 +90,6 @@ function castOfFilm7(decided: Record<string, unknown> = {}): {
     video,
     note: () => undefined,
     onRefused: () => undefined,
-    onTaken: () => undefined,
   });
   const stop = device.start();
   const [live] = sockets;

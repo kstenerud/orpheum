@@ -6,68 +6,57 @@ import "./old-engine.ts";
 import { startReceiver } from "./caf.ts";
 import { castNamespace } from "./guest.ts";
 import { closesWhenIdle } from "./idle.ts";
-import { LabReceiver, memoryEveryMs } from "./lab.ts";
+import { memoryEveryMs, ReceiverLog } from "./log.ts";
+import { RegularCasts } from "./regular-cast.ts";
 
 /**
- * The cast receiver's entry point. For now it is the lab's spike receiver (plans/tv-device-tests.md;
- * casting-2026-10-25.md §5.2 step 2): CAF's receiver, started never to close for being idle by CAF,
+ * The cast receiver's entry point: CAF's receiver, started never to close for being idle by CAF,
  * which cannot see our own player in place of CAF's, so it closes itself by its video (idle.ts),
- * listening on the lab's namespace, and on the cast's for a cast under a grant (D465 §2); the
- * receiver of M6 (D245) grows from what it finds. It makes its device
- * report only when the lab's sender asks (lab-cast.tsx's openOurs), never at its start.
+ * listening on the cast's namespace for a regular cast under a grant (D465 §2, D555 §3), its log
+ * kept from the start and shown once a sender asks (log.ts).
  */
-
-/** The namespace the lab's sender (the web app's /lab/cast) and this receiver speak on. */
-const labNamespace = "urn:x-cast:org.orpheum.lab";
-
 function start(): void {
   const video = document.createElement("video");
   video.className = "receiver__video";
   const screen = document.createElement("pre");
   screen.className = "receiver__log";
   document.body.append(video, screen);
+  const log = new ReceiverLog(screen, video);
+  const casts = new RegularCasts(video, log);
   let receiver: ReturnType<typeof startReceiver>;
-  const lab = new LabReceiver(screen, video, (message) => {
-    receiver?.broadcast(labNamespace, message);
-  });
   try {
     receiver = startReceiver(
       {
-        [labNamespace]: (message) => {
-          lab.heard(message);
-        },
         [castNamespace]: (message) => {
-          lab.heardGuestLaunch(
+          casts.heard(
             message,
             (answer) => {
               receiver?.broadcast(castNamespace, answer);
             },
             // A Watch Together guest's part ended (D518 §2): the TV goes back to its own screen.
             () => {
-              lab.note("the guest's part ended: going home");
+              log.note("the guest's part ended: going home");
               receiver?.stop();
             },
           );
         },
       },
       (what) => {
-        lab.note(what);
+        log.note(what);
       },
     );
-    lab.note(receiver === undefined ? "not on a Cast device: CAF did not load" : "CAF started");
+    log.note(receiver === undefined ? "not on a Cast device: CAF did not load" : "CAF started");
   } catch (cause) {
-    lab.note(`CAF did not start: ${cause instanceof Error ? cause.message : "failed"}`);
+    log.note(`CAF did not start: ${cause instanceof Error ? cause.message : "failed"}`);
   }
-  lab.note(navigator.userAgent);
+  log.note(navigator.userAgent);
   closesWhenIdle(video, () => {
-    lab.note("idle for too long: closing");
+    log.note("idle for too long: closing");
     receiver?.stop();
   });
   setInterval(() => {
-    lab.sampleMemory();
+    log.noteMemory();
   }, memoryEveryMs);
-  // No report at the start: its WebRTC check plays a tone through the TV for seconds, which a
-  // person casting heard as a trill (the owner, 2026-11-12). The lab's sender asks for it instead.
 }
 
 start();

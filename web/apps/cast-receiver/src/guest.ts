@@ -16,8 +16,8 @@ import { coreReachOf, reachThrough, type CoreReach, type Reached } from "./reach
 /**
  * A cast to any Google Cast device under a grant for that cast alone (D465 §2): the sender's launch
  * message carries the grant and how to reach its core; the receiver trades the grant for a guest
- * session, tells the sender which device it is, and takes the cast as a paired device does
- * (device.ts), keeping nothing: the guest's device is gone once its cast ends. A grant a Watch
+ * session, tells the sender which device it is, and takes the cast as a device of the grant's
+ * person (device.ts), keeping nothing: the guest's device is gone once its cast ends. A grant a Watch
  * Together guest by link asked for gives no session but a credential of their membership, with which
  * the receiver takes their part in their session (guest-part.ts, D518 §1).
  */
@@ -65,8 +65,6 @@ export interface GuestSteps {
   readonly video: HTMLVideoElement;
   readonly note: (line: string) => void;
   readonly answer: (message: GuestAnswer) => void;
-  /** Called as the cast is taken, before its film plays on the video: the lab stops its own film. */
-  readonly onTaken: () => void;
   /**
    * Sends the receiver home, CAF's stop, the TV back on its own screen: a Watch Together guest's
    * part ended, the guest removed or the session over (D518 §2, as at D389's end).
@@ -166,7 +164,6 @@ function takePersonsDevice(
       }
       stop();
     },
-    onTaken: steps.onTaken,
     // Ready once the core has welcomed its live connection, not at the trade: the sender's cast
     // to it is refused while it is not yet one of its person's devices connected now.
     onConnected: () => {
@@ -218,7 +215,6 @@ function takeGuestsPart(
     onWelcomed: (deviceId) => {
       if (!isAnswered) {
         isAnswered = true;
-        steps.onTaken();
         steps.answer({ type: "ready", deviceId });
       }
     },

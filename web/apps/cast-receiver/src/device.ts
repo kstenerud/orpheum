@@ -26,111 +26,20 @@ type PlaybackDecision = components["schemas"]["StartPlaybackOutputBody"];
 
 /**
  * The receiver as a cast target (inventory B-10; the owner, 2026-11-07: "initial chromecast
- * support"): signed in as a device of its sender's person by D288's pairing, the code carried over
- * the lab's Cast channel rather than typed and the check codes shown on both screens for the person
- * to compare, it keeps a live connection, so it is listed in the Cast control as any device connected
- * now (D337); a cast handed to it is taken at once, the Chromecast having no remote to say Use with,
- * and played in the cast's session as a browser receiver plays it (D434), so the sender's remote
- * works it. A first cut, behind the lab (plans/navigation-and-widgets-answers-2026-10-27.md, the
- * Chromecast test steps): it plays the film each hand of the cast names, putting it on the session it
+ * support"): signed in as a device of its sender's person by the session a cast's grant traded for
+ * (guest.ts, D465 §2), it keeps a live connection, so it is listed in the Cast control as any device
+ * connected now (D337); a cast handed to it is taken at once, the Chromecast having no remote to say
+ * Use with, and played in the cast's session as a browser receiver plays it (D434), so the sender's
+ * remote works it: it plays the film each hand of the cast names, putting it on the session it
  * leads, and follows the session's play, pause and position; sound, picture and the cast's other
  * panels wait on what the device shows.
  */
-
-/** Where the receiver keeps the session its pairing gave it, so a later launch needs no pairing. */
-const keptSessionKey = "orpheum.cast.session";
-
-/** How often a pairing's state is asked while the person compares the codes, in milliseconds. */
-export const pairingPollEveryMs = 2000;
-
-/**
- * How many times a pairing's state is asked before the receiver gives it up: five minutes, longer
- * than the server keeps a code (D288 §1), so the server's end is what normally stops it.
- */
-export const pairingPolls = 150;
 
 /**
  * How far the receiver may be from the session's position before it seeks there, in milliseconds:
  * past a chunk's start-up, so a film starting or a seek just made is not sought again.
  */
 export const seekPastMs = 3000;
-
-/** The session a pairing gave this receiver: its token, and the locator its discovery finds it by. */
-export interface KeptSession {
-  readonly token: string;
-  readonly locator: string;
-}
-
-/** Storage as the receiver uses it: the browser's localStorage, or a test's. */
-export interface StringStorage {
-  readonly getItem: (key: string) => string | null;
-  readonly setItem: (key: string, value: string) => void;
-  readonly removeItem: (key: string) => void;
-}
-
-/** The session this receiver keeps, or undefined for none or anything unreadable. */
-export function keptSessionOf(storage: StringStorage): KeptSession | undefined {
-  try {
-    const kept: unknown = JSON.parse(storage.getItem(keptSessionKey) ?? "null");
-    if (typeof kept !== "object" || kept === null) {
-      return undefined;
-    }
-    const token: unknown = Reflect.get(kept, "token");
-    const locator: unknown = Reflect.get(kept, "locator");
-    return typeof token === "string" && typeof locator === "string" && token !== ""
-      ? { token, locator }
-      : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/** Keeps session, or forgets the one kept for undefined (the server refused it). */
-export function keepSession(storage: StringStorage, session: KeptSession | undefined): void {
-  if (session === undefined) {
-    storage.removeItem(keptSessionKey);
-  } else {
-    storage.setItem(keptSessionKey, JSON.stringify(session));
-  }
-}
-
-/** What the pairing tells as it goes: the code for the sender to enter, and the check code to show. */
-export interface PairingSteps {
-  readonly tellCode: (code: string) => void;
-  readonly showCheckCode: (checkCode: string) => void;
-  readonly waitMs: (ms: number) => Promise<void>;
-}
-
-/**
- * Pairs this receiver as a device (D288): asks the core for a code, tells it (to the sender, which
- * enters it under its person's session), shows the check code once the code is entered, and takes
- * the session once the person said the codes match. Fails where the pairing ends unconfirmed.
- */
-export async function pairThisDevice(api: Api, steps: PairingSteps): Promise<KeptSession> {
-  const pairing = dataOrThrow(await api.POST("/pairings", { body: { platform: "chromecast" } }));
-  steps.tellCode(pairing.code);
-  let shown = "";
-  for (let poll = 0; poll < pairingPolls; poll += 1) {
-    const state = dataOrThrow(
-      await api.POST("/pairings/state", { body: { secret: pairing.secret } }),
-    );
-    if (state.checkCode !== undefined && state.checkCode !== shown) {
-      shown = state.checkCode;
-      steps.showCheckCode(shown);
-    }
-    if (state.state === "activated") {
-      const session = dataOrThrow(
-        await api.POST("/pairings/session", { body: { secret: pairing.secret } }),
-      );
-      return { token: session.token, locator: session.locator };
-    }
-    if (state.state === "ended") {
-      throw new Error("the pairing ended unconfirmed");
-    }
-    await steps.waitMs(pairingPollEveryMs);
-  }
-  throw new Error("the pairing was not confirmed in time");
-}
 
 /** Where the receiver's player stands. */
 export interface PlayerNow {
@@ -246,7 +155,7 @@ function playOrPause(isGroupPlaying: boolean, isPlaying: boolean): readonly Foll
 
 /**
  * What the receiver asks to play: the device's own codecs, by no container of a file's own, so the
- * core puts the film on its ladder, which our player plays (the lab's sender asks the same).
+ * core puts the film on its ladder, which our player plays.
  */
 export function receiverFormats(): PlayableFormats {
   return { ...browserPlayableFormats(), containers: [] };
@@ -267,8 +176,6 @@ export interface CastDeviceOptions {
    * not one it takes), with the server's words where it said any.
    */
   readonly onRefused: (reason?: string) => void;
-  /** Called as a cast is taken, before its film plays on the video: the lab stops its own film. */
-  readonly onTaken: () => void;
   /**
    * Called once, the first time the core welcomes the live connection: the device is one of its
    * person's connected now, which a cast to it needs (the core refuses one to a device not yet).
@@ -381,7 +288,6 @@ export class CastDevice {
   private receive(handed: CastToReceive): void {
     const { api, token, reached, note } = this.options;
     this.endCast();
-    this.options.onTaken();
     this.castId = handed.castId;
     note(`cast ${String(handed.castId)} from ${handed.fromDeviceName}: ${handed.itemName}`);
     void api

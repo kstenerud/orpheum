@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * The Cast Application Framework's receiver context, as the receiver uses it: on the lab's namespace
- * (plans/tv-device-tests.md) and on the cast's, for a cast under a grant (D465 §2). index.html loads
- * CAF from Google; it comes with no types this tree may add (AGENTS.md rule 3), so it is reached
- * through this narrow adapter. Undefined off a Cast device, where the page still runs its report, for
- * a desktop browser to try.
+ * The Cast Application Framework's receiver context, as the receiver uses it: on the cast's
+ * namespace, for a cast under a grant (D465 §2). index.html loads CAF from Google; it comes with no
+ * types this tree may add (AGENTS.md rule 3), so it is reached through this narrow adapter.
+ * Undefined off a Cast device, where the page still runs, for a desktop browser to try.
  */
 
 /** The value at path under holder, or undefined where any step is missing. */

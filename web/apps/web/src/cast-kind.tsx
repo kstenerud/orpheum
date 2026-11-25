@@ -16,7 +16,7 @@ import { laurelMark } from "./laurel.ts";
  * no package is added.
  */
 
-/** The platform a Chromecast is paired under (D288; web/apps/cast-receiver's pairThisDevice). */
+/** The platform a Chromecast is paired under (D288). */
 export const chromecastPlatform = "chromecast";
 
 /** The kind of cast a device of the person's takes: as a Chromecast, or as Orpheum's own client. */

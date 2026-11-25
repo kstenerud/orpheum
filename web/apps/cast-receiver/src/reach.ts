@@ -8,7 +8,6 @@ import {
   firstDirectPath,
   opensItsAPIToThisPage,
   rtcTogetherSocket,
-  targetOfSession,
   type DiscoveryClient,
   type FetchRequest,
   type OpenTogetherSocket,
@@ -16,10 +15,10 @@ import {
 } from "@orpheum/sdk";
 
 /**
- * How the lab's receiver reaches its sender's core when it is away from it (the 11-05 batch's item
- * 10, the owner's test in Berlin): as the web client does, through the sender's discovery: the
- * core's own names first, where the core lets the receiver's page call its API (D467), else WebRTC
- * through the discovery, its offers proven under the sender's session. The receiver is served by the
+ * How the receiver reaches its sender's core when it is away from it (the 11-05 batch's item 10,
+ * the owner's test in Berlin): as the web client does, through the sender's discovery: the core's
+ * own names first, where the core lets the receiver's page call its API (D467), else WebRTC through
+ * the discovery, its offers proven by the cast's grant (guest.ts). The receiver is served by the
  * discovery's loader, whose origin a core from D467 on lets call its API as it lets its client's.
  */
 
@@ -40,12 +39,6 @@ export interface CoreReach {
    * none.
    */
   readonly clientOrigin: string | undefined;
-}
-
-/** What the lab's sender hands: a core's reach, with the sender's session, which signs it in. */
-export interface Reach extends CoreReach {
-  /** The sender's session, which the receiver's offers and requests are signed in by. */
-  readonly token: string;
 }
 
 /** An address on https, else undefined. */
@@ -88,13 +81,6 @@ export function coreReachOf(value: unknown): CoreReach | undefined {
   };
 }
 
-/** A lab sender's reach, its core's with the sender's session, or undefined for anything else. */
-export function reachOf(value: unknown): Reach | undefined {
-  const core = coreReachOf(value);
-  const token = typeof value === "object" && value !== null ? stringAt(value, "token") : undefined;
-  return core === undefined || token === undefined ? undefined : { ...core, token };
-}
-
 /**
  * The receiver's way to its core: the fetch its requests go by, the sockets its live and cast
  * connections open on the same path (as the web client's kept-path.ts opens them), and its ending.
@@ -112,23 +98,6 @@ export function reachedAt(origin: string): Reached {
     openSocket: browserTogetherSocket(origin),
     close: () => undefined,
   };
-}
-
-/**
- * Reaches the core reach names, signed in by the sender's session (the lab's): reachThrough, its
- * offers proven under that session.
- */
-export async function reachCore(reach: Reach, note: (line: string) => void): Promise<Reached> {
-  return await reachThrough(
-    reach,
-    (client) =>
-      targetOfSession(client, {
-        core: { coreId: reach.coreId, fingerprint: reach.fingerprint },
-        token: reach.token,
-        locator: reach.locator,
-      }),
-    note,
-  );
 }
 
 /**

@@ -73,7 +73,6 @@ async function playedToItsEnd(upNext: object | undefined): Promise<string[]> {
     video,
     note: () => undefined,
     onRefused: () => undefined,
-    onTaken: () => undefined,
   });
   const stop = device.start();
   const [live] = sockets;

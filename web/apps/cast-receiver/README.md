@@ -1,9 +1,9 @@
 # @orpheum/cast-receiver
 
 Our Google Cast receiver: a second Vite app over the same SDK and player, served by the core under
-`/cast/`. MPL-2.0. For now it is the device lab's spike receiver (plans/tv-device-tests.md §3;
-casting-2026-10-25.md §5.2 step 2): CAF's receiver with our player in place of CAF's, which reports
-what the Cast device can do and plays our ladder; the receiver of M6 (D245) grows from what it finds.
+`/cast/`. MPL-2.0. CAF's receiver with our player in place of CAF's, taking a regular cast from the
+app's own pages under a grant for that cast (D465 §2, D555 §3); the device lab's sender it once
+answered is gone (D555 §12).
 
 ## Invariants
 
@@ -27,27 +27,26 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
   only a device shows the whole: VQ359.
 - **Plays only a path on its own core, or on its sender's core reached through the sender's
   discovery** (its own names, else WebRTC, as the web client reaches it: `src/reach.ts`, the 11-05
-  batch's item 10), signed in by what its sender hands it, and answers only the lab's requests on
-  `urn:x-cast:org.orpheum.lab`. It tries the core's own names first and takes them where the core
-  answers its API to the receiver's page, which a core lets the loader's origin call from D467 on;
-  a core before it answers that origin its health alone, and the receiver goes over WebRTC.
-  `src/lab.test.ts`.
-- **Becomes a cast target only as a device of its sender's person, by D288's pairing**: asked by the
-  lab's sender, it pairs (its code carried over the lab's namespace, the check codes shown on both
-  screens for the person to compare), keeps that session in its own storage, connects as a device
-  (D337), takes a cast handed to it at once, stopping the lab's own film, and plays in the cast's
-  session (D434): the film each hand names, which it puts on the session it leads (in a cast the
-  receiver leads, so the group has no film until it plays one), then the session's play, pause and
-  position. Its sockets go the way its requests go, by the core's name or over
-  WebRTC (`src/reach.ts`). It tells the sender it is a cast target only once the core has welcomed
-  its live connection, and tells it the core's words where the core refuses (`isReady: false` with a
-  `refusal`; the 11-24 batch's item 3). `src/device.test.ts`, `src/lab.test.ts`; only a device
-  shows the whole: VQ286, VQ287.
+  batch's item 10), signed in by what its sender's grant trades for, and answers only a launch on
+  `urn:x-cast:org.orpheum.cast` (`src/regular-cast.ts`, D555 §3), noting any other. It tries the
+  core's own names first and takes them where the core answers its API to the receiver's page, which
+  a core lets the loader's origin call from D467 on; a core before it answers that origin its health
+  alone, and the receiver goes over WebRTC. `src/reach.test.ts`, `src/log.test.ts`.
+- **Takes a cast as a device of its sender's person**: by the session a cast's grant traded for, it
+  connects as a device (D337), takes a cast handed to it at once, and plays in the cast's session
+  (D434): the film each hand names, which it puts on the session it leads (in a cast the receiver
+  leads, so the group has no film until it plays one), then the session's play, pause and position.
+  Its sockets go the way its requests go, by the core's name or over WebRTC (`src/reach.ts`). It
+  tells the sender it is a cast target only once the core has welcomed its live connection, and
+  tells it the core's words where the core refuses (`isReady: false` with a `refusal`; the 11-24
+  batch's item 3). It pairs no device and keeps no session of its own: D288's pairing, which only the
+  lab's sender asked for, is gone (D555 §12). `src/device.test.ts`, `src/guest.test.ts`; only a
+  device shows the whole: VQ286, VQ287.
 - **Casts under a grant with nothing kept** (D465 §2): on `urn:x-cast:org.orpheum.cast`, a sender's
   launch carries a grant for one cast and its core's reach, with no session. The receiver reaches the
   core through the discovery, its first offer proven by the grant (`targetOfGuestGrant`), trades the
   grant at `POST /guest-receivers`, answers `ready` with its device or `failed` with why, and takes
-  the cast as a paired device does, its later offers proven by the guest's session. It keeps nothing
+  the cast as a device of the guest's person (`src/device.ts`), its later offers proven by the guest's session. It keeps nothing
   in storage, and stops once the core refuses the guest, whose device is gone when its cast ends.
   `src/guest.test.ts`; only a device shows the whole: VQ302.
 - **Takes a Watch Together guest's part by their membership** (D518): a grant a guest by link asked
@@ -55,17 +54,16 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
   session as another device of theirs, answers `ready` once welcomed, follows the group and plays its
   film through `POST /together/playback`, its chunks read by that credential, asking for no route a
   guest's membership is refused. It takes no cast, shows no up next and has no Stop; told the guest
-  was removed or the session ended, it goes home (CAF's stop). `src/guest.test.ts`; on a device:
+  was removed or the session ended, it goes home (CAF's stop). `src/guest-part.test.ts`,
+  `src/guest.test.ts`; on a device:
   VQ360.
 - **Shows its log on screen only once a sender asks** (the owner, 2026-11-12): it keeps noting
-  lines for its report from its start, the screen hidden, until a launch under a grant carries
-  `showsLog: true` (its sender's person shows debug tools and ticked Show cast log;
-  a launch without the field, as an older sender's, keeps it hidden) or the lab's sender, a debug
-  tool, asks anything (`showLog` as it opens the receiver). Once shown it stays for the page's
-  life. `src/lab.test.ts`, `src/guest.test.ts`.
-- **Makes its device report only when the lab's sender asks**, never at its start: the report's
-  WebRTC check calls the page with itself carrying a tone, which played through the TV as a trill
-  at the start of every cast (the owner, 2026-11-12). `src/main.test.ts`.
+  lines from its start (its video's events, the page's refusals, its memory each minute), the screen
+  hidden, until a launch under a grant carries `showsLog: true` (its sender's person shows debug
+  tools and ticked Show cast log; a launch without the field, as an older sender's, keeps it hidden).
+  Once shown it stays for the page's life. It makes no device report and no call of its own: the
+  report's WebRTC check played through the TV as a trill (the owner, 2026-11-12), and went with the
+  lab's sender (D555 §12). `src/log.ts`, `src/log.test.ts`.
 - **Runs on Chromium 90**, the 3rd-generation Chromecast's: the build lowers syntax to it
   (`vite.config.ts`'s target) and `src/old-engine.ts`, imported first, fills the methods the bundle
   calls that it lacks. `src/old-engine.test.ts`, `src/main.test.ts`; only a device shows the whole: VQ58.
@@ -80,8 +78,9 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
 
 ## Where to change
 
-- The entry point: `src/main.ts`. CAF, reached without types: `src/caf.ts`. The lab's session (the
-  report, the film, the memory, the log on screen and when it shows): `src/lab.ts`. The receiver as a cast target (its
-  pairing, its live connection, the cast it follows): `src/device.ts`. A cast under a grant:
+- The entry point: `src/main.ts`. CAF, reached without types: `src/caf.ts`. A sender's launch, the
+  regular cast it asks for: `src/regular-cast.ts`. The log, its memory notes and when it shows:
+  `src/log.ts`. The receiver as a cast target (its live connection, the cast it follows):
+  `src/device.ts`. A cast under a grant:
   `src/guest.ts`; a Watch Together guest's part: `src/guest-part.ts`.
 - The CAF receiver SDK script tag: `index.html`.

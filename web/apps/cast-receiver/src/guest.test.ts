@@ -127,7 +127,6 @@ describe("a Google Cast device casting under a grant (D465 §2)", () => {
         video,
         note: () => undefined,
         answer: (answer) => answers.push(answer),
-        onTaken: () => undefined,
         goHome: () => undefined,
       },
     );
@@ -180,7 +179,6 @@ describe("a Google Cast device casting under a grant (D465 §2)", () => {
         video,
         note: () => undefined,
         answer: (answer) => answers.push(answer),
-        onTaken: () => undefined,
         goHome: () => undefined,
       },
     );
@@ -214,7 +212,6 @@ describe("a Google Cast device casting under a grant (D465 §2)", () => {
         video,
         note: () => undefined,
         answer: (answer) => answers.push(answer),
-        onTaken: () => undefined,
         goHome: () => undefined,
       },
     );
@@ -318,7 +315,6 @@ describe("a Google Cast device taking the part of a Watch Together guest by link
     readonly traded: () => HeldSession | undefined;
     readonly wentHome: () => number;
     readonly isClosed: () => boolean;
-    readonly isTaken: () => boolean;
   }
 
   /** Casts under a Watch Together guest's grant. */
@@ -330,7 +326,6 @@ describe("a Google Cast device taking the part of a Watch Together guest by link
     let traded: (() => HeldSession | undefined) | undefined;
     let wentHome = 0;
     let isClosed = false;
-    let isTaken = false;
     await castAsGuest(
       { grant: "a Watch Together guest's grant", reach, showsLog: false },
       {
@@ -350,9 +345,6 @@ describe("a Google Cast device taking the part of a Watch Together guest by link
         video,
         note: () => undefined,
         answer: (answer) => answers.push(answer),
-        onTaken: () => {
-          isTaken = true;
-        },
         goHome: () => {
           wentHome += 1;
         },
@@ -366,7 +358,6 @@ describe("a Google Cast device taking the part of a Watch Together guest by link
       traded: () => traded?.(),
       wentHome: () => wentHome,
       isClosed: () => isClosed,
-      isTaken: () => isTaken,
     };
   }
 
@@ -382,7 +373,6 @@ describe("a Google Cast device taking the part of a Watch Together guest by link
     part.socket()?.onOpen();
     part.socket()?.onMessage(JSON.stringify(welcomeOfThePart));
     expect(part.answers).toEqual([{ type: "ready", deviceId: 12 }]);
-    expect(part.isTaken()).toBe(true);
     part.socket()?.onMessage(groupPlays("playing"));
     const formats = JSON.stringify({ playableFormats: receiverFormats() });
     await vi.waitFor(() => {
