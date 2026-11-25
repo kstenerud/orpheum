@@ -5228,3 +5228,27 @@ three batches so:
 
 Item 10 (the Settings test's third save in Firefox) was fixed in the 11-24 batch (`test(web): a page
 opening in Firefox no longer blurs a test frame's focused field`).
+
+## A guest's pages are the solo ones, and a guest's Chromecast plays nothing, next batch (the owner, 2026-11-25)
+
+Filed during the D553 walk (VQ403), not started (standing orders: batching).
+
+- **A Watch Together guest sees the same Play page and the same cast page as playing alone** (the
+  owner, 2026-11-25: *"When I'm in watch together as a guest, it shows a different video page and a
+  different cast page. It should show the same page as it does when playing solo. The extra controls
+  would be in the watch together popup and in the audio popup (the voice and film volume
+  controls)."*). Today a signed-in guest's film plays on its Play page (D384 §2) under the group's
+  wrapper (`together-viewer.tsx`, `GroupFilmPage`), and a guest's cast is worked by its own remote
+  (`session-remote.tsx`), not `CastRemote`. The change: one Play page and one `CastRemote` for a
+  guest, the session's controls in the Watch Together pop-up, and the voice and film volume controls
+  in the sound pop-up. A decision to record before building: what of a guest's page is the group's
+  (the leader's play, pause and seek; `mayPlayPause`, `maySeek`, `mayNext` of the link) and how the
+  shared pages show it.
+- **A signed-in member who joined their own account's session by its link casts to a Chromecast: the
+  receiver shows black** (staging, 2026-11-25 14:32Z, session 12, cast 25). From a guest's film page
+  a cast carries no film (`useNotesTheGroupsFilmShown`, D371 §4) and the receiver is meant to take
+  the guest's part by a session credential; the cast carried none (`startCast` sends
+  `togetherCredential` for a by-link guest's membership alone, `cast.ts`; the registry's
+  `togetherPart` gave none for a signed-in member of their own user's session), so the receiver
+  joined the cast's own session with nothing to play. Fix with the item above, or alone: a signed-in
+  member's cast from the group's film carries their membership's part as a by-link guest's does.
