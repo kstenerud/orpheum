@@ -1,6 +1,6 @@
 # The rework: playing, casting and Watch Together as one (D555)
 
-**Status:** proposed for the owner's review (2026-11-25). Nothing here is built. It plans D555,
+**Status:** agreed by the owner (2026-11-25); not built. It plans D555,
 from maps of the server, the web client and the Google Cast receiver read on 2026-11-25.
 
 ## What the maps found
@@ -111,18 +111,21 @@ the lab) goes, its commit carrying `Test-Weakened:` naming the section of D555. 
 both kinds in its first commit's body, so the gate's reading and the owner's are the same. The
 Play page's own 355 tests stay and grow.
 
-## For the owner to decide
+## Agreed by the owner (2026-11-25)
 
-1. **A page loaded again cannot be told from a page closed.** Both close the socket. D555 §5 ends
-   a cast "at once" on a page closed, which would end it on Silk's own reloads too. Proposed:
-   "at once" is for a castee that says it is leaving (Back or Home on it, a Chromecast stopped);
-   a socket that only closes waits the 20 s.
-2. **The castee reports each 5 s** while it plays, for the 20 s to be four reports.
-3. **The host's session lives on one device today (D442),** and a host's sign-in elsewhere cuts
-   the receiver off. Proposed: one *playing* device, its remote beside it.
-4. **The lab's sound-timing page** is what This device links to for setting a device's sound
-   delay, with the server's timing clip. Proposed: it stays, as a page of Settings, not of a lab.
-5. **The admin's "offer device tests" setting** goes with the lab.
-6. **The television's own controls while it receives** stay as they are: a player without menus.
-7. **A Chromecast paired by D288 through the lab** would stop being a cast target. None is known
-   to be in use; a regular cast needs no pairing.
+1. **A castee that says it is leaving ends its cast at once** (Back or Home on it, a Chromecast
+   stopped); a socket that only closes waits the 20 s, so a page loaded again keeps its cast.
+   D555 §5 says so.
+2. **The castee reports each 5 s** while it plays.
+3. **A session lives on one device for each person in it, that device with its castee where it
+   casts** (the owner's words for D442's rule): the caster's page is the remote and the castee
+   plays, the two as one. A sign-in on a third device still takes the session over, castee and
+   all, and no longer cuts the castee off from the device that cast to it.
+4. **The sound-timing page stays,** as a page of Settings.
+5. **The admin's "offer device tests" setting goes** with the lab.
+6. **The television's own controls while it receives stay:** a player without menus.
+7. **D288's pairing of a Chromecast through the lab goes.**
+
+Open under point 3, to settle in phase 1: a signed-in guest gets a credential for each of their
+devices today, so may be in a session on several at once. The owner's rule reads as one device
+for a guest too.

@@ -31906,7 +31906,7 @@ remote plays nothing) and D518 (a guest's cast is their own part) stand, and bec
    reported:** paused when watching alone, playing on in a Watch Together session. Nothing is
    anticipated about where the castee got to since: the person scans, and is never too far ahead.
    No dialog explains the end or waits for a press. The ends are: Stop on either device, the
-   castee's Not now, its question unanswered, its page closed or left (at once), the castee
+   castee's Not now, its question unanswered, the castee saying it leaves (at once: Back or Home on it, a Google Cast device stopped; a connection that only closes is silence, so a page loaded again keeps its cast), the castee
    silent for 20 s, a guest receiver idle, and the caster's rights to the video lost.
 6. **The server alone decides that a castee is gone,** at 20 s of silence, and the caster reflects
    it. From 5 s of silence the caster shows a reconnecting sign on the key frames. The caster's own
