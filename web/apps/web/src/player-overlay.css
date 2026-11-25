@@ -110,6 +110,19 @@
   height: calc(var(--size-control) + var(--space-3));
 }
 
+/* Play and pause larger than every other button of the overlay, a phone's centre's too (D555 §8;
+   player-controls.tsx's largerPlayPx), its icon with it. */
+.player-overlay[data-layout="phone"] .player-controls__centre .icon-button--remote-64 {
+  width: var(--remote-size);
+  min-width: var(--remote-size);
+  height: var(--remote-size);
+}
+
+.player-overlay .icon-button--remote-64 .player-icons__icon {
+  width: 2rem;
+  height: 2rem;
+}
+
 /* The menus' row wraps where it holds more than a phone's width does, closer set than the
    computer's: six menus ran past a phone's right edge (the owner, 2026-11-23). */
 .player-overlay[data-layout="phone"] .player-controls__trailing {
@@ -327,7 +340,7 @@ body:has(.film-player__stage--fills-window) {
   visibility: hidden;
 }
 
-/* Nor does the hidden page scroll under it: the Play page's film fills the window on every device
+/* Nor does the hidden page scroll under it: the Play page's film fills the window in full screen
    (play.tsx's useWholeWindow), and a page taller than the window would scroll under the picture. */
 html:has(.film-player__stage--fills-window) {
   overflow: hidden;

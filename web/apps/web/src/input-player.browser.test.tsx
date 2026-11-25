@@ -15,7 +15,7 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { fillsWindowClass } from "./film-fullscreen.ts";
+import { fillsWindowClass, toggleFullScreen } from "./film-fullscreen.ts";
 import { focusTargetsIn } from "./focus-engine.ts";
 import { routeHref } from "./router.ts";
 import { seekStepMs } from "./seek-ahead.ts";
@@ -115,6 +115,14 @@ async function expectsTheWholeWindow(width: number, height: number): Promise<voi
   expect(getComputedStyle(document.documentElement).overflowY).toBe("hidden");
 }
 
+/**
+ * Puts the Play page's film full screen, as ⤢ does, its overlay left as it is: refused, the stage
+ * fills the window. Out of full screen the film lies in the page under its top bar (D555 §9).
+ */
+function putFullScreen(): void {
+  toggleFullScreen(document.querySelector(".film-player__stage"), document);
+}
+
 /** The overlay's state, as it draws it. */
 function shown(): string | null | undefined {
   return document.querySelector(".player-overlay")?.getAttribute("data-shown");
@@ -141,6 +149,7 @@ describe.each(wholeWindowScreens)(
       await page.viewport(width, height);
       walking = await mountApp(walkServices(filmToPlay, "/play/1030"));
       await theFailedVideo();
+      putFullScreen();
       await expectsTheWholeWindow(width, height);
       expect(shown()).toBe("hidden");
     });
@@ -153,6 +162,7 @@ describe.each(wholeWindowScreens)(
       const services = walkServices(filmToPlay, "/play/1030");
       walking = await mountApp(services);
       const video = await theFailedVideo();
+      putFullScreen();
       Object.defineProperty(video, "paused", { configurable: true, get: () => false });
       const pause = vi
         .spyOn(HTMLMediaElement.prototype, "pause")
@@ -242,13 +252,14 @@ describe.each(screens)("the player by a remote's keys, on $name", ({ width, heig
     expect(play.mock.calls.length).toBe(playsBefore + 1);
   });
 
-  // The player is the whole window on every device, its controls over the picture
-  // (ui-audit-2026-11-04.md §3, the player), where D407 §9 had them under it outside full screen.
+  // The player is the whole window in full screen, its controls over the picture
+  // (ui-audit-2026-11-04.md §3, the player; D555 §9: only in full screen).
   it("draws its controls over the film, which fills the window with no page to scroll", async () => {
     vi.spyOn(Element.prototype, "requestFullscreen").mockRejectedValue(new Error("refused"));
     await page.viewport(width, height);
     walking = await mountApp(walkServices(filmToPlay, "/play/1030"));
     await theFailedVideo();
+    putFullScreen();
     await expectsTheWholeWindow(width, height);
   });
 

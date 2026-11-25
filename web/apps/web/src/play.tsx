@@ -33,7 +33,11 @@ import type { ReopenAt } from "./reopen.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { usePlayState } from "./play-state.ts";
 import { usePlayerCommands } from "./player-commands.ts";
-import { fillTheScreen, keepFillingTheWindow } from "./film-fullscreen.ts";
+import {
+  fillTheScreen,
+  keepFillingTheWindow,
+  keepFillingWhileFullScreen,
+} from "./film-fullscreen.ts";
 import { keepThePressForTheStart } from "./start-refused.ts";
 import { useVideoPressedForPlay } from "./video-pressed-for-play.ts";
 import { isBrowserFullscreen, isOnTelevision, thisBrowserWindow } from "./input-mode.ts";
@@ -299,22 +303,23 @@ function UnderThePlayer(props: { readonly onBare: (() => void) | undefined }): J
  */
 function useStageAsTheDeviceHasIt(video: HTMLVideoElement | null, isOwn: boolean): void {
   useFullscreenAsTheBrowserIs(video);
-  useWholeWindow(isOwn ? video : null);
+  useWholeWindow(isOwn ? video : null, isOnTelevision());
   useFullScreenLeftAsBack(isOwn && isOnTelevision());
 }
 
 /**
- * Keeps the player's stage filling the window while the page shows it, on every device, its
- * controls over the picture and nothing of the page under it (D418 §1): leaving the browser's full
- * screen, by ⤢, Escape or a Fire TV's Back the page never hears (D407 §7), leaves the film filling
- * the window, not the page under it. Back then hides the controls where they show, else leaves the
- * film, and has no third state.
+ * Has the stage fill the window only while the page is full screen, the top bar showing out of it
+ * (D555 §9); a television's always (D418 §1): a Fire TV's Back leaves full screen unasked (D407 §7)
+ * and must leave the film filling the window, hiding the controls, else leaving the film.
  */
-function useWholeWindow(video: HTMLVideoElement | null): void {
+function useWholeWindow(video: HTMLVideoElement | null, isTelevision: boolean): void {
   useEffect(() => {
     const stage = video?.closest(".film-player__stage");
-    return stage instanceof HTMLElement ? keepFillingTheWindow(stage) : undefined;
-  }, [video]);
+    if (!(stage instanceof HTMLElement)) {
+      return undefined;
+    }
+    return isTelevision ? keepFillingTheWindow(stage) : keepFillingWhileFullScreen(stage, document);
+  }, [video, isTelevision]);
 }
 
 /**

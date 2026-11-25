@@ -303,7 +303,7 @@ export function useBackTarget(up: Route): void {
 /**
  * Offers Back where the browser leaves full screen unasked while isOn (isFullScreenLeaveAsked): a
  * Fire TV's Back in full screen, which Silk takes for itself and keeps from the page (D407 §7). The
- * Play page's film fills the window still (play.tsx's useWholeWindow), so the press does what the
+ * television's film fills the window still (play.tsx's useWholeWindow), so the press does what the
  * page's Back does: it hides the player's controls where they show, else leaves the film
  * (ui-audit-2026-11-04.md §3: "Back hides the controls if they are shown, else leaves; never a
  * third state"). Full screen left because the page took its element away is no one's press.

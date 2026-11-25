@@ -43,6 +43,8 @@ const wide = [
 const centrePx = 56;
 /** The fingertip square every other control keeps (--size-control). */
 const controlPx = 44;
+/** Play and pause's size, larger than every other button's (D555 §8). */
+const playPx = 64;
 
 let mounted: Mounted | undefined;
 
@@ -209,7 +211,7 @@ describe("the player's overlay on a touch phone (D538 §6, player-spec)", () => 
       expect(Math.abs(height - (topRow.bottom + scrubRow.top) / 2)).toBeLessThan(2);
       expect(cluster.slice(1, 4).map((box) => Math.round(box.width))).toEqual([
         centrePx,
-        centrePx,
+        playPx,
         centrePx,
       ]);
       expect([cluster[0], cluster[4]].map((box) => Math.round(box!.width))).toEqual([
@@ -263,6 +265,23 @@ describe("the player's overlay on a computer's screen and a television's (D538 �
       );
       expect(boxes.length).toBeGreaterThan(5);
       expect(isOneRowOnScreen(boxes)).toBe(true);
+    });
+
+    // D555 §8: on a computer and in full screen the overlay as it was, with a larger play and pause.
+    it(`draws play larger than every other button of its row at ${at}`, async () => {
+      await drawnOn(screen);
+      await shown();
+      const play = button("Play").getBoundingClientRect();
+      expect([Math.round(play.width), Math.round(play.height)]).toEqual([playPx, playPx]);
+      const others = rowButtons(".player-overlay__buttons").filter(
+        (each) => each.getAttribute("aria-label") !== "Play",
+      );
+      expect(others.length).toBeGreaterThan(4);
+      for (const other of others) {
+        expect(Math.round(other.getBoundingClientRect().width)).toBe(controlPx);
+      }
+      const icon = button("Play").querySelector("svg")?.getBoundingClientRect();
+      expect(Math.round(icon?.width ?? 0)).toBe(32);
     });
 
     it(`walks every control by the keyboard, each ringed, and focus lands on something as it hides, at ${at}`, async () => {

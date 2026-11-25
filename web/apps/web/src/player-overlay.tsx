@@ -338,6 +338,9 @@ export function OverlayRowsOf(props: {
           controls={props.controls}
           isOverVideo
           isOverlayRow
+          // Larger off a television (D555 §8): a remote's Down from the scrub bar keeps to the
+          // row's first button, its tops level (D407 §3).
+          isPlayLarger={!isOnTelevision()}
           playRef={playRef}
           moves={props.moves}
           menus={props.menus}

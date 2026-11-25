@@ -1015,8 +1015,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   there, as the presses rest (three quarters of a second, a held one's after its release); a press on the timeline shows its place at once; and the place shown stays
   until the seek lands; a seek still waiting as the player lets its video go is never made
   (`src/film-player.test.tsx`). A remote's drags and steps are one command once they rest the same way
-  (the owner, Fire TV, 2026-10-29). In full screen, the browser's or a stage filling the window, every
-  device's controls are the overlay (`src/player-overlay.tsx`, D407 §1, §5): its rows, Up and the
+  (the owner, Fire TV, 2026-10-29). In full screen, the browser's or a stage filling the window, on a
+  computer, and on a phone on its side, the controls are the overlay (`src/player-overlay.tsx`, D407
+  §1, §5, D555 §8), its play and pause larger than the rest: its rows, Up and the
   convenience area (Up next, Still watching, when the film ends), the timeline, whose arrows are
   commands (`data-focus-arrows-are-commands`), and the buttons, ⏮ ⏪ ▶ ⏩ ⏭ and 🔈 💬 🎧 ⁝ ⤢, with
   the subtitle, audio and more menus (`src/player-menus.tsx`, D407 §8); a press of play that plays or
@@ -1036,8 +1037,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   film's leave the session's panel while it is in Watch Together's dialog, the row carrying them
   (`OnlyOnThePanelsPage`, `src/together-panel-place.tsx`, D440 §8 amending D281 §5); the panel at
   home, where no row is drawn, and the tray's dialog keep them. `src/volume-row.test.tsx`,
-  `src/has-microphone.test.ts`, `src/together-over-the-film.test.tsx`. A television's player opens full screen. Outside full
-  screen, on every device, nothing lies over the film (D407 §9, `src/page-controls.tsx`): the
+  `src/has-microphone.test.ts`, `src/together-over-the-film.test.tsx`. A television's player opens full screen; on every other
+  device the stage fills the window only in full screen, the page's top bar shown above it out of
+  it (D555 §9, `src/play-layout.browser.test.tsx`). On a phone held upright out of full screen
+  (`src/upright.ts`) nothing lies over the film (D407 §9, D555 §8, `src/page-controls.tsx`): the
   controls are under it, never hidden, the timeline, the same buttons but the menus, which stay under
   them on the page, and the offers as ordinary buttons after a television's ‹; Down on the video goes
   to play, and as full screen ends unasked (a Fire TV's Back) focus goes to play, so the next Back

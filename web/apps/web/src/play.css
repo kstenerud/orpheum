@@ -7,7 +7,7 @@
   gap: var(--space-4);
 }
 
-/* The Play page's film fills the window on every device (play.tsx's useWholeWindow), the page under
+/* The Play page's film fills the window in full screen (play.tsx's useWholeWindow), the page under
    it hidden (player-overlay.css). What the page tells beside the film, a failure or a refusal, is
    drawn over the picture at its top, a card on the film, not lost in the hidden page. */
 .play:has(.film-player__stage--fills-window) {

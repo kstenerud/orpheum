@@ -5,7 +5,7 @@ import "./i18n.ts";
 
 import { playerSkippedEvent } from "@orpheum/player";
 import { act, createRef, useEffect, type JSX } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { OfferPiece, OfferPlace } from "./convenience-area.tsx";
 import { setFillsWindow } from "./film-fullscreen.ts";
@@ -15,6 +15,7 @@ import {
   commandReleaseEventName,
   type CommandRelease,
 } from "./input-commands.ts";
+import { uprightQuery } from "./input-mode.ts";
 import { OverTheFilm, PageControls } from "./page-controls.tsx";
 import { PlayUpwardContext } from "./play-up.tsx";
 import {
@@ -31,6 +32,19 @@ import type { Upward } from "./upward.ts";
 /** A Fire TV's Silk, which the player takes for a television's remote. */
 const silk =
   "Mozilla/5.0 (Linux; Android 9; AFTSSS) AppleWebKit/537.36 (KHTML, like Gecko) Silk/138.19.9 like Chrome/138.0.7204.244 Safari/537.36";
+
+/**
+ * Holds the device upright, a phone's: out of full screen its controls are the bar under the film
+ * (D555 §8). Undone by vi.unstubAllGlobals.
+ */
+function heldUpright(): void {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query === uprightQuery,
+    media: query,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  }));
+}
 
 /** A Play page's place: under the home page, which its Up goes to. */
 const upward: Upward = {
@@ -85,7 +99,9 @@ function buttonNames(element: Element | null | undefined): (string | null)[] {
 
 describe("the player's controls under the film outside full screen (D369 §2, D407 §9)", () => {
   let mounted: Mounted | undefined;
+  beforeEach(heldUpright);
   afterEach(() => {
+    vi.unstubAllGlobals();
     mounted?.unmount();
     mounted = undefined;
     vi.restoreAllMocks();
@@ -463,7 +479,9 @@ describe("the player's controls under the film outside full screen (D369 §2, D4
 });
 
 describe("Left and Right on the bar's timeline (D369 §2)", () => {
+  beforeEach(heldUpright);
   afterEach(() => {
+    vi.unstubAllGlobals();
     document.body.replaceChildren();
     vi.useRealTimers();
   });

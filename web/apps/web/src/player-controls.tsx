@@ -71,6 +71,8 @@ export function PlayerControls(props: {
   readonly aside?: ReactNode | undefined;
   /** Whether the buttons are the full-screen overlay's row, play between the steps. */
   readonly isOverlayRow?: boolean | undefined;
+  /** Whether play and pause is larger than the other buttons: the overlay's (D555 §8). */
+  readonly isPlayLarger?: boolean | undefined;
   /** What previous and next play, where the controls hold them. */
   readonly moves?: SequenceMoves | undefined;
   /** The overlay row's menus' openers, 💬 🎧 ⁝ (player-menus.tsx), before full screen. */
@@ -88,6 +90,7 @@ export function PlayerControls(props: {
         playRef={playRef}
         aside={aside}
         isOverlayRow={isOverlayRow}
+        isPlayLarger={props.isPlayLarger}
         moves={moves}
         menus={menus}
         videoRef={props.videoRef}
@@ -111,6 +114,7 @@ interface ButtonsParts {
   readonly playRef: RefObject<HTMLButtonElement | null> | undefined;
   readonly aside: ReactNode;
   readonly isOverlayRow: boolean | undefined;
+  readonly isPlayLarger: boolean | undefined;
   readonly moves: SequenceMoves | undefined;
   readonly menus: ReactNode;
   readonly videoRef: RefObject<HTMLVideoElement | null> | undefined;
@@ -122,7 +126,7 @@ interface ButtonsParts {
  * there is none of keeping its place), and full screen and the sound trailing.
  */
 function ControlButtons(props: ButtonsParts): JSX.Element {
-  const { source, controls, isOverVideo, playRef, aside, isOverlayRow, moves, menus } = props;
+  const { source, controls, isOverVideo, aside, isOverlayRow, moves, menus } = props;
   const has = (control: PlayerControl): boolean => controls.includes(control);
   const move = (isForward: boolean): JSX.Element | null => {
     const go = isForward ? moves?.next : moves?.previous;
@@ -136,9 +140,7 @@ function ControlButtons(props: ButtonsParts): JSX.Element {
       <span className="player-controls__move-place" aria-hidden="true" />
     ) : null;
   };
-  const play = has("play") ? (
-    <PlayButton source={source} isOverVideo={isOverVideo} playRef={playRef} />
-  ) : null;
+  const play = has("play") ? <PlayButton {...props} /> : null;
   const step = (isForward: boolean): JSX.Element | null =>
     has("steps") ? (
       <StepButton source={source} isOverVideo={isOverVideo} isForward={isForward} />
@@ -182,16 +184,20 @@ function ControlButtons(props: ButtonsParts): JSX.Element {
   );
 }
 
+/**
+ * The overlay's play and pause, in px: the round size a step above the phone's centre buttons (56 px,
+ * player-overlay.css), larger than every other button (D555 §8). A justified constant, a size.
+ */
+const largerPlayPx = 64;
+
 /** Play or pause, as the film stands. */
+/** Play or pause, larger than the other buttons where isPlayLarger, the overlay's (D555 §8). */
 function PlayButton({
   source,
   isOverVideo,
   playRef,
-}: {
-  readonly source: PlayerSource;
-  readonly isOverVideo: boolean | undefined;
-  readonly playRef: RefObject<HTMLButtonElement | null> | undefined;
-}): JSX.Element {
+  isPlayLarger,
+}: Pick<ButtonsParts, "source" | "isOverVideo" | "playRef" | "isPlayLarger">): JSX.Element {
   const { t } = useTranslation();
   return (
     <IconButton
@@ -200,6 +206,7 @@ function PlayButton({
       label={source.isPaused ? t("playerControls.play") : t("playerControls.pause")}
       icon={source.isPaused ? <PlayIcon /> : <PauseIcon />}
       isDisabled={!source.isReady}
+      size={isPlayLarger === true ? largerPlayPx : undefined}
       onClick={source.playOrPause}
     />
   );

@@ -24,9 +24,9 @@ export function useIsOpenedOverAFilm(): boolean {
  * own film fills it (keepFillingTheWindow): the page drawn again has no stage until its playback
  * answers, and the shell's banner under it showed for that moment (the owner, 2026-11-14, VQ267 on
  * the Android phone: "whenever it switches to the next or previous video I see a brief flash of the
- * orpheum top bar"). The page's own stage always fills the window once drawn (useWholeWindow,
- * D418 §1), which lets this go; so does a playback that failed (isFailed), the page then showing
- * why.
+ * orpheum top bar"). The page's own stage fills the window once drawn, the page full screen still
+ * (useWholeWindow, D555 §9), which lets this go; so does a playback that failed (isFailed), the
+ * page then showing why.
  */
 export function WindowHeldForTheFilm(props: { readonly isFailed: boolean }): JSX.Element | null {
   const [isLetGo, setIsLetGo] = useState(false);

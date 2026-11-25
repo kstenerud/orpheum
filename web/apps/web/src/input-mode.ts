@@ -55,16 +55,21 @@ export function isMousePointer(): boolean {
   return matches(mousePointerQuery);
 }
 
-/** Tells changed as the device's pointer becomes a mouse's or stops being one. */
-function watchMousePointer(changed: () => void): () => void {
+/** Tells changed as the page starts or stops matching media; returns the stopping. */
+function watchQuery(media: string, changed: () => void): () => void {
   if (typeof globalThis.matchMedia !== "function") {
     return () => undefined;
   }
-  const query = globalThis.matchMedia(mousePointerQuery);
+  const query = globalThis.matchMedia(media);
   query.addEventListener("change", changed);
   return () => {
     query.removeEventListener("change", changed);
   };
+}
+
+/** Tells changed as the device's pointer becomes a mouse's or stops being one. */
+function watchMousePointer(changed: () => void): () => void {
+  return watchQuery(mousePointerQuery, changed);
 }
 
 /**
@@ -73,6 +78,28 @@ function watchMousePointer(changed: () => void): () => void {
  */
 export function useIsMousePointer(): boolean {
   return useSyncExternalStore(watchMousePointer, isMousePointer, () => false);
+}
+
+/**
+ * A phone or a tablet held upright: taller than wide, pressed by a finger (D555 §8). A computer's
+ * window narrowed upright is no phone: its mouse keeps the overlay. A justified constant, a media
+ * query.
+ */
+export const uprightQuery = "(orientation: portrait) and (pointer: coarse)";
+
+/** Whether the device is held upright now (uprightQuery). */
+function isUpright(): boolean {
+  return matches(uprightQuery);
+}
+
+/** Tells changed as the device turns upright or on its side. */
+function watchUpright(changed: () => void): () => void {
+  return watchQuery(uprightQuery, changed);
+}
+
+/** Whether the device is held upright (uprightQuery), kept as it turns; false where it cannot ask. */
+export function useIsUpright(): boolean {
+  return useSyncExternalStore(watchUpright, isUpright, () => false);
 }
 
 /**

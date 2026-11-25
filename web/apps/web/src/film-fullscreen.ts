@@ -31,9 +31,9 @@ const keptFillingAttribute = "data-fills-window-kept";
 
 /**
  * Has a player's stage fill the window for as long as its page wants it, whatever full screen does:
- * the Play page's player is the whole window on every device (ui-audit-2026-11-04.md §3, the
- * player), its controls over the picture, so leaving the browser's full screen (⤢, Escape, a Fire
- * TV's Back) leaves the film filling the window, never the page under it. Returns the letting go,
+ * a television's Play page's player is the whole window (D418 §1), its controls over the picture,
+ * so leaving the browser's full screen (a Fire TV's Back) leaves the film filling the window, never
+ * the page under it; a stand-in's between two Play pages too (play-window-held.tsx). Returns the letting go,
  * which the stage's page calls as it goes.
  */
 export function keepFillingTheWindow(stage: Element): () => void {
@@ -41,6 +41,45 @@ export function keepFillingTheWindow(stage: Element): () => void {
   setFillsWindow(stage, true);
   return () => {
     stage.removeAttribute(keptFillingAttribute);
+    setFillsWindow(stage, false);
+  };
+}
+
+/**
+ * The attribute of a stage whose full screen is the whole page's (keepFillingWhileFullScreen), so
+ * that it outlives the stage, as a kept one's does (fillTheScreen).
+ */
+const pageFullScreenAttribute = "data-full-screen-is-the-page";
+
+/**
+ * Has a player's stage fill the window while the page is full screen, and go back into the page,
+ * under its top bar, as full screen ends (D555 §9: the top bar shows when the page is not full
+ * screen; the stage fills the window only in full screen). Its full screen is asked of the whole
+ * page (fillTheScreen), which outlives the stage: the Play page's next or previous episode is a new
+ * stage, full screen still. A stage drawn while another fills the window (the page it replaces, or
+ * its stand-in, play-window-held.tsx) fills it too, the browser having refused full screen, so the
+ * stand-in lets go. Returns the stopping, which the stage's page calls as it goes.
+ */
+export function keepFillingWhileFullScreen(stage: Element, page: Document): () => void {
+  stage.setAttribute(pageFullScreenAttribute, "");
+  let letGo: (() => void) | undefined;
+  const follow = (): void => {
+    if (page.fullscreenElement instanceof Element) {
+      letGo ??= keepFillingTheWindow(stage);
+      return;
+    }
+    letGo?.();
+    letGo = undefined;
+  };
+  if (isAStageFillingTheWindow(page, stage) && !(page.fullscreenElement instanceof Element)) {
+    setFillsWindow(stage, true);
+  }
+  follow();
+  page.addEventListener("fullscreenchange", follow);
+  return () => {
+    page.removeEventListener("fullscreenchange", follow);
+    stage.removeAttribute(pageFullScreenAttribute);
+    letGo?.();
     setFillsWindow(stage, false);
   };
 }
@@ -67,8 +106,8 @@ export function isAStageFillingTheWindow(page: Document, besides?: Element): boo
  * already full screen looks the same. Safari refuses a request not made in the press itself, and
  * the player opens a moment after the press that opened it (the owner's Mac, 2026-10-25: Safari full
  * screen, the film did not fill it), and may not answer at all, so a request unanswered in time
- * counts as refused. A stage its page keeps filling the window (keepFillingTheWindow) puts the whole
- * page full screen instead, which looks the same and outlives the stage: the Play page's next or
+ * counts as refused. A stage its page keeps filling the window (keepFillingTheWindow), or filling
+ * it while full screen (keepFillingWhileFullScreen), puts the whole page full screen instead, which looks the same and outlives the stage: the Play page's next or
  * previous episode is the page drawn again, a new stage in place of the one full screen, which the
  * browser left as it went (the owner, 2026-11-05: "Pressing next or previous episode while in
  * fullscreen removes fullscreen"), and full screen asked again as the new stage shows, no press
@@ -81,7 +120,9 @@ export function fillTheScreen(stage: HTMLElement, document: Document): void {
   const fillWindow = (): void => {
     setFillsWindow(stage, true);
   };
-  const asked = stage.hasAttribute(keptFillingAttribute) ? document.documentElement : stage;
+  const isThePage =
+    stage.hasAttribute(keptFillingAttribute) || stage.hasAttribute(pageFullScreenAttribute);
+  const asked = isThePage ? document.documentElement : stage;
   if (typeof asked.requestFullscreen !== "function") {
     fillWindow();
     return;

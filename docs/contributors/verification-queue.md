@@ -4162,3 +4162,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   3. Alone, cast a film to the Chromecast, then put the phone in airplane mode for 30 s and take it
      out again. Report whether the remote says "Can't reach the server" meanwhile, then returns to
      its controls, the Chromecast playing on, and whether nothing ends.
+
+- [ ] **VQ405** — The Play page's top bar and its controls upright and on its side (D555 §8–9): only
+  a real phone's turning and a real browser's full screen show it. On the phone's Chrome, then on a
+  computer's Chrome:
+  1. Open any film and play it, the phone held upright. Report whether the top bar shows above the
+     picture, the controls lie under the picture and never hide, and nothing lies over it.
+  2. Turn the phone on its side. Report whether the controls go over the picture, hiding as it
+     plays, and whether play and pause is larger than the buttons beside it.
+  3. Press ⤢. Report whether the picture fills the screen with no top bar; press Next and report
+     whether the next film stays full screen with no flash of the top bar; leave full screen and
+     report whether the top bar comes back with the film in the page under it.
+  4. On the computer, report whether the top bar shows above the film with the controls over it,
+     and whether ⤢ and Escape go into and out of full screen the same way.

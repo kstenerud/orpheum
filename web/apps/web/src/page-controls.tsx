@@ -11,7 +11,6 @@ import { ConvenienceArea, leftMsOf, type OfferPiece } from "./convenience-area.t
 import { fillTheScreen, toggleFullScreen } from "./film-fullscreen.ts";
 import { keepThePressForTheStart } from "./start-refused.ts";
 import type { FilmParts } from "./film-player.tsx";
-import { useIsFullScreen } from "./full-screen-button.tsx";
 import { useCommands } from "./input-layer.tsx";
 import { OverlayUp } from "./play-up.tsx";
 import { answerPlayerCommand, usePlayersControls } from "./player-commands.ts";
@@ -22,6 +21,7 @@ import { isAMousesClick, TouchClock, touchClockEvents } from "./player-taps.ts";
 import { SkippedPopUp, SkippedSign, useSkippedStretches } from "./skipped-parts.tsx";
 import { Timeline } from "./timeline.tsx";
 import { isOnTelevision } from "./input-mode.ts";
+import { useHasControlsOverThePicture } from "./upright.ts";
 
 /** What the player's controls draw beside the film's own parts: the offer, previous and next. */
 interface ControlsGiven {
@@ -32,9 +32,9 @@ interface ControlsGiven {
 }
 
 /**
- * The player's own controls over the film, every device's (D369 §2): the full-screen overlay while
- * the film shows full screen, the browser's or the stage filling the window (useIsFullScreen; D407
- * §1, §5), and nothing otherwise, the controls then lying under the film (PageControls, D407 §9).
+ * The player's own controls over the film, every device's (D369 §2): the overlay (D407 §1, §5) in
+ * full screen, on a device on its side and on a computer, and nothing on a device held upright out
+ * of full screen, the controls then lying under the film (PageControls; D555 §8).
  * shouldOpenFullScreen puts the stage full screen as the player opens, as a television's player is,
  * filling the window where the browser refuses; hasPressesOnTheFilm has a mouse's click on the film
  * play or pause it and its double click put it full screen or leave (the two clicks' play and pause
@@ -51,36 +51,36 @@ export function OverTheFilm(
     },
 ): JSX.Element | null {
   const { shouldOpenFullScreen, hasPressesOnTheFilm, offer, moves, ...film } = props;
-  const isFullScreen = useIsFullScreen();
+  const isOver = useHasControlsOverThePicture();
   useFullscreenStage(film.videoRef, shouldOpenFullScreen === true);
   usePressesOnTheFilm(film.videoRef, hasPressesOnTheFilm === true);
   return (
     <>
-      {isFullScreen ? <PlayerOverlay {...film} offer={offer} moves={moves} /> : null}
+      {isOver ? <PlayerOverlay {...film} offer={offer} moves={moves} /> : null}
       <SkippedPopUp videoRef={film.videoRef} />
     </>
   );
 }
 
 /**
- * The player's controls under the film, outside full screen on every device, a television's too
- * (D407 §9): nothing is drawn over the video then. As full screen ends unasked (a Fire TV's Back, a
+ * The player's controls under the film on a device held upright out of full screen (D555 §8,
+ * D407 §9): nothing is drawn over the video then. As full screen ends unasked (a Fire TV's Back, a
  * computer's Escape, which the page never hears), focus goes to play, from where ⤢ returns and the
  * next Back goes to the film's page (D407 §7). In full screen, nothing: the overlay is the controls.
  * The stretches the player skipped are heard here, drawn or not, so the bar's sign names each.
  */
 export function PageControls(props: FilmParts & ControlsGiven): JSX.Element | null {
   const { offer, moves, ...film } = props;
-  const isFullScreen = useIsFullScreen();
+  const isOver = useHasControlsOverThePicture();
   const playRef = useRef<HTMLButtonElement>(null);
-  usePlayFocusedAsFullScreenEnds(isFullScreen, playRef);
+  usePlayFocusedAsFullScreenEnds(isOver, playRef);
   const skipped = useSkippedStretches(film.videoRef);
-  return isFullScreen ? null : (
+  return isOver ? null : (
     <ControlsBar film={film} offer={offer} moves={moves} playRef={playRef} skipped={skipped} />
   );
 }
 
-/** Focuses play in playRef as full screen ends, once the controls under the film are drawn. */
+/** Focuses play in playRef as the overlay ends (full screen left), once the bar under is drawn. */
 function usePlayFocusedAsFullScreenEnds(
   isFullScreen: boolean,
   playRef: RefObject<HTMLButtonElement | null>,

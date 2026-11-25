@@ -17,7 +17,7 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 
-import { followFillsWindow } from "./film-fullscreen.ts";
+import { followFillsWindow, toggleFullScreen } from "./film-fullscreen.ts";
 import { directDecision } from "./test-fixtures.ts";
 import {
   filmDetail,
@@ -83,12 +83,24 @@ describe("the Play page in full screen, as Next or Previous plays another file",
 
   it("keeps the shell's banner hidden as the next file's Play page waits for its playback", async () => {
     // The owner, 2026-11-14, VQ267 on the Android phone: "whenever it switches to the next or
-    // previous video I see a brief flash of the orpheum top bar".
+    // previous video I see a brief flash of the orpheum top bar". The page full screen, granted:
+    // out of it the top bar shows (D555 §9).
+    let fullScreen: Element | null = null;
+    vi.spyOn(Document.prototype, "fullscreenElement", "get").mockImplementation(() => fullScreen);
+    const grant = (asked: Element): Promise<void> => {
+      fullScreen = asked;
+      document.dispatchEvent(new Event("fullscreenchange"));
+      return Promise.resolve();
+    };
+    vi.spyOn(Element.prototype, "requestFullscreen").mockImplementation(function (this: Element) {
+      return grant(this);
+    });
     await page.viewport(1280, 800);
     const services = walkServices(filmToPlay, "/play/1030");
     walking = await mountApp(services);
     await expect.poll(() => document.querySelector("video")?.error?.code).toBeDefined();
     const stage = document.querySelector(".film-player__stage");
+    toggleFullScreen(stage, document);
     const banner = document.querySelector(".app-shell__banner");
     expect(banner).not.toBeNull();
     const isBannerShown = (): boolean =>
