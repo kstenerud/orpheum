@@ -202,6 +202,20 @@ is sent nothing at the cast's end`) and walked again. Seen once, not looked into
 failing, the page showed nothing and Cast's dialog opened; what the page shows when a Stop fails
 is for the next batch.
 
+**Built (items 1–2):** the Play page's stage fills the window only while the page is full
+screen (`keepFillingWhileFullScreen`, `film-fullscreen.ts`), full screen asked of the page so Next
+and Previous keep it; out of it the top bar shows above the film. A television's stage still fills
+the window always (D418 §1), so a Fire TV's Back still leaves the film filling it. The signs were
+already in the bottom bar only in full screen (`SignsOverTheFilm`). Upright (`src/upright.ts`:
+portrait and a coarse pointer) and not full screen, the controls are the bar under the picture;
+otherwise the overlay, its play and pause 64 px with a 2rem icon. Where the design was silent: a
+full screen the browser refuses still falls back to filling the window; a television's play keeps
+the row's size, so a remote's Down from the scrub bar still lands on the row's first button
+(D407 §3). VQ405.
+
+**Left (items 1–2):** the castee's page (`CasteePlay`) keeps its bar under the key frame on its
+side and on a computer: it draws no overlay yet.
+
 ### Phase 5: the lab goes (D555 §12)
 
 Its pages, routes, words, menu entry and the server's `/lab/` endpoints.
