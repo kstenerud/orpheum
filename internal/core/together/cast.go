@@ -119,6 +119,9 @@ type casting struct {
 	// left to play alone (moveCastAlone), handed it again on their live connections: its end tells
 	// them, as a page not yet back on the cast's own session still listens on them.
 	movedDevices []*device
+	// movedFrom is the Watch Together session movedDevices said hello in, by which one of them gone
+	// is found and forgotten (forgetMoved): no session holds them, and a gone device is sent nothing.
+	movedFrom int64
 	// state is what state its castee last said it is in (D555 §4), kept with its position for a
 	// caster coming back; empty until it says, read as CastStarting.
 	state CastState
@@ -482,6 +485,20 @@ func (hub *Hub) endCast(ended *casting, reason string) {
 	where.letCastGo(now, caster, ended.id, told)
 }
 
+// forgetMoved forgets gone's device among those a cast left behind in the session it said hello in
+// (movedDevices), which no session holds: its connection ended, and nothing is sent to it after
+// (Detach). The caller holds the mutex.
+func (hub *Hub) forgetMoved(gone Attachment) {
+	for _, cast := range hub.casts {
+		if cast.movedFrom != gone.SessionID {
+			continue
+		}
+		cast.movedDevices = slices.DeleteFunc(cast.movedDevices, func(moved *device) bool {
+			return moved.id == gone.DeviceID
+		})
+	}
+}
+
 // castsLeave takes each cast that is a part in the Watch Together session from as it ends, or as its
 // caster gone leaves it (nil for every member's), out of it: the castee goes where its member goes
 // (D555 §7). A signed-in person's moves to a session of one, playing on (moveCastAlone), whose
@@ -518,6 +535,7 @@ func (hub *Hub) moveCastAlone(cast *casting) {
 	cast.handed.leave(where, now)
 	taken, devices := where.takeCastOut(now, caster, cast.id, nil)
 	cast.movedDevices = devices
+	cast.movedFrom = where.id
 	hub.openAlone(cast, Person{UserID: cast.userID, Name: caster.name}, cast.id)
 	alone, own := hub.castersPart(cast)
 	alone.group = playing

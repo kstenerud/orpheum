@@ -184,6 +184,39 @@ func TestCast_ACastThatWasItsSessionsOnlyPlayerPlaysOnAsTheSessionEnds(t *testin
 	stage.wantPlaying(t, cast.CastID, "a cast whose host ended the session it alone played in", film.FileID, stoodMs)
 }
 
+// A device that said hello in the Watch Together session its cast then left, its connection ended
+// since, is sent nothing as the cast ends: the cast kept it to tell its end, no session holding it,
+// and the server sent on its closed connection, failing Stop casting (the walk on staging,
+// 2026-11-25).
+func TestCast_ADeviceGoneSinceItsCastLeftTheSessionIsSentNothingAtTheCastsEnd(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	cast, err := stage.hub.OpenCast(alone, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	party, err := stage.hub.Open(alone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inParty, err := stage.hub.CastCredential(cast.CastID, alone.UserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	castee, sent := stage.attach(t, inParty, RoleVideo)
+	if err = stage.hub.End(party.SessionID, alone.UserID); err != nil {
+		t.Fatal(err)
+	}
+	stage.hub.Detach(castee, GoneClosed)
+	before := len(sent.messages)
+	if err = stage.hub.EndCast(cast.CastID, alone.UserID, CastStopped); err != nil {
+		t.Fatal(err)
+	}
+	if after := len(sent.messages); after != before {
+		t.Fatalf("a device gone was sent %d messages at its cast's end: %+v", after-before, sent.messages[before:])
+	}
+}
+
 // wantPlaying fails the test, saying what, unless alone's cast castID hands its castee the film
 // fileID from positionMs, playing.
 func (stage sessionStage) wantPlaying(t *testing.T, castID int64, what string, fileID, positionMs int64) {

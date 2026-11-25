@@ -589,6 +589,7 @@ func (hub *Hub) Attach(
 func (hub *Hub) Detach(attachment Attachment, because GoneBecause) {
 	hub.mutex.Lock()
 	defer hub.unlockTelling()
+	hub.forgetMoved(attachment)
 	detached, found := hub.sessions[attachment.SessionID]
 	if !found {
 		return
