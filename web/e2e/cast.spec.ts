@@ -165,7 +165,7 @@ test(
       // comes first, from the live connection, and a cast ended as the remote said hello was
       // only "over" to it, the server knowing the session no more (check-pr, 2026-10-29).
       // How it plays is a read-only entry of the remote's ⁝ (D444).
-      await sender.locator(".cast-remote").getByRole("button", { name: "Settings" }).click();
+      await sender.locator(".castee-play").getByRole("button", { name: "Settings" }).click();
       await expect(sender.getByText(/^Playing: /u)).toBeVisible({
         timeout: 10_000,
       });
@@ -217,7 +217,9 @@ test(
           timeout: 10_000,
         });
         await expect.poll(() => new URL(receiver.url()).pathname, { timeout: 10_000 }).toBe("/");
-        await expect.poll(async () => await isPlaying(sender), { timeout: 30_000 }).toBe(true);
+        // The film swaps back to the video here, paused, the person alone (D555 §5).
+        await expect(sender.locator("video")).toHaveCount(1, { timeout: 30_000 });
+        await expect.poll(async () => await isPaused(sender), { timeout: 10_000 }).toBe(true);
         expect(sender.url()).toBe(playAddress);
         // Its cast over, the receiver is a target again (D386 §1), listed beside the sender.
         await expect(listed).toHaveCount(2, { timeout: 10_000 });
@@ -229,7 +231,7 @@ test(
 );
 
 test(
-  "a receiver ends the cast by its own Stop casting here, over its film, going home as the sender says it took control and plays the film on at Play here",
+  "a receiver ends the cast by its own Stop casting here, over its film, going home as the sender swaps the film back to the video here, paused, saying nothing of the end",
   { tag: oneBrowserTag },
   async ({ browser }) => {
     await castBetweenTwo(browser, async ({ sender, receiver }) => {
@@ -242,12 +244,12 @@ test(
       await expect(castSign(sender)).not.toHaveClass(/icon-button--running/u, {
         timeout: 10_000,
       });
-      // The sender's remote stays, saying why, and takes the film on at Play here alone, as the
-      // receiver had it, playing (D552 §4, D446 §2).
-      await expect(sender.getByText(/took control/u)).toBeVisible({ timeout: 10_000 });
-      expect(await isPlaying(sender)).toBe(false);
-      await sender.getByRole("button", { name: "Play here", exact: true }).click();
-      await expect.poll(async () => await isPlaying(sender), { timeout: 30_000 }).toBe(true);
+      // The sender's page swaps the film back to the video here, paused, the person alone, with no
+      // note of the end and nothing to press (D555 §5, amending D552 §4).
+      await expect(sender.locator("video")).toHaveCount(1, { timeout: 30_000 });
+      await expect.poll(async () => await isPaused(sender), { timeout: 10_000 }).toBe(true);
+      await expect(sender.getByText(/took control/u)).toHaveCount(0);
+      await expect(sender.getByRole("button", { name: "Play here", exact: true })).toHaveCount(0);
       expect(sender.url()).toBe(playAddress);
     });
   },
