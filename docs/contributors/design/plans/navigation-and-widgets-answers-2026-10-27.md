@@ -5308,3 +5308,16 @@ server removes at its cast's end); voice on the caster with the film's ducking o
 sound commands flow through the cast; the gallery's remote; and the decisions to supersede by one
 design decision: D385, D446, D468, D548–D554, with the cast-remote tests of this week to be
 replaced, explained to the test-weakening gate.
+
+Agreed in the design conversation (the owner, 2026-11-25), to be carried into the design decision:
+
+- **One mechanism on the server: a member with a playing device and, when casting, a remote.**
+  Casting alone stays a hidden session of one (D88). In a Watch Together session the caster's
+  page is the remote and the castee the playing device in that same session, with no second
+  session for the cast; the live registry keeps presence and the hand-off only. This is what
+  "the cast belongs to the device" means.
+- **A session's end leaves a member's cast playing on alone, while the caster has rights to the
+  film without the session.** A guest whose rights came from the session loses the cast with it.
+- **The server alone decides a castee is gone,** and the caster reflects it. Two minutes
+  (D364 §6) is too long to sit before a screen that looks dead: the limit becomes shorter, its
+  number still to agree.
