@@ -556,6 +556,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D548](working-notes.md#d548--the-cast-remote-has-its-own-layout-the-picture-in-a-card-a-pad-of-round-buttons-and-the-players-buttons-row) The cast remote has its own layout: the picture in a card, a pad of round buttons, and the player's buttons row — *revisited by D550*
 - [D549](working-notes.md#d549--after-stop-the-casting-device-resumes-where-the-receiver-last-stood-home-only-where-nothing-was-on) After Stop, the casting device resumes where the receiver last stood; home only where nothing was on
 - [D550](working-notes.md#d550--the-cast-remote-reaches-for-a-receiver-the-server-no-longer-hears-and-offers-to-play-the-film-here) The cast remote reaches for a receiver the server no longer hears, and offers to play the film here
+- [D551](working-notes.md#d551--a-discovery-request-is-bounded-one-never-answered-ends-as-the-paths-loss-waited-out-with-the-retries) A discovery request is bounded: one never answered ends as the path's loss, waited out with the retries
 
 ## Archived
 

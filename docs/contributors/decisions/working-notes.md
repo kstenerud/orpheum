@@ -31577,3 +31577,43 @@ Chromecast that played (staging, 2026-11-25). The sending message says `isGuestR
 remote then keys on the session's leader alone; the server ends a guest's cast as the guest goes,
 which ends the remote. Test: the remote's own, a guest receiver among no connected devices, leading,
 is not Reaching, and is once the leader leaves.
+
+## D551 — A discovery request is bounded: one never answered ends as the path's loss, waited out with the retries
+
+**Decided** (2026-11-25), by the project owner: his go on the lead's proposal A (timeouts), after
+remote debugging of his phone found a page held at "Connecting" by requests to the discovery that
+never settled. It amends no decision: the page's waiting out of a lost path came from principles
+§28 with the owner's train report (2026-11-13), recorded in no decision, and this gives it one more
+way in.
+
+**Status:** decided; not built. Its code is `web/packages/sdk/src/discovery.ts`'s `postToDiscovery`,
+`discoveryAnswerMs` and `DiscoveryUnanswered`.
+
+1. **What went wrong.** On the owner's phone (Firefox for Android 160.0.1 with uBlock Origin), a
+   client origin's page sat at "Connecting" for more than 24 minutes. Every request to the
+   discovery's host, by `fetch` or `XMLHttpRequest`, never settled and never became a network
+   request; other hosts answered, and disabling the extension fixed it (idiosyncrasies.md, "uBlock
+   Origin on Firefox for Android holds every request to the discovery's host, never answering").
+   The page's own fault: nothing bounded a discovery request, so one held forever held the page
+   forever, with no retry and nothing a person could act on.
+2. **The bound.** Every call to the discovery's client API (`postToDiscovery`: locate, paths, the
+   dead-end report, a realm's and a device code's calls) waits at most `discoveryAnswerMs`, 15 s,
+   a justified constant: an answer takes one round trip past its connection's own, and the worst
+   link that still works in the slow-link war game answers in well under it (`discoveryWaitMs`'s
+   figures, 800 ms a round trip). Past it the call fails with `DiscoveryUnanswered` and its request
+   is aborted. The wait is raced against the request, not left to the abort alone: a request held
+   where its abort is not heard still ends.
+3. **It ends as the path's loss.** `DiscoveryUnanswered` is no refusal, so at a client origin the
+   gate (`isLoaderPathLost`) takes it as a lost path and the page waits it out as it does any other:
+   "Waiting for the network", trying again by itself after 5 s, doubling to a minute
+   (`pathLostRetryAfterMs`), and at once on Try again, on the browser coming back online and on the
+   page being shown again. A person sees the network named within 15 s instead of "Connecting"
+   forever.
+4. **What it does not do.** No new screen, and no new words: the waiting phase is the existing
+   one. The loader's own origin, whose gate waits out no lost path, ends an unanswered call at its
+   dead end, as any other failure there. It does not find or work around the extension's cause; the
+   person's workaround (the extension off for the site) is in the idiosyncrasy.
+5. **Tests:** `postToDiscovery` given a fetch that never settles fails with `DiscoveryUnanswered`
+   at `discoveryAnswerMs` and not before, its request aborted; one answered within it is unaffected;
+   and the loader's gate, whose discovery holds its first locate, says it waits for the network and
+   connects on the next try. `VQ400` for the owner's phone with the extension on again.
