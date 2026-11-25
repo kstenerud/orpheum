@@ -8,7 +8,7 @@
 import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
-import { openFilm, playFromTheStart, serverUrl, shownOverTheFilm } from "./pages.ts";
+import { openFilm, playFromTheStart, serverUrl, signInTheTopBar } from "./pages.ts";
 
 /** D243 §9: voice one-way under 300 ms, and audible loss under 2%. */
 const voiceOneWayAtMostMs = 300;
@@ -107,11 +107,11 @@ export async function hostPlays(host: Page, film: string): Promise<void> {
   await openFilm(host, film);
   await playFromTheStart(host).click();
   await expect(host.locator("video")).toHaveCount(1, { timeout: 30_000 });
-  await expect(await shownOverTheFilm(host, togetherOverTheFilm)).toBeVisible({ timeout: 30_000 });
+  await expect(signInTheTopBar(host, togetherSign)).toBeVisible({ timeout: 30_000 });
 }
 
-/** The label of Watch Together's sign over the film, shown while a session is on (D423). */
-const togetherOverTheFilm = "Watch Together is on: its controls";
+/** The label of Watch Together's sign in the top bar, shown while a session is on (D423, D555 §9). */
+const togetherSign = "Watch Together is on: its controls";
 
 /**
  * Opens Watch Together's dialog over the film by its sign there, the session's panel moved in under
@@ -126,7 +126,7 @@ export async function openPanelOverTheFilm(page: Page): Promise<void> {
   ) {
     return;
   }
-  await (await shownOverTheFilm(page, togetherOverTheFilm)).click();
+  await signInTheTopBar(page, togetherSign).click();
   await expect(dialog).toBeVisible();
 }
 

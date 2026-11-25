@@ -4,7 +4,7 @@ import { expect } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
 import { oneBrowserTag } from "./only-these-tests.ts";
-import { isPlaying, playFromTheStart, serverUrl, shownOverTheFilm, signIn } from "./pages.ts";
+import { isPlaying, playFromTheStart, serverUrl, signInTheTopBar, signIn } from "./pages.ts";
 import { warmUpFilm } from "./server.ts";
 import { endSession, join } from "./together-pages.ts";
 
@@ -105,7 +105,7 @@ test(
     await card.click();
     await playFromTheStart(host).click();
     await expect(host.locator("video")).toHaveCount(1, { timeout: 30_000 });
-    await expect(await shownOverTheFilm(host, "Watch Together is on: its controls")).toBeVisible({
+    await expect(signInTheTopBar(host, "Watch Together is on: its controls")).toBeVisible({
       timeout: 30_000,
     });
     await expect.poll(() => isPlaying(guest), { timeout: 30_000 }).toBe(true);

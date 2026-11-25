@@ -16,7 +16,14 @@ import { expect, type Browser, type Page } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
 import { oneBrowserTag, timingTag } from "./only-these-tests.ts";
-import { isPlaying, openFilm, playFromTheStart, shownOverTheFilm, signIn } from "./pages.ts";
+import {
+  isPlaying,
+  openFilm,
+  playFromTheStart,
+  shownOverTheFilm,
+  signInTheTopBar,
+  signIn,
+} from "./pages.ts";
 import { secondFilm, warmUpFilm } from "./server.ts";
 
 /** Whether the page's video is paused. */
@@ -98,13 +105,13 @@ async function castFromOneToTheOther(
   await openFilm(sender, warmUpFilm);
   await playFromTheStart(sender).click();
   await expect.poll(async () => await isPlaying(sender), { timeout: 30_000 }).toBe(true);
-  // The film fills the window over the tray, so Cast's sign over the film opens its dialog, over
-  // the Play page, which stays where it is (D384 §2, D418 §1; the owner, 2026-11-04).
+  // Out of full screen the Play page shows its top bar, Cast's sign in it, which opens its dialog
+  // over the Play page, which stays where it is (D384 §2, D555 §9; the owner, 2026-11-04).
   const playAddress = sender.url();
-  const overTheFilm = await shownOverTheFilm(sender, "Cast to a device");
-  await expect(overTheFilm).toBeVisible();
+  const inTheTopBar = signInTheTopBar(sender, "Cast to a device");
+  await expect(inTheTopBar).toBeVisible();
   await expect(castSign(sender)).not.toHaveClass(/icon-button--running/u);
-  await overTheFilm.click();
+  await inTheTopBar.click();
   await sender
     .getByRole("dialog", { name: "Cast" })
     .locator(".cast-to__devices button")

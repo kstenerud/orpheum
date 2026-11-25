@@ -100,6 +100,14 @@ export async function isPlaying(page: Page): Promise<boolean> {
 }
 
 /**
+ * A sign of the Play page's top bar by its name, Watch Together's or Cast's: out of full screen the
+ * page shows its top bar, the signs in it, not over the film (D555 §9).
+ */
+export function signInTheTopBar(page: Page, name: string | RegExp): ReturnType<Page["locator"]> {
+  return page.locator(".app-shell__banner").getByRole("button", { name });
+}
+
+/**
  * A control of the player's overlay, over the film (D418 §1), by its name: the controls are hidden
  * while the film plays, so the pointer moves over the film first, as a person's would, which shows
  * them.
