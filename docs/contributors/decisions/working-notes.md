@@ -31643,9 +31643,8 @@ device, plus however far it was likely to get."* **Amends** D446 §5 and D385 §
 had the sender take the film over at once, and **extends** D550 §3, whose Play here was offered
 while the cast still lasted.
 
-**Status:** decided; built (§1 in the commit that recorded it, §2 in the next, each read back
-against the code). Its code is `cast-remote.tsx`'s endWayOf and useWhereItStood (lostBeforeGoneMs)
-and `cast-remote-offer.tsx`'s RemoteOffer (`gone`).
+**Status:** decided; §1–3 built; §4–5 not built. Its code is `cast-remote.tsx`'s endWayOf and
+useWhereItStood (lostBeforeGoneMs) and `cast-remote-offer.tsx`'s RemoteOffer (`gone`).
 
 1. **The remote stays as the cast ends with its receiver gone.** The server's end stands (D364 §6:
    two minutes after the receiver's connection was lost, reason `receiverGone`), and the cast is
@@ -31678,8 +31677,66 @@ and `cast-remote-offer.tsx`'s RemoteOffer (`gone`).
    shows the note with no Try again and no spinner, and Play here plays the film from two ping gaps
    before the roster lost the leader, playing, with no end asked of the server; a cast with nothing
    on goes home. VQ401 for the owner's phone and a switched-off receiver.
+4. **Only this tab's own end takes the film over; every other end keeps the remote** (the owner,
+   2026-11-25). On staging the owner cast from his phone to a Chromecast and switched it off, and
+   the film played on the phone by itself: 38 s after the Chromecast started playing, the phone
+   itself ended the cast as `stopped`, before the server's 45 s silence limit, because the phone's
+   Google Cast session ended as the device vanished and `google-cast.ts` ended the cast as Chrome's
+   own Cast control does, which the remote reads as the person's Stop. The owner ruled: *"Regardless
+   of how the cast ends, if the caster didn't stop the cast, it should say that the other side
+   stopped it or is gone, and then offer to continue playback on the caster device."* And, of the
+   note: *"Let's keep the reasoning text short. "<tv> stopped casting", "<tv> unreachable", and
+   such"*. So, for a cast with a film on:
+   - **`stopped` that this tab asked for** (Stop casting in Cast's dialog, or Play here while
+     Reaching: `stop-casting-here.tsx`'s useCastEnding, whose ask `cast.ts` keeps for
+     takeEndAnswerOf; or the person's Stop in Chrome's own Cast control, §5): the film plays here
+     at once, as D446 §2 and D549 have it.
+   - **`takenBack`**, the receiver's own Stop casting here: the remote stays, as §1 has it for a
+     receiver gone, its note *"‹TV› stopped casting"* with Play here alone, which plays the film
+     from where the receiver left it. **Amends** D446 §2–3 and D385 §2, whose take-back played the
+     film here at once.
+   - **`receiverGone`**, the server's (§1) or this sender's own on losing its Chromecast (§5): the
+     note *"‹TV› unreachable"*, amending §1's wording, Play here from §2's place, or, ended by this
+     sender, from where the remote had the film as it heard the loss.
+   - **Any other end**: `stopped` this tab did not ask for (another tab of the device; the server's
+     own as the device casts elsewhere), `sessionEnded`, `declined`, `unanswered`, `idle`, or a cast
+     the server no longer knows (`gone`): the note *"Casting ended"*, Play here from where the
+     remote had the film. This **amends** D386 §2, whose lost cast sent the page home with a pop-up
+     (the note now says casting ended in its place), and D389 §1, whose `sessionEnded` went home
+     with no word, for a cast with a film on.
+
+   Play here after any of these plays the film here as an ordinary play (`onPlayHere`), asking the
+   server for no end: the cast is over. A cast with nothing on ends as before, whatever its reason:
+   the page home, saying so in a pop-up only where the server knows the cast no more (D446 §2, D386
+   §2, D389 §1).
+5. **How a Chromecast's end is told apart.** The Cast sender SDK's SESSION_STATE_CHANGED event
+   (`cast.framework.SessionStateEventData`) has an `errorCode`, but Google's reference gives it as
+   the *"Session start failure reason"*, and the framework (`cast_framework.js` 1.0.15) sets it only
+   with SESSION_START_FAILED: its SESSION_ENDED, dispatched as the session's status turns
+   `disconnected` or `stopped`, carries none, so it cannot tell a device gone from the person's
+   act. What does tell it: the person's Stop in Chrome's own Cast control reaches the framework as
+   the receiver action STOP, which it turns into SESSION_ENDING before SESSION_ENDED. So
+   `cast-sdk.ts` says whether the session's end was so asked, and `google-cast.ts` ends the cast
+   `stopped` where SESSION_ENDING came first (the person's own act: the film then plays here at
+   once, §4) and `receiverGone` where SESSION_ENDED came alone (the device switched off or lost,
+   or its receiver app stopped from elsewhere), which the server's end accepts from the sender as
+   from itself. The remote meets it as §4's `receiverGone`. The phone hears the loss itself, within
+   seconds of it and before the server's silence limit, while the server may still list the
+   receiver leading: where it stands then (the remote's clock run on from the receiver's last
+   report) is where Play here starts, a little ahead of the television at worst, which one scan
+   back mends (D385 §3).
+6. **Tests:** the remote's end tests: a take-back keeps the remote with *"Fire TV stopped casting"*
+   and Play here, which alone plays the film here, from where the receiver left it; a
+   `sessionEnded`, a `stopped` this tab did not ask for and a cast the server no longer knows keep
+   it with *"Casting ended"*; this tab's own Stop still plays the film here at once. The Cast link's
+   tests: a session ended with no SESSION_ENDING ends the cast `receiverGone`, one ended after it
+   `stopped`. The core's: the sender's end with `receiverGone` is accepted and its remote told so.
+   VQ402 for the owner's phone, a Chromecast switched off and a Fire TV's take-back.
 
 **Proven by:**
 - 1: `web/apps/web/src/cast-remote-ends.test.tsx`, VQ401
 - 2: `web/apps/web/src/cast-remote-ends.test.tsx`, VQ401
 - 3: `web/apps/web/src/cast-remote-ends.test.tsx`
+- 4: `web/apps/web/src/cast-remote-ends.test.tsx`, `web/apps/web/src/cast-remote-stop.test.tsx`, VQ402
+- 5: `web/apps/web/src/google-cast.test.tsx`, `internal/core/api/casts_test.go`, VQ402
+- 6: `web/apps/web/src/cast-remote-ends.test.tsx`, `web/apps/web/src/google-cast.test.tsx`

@@ -1,14 +1,3 @@
-- [ ] **VQ401** — A cast whose receiver goes away ends with the remote kept, not the film played
-  here by itself (D552 §1). On the phone, cast a film to the Chromecast, then switch the Chromecast
-  off and wait:
-  1. Within about a minute: Reaching, then "‹TV› isn't answering" with Try again and Play here over
-     the dimmed picture. Leave them alone.
-  2. About two minutes after the switch-off: report whether the note changes to "‹TV› isn't
-     answering, so casting ended" with Play here alone, the spinner gone, and whether the film
-     stays on the remote (nothing plays on the phone by itself).
-  3. Press Play here. Report whether the film plays on the phone as an ordinary play, and from
-     about where the television stood when it went off, or a little before it (D552 §2: up to
-     about half a minute behind, never ahead).
 > **ABOUTME:** Checks that only a person with the hardware can do — a film on a television, a
 > voice call across two houses. A fix that no automated test can turn red names its item here
 > in a `Verified-By: VQ<n>` trailer; until it is ticked it is owed, which revert-red lists (D378).
@@ -4112,3 +4101,28 @@ An item is ticked only by the person who did it, and only with what they saw.
   3. Press Try again. Report whether it tries at once.
   **Passed 2026-11-25 (the owner, staging, Firefox for Android with uBlock Origin on):** "FF android
   now works through a reload with ublock origin enabled again."
+- [ ] **VQ401** — A cast whose receiver goes away ends with the remote kept, not the film played
+  here by itself (D552 §1). On the phone, cast a film to the Chromecast, then switch the Chromecast
+  off and wait:
+  1. Within about a minute: Reaching, then "‹TV› isn't answering" with Try again and Play here over
+     the dimmed picture. Leave them alone.
+  2. About two minutes after the switch-off: report whether the note changes to "‹TV›
+     unreachable" (D552 §4's wording) with Play here alone, the spinner gone, and whether the film
+     stays on the remote (nothing plays on the phone by itself).
+  3. Press Play here. Report whether the film plays on the phone as an ordinary play, and from
+     about where the television stood when it went off, or a little before it (D552 §2: up to
+     about half a minute behind, never ahead).
+- [ ] **VQ402** — A cast this phone did not stop ends with the remote kept, saying why, and Play here
+  alone (D552 §4–5): only a real Chromecast's Cast session and a real receiver's take-back show it.
+  On the phone's Chrome:
+  1. Cast a film to the Chromecast and let it play a minute, then switch the Chromecast off at the
+     wall. Within about a minute, report whether the remote says "‹TV› unreachable" with Play here
+     alone over the dimmed picture, and whether nothing plays on the phone by itself.
+  2. Press Play here. Report whether the film plays on the phone from about where the television
+     stood when it went off.
+  3. Cast to the Chromecast again, and end the cast from Chrome's own Cast control (the Cast icon
+     in Chrome's menu or its notification, Stop casting). Report whether the film plays on the
+     phone at once, as the remote's own Stop casting does.
+  4. Cast a film to the Fire TV and take control back on it (Back, or OK twice). Report whether the
+     phone's remote says "Fire TV stopped casting" with Play here alone, and nothing plays on the
+     phone until you press it; then press it and report whether it plays from where the TV left it.
