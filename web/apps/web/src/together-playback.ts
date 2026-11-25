@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { Api, MediaCredentials, PlayableFormats } from "@orpheum/sdk";
+import {
+  requestTogetherPlayback as requestTogetherPlaybackOfTheCore,
+  type Api,
+  type MediaCredentials,
+  type PlayableFormats,
+} from "@orpheum/sdk";
 
 import type { AroundFile } from "./around-file.ts";
 import type { PlaybackDecision } from "./watching.ts";
 import { dataOrThrow } from "./problem.ts";
 import type { Session } from "./session.ts";
 import { useServices } from "./services.tsx";
-import { membershipHeaders } from "./together-storage.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 
 /**
@@ -22,14 +26,7 @@ export async function requestTogetherPlayback(
   asked: { readonly playableFormats: PlayableFormats },
 ): Promise<PlaybackDecision> {
   mediaViewer.credential = credential;
-  return dataOrThrow(
-    await api.POST("/together/playback", {
-      headers: membershipHeaders(credential),
-      body: {
-        playableFormats: asked.playableFormats,
-      },
-    }),
-  );
+  return await requestTogetherPlaybackOfTheCore(api, credential, asked.playableFormats);
 }
 
 /**

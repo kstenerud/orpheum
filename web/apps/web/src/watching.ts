@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { isWebAudioLate, type ChunkedPlayback, type playChunked } from "@orpheum/player";
-import type { Api, components, PlayableFormats } from "@orpheum/sdk";
+import {
+  requestPlayback as requestPlaybackOfTheCore,
+  type Api,
+  type components,
+  type PlayableFormats,
+} from "@orpheum/sdk";
 
 import { browserStorage } from "./browser-storage.ts";
 import { deviceDataCapKbps, deviceDataCaps } from "./data-cap.ts";
 import { noteDecisionTimes } from "./decision-times.ts";
 import type { LadderOffer, startOn } from "./moving-down.ts";
 import { leavePlayback } from "./interest.ts";
-import { dataOrThrow } from "./problem.ts";
 import { soundLatencyMemory } from "./sound-latency.ts";
 import { monotonicMs } from "./use-together.ts";
 
@@ -65,28 +69,24 @@ export async function requestPlayback(
   // A cap just chosen is the core's before it decides (D493): its re-ask, dataCapStarted, plays by it.
   const caps = deviceDataCaps();
   await caps.written();
-  const decision = dataOrThrow(
-    await api.POST("/playback", {
-      body: {
-        fileId,
-        ...(asked.itemId === undefined ? {} : { itemId: asked.itemId }),
-        playableFormats: asked.playableFormats,
-        cause: asked.cause,
-        pageStarts: pageStart,
-        // Its player gave the film's own picture up, which the core keeps before it decides (D323 §2).
-        ...(asked.cause === "ownPictureGivenUp" ? { hasGivenUpOwnPicture: true } : {}),
-        // This device's sound through Web Audio plays too late to raise a sound by: a raise levelling
-        // wants is its ladder's sound's (D436).
-        ...(isWebAudioLate(soundLatencyMemory()) ? { isWebAudioLate: true } : {}),
-        // The core applies the device's data cap for this kind of network (D493): a rung of its ladder
-        // (D488), or the film's own file its person chose where the cap is at or above its rate (D491).
-        networkKind: caps.kind(),
-        // The original chosen, and asked for again once a link short of it carries it (asksForTheOriginal).
-        ...(asksForTheOriginal(asked.cause) ? { preferredDelivery: "direct" as const } : {}),
-        ...(asked.startsAtMs === undefined ? {} : { startsAtMs: Math.round(asked.startsAtMs) }),
-      },
-    }),
-  );
+  const decision = await requestPlaybackOfTheCore(api, {
+    fileId,
+    ...(asked.itemId === undefined ? {} : { itemId: asked.itemId }),
+    playableFormats: asked.playableFormats,
+    cause: asked.cause,
+    pageStarts: pageStart,
+    // Its player gave the film's own picture up, which the core keeps before it decides (D323 §2).
+    ...(asked.cause === "ownPictureGivenUp" ? { hasGivenUpOwnPicture: true } : {}),
+    // This device's sound through Web Audio plays too late to raise a sound by: a raise levelling
+    // wants is its ladder's sound's (D436).
+    ...(isWebAudioLate(soundLatencyMemory()) ? { isWebAudioLate: true } : {}),
+    // The core applies the device's data cap for this kind of network (D493): a rung of its ladder
+    // (D488), or the film's own file its person chose where the cap is at or above its rate (D491).
+    networkKind: caps.kind(),
+    // The original chosen, and asked for again once a link short of it carries it (asksForTheOriginal).
+    ...(asksForTheOriginal(asked.cause) ? { preferredDelivery: "direct" as const } : {}),
+    ...(asked.startsAtMs === undefined ? {} : { startsAtMs: Math.round(asked.startsAtMs) }),
+  });
   noteDecisionTimes(decision.mediaToken, { askedMs, decidedMs: performance.now() });
   return decision;
 }

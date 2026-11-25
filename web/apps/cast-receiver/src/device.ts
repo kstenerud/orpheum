@@ -7,6 +7,7 @@ import {
   createTogetherConnection,
   dataOrThrow,
   putOnCommands,
+  requestPlayback,
   expectedGroupPositionMs,
   failureText,
   type Api,
@@ -422,16 +423,12 @@ export class CastDevice {
 
   /** The core's decision for playing fileId here, as the title itemId where one is given. */
   private async decisionFor(fileId: number, itemId: number | undefined): Promise<PlaybackDecision> {
-    return dataOrThrow(
-      await this.options.api.POST("/playback", {
-        body: {
-          fileId,
-          ...(itemId === undefined ? {} : { itemId }),
-          playableFormats: receiverFormats(),
-          cause: "playPage",
-        },
-      }),
-    );
+    return await requestPlayback(this.options.api, {
+      fileId,
+      ...(itemId === undefined ? {} : { itemId }),
+      playableFormats: receiverFormats(),
+      cause: "playPage",
+    });
   }
 
   private playerNow(): PlayerNow {

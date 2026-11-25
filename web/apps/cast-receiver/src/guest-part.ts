@@ -3,10 +3,10 @@
 import { playChunked, type ChunkedPlayback } from "@orpheum/player";
 import {
   createTogetherConnection,
-  dataOrThrow,
   expectedGroupPositionMs,
   failureText,
   followGroup,
+  requestTogetherPlayback,
   type Api,
   type TogetherConnection,
   type TogetherEndReason,
@@ -123,12 +123,7 @@ export class GuestPart {
       return;
     }
     try {
-      const decision = dataOrThrow(
-        await api.POST("/together/playback", {
-          headers: { authorization: `Bearer ${credential}` },
-          body: { playableFormats: receiverFormats() },
-        }),
-      );
+      const decision = await requestTogetherPlayback(api, credential, receiverFormats());
       if (this.playingFileId === fileId && this.together === together) {
         this.startFilm(together, fileId, decision);
       }

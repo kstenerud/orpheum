@@ -70,6 +70,11 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   film's `changeItem` at its position as the title it was opened as, then `pause` where it waits
   paused; the web app's leading player and the Google Cast receiver both send these, each at its own
   time. `src/together-put-on.test.ts`.
+- **One way to ask how a film plays** (D555 §3): `requestPlayback` (POST /playback, by the
+  player's session, its body what the player says of itself) and `requestTogetherPlayback` (POST
+  /together/playback, by a viewer's membership's credential in place of a session, D246 §3), used by
+  the web app and the Google Cast receiver alike; what each says of itself is its own.
+  `src/playback-request.test.ts`.
 - **A group held for want of a player is a paused group** (D375): everyone's screen gone, the server
   holds it `paused` where it stood, and `isHeldPlaying` says whether it was playing, to play on as a
   screen comes back (event `resumedOnReturn`); a player follows it as any paused group, its clock

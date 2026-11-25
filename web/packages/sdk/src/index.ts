@@ -347,6 +347,12 @@ export {
 } from "./together-player-events.ts";
 export { PlaybackTold } from "./together-leader.ts";
 export { putOnCommands } from "./together-put-on.ts";
+export {
+  requestPlayback,
+  requestTogetherPlayback,
+  type PlaybackAsked,
+  type PlaybackDecision,
+} from "./playback-request.ts";
 export type {
   ChunkLoaded,
   LoadingHold,
