@@ -84,12 +84,16 @@ describe("a Chromecast taking a cast, which it leads (D337: the group has no fil
     expect(filmToFollow(groupToFollow(groupOf({ fileId: 0 }), 0), 0, 7)).toEqual({ step: "stop" });
   });
 
-  it("takes a new cast, puts on another film handed under the same cast, and ignores the same again", () => {
-    expect(handedWhat({ castId: 3, fileId: 7 }, undefined, 0)).toBe("take");
-    expect(handedWhat({ castId: 4, fileId: 7 }, 3, 7)).toBe("take");
-    expect(handedWhat({ castId: 3, fileId: 8 }, 3, 7)).toBe("putOn");
-    expect(handedWhat({ castId: 3, fileId: 0 }, 3, 7)).toBe("putOn");
-    expect(handedWhat({ castId: 3, fileId: 7 }, 3, 7)).toBe("same");
+  it("takes a new cast, joins the session its cast moved to, puts on another film handed under the same cast, and ignores the same again", () => {
+    const none = { castId: undefined, credential: "", fileId: 0 };
+    const taken = { castId: 3, credential: "alone", fileId: 7 };
+    const handed = { castId: 3, fileId: 7, membershipCredential: "alone" };
+    expect(handedWhat(handed, none)).toBe("take");
+    expect(handedWhat({ ...handed, castId: 4 }, taken)).toBe("take");
+    expect(handedWhat({ ...handed, membershipCredential: "together" }, taken)).toBe("join");
+    expect(handedWhat({ ...handed, fileId: 8 }, taken)).toBe("putOn");
+    expect(handedWhat({ ...handed, fileId: 0 }, taken)).toBe("putOn");
+    expect(handedWhat(handed, taken)).toBe("same");
   });
 });
 

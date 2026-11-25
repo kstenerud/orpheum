@@ -90,20 +90,29 @@ export function filmToFollow(
 }
 
 /**
- * What a cast handed to the receiver asks of it, takenCastId being the cast it plays in and
- * handedFileId the film that cast last handed it: a new cast taken; the same cast's film changed,
- * put on (the person played another on the sender, D364 §3, or nothing, ready for the next, §5); or
- * nothing, the same cast and film handed again as the connection came back.
+ * What a cast handed to the receiver asks of it, taken being the cast it plays in, the credential of
+ * the session it plays it in and the film that cast last handed it: a new cast taken; the same cast
+ * moved to another session, joined (its person started, joined or left a Watch Together session, and
+ * the cast went with them, D555 §7: a receiver staying in the session it left is silent in the new
+ * one, and its cast ends as gone); the same cast's film changed, put on (the person played another
+ * on the sender, D364 §3, or nothing, ready for the next, §5); or nothing, the same cast, session and
+ * film handed again as the connection came back.
  */
 export function handedWhat(
-  handed: Pick<CastToReceive, "castId" | "fileId">,
-  takenCastId: number | undefined,
-  handedFileId: number,
-): "take" | "putOn" | "same" {
-  if (handed.castId !== takenCastId) {
+  handed: Pick<CastToReceive, "castId" | "fileId" | "membershipCredential">,
+  taken: {
+    readonly castId: number | undefined;
+    readonly credential: string;
+    readonly fileId: number;
+  },
+): "take" | "join" | "putOn" | "same" {
+  if (handed.castId !== taken.castId) {
     return "take";
   }
-  return handed.fileId === handedFileId ? "same" : "putOn";
+  if (handed.membershipCredential !== taken.credential) {
+    return "join";
+  }
+  return handed.fileId === taken.fileId ? "same" : "putOn";
 }
 
 /**
@@ -145,6 +154,8 @@ export class CastDevice {
   private playingFileId = 0;
   /** The film the cast last handed, 0 for none: the one the receiver puts on its session. */
   private handedFileId = 0;
+  /** The credential of the session the cast is played in, empty for none. */
+  private credential = "";
   /** The commands putting the handed film on, until the session is connected to take them. */
   private toPutOn: readonly GroupCommand[] = [];
   /** What plays after the film, shown near its end; chosen on the caster (D471). */
@@ -216,9 +227,17 @@ export class CastDevice {
       const handed = snapshot.receive;
       if (handed !== undefined) {
         live.takeReceive();
-        const what = handedWhat(handed, this.castId, this.handedFileId);
+        const what = handedWhat(handed, {
+          castId: this.castId,
+          credential: this.credential,
+          fileId: this.handedFileId,
+        });
         if (what === "take") {
           this.receive(handed);
+        } else if (what === "join") {
+          this.options.note(`cast ${String(handed.castId)} moved to another session`);
+          this.leaveSession();
+          this.join(handed);
         } else if (what === "putOn") {
           this.options.note(`the cast plays ${handed.fileId === 0 ? "nothing" : handed.itemName}`);
           this.hand(handed);
@@ -235,7 +254,7 @@ export class CastDevice {
 
   /** Takes the cast handed, and plays its film, leading its session. */
   private receive(handed: CastToReceive): void {
-    const { api, token, reached, note } = this.options;
+    const { api, note } = this.options;
     this.endCast();
     this.castId = handed.castId;
     note(`cast ${String(handed.castId)} from ${handed.fromDeviceName}: ${handed.itemName}`);
@@ -248,6 +267,13 @@ export class CastDevice {
       .catch((cause: unknown) => {
         note(`could not take the cast: ${failureText(cause)}`);
       });
+    this.join(handed);
+  }
+
+  /** Joins the session the cast is handed in, and plays its film there. */
+  private join(handed: CastToReceive): void {
+    const { token, reached } = this.options;
+    this.credential = handed.membershipCredential;
     const together = createTogetherConnection({
       credential: handed.membershipCredential,
       sessionToken: token,
@@ -412,13 +438,19 @@ export class CastDevice {
   }
 
   private endCast(): void {
+    this.leaveSession();
+    this.castId = undefined;
+  }
+
+  /** Leaves the session the cast played in, its film off, the cast still taken. */
+  private leaveSession(): void {
     // Let go of the session before closing it: its close tells its listener, follow, which ended the
     // cast again while it was still this cast's, over and over until the stack ran out, and the
     // receiver took no cast after (the owner's Chromecast, 2026-11-12).
     const together = this.together;
     this.together = undefined;
     together?.close();
-    this.castId = undefined;
+    this.credential = "";
     this.handedFileId = 0;
     this.toPutOn = [];
     this.stopFilm();

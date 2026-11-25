@@ -79,6 +79,10 @@ async function leadingFilm7(): Promise<
   WatchedVideo & {
     readonly session: Parameters<OpenTogetherSocket>[0];
     readonly sent: string[];
+    /** The live connection's socket, then each session socket opened, in order. */
+    readonly sockets: Parameters<OpenTogetherSocket>[0][];
+    /** How many sockets were closed. */
+    readonly closed: { count: number };
     readonly stop: () => void;
   }
 > {
@@ -96,6 +100,7 @@ async function leadingFilm7(): Promise<
   const sockets: Parameters<OpenTogetherSocket>[0][] = [];
   const sent: string[] = [];
   const started: string[] = [];
+  const closed = { count: 0 };
   const device = new CastDevice({
     api,
     token: "token",
@@ -103,7 +108,12 @@ async function leadingFilm7(): Promise<
       fetch: () => Promise.reject(new Error("no film's bytes in this test")),
       openSocket: (listeners) => {
         sockets.push(listeners);
-        return { send: (text: string) => sent.push(text), close: () => undefined };
+        return {
+          send: (text: string) => sent.push(text),
+          close: () => {
+            closed.count += 1;
+          },
+        };
       },
       close: () => undefined,
     },
@@ -139,7 +149,7 @@ async function leadingFilm7(): Promise<
       roster: [{ id: 2, name: "Karl", devices: [{ id: 12, role: "video", isLeader: true }] }],
     }),
   );
-  return { ...watched, session, sent, stop };
+  return { ...watched, session, sent, sockets, closed, stop };
 }
 
 describe("a Chromecast plays its cast's film along with the session as every player does (D555 §3)", () => {
@@ -185,6 +195,26 @@ describe("a Chromecast plays its cast's film along with the session as every pla
       }),
     );
     expect(sent.filter((text) => text.includes('"chunkLoaded"'))).toHaveLength(1);
+    stop();
+  });
+
+  // Its person started a Watch Together session while casting, and the core handed the cast again in
+  // that session: the receiver stayed in the one it left, silent in the new one, and its cast ended
+  // as gone 20 s later (the Chromecast on staging, 2026-11-25).
+  it("joins the session its cast is handed in again, leaving the one it played in (D555 §7)", async () => {
+    const { sockets, sent, closed, stop } = await leadingFilm7();
+    const [live] = sockets;
+    const moved = JSON.parse(receiveFilm7) as { receive: { membershipCredential: string } };
+    moved.receive.membershipCredential = "together-5";
+    live?.onMessage(JSON.stringify(moved));
+    expect(closed.count).toBe(1);
+    expect(sockets).toHaveLength(3);
+    sent.length = 0;
+    sockets[2]?.onOpen();
+    expect(sent.some((text) => text.includes('"together-5"'))).toBe(true);
+    // The same hand again, as the live connection comes back: nothing more.
+    live?.onMessage(JSON.stringify(moved));
+    expect(sockets).toHaveLength(3);
     stop();
   });
 });
