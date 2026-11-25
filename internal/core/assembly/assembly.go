@@ -293,20 +293,6 @@ func warnSignInLimitFull(ctx context.Context, logger *slog.Logger) func() {
 	}
 }
 
-// endCastsOfSession ends, as a Watch Together session ends, every cast whose receiver was handed its
-// person's part in it and was not moved to play on alone (castMoved, D555 §7): one the hub no longer
-// holds, a guest's whose rights came from the session (D389 §1). Each cast's session ends as
-// sessionEnded, so its receiver goes home and its sender's page is told.
-func endCastsOfSession(casts *live.Registry, hub *together.Hub, logger *slog.Logger) func(sessionID int64) {
-	return func(sessionID int64) {
-		for _, ended := range casts.EndPartIn(sessionID) {
-			_ = hub.EndCast(ended.ID, ended.UserID, together.CastSessionEnded) //nolint:errcheck // ended either way
-			logger.Info("cast: a cast ended", "castId", ended.ID, "userId", ended.UserID,
-				"to", ended.ReceiverDeviceID, "sessionId", sessionID, "reason", together.CastSessionEnded)
-		}
-	}
-}
-
 // castMoved hands each cast that left its caster's part in a Watch Together session, to play on in a
 // session of one, to its receiver again from where it stands, where its caster may play its film by
 // their own rights (D555 §7); one whose film their rights reach only through the session, a guest's
@@ -493,9 +479,6 @@ func (services *Services) wireJobsInto(ctx context.Context, parts Parts) error {
 	dependencies.Live.TakesPartBy(dependencies.Together.CastPart)
 	// What a cast plays, from where, and whether its receiver took it, are the hub's alone (D555 §2).
 	dependencies.Live.HandsBy(handedBy(dependencies.Together))
-	// A Watch Together session's end ends every cast whose receiver takes a part in it and did not
-	// move to play on alone (D555 §7).
-	dependencies.Together.OnSessionEnded(endCastsOfSession(dependencies.Live, dependencies.Together, parts.Logger))
 	// A cast whose caster's part ended plays on alone where its film is theirs by right (D555 §7).
 	dependencies.Together.OnCastMoved(castMoved(ctx, dependencies.Live, dependencies.Together, mayPlayBy(dependencies),
 		parts.Logger))

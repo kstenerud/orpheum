@@ -649,42 +649,6 @@ func TestRegistry_AReceiverComingBackKeepsItsCast(t *testing.T) {
 	}
 }
 
-// A Watch Together session's end ends every cast whose receiver was handed its person's part in it,
-// and no other: a cast in another session goes on (D389 §1). The sender is told it sends none, and
-// the person's devices that it receives no more.
-func TestRegistry_ASessionsEndEndsTheCastsThatTakeAPartInIt(t *testing.T) {
-	t.Parallel()
-	registry := NewRegistry(minted(), newClock())
-	sessions := map[int64]int64{owner: 7, partner: 8}
-	registry.TakesPartBy(func(_, userID int64) (int64, bool) { return sessions[userID], false })
-	sender := &inbox{}
-	partnersTV := television + 10
-	registry.Connect(owner, phone, inFront, sender.send)
-	registry.Connect(owner, television, inFront, (&inbox{}).send)
-	registry.Connect(partner, laptop, inFront, (&inbox{}).send)
-	registry.Connect(partner, partnersTV, inFront, (&inbox{}).send)
-	ownCast := Cast{ID: 5, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television}
-	if _, _, err := registry.Cast(ownCast, "a"); err != nil {
-		t.Fatal(err)
-	}
-	partnersCast := Cast{ID: 6, UserID: partner, SenderDeviceID: laptop, ReceiverDeviceID: partnersTV}
-	if _, _, err := registry.Cast(partnersCast, "b"); err != nil {
-		t.Fatal(err)
-	}
-	if ended := registry.EndPartIn(7); len(ended) != 1 || ended[0].ID != 5 {
-		t.Fatalf("session 7's end ended %+v; want cast 5", ended)
-	}
-	if told, _ := sender.last(MessageSending); told.Sending != nil {
-		t.Errorf("the sender was told it sends %+v; want none", told.Sending)
-	}
-	if told, _ := sender.last(MessageDevices); len(told.ReceivingDeviceIDs) != 0 {
-		t.Errorf("the sender was told %v receive; want none, the cast over", told.ReceivingDeviceIDs)
-	}
-	if casts := registry.CastsOf(partner, laptop); len(casts) != 1 {
-		t.Errorf("the partner's cast in session 8 = %+v; want it going on", casts)
-	}
-}
-
 // A receiver and a sender's pages are told the item's name as itemName and, for one release, as
 // titleName too, which a client of the last release reads (D425 §3, goes next batch).
 func TestRegistry_TheItemsNameIsSentByItsOldNameTooForOneRelease(t *testing.T) {

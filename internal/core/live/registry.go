@@ -36,8 +36,8 @@ type Credential func(castID, userID int64) (string, error)
 
 // TogetherPart is the Watch Together session the cast castID that userID cast is their part in, 0 for
 // a cast alone, and whether they host it, its receiver then leading it as their player, else following
-// it (D555 §1, §2): the hub's CastPart. The session is the one whose end ends the cast where it did
-// not move to play on alone (EndPartIn, HandAgain).
+// it (D555 §1, §2): the hub's CastPart. Its end is the hub's, which moves the cast to play on alone
+// or ends it (D555 §7).
 type TogetherPart func(castID, userID int64) (sessionID int64, isHost bool)
 
 // UnansweredAfter is how long a guest receiver may go uncast to before EndGuests ends it (D465 §1):
@@ -126,9 +126,6 @@ type connection struct {
 type heldCast struct {
 	Cast
 	heldBy int64
-	// partIn is the Watch Together session the receiver was last handed its person's part in, 0 for
-	// none: its end ends the cast where it did not move to play on alone (EndPartIn, HandAgain).
-	partIn int64
 }
 
 // NewRegistry is an empty registry, minting a receiver's credentials again by credential, and keeping
@@ -467,9 +464,6 @@ func (registry *Registry) HandAgain(userID, castID int64) bool {
 		if held.ID != castID {
 			continue
 		}
-		if registry.togetherPart != nil { // its old session's end is not its own (EndPartIn)
-			held.partIn, _ = registry.togetherPart(held.ID, held.UserID)
-		}
 		return registry.handAgain(owner, held)
 	}
 	return false
@@ -484,40 +478,6 @@ func (registry *Registry) handAgain(owner *person, held *heldCast) bool {
 	}
 	registry.handOff(held, holder)
 	return true
-}
-
-// EndPartIn ends every cast whose receiver was handed its person's part in the Watch Together
-// session sessionID, as that session ends (D389 §1), its sender's pages told, and returns them for
-// their sessions to be ended, each receiver told so.
-func (registry *Registry) EndPartIn(sessionID int64) []Cast {
-	registry.mutex.Lock()
-	defer registry.mutex.Unlock()
-	return registry.endEvery(func(held *heldCast) bool { return held.partIn == sessionID && sessionID != 0 })
-}
-
-// endEvery ends every cast that isEnded says, each sender's pages told and each person's
-// connections told which devices receive, and returns them by id. The caller holds the mutex.
-func (registry *Registry) endEvery(isEnded func(held *heldCast) bool) []Cast {
-	ended := []Cast{}
-	for userID, owner := range registry.people {
-		endedBefore := len(ended)
-		for receiverID, held := range owner.casts {
-			if !isEnded(held) {
-				continue
-			}
-			delete(owner.casts, receiverID)
-			registry.tellSending(owner, held.SenderDeviceID)
-			ended = append(ended, held.Cast)
-		}
-		if len(ended) > endedBefore {
-			owner.tellDevices()
-		}
-		if owner.isEmpty() {
-			delete(registry.people, userID)
-		}
-	}
-	slices.SortFunc(ended, func(one, other Cast) int { return cmp.Compare(one.ID, other.ID) })
-	return ended
 }
 
 // handOffWaiting hands the cast to deviceID that no connection holds, if any, to its tab in front,
@@ -545,7 +505,7 @@ func (registry *Registry) handOff(held *heldCast, to *connection) {
 
 // receiveOf is the receive message of held, by credential, with a credential for the Watch Together
 // session its person is in, if any, and whether the receiver follows it (TakesPartBy), handed what
-// the hub says it plays (HandsBy); held notes the session its part is in (partIn).
+// the hub says it plays (HandsBy).
 func (registry *Registry) receiveOf(held *heldCast, credential string) *Receive {
 	partIn, isHost := int64(0), false
 	if registry.togetherPart != nil {
@@ -555,7 +515,6 @@ func (registry *Registry) receiveOf(held *heldCast, credential string) *Receive 
 	if partIn != 0 {
 		partCredential = credential // the one membership: the cast is the person's part (D555 §2)
 	}
-	held.partIn = partIn
 	cast, handed := held.Cast, registry.handed(held)
 	return &Receive{
 		CastID: cast.ID, Credential: credential, FileID: handed.FileID, ItemName: handed.ItemName,
