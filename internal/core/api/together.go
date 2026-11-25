@@ -254,9 +254,15 @@ func (server *Server) registerTogether() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "hostTogetherHere", Method: http.MethodPost, Path: "/together/{id}/host-here", Tags: tags,
 		Summary: "Move the session you host to this device, which becomes your one device: the others " +
-			"are told it moved and cut off (host; D442 §2)",
+			"are told it moved and cut off, and a cast of yours ends (host; D442 §2)",
 		Extensions: callableBy(capabilitySignedIn),
 	}, server.hostTogetherHere)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "takeTogetherPartHere", Method: http.MethodPost, Path: "/together/{id}/part-here", Tags: tags,
+		Summary: "Move your part in the session you joined signed in to this device, which becomes your one " +
+			"device: the others are told it moved and cut off, and a cast of yours ends (guest; D555)",
+		Extensions: callableBy(capabilitySignedIn),
+	}, server.takeTogetherPartHere)
 	server.registerTogetherMembers(tags)
 }
 
@@ -659,21 +665,53 @@ func (server *Server) endTogether(ctx context.Context, input *TogetherInput) (*s
 }
 
 // hostTogetherHere moves the session the signed-in person hosts to the device that asks, and is its
-// new credential (D442 §2).
+// new credential (D442 §2); a cast of theirs ends (the owner, 2026-11-25).
 func (server *Server) hostTogetherHere(ctx context.Context, input *TogetherInput) (*OpenTogetherOutput, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	credential, err := dependencies.Together.HostHere(input.SessionID, principal.UserID)
+	credential, ended, err := dependencies.Together.HostHere(input.SessionID, principal.UserID)
 	if err != nil {
 		return nil, server.togetherError(ctx, "move a session here", err)
 	}
+	server.endCastsOfSeatMoved(ctx, dependencies, ended)
 	server.logger.InfoContext(ctx, "watch together: the host moved the session to another device",
 		"sessionId", input.SessionID, "hostUserId", principal.UserID, "deviceId", principal.DeviceID)
 	output := &OpenTogetherOutput{}
 	output.Body.SessionID, output.Body.MembershipCredential = input.SessionID, credential
 	return output, nil
+}
+
+// takeTogetherPartHere moves the signed-in person's part in a session they joined to the device that
+// asks, and is its new credential, as hostTogetherHere moves a host's, a cast of theirs ended (D555,
+// the owner's point 3; the owner, 2026-11-25).
+func (server *Server) takeTogetherPartHere(ctx context.Context, input *TogetherInput) (*JoinTogetherOutput, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	joined, ended, err := dependencies.Together.GuestHere(input.SessionID, principal.UserID)
+	if err != nil {
+		return nil, server.togetherError(ctx, "move a part here", err)
+	}
+	server.endCastsOfSeatMoved(ctx, dependencies, ended)
+	server.logger.InfoContext(ctx, "watch together: a guest moved their part to another device",
+		"sessionId", input.SessionID, "memberId", joined.MemberID, "deviceId", principal.DeviceID)
+	output := &JoinTogetherOutput{}
+	output.Body.SessionID, output.Body.MemberID = joined.SessionID, joined.MemberID
+	output.Body.MembershipCredential, output.Body.Locator = joined.MembershipCredential, joined.Locator
+	return output, nil
+}
+
+// endCastsOfSeatMoved tells the live registry of each cast the hub ended as its caster's seat moved to
+// another device (the owner, 2026-11-25), so their pages are told it sends no more.
+func (server *Server) endCastsOfSeatMoved(ctx context.Context, dependencies *Dependencies, ended []together.EndedCast) {
+	for _, each := range ended {
+		_, _ = dependencies.Live.EndHubEnded(each.UserID, each.CastID) //nolint:errcheck // ended either way
+		server.logger.InfoContext(ctx, "cast: a cast ended, its caster's seat moved to another device",
+			"castId", each.CastID, "userId", each.UserID, "reason", together.CastMovedAway)
+	}
 }
 
 // togetherError maps Watch Together's refusals to the API's errors.

@@ -112,7 +112,7 @@ func (hub *Hub) replaceGuestsCastLocked(
 	}
 	for _, each := range hub.casts {
 		if each.sessionID == sessionID && each.memberID == memberID && each.sender == sender {
-			hub.endCast(each, "movedAway")
+			hub.endCast(each, CastMovedAway)
 		}
 	}
 	castID := int64(0)

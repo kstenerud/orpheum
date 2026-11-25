@@ -4920,15 +4920,15 @@
       },
       "MyTogetherBody": {
         "properties": {
-          "hostDeviceName": {
-            "description": "The name of your device the session you host is on now, where it is on one",
+          "deviceName": {
+            "description": "The name of your device your part in the session is on now, the host's or a guest's, where it is on one",
             "type": "string"
           },
           "isHost": {
             "type": "boolean"
           },
           "locator": {
-            "description": "What this device finds the server by through a discovery; the host's has none",
+            "description": "What this device finds the server by through a discovery, with a credential alone",
             "type": "string"
           },
           "memberId": {
@@ -4936,7 +4936,7 @@
             "type": "integer"
           },
           "membershipCredential": {
-            "description": "This device's credential for a session you joined; none for the one you host, which stays on its device (D442 §1)",
+            "description": "This device's credential for a session you joined whose part is on none of your devices; none while it is on one, nor for the one you host: each stays on its device until moved (D442 §1, D555)",
             "type": "string"
           },
           "sessionId": {
@@ -20376,7 +20376,7 @@
             "session": []
           }
         ],
-        "summary": "Move the session you host to this device, which becomes your one device: the others are told it moved and cut off (host; D442 §2)",
+        "summary": "Move the session you host to this device, which becomes your one device: the others are told it moved and cut off, and a cast of yours ends (host; D442 §2)",
         "tags": [
           "Watch Together"
         ],
@@ -20648,6 +20648,55 @@
           }
         ],
         "summary": "A new link for a guest's place: they stay in until it is used, and whoever joins by it takes the place over, cutting off the devices they came in on (host; D311 §5, D312 §3)",
+        "tags": [
+          "Watch Together"
+        ],
+        "x-orpheum-capability": "signedIn"
+      }
+    },
+    "/together/{id}/part-here": {
+      "post": {
+        "operationId": "takeTogetherPartHere",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JoinTogetherOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Move your part in the session you joined signed in to this device, which becomes your one device: the others are told it moved and cut off, and a cast of yours ends (guest; D555)",
         "tags": [
           "Watch Together"
         ],

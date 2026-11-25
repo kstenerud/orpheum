@@ -406,13 +406,47 @@ it("says over the film that the session the person hosts is on another device, b
   expect(elsewhereSign()).toBeNull();
 });
 
+it("says over the film that the part the person has as a guest is on another device, by its name, in a guest's words, and takes it here (D555)", async () => {
+  const heard: Heard[] = [];
+  const services = servedBy(
+    {
+      "POST /together/3/part-here": [
+        200,
+        { sessionId: 3, memberId: 4, membershipCredential: "moved-here", locator: "here" },
+      ],
+    },
+    heard,
+    "token",
+  );
+  services.navigation.go({ screen: "play", fileId: 9 });
+  noteHostedElsewhere({ sessionId: 3, deviceName: "the Mac", isGuest: true });
+  mounted = await mount(withServices(<PlayerToStartFrom canStart />, services));
+  await settleUntil(() => elsewhereSign() !== null);
+  await act(async () => {
+    elsewhereSign()?.click();
+    await Promise.resolve();
+  });
+  await settleUntil(() => buttonWithText(document.body, "Move it here") !== undefined);
+  const dialog = document.querySelector<HTMLDialogElement>(".player-overlay dialog[open]");
+  if (dialog === null) {
+    throw new Error("no dialog over the film");
+  }
+  expect(dialog.textContent).toContain("You're watching together on the Mac.");
+  expect(buttonWithText(dialog, "Start a session")).toBeUndefined();
+  await click(buttonWithText(dialog, "Move it here"));
+  expect(heard.map((each) => each.methodAndPath)).toContain("POST /together/3/part-here");
+  expect(heard.map((each) => each.methodAndPath)).not.toContain("POST /together/3/host-here");
+  await settleUntil(() => elsewhereSign() === null);
+  expect(window.localStorage.getItem("orpheum.together.viewer")).toContain("moved-here");
+});
+
 it("shows no Watch Together sign over the film on the device the session its person hosts is cast to, which is passive and takes no cast over (D446 §4)", async () => {
   const services = servedBy(
     {
       "POST /me/casts/5/accept": [200, { castId: 5 }],
       "GET /me/together": [
         200,
-        { sessions: [{ sessionId: 3, memberId: 1, isHost: true, hostDeviceName: "the Mac" }] },
+        { sessions: [{ sessionId: 3, memberId: 1, isHost: true, deviceName: "the Mac" }] },
       ],
     },
     [],

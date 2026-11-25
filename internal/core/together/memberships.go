@@ -54,9 +54,9 @@ func newCredential(random io.Reader) (madeCredential, error) {
 
 // addCredential admits made's devices too, keeping the newest credentialsKeptPerMember: a cast whose
 // sending device's credential is no longer kept ends with it (D520 §1), its receiver told its place
-// moved away and let go. Whether any device was let go.
-func (each *member) addCredential(made madeCredential) bool {
-	return each.addCastCredential(made, [sha256.Size]byte{}, 0)
+// moved away and let go.
+func (each *member) addCredential(made madeCredential) {
+	each.addCastCredential(made, [sha256.Size]byte{}, 0)
 }
 
 // addCastCredential is addCredential for a cast's credential, the device whose credential's hash is
@@ -137,28 +137,30 @@ func (each *member) admits(hash [sha256.Size]byte) bool {
 	return isAdmitted
 }
 
-// Membership is a session a signed-in person is in, and, for one they joined, a credential for this
-// device of theirs.
+// Membership is a session a signed-in person is in, and, for one they joined whose part is on no
+// device yet, a credential for this device of theirs.
 type Membership struct {
 	SessionID int64
 	MemberID  int64
 	IsHost    bool
-	// MembershipCredential is this device's credential for a session the person joined; empty for
-	// the one they host, which stays on the device that started it and moves only by HostHere
-	// (D442 §1).
+	// MembershipCredential is this device's credential for a session the person joined while their
+	// part in it is on no device; empty while it is on one, and for the one they host: each stays on
+	// its device and moves only by HostHere or GuestHere (D442 §1; D555, the owner's point 3).
 	MembershipCredential string
-	// Locator is what this device finds the core by through a discovery (Joined.Locator).
+	// Locator is what this device finds the core by through a discovery (Joined.Locator), with the
+	// credential alone.
 	Locator string
-	// HostDevices are the person's signed-in devices the session they host is on now, by the
-	// sign-in's device (SignedIn.DeviceID); the hosted session's alone.
-	HostDevices []int64
+	// Devices are the person's signed-in devices their part in the session is on now, by the
+	// sign-in's device (SignedIn.DeviceID).
+	Devices []int64
 }
 
-// Mine is every session userID is in, as its host or as a member who joined signed in. One they
-// joined follows them to any device they sign in on, with a new credential for the device that asks,
-// which cuts off no other (D267 §2, §3). The one they host stays on the device that started it: it is
+// Mine is every session userID is in, as its host or as a member who joined signed in. Each lives on
+// one device of theirs, with its castee where it casts (D442 §1; D555, the owner's point 3): it is
 // listed with the devices it is on and no credential, so another device of theirs says where it is
-// and offers to move it there (HostHere); a credential no device would use is never made (D442 §1).
+// and offers to take it over there (HostHere, GuestHere), and loading a page on a second device takes
+// nothing from the first. A joined session whose part holds no credential of the member's own, on no
+// device, has one made for the device that asks, which takes it from none (D267 §2).
 func (hub *Hub) Mine(userID int64) ([]Membership, error) {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
@@ -172,31 +174,34 @@ func (hub *Hub) Mine(userID int64) ([]Membership, error) {
 			if candidate.person == nil || candidate.person.UserID != userID {
 				continue
 			}
-			if candidate.isHost {
-				mine = append(mine, Membership{
-					SessionID: each.id, MemberID: candidate.id, IsHost: true, HostDevices: candidate.signedInDevices(),
-				})
-				continue
+			listed := Membership{
+				SessionID: each.id, MemberID: candidate.id, IsHost: candidate.isHost,
+				Devices: candidate.signedInDevices(),
 			}
-			made, err := newCredential(hub.random)
-			if err != nil {
-				return nil, err
+			if !candidate.isHost && !candidate.holdsOwnCredential() {
+				made, err := newCredential(hub.random)
+				if err != nil {
+					return nil, err
+				}
+				candidate.addCredential(made)
+				isMade = true
+				listed.MembershipCredential, listed.Locator = made.credential, made.locator
 			}
-			if candidate.addCredential(made) {
-				each.leaderStillHere(hub.clock.Now(), false, goneReplaced)
-				each.sendRoster()
-			}
-			isMade = true
-			mine = append(mine, Membership{
-				SessionID: each.id, MemberID: candidate.id,
-				MembershipCredential: made.credential, Locator: made.locator,
-			})
+			mine = append(mine, listed)
 		}
 	}
 	if isMade {
 		hub.linksChanged()
 	}
 	return mine, nil
+}
+
+// holdsOwnCredential is whether the member holds a credential of a device of their own, none of a
+// cast's: whether their part is on a device.
+func (each *member) holdsOwnCredential() bool {
+	return slices.ContainsFunc(each.credentials, func(held credential) bool {
+		return held.castID == 0 && held.castOf == ([sha256.Size]byte{})
+	})
 }
 
 // signedInDevices are the person's signed-in devices the member is on, each once, sorted.
@@ -214,30 +219,75 @@ func (each *member) signedInDevices() []int64 {
 // HostHere moves the session hostUserID hosts to the device that asks, which becomes the host's one
 // device: a new credential for it, every other device of the host's told the session moved away and
 // cut off, none of their credentials admitting anything more, so the host plays in one place (D267
-// §3, D442 §2). A lead of theirs passes on as a gone device's does. The castee of a cast of theirs
-// stays, and its cast's credentials with it: a device and its castee are one place (D555 §2).
-func (hub *Hub) HostHere(sessionID, hostUserID int64) (string, error) {
+// §3, D442 §2). A lead of theirs passes on as a gone device's does. A cast of theirs ends, movedAway,
+// on the one end path, its castee told and its credentials taken back: a castee carried over could be
+// left with no remote that works it, as a Chromecast cast from Chrome is from Firefox (the owner,
+// 2026-11-25). It returns the credential and the casts it ended, for their casters' pages to be told.
+func (hub *Hub) HostHere(sessionID, hostUserID int64) (string, []EndedCast, error) {
 	made, err := newCredential(hub.random)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
 	hosted, err := hub.hostedSession(sessionID, hostUserID)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	for _, host := range hosted.members {
-		if !host.isHost {
+		if host.isHost {
+			ended := hub.partHere(hosted, host, madeCredential{credential: made.credential}) // no locator
+			return made.credential, ended, nil
+		}
+	}
+	return "", nil, ErrNoSession
+}
+
+// GuestHere moves the part userID, signed in, has as a guest in the session sessionID to the device
+// that asks, as HostHere moves a host's (D555, the owner's point 3: everyone takes part from one
+// place): a new credential and locator for it, every other device of theirs told their place moved
+// away and cut off, a cast of theirs ended as HostHere ends one. It returns the casts it ended too.
+// ErrNoMember for one not their guest.
+func (hub *Hub) GuestHere(sessionID, userID int64) (Joined, []EndedCast, error) {
+	made, err := newCredential(hub.random)
+	if err != nil {
+		return Joined{}, nil, err
+	}
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	joined, found := hub.sessions[sessionID]
+	if !found || joined.isCast {
+		return Joined{}, nil, ErrNoSession
+	}
+	for _, guest := range joined.members {
+		if guest.isHost || guest.person == nil || guest.person.UserID != userID {
 			continue
 		}
-		host.cutOffButCastees()
-		host.addCredential(madeCredential{credential: made.credential}) // the host's has no locator
-		now := hub.clock.Now()
-		hosted.touch(now)
-		hosted.leaderStillHere(now, true, goneRemoved)
-		hosted.sendRoster()
-		return made.credential, nil
+		ended := hub.partHere(joined, guest, made)
+		hub.linksChanged()
+		return Joined{
+			SessionID: joined.id, MemberID: guest.id, MembershipCredential: made.credential, Locator: made.locator,
+		}, ended, nil
 	}
-	return "", ErrNoSession
+	return Joined{}, nil, ErrNoMember
+}
+
+// partHere ends each cast that is the member's part in the session, movedAway, then makes made the
+// one credential of theirs, every other device cut off, and tells the session: the part runs on the
+// asking device alone, playing itself. It returns the casts it ended. The caller holds the mutex.
+func (hub *Hub) partHere(movedIn *session, moved *member, made madeCredential) []EndedCast {
+	ended := []EndedCast{}
+	for _, each := range hub.casts {
+		if each.sessionID == movedIn.id && each.memberID == moved.id {
+			ended = append(ended, EndedCast{CastID: each.id, UserID: each.userID})
+			hub.endCast(each, CastMovedAway)
+		}
+	}
+	moved.cutOff()
+	moved.addCredential(made)
+	now := hub.clock.Now()
+	movedIn.touch(now)
+	movedIn.leaderStillHere(now, moved.isHost, goneRemoved)
+	movedIn.sendRoster()
+	return ended
 }

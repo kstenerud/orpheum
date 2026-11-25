@@ -98,4 +98,26 @@ describe("the API client", () => {
       });
     expect(endsAsReceiverGone).toBeTypeOf("function");
   });
+
+  it("names, when it is compiled, the device a person's part is on as deviceName, and a guest takes their part here (D555)", () => {
+    const api = createApi({
+      getToken: () => undefined,
+      fetch: () => Promise.resolve(new Response(null, { status: 204 })),
+    });
+    const takesItHere = async (): Promise<string> => {
+      const listed = dataOrThrow(await api.GET("/me/together")).sessions?.[0];
+      // @ts-expect-error -- hostDeviceName was renamed: a guest's part is said to be on a device too
+      const renamed: unknown = listed?.hostDeviceName;
+      const moved = dataOrThrow(
+        await api.POST("/together/{id}/part-here", { params: { path: { id: 1 } } }),
+      );
+      return [
+        String(renamed),
+        listed?.deviceName,
+        moved.membershipCredential,
+        moved.locator,
+      ].join();
+    };
+    expect(takesItHere).toBeTypeOf("function");
+  });
 });

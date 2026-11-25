@@ -11,7 +11,12 @@ import { problemText } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
 import { LeaveButton } from "./together-leave.tsx";
 import { useMembership } from "./together-membership.ts";
-import { moveHostingHere, useHostedElsewhereHere, type HostedElsewhere } from "./together-mine.ts";
+import {
+  moveGuestPartHere,
+  moveHostingHere,
+  useHostedElsewhereHere,
+  type HostedElsewhere,
+} from "./together-mine.ts";
 import { useSessionEnd } from "./together-session-end.ts";
 import type { Membership } from "./together-storage.ts";
 import { useRequest } from "./use-request.ts";
@@ -143,19 +148,23 @@ function GuestsSession(props: {
 /**
  * The session the person hosts on another of their devices, in Watch Together's dialog: that it is
  * on, there, and Move it here, which makes this tab its host's one device, the other told it moved
- * (D442 §2). Starting another is not offered: it would end this one (D372 §8).
+ * (D442 §2). Starting another is not offered: it would end this one (D372 §8). A part they have as a
+ * guest on another device is said and moved here the same way, in a guest's words (D555, the owner's
+ * point 3).
  */
 function OnElsewhere(props: { readonly elsewhere: HostedElsewhere }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
-  const { sessionId, deviceName } = props.elsewhere;
+  const { sessionId, deviceName, isGuest = false } = props.elsewhere;
   return (
     <>
       <p>
         {deviceName === undefined
-          ? t("watchTogether.onElsewhere")
-          : t("watchTogether.onElsewhereNamed", { device: deviceName })}
+          ? t(isGuest ? "watchTogether.joinedElsewhere" : "watchTogether.onElsewhere")
+          : t(isGuest ? "watchTogether.joinedElsewhereNamed" : "watchTogether.onElsewhereNamed", {
+              device: deviceName,
+            })}
       </p>
       <button
         type="button"
@@ -163,7 +172,7 @@ function OnElsewhere(props: { readonly elsewhere: HostedElsewhere }): JSX.Elemen
         disabled={isBusy}
         onClick={() => {
           runRequest(async (idempotencyKey) => {
-            await moveHostingHere(api, sessionId, idempotencyKey);
+            await (isGuest ? moveGuestPartHere : moveHostingHere)(api, sessionId, idempotencyKey);
           });
         }}
       >

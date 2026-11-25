@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"fmt"
-	"slices"
 	"time"
 
 	discoverylink "github.com/kstenerud/orpheum/discovery/link"
@@ -188,15 +187,6 @@ func (each *member) cutOff() {
 	each.credentials = nil
 }
 
-// cutOffButCastees is cutOff for the member's own devices alone: a device playing a cast of theirs,
-// by a credential of it, stays, and the cast's credentials with it (D555 §2).
-func (each *member) cutOffButCastees() {
-	each.cutOffDevices(func(attached *device) bool {
-		return !attached.role.plays() || each.castOfCredential(attached.credentialHash) == 0
-	})
-	each.credentials = slices.DeleteFunc(each.credentials, func(held credential) bool { return held.castID == 0 })
-}
-
 // cutOffDevices tells each of the member's devices isCut picks that its place moved away, and lets
 // go of it.
 func (each *member) cutOffDevices(isCut func(*device) bool) {
@@ -206,16 +196,6 @@ func (each *member) cutOffDevices(isCut func(*device) bool) {
 			delete(each.devices, id)
 		}
 	}
-}
-
-// castOfCredential is the cast whose credential hash is, of the member's; 0 for none.
-func (each *member) castOfCredential(hash [sha256.Size]byte) int64 {
-	for _, held := range each.credentials {
-		if held.hash == hash {
-			return held.castID
-		}
-	}
-	return 0
 }
 
 // endLinksOf ends every link of a member's place, theirs and any new one made for it, as they leave

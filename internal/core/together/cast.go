@@ -37,6 +37,10 @@ const (
 	// in, or its caster's leaving it, where the film was theirs only through the session (D389 §1,
 	// D555 §7): the cast ends with it.
 	CastSessionEnded = "sessionEnded"
+	// CastMovedAway is its caster's place moved to another device: their seat in a Watch Together
+	// session taken over there (HostHere, GuestHere; the owner, 2026-11-25), or a guest's device casting
+	// anew, which replaces its last cast (D520 §1).
+	CastMovedAway = "movedAway"
 	// CastIdle is a cast to a guest receiver a device code made, ended after nothing played in it
 	// for its idle end (D469 §3).
 	CastIdle = "idle"

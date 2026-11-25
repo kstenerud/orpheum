@@ -75,7 +75,8 @@ func TestLiveLocators_GoWithAMemberWhoLeaves(t *testing.T) {
 }
 
 // Ending a session drops its links and its members' locators; a signed-in member's other device
-// has a locator of its own with the membership back.
+// taking their part over has a locator of its own, the one it was on found no more (D555, the
+// owner's point 3).
 func TestLiveLocators_EndWithTheSessionAndEachDeviceHasItsOwn(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
@@ -91,15 +92,15 @@ func TestLiveLocators_EndWithTheSessionAndEachDeviceHasItsOwn(t *testing.T) {
 	if _, err = stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "a friend", Rights{}); err != nil {
 		t.Fatal(err)
 	}
-	other, err := stage.hub.Mine(partner.UserID)
-	if err != nil || len(other) != 1 || other[0].Locator == "" || other[0].Locator == joined.Locator {
+	other, _, err := stage.hub.GuestHere(stage.opened.SessionID, partner.UserID)
+	if err != nil || other.Locator == "" || other.Locator == joined.Locator {
 		t.Fatalf("the member's other device has %+v, %v; want a locator of its own", other, err)
 	}
 	if hosted, mineErr := stage.hub.Mine(stage.owner.UserID); mineErr != nil || hosted[0].Locator != "" {
 		t.Errorf("the host's device was handed a locator, %+v, %v; want none, it has its session's", hosted, mineErr)
 	}
-	if locators := stage.hub.LiveLocators(); len(locators) != 2 {
-		t.Errorf("the locators are %v; want the member's two devices'", locators)
+	if locators := stage.hub.LiveLocators(); len(locators) != 1 {
+		t.Errorf("the locators are %v; want the member's one device's", locators)
 	}
 	if err = stage.hub.End(stage.opened.SessionID, stage.owner.UserID); err != nil {
 		t.Fatal(err)

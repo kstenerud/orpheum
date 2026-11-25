@@ -197,9 +197,11 @@
 //     by TestCast_AHelloJustAfterTheEndIsToldWhyForAMinute. A cast whose castee has said nothing
 //     for CastSilentAfter, from its first word or its taking the cast on, ends by its own deadline,
 //     receiverGone, the hub's end alone, no sender's (D555 §3), enforced by
-//     TestCast_ACastWhoseCasteeIsSilentForItsWaitEnds. A host moving their session to another device
-//     keeps their castee, a device and its castee one place (D555 §2), enforced by
-//     TestHostHere_KeepsTheHostsCastee. Ready between videos it plays
+//     TestCast_ACastWhoseCasteeIsSilentForItsWaitEnds. A person's seat taken on another device, the
+//     host's or a signed-in guest's, ends their cast there, movedAway, on the one end path, its castee
+//     told and its credentials taken back: a castee carried over could be left with no remote that
+//     works it (the owner, 2026-11-25), enforced by TestHostHere_EndsTheHostsCast and
+//     TestGuestHere_MakesTheAskingDeviceTheGuestsOneAndEndsTheirCast. Ready between videos it plays
 //     nothing, so the next is put on afresh (D364 §5), enforced by
 //     TestCast_ReadyPlaysNothingSoTheNextIsPutOnAfresh; a receiver takes its person's part in the
 //     Watch Together session they are in, by the cast's own credential, a host's leading it (D364
@@ -217,7 +219,8 @@
 //     told its place moved away and cut off, so casting again and again never pushes a browser out of
 //     the newest credentials kept, enforced by
 //     TestGuestCastPart_ADevicesNewCastReplacesThatDevicesLastCastAlone; it ends as the sending
-//     device's credential goes, enforced by TestGuestCastPart_EndsAsItsSendingDevicesCredentialGoes;
+//     device's credential goes, cut off as the part is taken over elsewhere, enforced by
+//     TestGuestCastPart_EndsAsItsSendingDevicesCredentialGoes;
 //     and a device being cast to casts nothing itself, enforced by
 //     TestGuestCastPart_ADeviceBeingCastToCastsNothing. A guest's AirPlay grant is a cast too
 //     (D519 §1): GuestAirPlayHold makes it a credential of its own, with no locator, which takes the
@@ -228,11 +231,16 @@
 //     uploadFull, and their membership still admits them (D286 §5). Enforced by
 //     TestHub_SendAwayNewestTellsTheNewestPlayerAndKeepsTheirMembership and
 //     TestHub_SendAwayNewestSendsNoHost.
-//   - A session a signed-in person joined follows them to any device, each device with a credential
-//     of its own that cuts off no other, a member keeping the newest few (D267 §2, §3). Enforced by
-//     TestMine_IsEverySessionAPersonIsInAsHostOrSignedInMember,
-//     TestMine_HavingTheSessionBackOnOneDeviceCutsOffNoOther, TestMine_KeepsAMembersNewestCredentials
-//     and, through the API, TestTogether_ASessionFollowsWhoeverJoinedSignedIn.
+//   - A session a signed-in person joined is listed on any device they sign in on, and their part in
+//     it stays on the device it is on: their other devices are told which and given no credential, so
+//     loading a page takes nothing; one on no device is had back by the device that asks (D267 §2;
+//     D555, the owner's point 3). Taken over there (GuestHere), that device is the guest's one, every
+//     other told it moved away and cut off. Enforced by
+//     TestMine_IsEverySessionAPersonIsInAsHostOrSignedInMember, TestMine_AGuestsPartStaysOnTheDeviceItIsOn,
+//     TestMine_AGuestsPartOnNoDeviceIsHadBackByTheDeviceThatAsks,
+//     TestGuestHere_MakesTheAskingDeviceTheGuestsOneAndEndsTheirCast and, through the API,
+//     TestTogether_ASessionFollowsWhoeverJoinedSignedIn and
+//     TestTogether_AGuestsOtherDeviceIsToldWhereTheirPartIsAndTakesItHere.
 //   - The session a person hosts stays on the device that started it: their other devices are told
 //     which devices it is on and given no credential; moved to one (HostHere), that device is the
 //     host's one, every other told it moved away and cut off (D442, amending D267 §2). Enforced by

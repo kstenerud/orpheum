@@ -2477,7 +2477,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Move the session you host to this device, which becomes your one device: the others are told it moved and cut off (host; D442 §2) */
+        /** Move the session you host to this device, which becomes your one device: the others are told it moved and cut off, and a cast of yours ends (host; D442 §2) */
         post: operations["hostTogetherHere"];
         delete?: never;
         options?: never;
@@ -2564,6 +2564,23 @@ export interface paths {
         put?: never;
         /** A new link for a guest's place: they stay in until it is used, and whoever joins by it takes the place over, cutting off the devices they came in on (host; D311 §5, D312 §3) */
         post: operations["addTogetherLinkFor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/together/{id}/part-here": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move your part in the session you joined signed in to this device, which becomes your one device: the others are told it moved and cut off, and a cast of yours ends (guest; D555) */
+        post: operations["takeTogetherPartHere"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4606,14 +4623,14 @@ export interface components {
             leftOutOfHomeLibraryIds: number[] | null;
         };
         MyTogetherBody: {
-            /** @description The name of your device the session you host is on now, where it is on one */
-            hostDeviceName?: string;
+            /** @description The name of your device your part in the session is on now, the host's or a guest's, where it is on one */
+            deviceName?: string;
             isHost: boolean;
-            /** @description What this device finds the server by through a discovery; the host's has none */
+            /** @description What this device finds the server by through a discovery, with a credential alone */
             locator?: string;
             /** Format: int64 */
             memberId: number;
-            /** @description This device's credential for a session you joined; none for the one you host, which stays on its device (D442 §1) */
+            /** @description This device's credential for a session you joined whose part is on none of your devices; none while it is on one, nor for the one you host: each stays on its device until moved (D442 §1, D555) */
             membershipCredential?: string;
             /** Format: int64 */
             sessionId: number;
@@ -12538,6 +12555,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TogetherLinkOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    takeTogetherPartHere: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinTogetherOutputBody"];
                 };
             };
             /** @description Error */

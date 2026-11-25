@@ -7,15 +7,15 @@ import (
 	"slices"
 )
 
-// MyTogetherBody is one session the person is in, and, for one they joined, a credential for the
-// device that asked.
+// MyTogetherBody is one session the person is in, where it is, and, for one they joined whose part is
+// on no device, a credential for the device that asked.
 type MyTogetherBody struct {
 	SessionID            int64  `json:"sessionId"`
 	MemberID             int64  `json:"memberId"`
 	IsHost               bool   `json:"isHost"`
-	MembershipCredential string `doc:"This device's credential for a session you joined; none for the one you host, which stays on its device (D442 §1)" json:"membershipCredential,omitempty" required:"false"` //nolint:lll // one struct tag
-	Locator              string `doc:"What this device finds the server by through a discovery; the host's has none" json:"locator,omitempty"`                                                                   //nolint:lll // one struct tag
-	HostDeviceName       string `doc:"The name of your device the session you host is on now, where it is on one" json:"hostDeviceName,omitempty" required:"false"`                                              //nolint:lll // one struct tag
+	MembershipCredential string `doc:"This device's credential for a session you joined whose part is on none of your devices; none while it is on one, nor for the one you host: each stays on its device until moved (D442 §1, D555)" json:"membershipCredential,omitempty" required:"false"` //nolint:lll // one struct tag
+	Locator              string `doc:"What this device finds the server by through a discovery, with a credential alone" json:"locator,omitempty"`                                                                                                                                              //nolint:lll // one struct tag
+	DeviceName           string `doc:"The name of your device your part in the session is on now, the host's or a guest's, where it is on one" json:"deviceName,omitempty" required:"false"`                                                                                                    //nolint:lll // one struct tag
 }
 
 // MyTogetherOutput is every session the signed-in person is in.
@@ -26,9 +26,8 @@ type MyTogetherOutput struct {
 }
 
 // listMyTogether is the sessions the signed-in person is in, as host or as a member who joined
-// signed in: one they joined follows them to any device they sign in on, and having it back here cuts
-// off none of their other devices (D267 §2, §3); the one they host is said to be on, on the device it
-// is on, which it stays on until it is moved (D442 §1).
+// signed in, each said to be on, on the device their part is on, which it stays on until they move it
+// (D442 §1; D555, the owner's point 3): asking from another device takes it from none.
 func (server *Server) listMyTogether(ctx context.Context, input *AuthorizationHeader) (*MyTogetherOutput, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
@@ -45,8 +44,8 @@ func (server *Server) listMyTogether(ctx context.Context, input *AuthorizationHe
 			SessionID: each.SessionID, MemberID: each.MemberID, IsHost: each.IsHost,
 			MembershipCredential: each.MembershipCredential, Locator: each.Locator,
 		}
-		if len(each.HostDevices) > 0 {
-			body.HostDeviceName, err = server.deviceNamed(ctx, dependencies, principal.UserID, each.HostDevices)
+		if len(each.Devices) > 0 {
+			body.DeviceName, err = server.deviceNamed(ctx, dependencies, principal.UserID, each.Devices)
 			if err != nil {
 				return nil, err
 			}

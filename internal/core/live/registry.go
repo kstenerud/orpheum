@@ -334,8 +334,9 @@ func (registry *Registry) End(userID, deviceID, castID int64) (Cast, error) {
 	return registry.endHeld(userID, owner.castByEither(castID, deviceID))
 }
 
-// EndHubEnded ends userID's cast castID, which the hub ended: its castee went silent (D555 §3), or it
-// left its caster's part for a film they have no right to without it (§7). It returns it, its sender
+// EndHubEnded ends userID's cast castID, which the hub ended: its castee went silent (D555 §3), it
+// left its caster's part for a film they have no right to without it (§7), or its caster's seat in a
+// session moved to another device (the owner, 2026-11-25). It returns it, its sender
 // told it sends no more.
 func (registry *Registry) EndHubEnded(userID, castID int64) (Cast, error) {
 	registry.mutex.Lock()

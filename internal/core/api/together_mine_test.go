@@ -30,8 +30,9 @@ func (harness testHarness) mine(t *testing.T, token string) api.MyTogetherOutput
 	return mine
 }
 
-// Someone who joins by a link signed in has the session on any device they sign in on, and so does
-// the host; a guest who joined signed out is nobody's (D267 §2).
+// Someone who joins by a link signed in has the session listed on any device they sign in on, and so
+// does the host, each with no credential while their part is on a device (D267 §2; D555, the owner's
+// point 3); a guest who joined signed out is nobody's.
 func TestTogether_ASessionFollowsWhoeverJoinedSignedIn(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -56,8 +57,9 @@ func TestTogether_ASessionFollowsWhoeverJoinedSignedIn(t *testing.T) {
 	harness.joinByLink(t, admin, opened.Body.SessionID, "a neighbour", "Sam") // signed out
 	theirs := harness.mine(t, partner).Body.Sessions
 	if len(theirs) != 1 || theirs[0].SessionID != opened.Body.SessionID || theirs[0].IsHost ||
-		theirs[0].MembershipCredential == "" || theirs[0].Locator == "" {
-		t.Errorf("the partner's sessions are %+v; want the one they joined, with a credential and a locator", theirs)
+		theirs[0].MembershipCredential != "" || theirs[0].Locator != "" {
+		t.Errorf("the partner's sessions are %+v; want the one they joined, with no credential: their part "+
+			"is on the device that joined", theirs)
 	}
 	hosted := harness.mine(t, admin).Body.Sessions
 	if len(hosted) != 1 || !hosted[0].IsHost || hosted[0].Locator != "" {
@@ -176,7 +178,7 @@ func TestTogether_TheHostsOtherDeviceIsToldWhereTheSessionIsAndMovesItHere(t *te
 	laptop.awaitWelcome()
 	hosted := harness.mine(t, admin).Body.Sessions
 	if len(hosted) != 1 || !hosted[0].IsHost || hosted[0].MembershipCredential != "" ||
-		hosted[0].HostDeviceName != testDevice.Name {
+		hosted[0].DeviceName != testDevice.Name {
 		t.Errorf("the host's sessions are %+v; want theirs, on %q, with no credential", hosted, testDevice.Name)
 	}
 	path := fmt.Sprintf("/together/%d/host-here", opened.Body.SessionID)
@@ -191,5 +193,41 @@ func TestTogether_TheHostsOtherDeviceIsToldWhereTheSessionIsAndMovesItHere(t *te
 	}
 	if reason := laptop.awaitEnded(); reason != "movedAway" {
 		t.Errorf("the device the session was on was told %q; want movedAway", reason)
+	}
+}
+
+// A signed-in guest's other device asking is told their part is on, on that device by name, with no
+// credential, and takes it over here; the device it was on is told it moved away. Only a guest of
+// the session takes a part over (D555, the owner's point 3).
+func TestTogether_AGuestsOtherDeviceIsToldWhereTheirPartIsAndTakesItHere(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	if _, err := harness.authService.CreateUser(t.Context(),
+		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
+		t.Fatal(err)
+	}
+	partner := harness.signIn(t, "partner", "partner-password")
+	opened := harness.openTogether(t, admin)
+	joined := harness.joinByLinkAs(t, admin, partner, opened.Body.SessionID)
+	laptop := harness.dialTogetherSignedIn(t, joined.Body.MembershipCredential, partner)
+	laptop.awaitWelcome()
+	theirs := harness.mine(t, partner).Body.Sessions
+	if len(theirs) != 1 || theirs[0].MembershipCredential != "" || theirs[0].DeviceName != testDevice.Name {
+		t.Errorf("the guest's sessions are %+v; want theirs, on %q, with no credential", theirs, testDevice.Name)
+	}
+	path := fmt.Sprintf("/together/%d/part-here", opened.Body.SessionID)
+	if refused := harness.do(t, http.MethodPost, path, admin, nil); refused.status != http.StatusNotFound {
+		t.Errorf("the host taking a guest's part = %d %s; want 404", refused.status, refused.body)
+	}
+	moved := harness.do(t, http.MethodPost, path, partner, nil)
+	var here api.JoinTogetherOutput
+	if err := json.Unmarshal([]byte(moved.body), &here.Body); err != nil || moved.status != http.StatusOK ||
+		here.Body.SessionID != opened.Body.SessionID || here.Body.MemberID != joined.Body.MemberID ||
+		here.Body.MembershipCredential == "" || here.Body.Locator == "" {
+		t.Fatalf("POST %s = %d %s; want their part and a credential for this device", path, moved.status, moved.body)
+	}
+	if reason := laptop.awaitEnded(); reason != "movedAway" {
+		t.Errorf("the device the part was on was told %q; want movedAway", reason)
 	}
 }

@@ -251,7 +251,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// puts on only what they reach (D122, TestHub_TheHostChangesWhatPlaysOnlyToAFilmTheyMayPlay).
 		"openTogether", "getTogether", "addTogetherLink", "addTogetherLinkFor", "removeTogetherLink",
 		"joinTogether", "checkTogetherLink", "leaveTogether",
-		"listMyTogether", "hostTogetherHere",
+		"listMyTogether", "hostTogetherHere", "takeTogetherPartHere",
 		// A person's own casts between their devices: the receiver plays by its own playback, which
 		// checks its reach (D337 §1).
 		"listMyCasts", "endCast", "acceptCast",

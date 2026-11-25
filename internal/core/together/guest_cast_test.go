@@ -120,37 +120,21 @@ func senderOf(credential string) [sha256.Size]byte {
 }
 
 // One device casts to one other at a time (D520 §1): the cast's credential is the sending device's, so
-// a guest's phone and laptop each cast to a receiver of their own, and the phone's new cast replaces
-// the phone's last alone, whose receiver is told its place moved away and admits nothing more, its
-// locator finding no one, while the laptop's receiver and both browsers play on; and casting again and
-// again never pushes a browser's credential out of the newest the member keeps.
+// a guest's new cast replaces their last, whose receiver is told its place moved away and admits
+// nothing more, its locator finding no one, while their browser plays on; and casting again and again
+// never pushes the browser's credential out of the newest the member keeps.
 func TestGuestCastPart_ADevicesNewCastReplacesThatDevicesLastCastAlone(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
 	partner := Person{UserID: 2, Name: "partner"}
 	guest := stage.joinSignedIn(t, &partner)
-	laptop := guest.MembershipCredential
-	mine, err := stage.hub.Mine(partner.UserID)
-	if err != nil || len(mine) != 1 {
-		t.Fatalf("the phone asked and had %+v, %v", mine, err)
-	}
-	phone := mine[0].MembershipCredential
+	phone := guest.MembershipCredential
 	_, phoneBox := stage.attach(t, phone, RoleVideo)
-	_, laptopBox := stage.attach(t, laptop, RoleVideo)
 	first, err := stage.hub.GuestCastPart(guest.SessionID, guest.MemberID, senderOf(phone))
 	if err != nil {
 		t.Fatal(err)
 	}
 	firstReceiver, firstBox := stage.attach(t, first.MembershipCredential, RoleVideo)
-	laptops, err := stage.hub.GuestCastPart(guest.SessionID, guest.MemberID, senderOf(laptop))
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, laptopsBox := stage.attach(t, laptops.MembershipCredential, RoleVideo)
-	if firstBox.count(MessageEnded) != 0 {
-		t.Errorf("the phone's receiver was told %+v as the laptop cast; want it playing on",
-			firstBox.last(MessageEnded))
-	}
 	second, err := stage.hub.GuestCastPart(guest.SessionID, guest.MemberID, senderOf(phone))
 	if err != nil {
 		t.Fatal(err)
@@ -164,23 +148,20 @@ func TestGuestCastPart_ADevicesNewCastReplacesThatDevicesLastCastAlone(t *testin
 	if _, _, isFound := stage.hub.MemberOfLocator(discoverylink.LocatorHash(first.Locator)); isFound {
 		t.Error("the phone's replaced cast's locator still finds the guest")
 	}
-	if rosterLists(laptopBox, firstReceiver.DeviceID) {
+	if rosterLists(phoneBox, firstReceiver.DeviceID) {
 		t.Error("the roster still lists the phone's replaced cast's receiver")
 	}
 	stage.wantAdmitted(t, "does not admit the guest", map[string]string{
 		"the phone's new cast's credential": second.MembershipCredential,
-		"the laptop's cast's credential":    laptops.MembershipCredential,
 	})
-	wantPlayingOn(t, map[string]*inbox{
-		"the laptop's receiver": laptopsBox, "the phone": phoneBox, "the laptop": laptopBox,
-	})
+	wantPlayingOn(t, map[string]*inbox{"the phone": phoneBox})
 	for range credentialsKeptPerMember + 4 {
 		if _, err = stage.hub.GuestCastPart(guest.SessionID, guest.MemberID, senderOf(phone)); err != nil {
 			t.Fatal(err)
 		}
 	}
 	stage.wantAdmitted(t, "was pushed out by casting again and again",
-		map[string]string{"the phone's credential": phone, "the laptop's credential": laptop})
+		map[string]string{"the phone's credential": phone})
 }
 
 // rosterLists is whether the last roster box was sent lists device deviceID.
@@ -248,9 +229,9 @@ func TestGuestCastPart_ADeviceBeingCastToCastsNothing(t *testing.T) {
 	}
 }
 
-// A cast ends as the credential of the device that cast goes (D520 §1): pushed out of the newest the
-// member keeps, the receiver it cast to is told its place moved away and admits nothing, and that
-// credential casts nothing more.
+// A cast ends as the credential of the device that cast goes (D520 §1): cut off as the guest takes
+// their part over on another device (D555, the owner's point 3), the receiver it cast to is told its
+// place moved away and admits nothing, and that credential casts nothing more.
 func TestGuestCastPart_EndsAsItsSendingDevicesCredentialGoes(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
@@ -262,13 +243,11 @@ func TestGuestCastPart_EndsAsItsSendingDevicesCredentialGoes(t *testing.T) {
 	}
 	_, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	receiver, castBox := stage.attach(t, part.MembershipCredential, RoleVideo)
-	for range credentialsKeptPerMember {
-		if _, err = stage.hub.Mine(partner.UserID); err != nil {
-			t.Fatal(err)
-		}
+	if _, _, err = stage.hub.GuestHere(guest.SessionID, partner.UserID); err != nil {
+		t.Fatal(err)
 	}
 	if _, isViewer := stage.hub.ViewerOf(guest.MembershipCredential); isViewer {
-		t.Fatal("the first device's credential is still kept; want it pushed out")
+		t.Fatal("the first device's credential is still kept; want it cut off")
 	}
 	if ended := castBox.last(MessageEnded); ended.Reason != "movedAway" {
 		t.Errorf("the receiver of a device whose credential went was told %+v; want ended, movedAway", ended)

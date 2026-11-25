@@ -10,12 +10,14 @@ import { useMembership } from "./together-membership.ts";
 import { forgetMembership, keepMembership, readMembership } from "./together-storage.ts";
 
 /**
- * The session the person hosts on another device, as this tab hosts none: its id, and the name of the
- * device it is on, where the server knows one (D442 §1).
+ * The session the person hosts on another device, as this tab hosts none, or, isGuest, the one they
+ * joined signed in whose part is on another device, as this browser keeps none for it: its id, and the
+ * name of the device it is on, where the server knows one (D442 §1; D555, the owner's point 3).
  */
 export interface HostedElsewhere {
   readonly sessionId: number;
   readonly deviceName: string | undefined;
+  readonly isGuest?: boolean;
 }
 
 let hostedElsewhere: HostedElsewhere | undefined;
@@ -23,16 +25,25 @@ const elsewhereListeners = new Set<() => void>();
 
 /** Notes the session the person hosts on another device, or that there is none. */
 export function noteHostedElsewhere(next: HostedElsewhere | undefined): void {
-  if (
-    next?.sessionId === hostedElsewhere?.sessionId &&
-    next?.deviceName === hostedElsewhere?.deviceName
-  ) {
+  if (isSameElsewhere(next, hostedElsewhere)) {
     return;
   }
   hostedElsewhere = next;
   for (const listener of elsewhereListeners) {
     listener();
   }
+}
+
+/** Whether two notes of a session elsewhere say the same. */
+function isSameElsewhere(
+  one: HostedElsewhere | undefined,
+  other: HostedElsewhere | undefined,
+): boolean {
+  return (
+    one?.sessionId === other?.sessionId &&
+    one?.deviceName === other?.deviceName &&
+    one?.isGuest === other?.isGuest
+  );
 }
 
 function subscribeToElsewhere(listener: () => void): () => void {
@@ -95,6 +106,40 @@ export async function moveHostingHere(
 }
 
 /**
+ * Takes the part the person has as a guest in a session they joined signed in, on another device, to
+ * this browser, which keeps it from then on, the other device told it moved and their cast ended
+ * (D555, the owner's point 3; the owner, 2026-11-25), and says whether it did. One the server no
+ * longer has, or in which they are no longer a guest, is forgotten.
+ */
+export async function moveGuestPartHere(
+  api: Api,
+  sessionId: number,
+  idempotencyKey: string,
+): Promise<boolean> {
+  try {
+    const moved = dataOrThrow(
+      await api.POST("/together/{id}/part-here", {
+        params: { path: { id: sessionId } },
+        ...idempotent(idempotencyKey),
+      }),
+    );
+    keepMembership(browserStorage(), "viewer", {
+      sessionId: moved.sessionId,
+      credential: moved.membershipCredential,
+      locator: moved.locator,
+    });
+    noteHostedElsewhere(undefined);
+    return true;
+  } catch (cause) {
+    if (cause instanceof ApiProblem && (cause.code === "notFound" || cause.code === "forbidden")) {
+      noteHostedElsewhere(undefined);
+      return false;
+    }
+    throw cause;
+  }
+}
+
+/**
  * Forgets the session this tab hosts when it is still the one hosted as the server was asked,
  * askedId, and the server's sessions do not include it as this person's to host.
  */
@@ -113,9 +158,10 @@ function forgetHostedIfGone(
 
 /**
  * Has back, on this device, the Watch Together sessions the signed-in person is in. One they joined
- * signed in follows them, for the viewer's page (D267 §2); a membership this browser keeps for it is
- * left as it is, and each device has a credential of its own, so asking cuts off none of their others
- * (§3). One they host stays on the device that started it, surviving a reload there in the tab's
+ * signed in stays on the device their part is on (D555, the owner's point 3): the server hands a
+ * credential, kept for the viewer's page, only for a part on no device (D267 §2), and a membership
+ * this browser keeps for it is left as it is; one on another device is noted as elsewhere, a guest's,
+ * for Watch Together to offer to take it here, as the host's is. One they host stays on the device that started it, surviving a reload there in the tab's
  * storage (D442 §1): another device keeps no membership for it, and notes it as hosted elsewhere, on
  * the device the server names, for Watch Together to say so and offer to move it here; one they host
  * and joined as a guest from another device is not had back as a guest's either. A session this tab
@@ -131,8 +177,8 @@ export async function haveBackMySessions(api: Api): Promise<void> {
   const hosted = listed.find((each) => each.isHost);
   noteHostedElsewhere(
     hosted === undefined || readMembership(tabStorage(), "host") !== undefined
-      ? undefined
-      : { sessionId: hosted.sessionId, deviceName: hosted.hostDeviceName },
+      ? joinedElsewhere(listed, hosted?.sessionId)
+      : { sessionId: hosted.sessionId, deviceName: hosted.deviceName },
   );
   for (const each of listed) {
     // A session the person hosts is not had back as a guest's, though another device of theirs
@@ -142,6 +188,32 @@ export async function haveBackMySessions(api: Api): Promise<void> {
       keepUnlessKept(each);
     }
   }
+}
+
+/**
+ * The session the person joined signed in whose part is on another device, the server handing no
+ * credential, as this browser keeps no membership for it; none for the one they host, hostedId.
+ */
+function joinedElsewhere(
+  listed: readonly {
+    readonly sessionId: number;
+    readonly isHost: boolean;
+    readonly membershipCredential?: string | undefined;
+    readonly deviceName?: string | undefined;
+  }[],
+  hostedId: number | undefined,
+): HostedElsewhere | undefined {
+  const kept = readMembership(browserStorage(), "viewer")?.sessionId;
+  const joined = listed.find(
+    (each) =>
+      !each.isHost &&
+      each.sessionId !== hostedId &&
+      each.membershipCredential === undefined &&
+      each.sessionId !== kept,
+  );
+  return joined === undefined
+    ? undefined
+    : { sessionId: joined.sessionId, deviceName: joined.deviceName, isGuest: true };
 }
 
 /** Keeps a joined session's membership, unless this browser keeps one for it already. */

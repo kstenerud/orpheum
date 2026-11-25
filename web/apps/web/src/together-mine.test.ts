@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { failOnUnexpectedRequests, refusal, servedBy, unreachable } from "./test-dom.tsx";
 import {
   haveBackMySessions,
+  moveGuestPartHere,
   moveHostingHere,
   noteHostedElsewhere,
   readHostedElsewhere,
@@ -29,7 +30,7 @@ describe("having back the sessions a signed-in person is in (D267 §2)", () => {
           200,
           {
             sessions: [
-              { sessionId: 3, memberId: 1, isHost: true, hostDeviceName: "the Mac" },
+              { sessionId: 3, memberId: 1, isHost: true, deviceName: "the Mac" },
               {
                 sessionId: 7,
                 memberId: 9,
@@ -80,7 +81,7 @@ describe("having back the sessions a signed-in person is in (D267 §2)", () => {
       {
         "GET /me/together": [
           200,
-          { sessions: [{ sessionId: 3, memberId: 1, isHost: true, hostDeviceName: "this one" }] },
+          { sessions: [{ sessionId: 3, memberId: 1, isHost: true, deviceName: "this one" }] },
         ],
       },
       [],
@@ -88,6 +89,57 @@ describe("having back the sessions a signed-in person is in (D267 §2)", () => {
     );
     await haveBackMySessions(api);
     expect(window.sessionStorage.getItem("orpheum.together.host")).toBe(kept);
+    expect(readHostedElsewhere()).toBeUndefined();
+  });
+
+  it("notes a session the person joined signed in, their part on another device, as a guest's elsewhere, by its name, and keeps no membership for it (D555)", async () => {
+    const { api } = servedBy(
+      {
+        "GET /me/together": [
+          200,
+          { sessions: [{ sessionId: 7, memberId: 9, isHost: false, deviceName: "the Mac" }] },
+        ],
+      },
+      [],
+      "token",
+    );
+    await haveBackMySessions(api);
+    expect(window.localStorage.getItem("orpheum.together.viewer")).toBeNull();
+    expect(readHostedElsewhere()).toEqual({ sessionId: 7, deviceName: "the Mac", isGuest: true });
+  });
+
+  it("notes a joined session as elsewhere on none of the person's devices that keeps it, its page reloaded (D555)", async () => {
+    const kept = JSON.stringify({ sessionId: 7, credential: "this-device" });
+    window.localStorage.setItem("orpheum.together.viewer", kept);
+    const { api } = servedBy(
+      {
+        "GET /me/together": [
+          200,
+          { sessions: [{ sessionId: 7, memberId: 9, isHost: false, deviceName: "this one" }] },
+        ],
+      },
+      [],
+      "token",
+    );
+    await haveBackMySessions(api);
+    expect(window.localStorage.getItem("orpheum.together.viewer")).toBe(kept);
+    expect(readHostedElsewhere()).toBeUndefined();
+  });
+
+  it("takes a guest's part on another device here, this browser keeping it from then on (D555)", async () => {
+    noteHostedElsewhere({ sessionId: 7, deviceName: "the Mac", isGuest: true });
+    const { api } = servedBy(
+      {
+        "POST /together/7/part-here": [
+          200,
+          { sessionId: 7, memberId: 9, membershipCredential: "moved-here", locator: "here" },
+        ],
+      },
+      [],
+      "token",
+    );
+    expect(await moveGuestPartHere(api, 7, "key")).toBe(true);
+    expect(window.localStorage.getItem("orpheum.together.viewer")).toContain("moved-here");
     expect(readHostedElsewhere()).toBeUndefined();
   });
 
