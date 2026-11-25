@@ -106,11 +106,12 @@ func (kept *handed) follow(into *session, now time.Time) {
 	kept.putSeq = into.group.seq
 }
 
-// leave has the film handed be the one from played as the cast left it for into, its own session of
-// one, from where from stood then (D555 §5, §7: every move keeps the position): a castee that
-// followed the session, or led it on to another film, plays on with that film, never the one it was
-// handed before, nor from where that was put. Where from played nothing, what was handed stands.
-func (kept *handed) leave(from, into *session, now time.Time) {
+// leave has the film handed be the one from plays as the cast leaves it for its own session of one,
+// from where from stands (D555 §5, §7: every move keeps the position), asked before the cast's
+// devices leave from, whose going may pause it: a castee that followed the session, or led it on to
+// another film, plays on with that film, never the one it was handed before, nor from where that
+// was put. Where from plays nothing, what was handed stands. The caller sets putSeq.
+func (kept *handed) leave(from *session, now time.Time) {
 	if from.group.fileID != 0 {
 		if kept.video.FileID != from.group.fileID {
 			kept.video = CastFilm{FileID: from.group.fileID, ItemID: from.group.itemID}
@@ -118,7 +119,6 @@ func (kept *handed) leave(from, into *session, now time.Time) {
 		positionMs := from.positionAt(now).Milliseconds()
 		kept.startMs, kept.isPaused = &positionMs, from.group.state == GroupPaused
 	}
-	kept.putSeq = into.group.seq
 }
 
 // CastUnansweredAfter is how long a cast's castee may leave its question unanswered before the hub

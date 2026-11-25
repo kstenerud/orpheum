@@ -151,6 +151,39 @@ func TestCast_ACastJoiningASessionByLinkFollowsTheSessionAndLeavesWithItsFilm(t 
 	}
 }
 
+// A host whose cast is their session's only player ends the session: the cast plays on alone from
+// where the session stood, playing, though its castee's leaving paused the session it left (D555 §5,
+// §7; the walk on staging, 2026-11-25: the Chromecast loaded its film again paused).
+func TestCast_ACastThatWasItsSessionsOnlyPlayerPlaysOnAsTheSessionEnds(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	cast, err := stage.hub.OpenCast(alone, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	film := CastFilm{FileID: 7, ItemID: 70, ItemName: "synthetic film", DurationMs: 3_600_000}
+	if err = stage.hub.CastPuts(cast.CastID, alone.UserID, film, nil, false); err != nil {
+		t.Fatal(err)
+	}
+	party, err := stage.hub.Open(alone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inParty, err := stage.hub.CastCredential(cast.CastID, alone.UserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	castee, _ := stage.attach(t, inParty, RoleVideo)
+	stage.command(t, castee, CommandChangeItem, film.FileID)
+	stage.ready(t, castee, false)
+	stage.clock.Advance(30 * time.Second)
+	stoodMs := stage.groupPositionMs(party.SessionID)
+	if err = stage.hub.End(party.SessionID, alone.UserID); err != nil {
+		t.Fatal(err)
+	}
+	stage.wantPlaying(t, cast.CastID, "a cast whose host ended the session it alone played in", film.FileID, stoodMs)
+}
+
 // wantPlaying fails the test, saying what, unless alone's cast castID hands its castee the film
 // fileID from positionMs, playing.
 func (stage sessionStage) wantPlaying(t *testing.T, castID int64, what string, fileID, positionMs int64) {

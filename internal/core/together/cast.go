@@ -513,12 +513,15 @@ func (hub *Hub) moveCastAlone(cast *casting) {
 	}
 	now := hub.clock.Now()
 	playing := where.group
+	// Before its devices go: the session's only player gone pauses the session it leaves, and the
+	// cast would be handed its film paused as that (the walk on staging, 2026-11-25).
+	cast.handed.leave(where, now)
 	taken, devices := where.takeCastOut(now, caster, cast.id, nil)
 	cast.movedDevices = devices
 	hub.openAlone(cast, Person{UserID: cast.userID, Name: caster.name}, cast.id)
 	alone, own := hub.castersPart(cast)
 	alone.group = playing
-	cast.handed.leave(where, alone, now)
+	cast.handed.putSeq = alone.group.seq
 	own.credentials = append(own.credentials, taken...)
 	cast.held = ""
 	hub.movedToTell = append(hub.movedToTell, EndedCast{CastID: cast.id, UserID: cast.userID})
