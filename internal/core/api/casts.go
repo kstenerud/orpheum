@@ -63,6 +63,8 @@ type CastBody struct {
 	ReceiverDeviceID     int64  `json:"receiverDeviceId"`
 	ReceiverName         string `json:"receiverName"`
 	MembershipCredential string `doc:"What this device's session socket says hello with" json:"membershipCredential"`
+	PositionMs           int64  `doc:"Where the cast stands now, for a device coming back to it (D555 §4); none for 0" json:"positionMs,omitempty" required:"false"`          //nolint:lll // one struct tag
+	IsPlaying            bool   `doc:"Whether it plays now rather than stands paused or stopped, for a device coming back to it" json:"isPlaying,omitempty" required:"false"` //nolint:lll // one struct tag
 }
 
 // StartCastOutput is the cast started, as its sender sees it.
@@ -449,7 +451,8 @@ func (server *Server) castNames(
 }
 
 // listMyCasts is the casts the asking device sends or receives, each with a new credential for its
-// session, for a page loaded again to be the remote or the receiver once more (§6.3).
+// session and where it stands now, for a page loaded again to be the remote or the receiver once more
+// (§6.3, D555 §4).
 func (server *Server) listMyCasts(ctx context.Context, input *AuthorizationHeader) (*MyCastsOutput, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
@@ -465,7 +468,10 @@ func (server *Server) listMyCasts(ctx context.Context, input *AuthorizationHeade
 		if err != nil {
 			return nil, server.logInternalError(ctx, "make a cast's credential", err)
 		}
-		output.Body.Casts = append(output.Body.Casts, castBodyOf(cast, principal.DeviceID, credential))
+		body := castBodyOf(cast, principal.DeviceID, credential)
+		// A caster coming back is told where its cast stands (D555 §4), its remote drawn from there.
+		body.PositionMs, body.IsPlaying, _ = dependencies.Together.CastPosition(cast.ID, principal.UserID) //nolint:errcheck,lll // none ended as it was read
+		output.Body.Casts = append(output.Body.Casts, body)
 	}
 	return output, nil
 }

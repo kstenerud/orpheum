@@ -888,3 +888,41 @@ func TestLiveSocket_AMessageOfAnUnknownTypeIsLoggedAndTheConnectionGoesOn(t *tes
 	harness.logs.AwaitEvent(t, "liveUnknownType", `"level":"DEBUG"`, `"userId":1`, `"type":"fromTheFuture"`)
 	socket.awaitConnected()
 }
+
+// A caster coming back is told its running cast and where it stands (D555 §4): the phone's page,
+// loaded again while its cast plays paused at 42 s, lists it with that position, not playing.
+func TestCast_ACasterComingBackIsToldWhereItsCastStands(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	session, tokens, sockets := harness.sessionWithNothingOn(t)
+	playPath := fmt.Sprintf("/me/casts/%d/play", session.CastID)
+	if played := harness.do(t, http.MethodPost, playPath, tokens[0],
+		map[string]any{"fileId": 1, "positionMs": 7_000}); played.status != http.StatusOK {
+		t.Fatalf("POST %s = %d %s", playPath, played.status, played.body)
+	}
+	handed := sockets[1].await(live.MessageReceive, func(message live.Outbound) bool {
+		return message.Receive.FileID == 1
+	}).Receive
+	castPlayer := harness.dialCast(t, handed.Credential, together.RoleVideo)
+	castPlayer.awaitWelcome()
+	castPlayer.send(together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageCommand, Command: together.CommandChangeItem,
+		FileID: 1, PositionMs: 7_000,
+	})
+	castPlayer.send(together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageState, IsPlaying: true, PositionMs: 42_000, FileID: 1,
+	})
+	castPlayer.awaitGroup(together.GroupPlaying)
+	castPlayer.send(together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageCommand, Command: together.CommandPause,
+	})
+	castPlayer.awaitGroup(together.GroupPaused)
+	listed := harness.do(t, http.MethodGet, "/me/casts", tokens[0], nil)
+	var mine api.MyCastsOutput
+	if err := json.Unmarshal([]byte(listed.body), &mine.Body); err != nil || len(mine.Body.Casts) != 1 {
+		t.Fatalf("GET /me/casts = %d %s; want the one cast", listed.status, listed.body)
+	}
+	if cast := mine.Body.Casts[0]; cast.CastID != session.CastID || cast.PositionMs != 42_000 || cast.IsPlaying {
+		t.Errorf("the phone's cast came back as %+v; want cast %d paused at 42 s", cast, session.CastID)
+	}
+}

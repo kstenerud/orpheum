@@ -657,6 +657,10 @@
           "isAccepted": {
             "type": "boolean"
           },
+          "isPlaying": {
+            "description": "Whether it plays now rather than stands paused or stopped, for a device coming back to it",
+            "type": "boolean"
+          },
           "isSender": {
             "type": "boolean"
           },
@@ -671,6 +675,11 @@
           "membershipCredential": {
             "description": "What this device's session socket says hello with",
             "type": "string"
+          },
+          "positionMs": {
+            "description": "Where the cast stands now, for a device coming back to it (D555 §4); none for 0",
+            "format": "int64",
+            "type": "integer"
           },
           "receiverDeviceId": {
             "format": "int64",

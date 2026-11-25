@@ -3088,6 +3088,8 @@ export interface components {
              */
             fileId: number;
             isAccepted: boolean;
+            /** @description Whether it plays now rather than stands paused or stopped, for a device coming back to it */
+            isPlaying?: boolean;
             isSender: boolean;
             /**
              * Format: int64
@@ -3097,6 +3099,11 @@ export interface components {
             itemName: string;
             /** @description What this device's session socket says hello with */
             membershipCredential: string;
+            /**
+             * Format: int64
+             * @description Where the cast stands now, for a device coming back to it (D555 §4); none for 0
+             */
+            positionMs?: number;
             /** Format: int64 */
             receiverDeviceId: number;
             receiverName: string;
