@@ -126,6 +126,8 @@ Play page's own 355 tests stay and grow.
 6. **The television's own controls while it receives stay:** a player without menus.
 7. **D288's pairing of a Chromecast through the lab goes.**
 
-Open under point 3, to settle in phase 1: a signed-in guest gets a credential for each of their
-devices today, so may be in a session on several at once. The owner's rule reads as one device
-for a guest too.
+Under point 3 (the owner, 2026-11-25): **everyone in a session, host or guest, takes part from
+one place, a device with its castee where it casts.** A signed-in person may take their part
+over on another device; it then runs there alone. Today a signed-in guest gets a credential for
+each of their devices and may be in on several: phase 1 ends that, a guest's part moving as a
+host's does.
