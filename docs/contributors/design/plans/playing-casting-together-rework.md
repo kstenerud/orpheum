@@ -101,6 +101,19 @@ film on, to ask how a film plays, and to choose Up next.
   and quality besides.
 - **Sound and picture commands.** The web receiver's are React hooks; the receiver's own stay.
 
+**Built after phase 1 (2026-11-25):** both. The Google Cast receiver now follows its session by
+the SDK's `followGroup`, as every other player does. It keeps no follower of its own. Leading its
+cast, it carries out each move its remote makes once it is more than about 150 ms off, not 3 s,
+and holds the group while it loads. Following, in its person's Watch Together session, it eases
+its rate for small drift, seeks past 3 s, and pauses while the group waits for its leader. It now
+tells its session its buffering, loaded chunks, quality switches and delivery as the Play page
+does. What a receiver does with its remote's sound and picture choices now sits in the packages,
+free of React: `workedByTheRemote` and `toldTheCastHowItPlays` in the SDK, and
+`hearFilmChannel` and `chooseFilmChannel` in the player. The web receiver's hooks are thin
+wrappers over them. The Google Cast receiver has no sound or picture panel yet, so it calls
+neither. If it told a sound, its remote would show the 🎧 menu with a levelling switch it cannot
+carry out. Whether it should show the film's volume (D555 §10) is the owner's to say.
+
 **Found:** `idempotent.test.ts` scans the app alone, so the two playback requests, now in the
 SDK, are outside its reading. Until phase 5 the lab's Chromecast sender pages get no answer.
 
