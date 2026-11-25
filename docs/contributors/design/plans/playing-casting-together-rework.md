@@ -169,6 +169,26 @@ aim. A frame at the place the castee reports itself needs the server to pass tha
 5. **Removed:** the cast remote and its pad, choices, offers and ends; the guest's player and
    tracks; the guest's cast page; with their tests.
 
+**Built (item 3):** `PlayOrSendOn` mounts `CasteePlay` (`play-castee.tsx`) where it mounted the
+cast remote: the way up and "On: ‹TV›" with when the film ends, the castee's key frame where the
+video would be with Up next or a skip over it, and the Play page's bar (`page-controls.css`) over
+the castee target: `TargetTimeline`, ⏮, the 10 s steps, play or pause, ⏭, `TargetMenus` and the
+castee's volume. The cast's session hooks moved, unchanged, to `castee-session.tsx`, so
+`castMoved` is still no end. Every end swaps back once, with no note, at this tab's own Stop's
+answer, else where the castee last stood, else the session's place as it ended: paused alone,
+playing for a Watch Together host or signed-in guest. Where the design was silent: nothing on the
+castee (Ready on), an end goes home as before; the host's "unreachable, playing here" notice and
+the lost-home notice are dropped (§5: no dialog explains the end); Cast again is gone from the
+Play page.
+
+**Left (item 3):** the reconnecting sign shows while the castee is not heard
+(`useReceiverHeard`: its device gone from the connected devices, or its leading lost), not at
+5 s of silence: the caster is not told the castee's 5 s reports, so a true 5 s sign needs the
+server to pass the castee's report or its silence on. `cast-remote.tsx`, its pad, its notes
+(`cast-remote-ends.ts`, `cast-remote-again.ts`, the notes in `cast-remote-offer.tsx`) and their
+tests now have no user outside tests; they go with item 5, their tests moved to the page that
+keeps each behaviour.
+
 ### Phase 5: the lab goes (D555 §12)
 
 Its pages, routes, words, menu entry and the server's `/lab/` endpoints.
