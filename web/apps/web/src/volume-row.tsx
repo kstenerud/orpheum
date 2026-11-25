@@ -9,7 +9,8 @@ import { useTranslation } from "react-i18next";
 import { VolumeButtonsNote } from "./film-volume-slider.tsx";
 import { FilmStripIcon } from "./icons.tsx";
 import { volumeAfter } from "./volume-step.ts";
-import { SoundControls, type PlayerSound } from "./player-controls.tsx";
+import type { PlayerSound } from "./playback-target.ts";
+import { SoundControls } from "./player-controls.tsx";
 import type { OneControl } from "./popover.tsx";
 import {
   partnerGainAfter,

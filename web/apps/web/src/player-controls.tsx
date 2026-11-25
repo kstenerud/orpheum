@@ -24,45 +24,11 @@ import {
   SeekForwardIcon,
   SoundIcon,
 } from "./player-icons.tsx";
-import type { PlaybackTarget } from "./playback-target.ts";
+import type { PlaybackTarget, PlayerSound, PlayerSource } from "./playback-target.ts";
 import { askedByOf, seekAheadOf, seekAimedEvent, seekStepMs } from "./seek-ahead.ts";
 import { TargetTimeline } from "./target-timeline.tsx";
 import { useVideoStanding, type StandingTaken, type VideoStanding } from "./video-standing.ts";
 import { VolumeRange } from "./volume-range.tsx";
-
-/**
- * What a bar of player controls plays and commands (D369 §1): the bar's part of the playback target
- * (PlaybackTarget, D555 §8), the video on this page (useVideoTarget), or a film another device plays,
- * as a cast's remote commands its castee (useCasteeTarget).
- */
-export interface PlayerSource {
-  /**
-   * Where the film stands, in ms, or where the person sent it while that seek is chosen or on its way
-   * (seek-ahead.ts): a timeline's marker moves at once and stays (the owner, 2026-10-27).
-   */
-  readonly atMs: number;
-  /** The film's length, in ms; 0 while not known. */
-  readonly durationMs: number;
-  readonly isPaused: boolean;
-  /** Whether it takes commands now: a remote's waits until it knows where the film is. */
-  readonly isReady: boolean;
-  readonly playOrPause: () => void;
-  /** Seeks to atMs: at once, or, a remote's, once its moves rest (seek-ahead.ts). */
-  readonly seekTo: (atMs: number) => void;
-  /** The film's sound here, for a video on this page; none for a film another device plays. */
-  readonly sound?: PlayerSound | undefined;
-}
-
-/** A video's sound as the bar shows and sets it. */
-export interface PlayerSound {
-  /** From 0 to 1. */
-  readonly volume: number;
-  readonly isMuted: boolean;
-  /** Whether the page can set the volume: an iPhone's is its buttons' alone (idiosyncrasies.md). */
-  readonly canSetVolume: boolean;
-  readonly setVolume: (volume: number) => void;
-  readonly setMuted: (isMuted: boolean) => void;
-}
 
 /**
  * The controls a bar offers: play or pause; a step back and forward (seekStepMs); the previous and

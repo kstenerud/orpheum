@@ -20,7 +20,7 @@ import { page, userEvent } from "vitest/browser";
 import { AppShell } from "./app-shell.tsx";
 import { DropDown } from "./drop-down.tsx";
 import { ListOption } from "./list-box.tsx";
-import type { PlayerSound } from "./player-controls.tsx";
+import type { PlayerSound } from "./playback-target.ts";
 import { PlayerMenus } from "./player-menus.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";

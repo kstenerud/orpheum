@@ -6,12 +6,8 @@ import "./i18n.ts";
 import { act, createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  PlayerControls,
-  useVideoTarget,
-  type PlayerSource,
-  type SequenceMoves,
-} from "./player-controls.tsx";
+import type { PlayerSource } from "./playback-target.ts";
+import { PlayerControls, useVideoTarget, type SequenceMoves } from "./player-controls.tsx";
 import { buttonNamed, click, mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 

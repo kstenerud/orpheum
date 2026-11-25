@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 
 import { Pill } from "./pill.tsx";
 import { PauseIcon } from "./player-icons.tsx";
-import type { PlayerSound, PlayerSource } from "./player-controls.tsx";
+import type { PlayerSound, PlayerSource } from "./playback-target.ts";
 import { volumeShownForMs, type OverlayState } from "./player-overlay-state.ts";
 import type { SeekFeedback } from "./player-taps.ts";
 import { StartRefusedShown } from "./start-refused-shown.tsx";

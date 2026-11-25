@@ -12,7 +12,7 @@ import { page, userEvent } from "vitest/browser";
 
 import type { AudioTrack } from "./audio-tracks.tsx";
 import { startInput } from "./input-commands.ts";
-import type { PlayerSound } from "./player-controls.tsx";
+import type { PlayerSound } from "./playback-target.ts";
 import { PlayerMenus, PlayerMenusContext, type PlayerMenusWays } from "./player-menus.tsx";
 import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
 import { forgetSoundOffsetSetInThisTab } from "./sound-delay.tsx";

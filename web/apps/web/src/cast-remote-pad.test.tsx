@@ -12,7 +12,8 @@ import {
   remoteSoundMovesOf,
   RemotePad,
 } from "./cast-remote-pad.tsx";
-import type { PlayerSound, PlayerSource, SequenceMoves } from "./player-controls.tsx";
+import type { PlayerSound, PlayerSource } from "./playback-target.ts";
+import type { SequenceMoves } from "./player-controls.tsx";
 import { buttonNamed, click, mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 

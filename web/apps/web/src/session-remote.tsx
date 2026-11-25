@@ -15,7 +15,8 @@ import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useShowsARemote } from "./hidden-need.ts";
-import { PlayerControls, type PlayerSource, type SequenceMoves } from "./player-controls.tsx";
+import type { PlayerSource } from "./playback-target.ts";
+import { PlayerControls, type SequenceMoves } from "./player-controls.tsx";
 import { useSeekAhead, type SeekAhead } from "./seek-ahead.ts";
 import { monotonicMs } from "./use-together.ts";
 

@@ -5,7 +5,7 @@ import "./play-words.ts";
 import type { JSX, RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { PlayerSource } from "./player-controls.tsx";
+import type { PlayerSource } from "./playback-target.ts";
 import { ClockTimes, shownAtMsOf, Timeline } from "./timeline.tsx";
 
 /**

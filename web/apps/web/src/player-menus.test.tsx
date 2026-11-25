@@ -6,7 +6,7 @@ import "./i18n.ts";
 import { act, createRef, type RefObject } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { PlayerSound } from "./player-controls.tsx";
+import type { PlayerSound } from "./playback-target.ts";
 import { PlayerMenus, PlayerMenusContext } from "./player-menus.tsx";
 import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
 import {

@@ -17,12 +17,8 @@ import { caretOf } from "./focus-engine.ts";
 import { IconButton, type IconButtonSize } from "./icon-button.tsx";
 import { useCommands } from "./input-layer.tsx";
 import { useLatest } from "./latest.ts";
-import {
-  seekStepped,
-  type PlayerSound,
-  type PlayerSource,
-  type SequenceMoves,
-} from "./player-controls.tsx";
+import type { PlayerSound, PlayerSource } from "./playback-target.ts";
+import { seekStepped, type SequenceMoves } from "./player-controls.tsx";
 import {
   MutedIcon,
   NextIcon,

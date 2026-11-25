@@ -16,7 +16,7 @@ import { Page } from "./page.tsx";
 import { CornerNotes } from "./corner-notes.tsx";
 import { OverThePicture } from "./over-the-picture.tsx";
 import { ActionPill, Pill } from "./pill.tsx";
-import type { PlayerSource } from "./player-controls.tsx";
+import type { PlayerSource } from "./playback-target.ts";
 import { SoundOnPill } from "./sound-on-pill.tsx";
 import { Section } from "./section.tsx";
 import { UpNextCard } from "./up-next.tsx";

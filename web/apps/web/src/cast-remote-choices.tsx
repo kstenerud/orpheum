@@ -21,7 +21,8 @@ import { playInCast } from "./cast.ts";
 import { HowItPlays } from "./how-it-plays.tsx";
 import { ListEntry } from "./list-box.tsx";
 import { PlayOriginal } from "./play-original.tsx";
-import type { PlayerSound, SequenceMoves } from "./player-controls.tsx";
+import type { PlayerSound } from "./playback-target.ts";
+import type { SequenceMoves } from "./player-controls.tsx";
 import {
   ChoicesSubmenu,
   KeptOpen,

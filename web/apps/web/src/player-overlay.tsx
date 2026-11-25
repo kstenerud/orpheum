@@ -26,11 +26,11 @@ import { useCommands } from "./input-layer.tsx";
 import { useLatest } from "./latest.ts";
 import { OverlayUp, PlayUpwardContext } from "./play-up.tsx";
 import { answerPlayerCommand, seekBy, usePlayersControls } from "./player-commands.ts";
+import type { PlayerSource } from "./playback-target.ts";
 import {
   PlayerControls,
   useVideoTarget,
   type PlayerControl,
-  type PlayerSource,
   type SequenceMoves,
 } from "./player-controls.tsx";
 import { PlayerMenus } from "./player-menus.tsx";

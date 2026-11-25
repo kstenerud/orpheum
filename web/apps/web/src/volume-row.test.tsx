@@ -8,7 +8,7 @@ import { act, createRef } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { commandEventName } from "./input-commands.ts";
-import type { PlayerSound } from "./player-controls.tsx";
+import type { PlayerSound } from "./playback-target.ts";
 import { PlayerMenus } from "./player-menus.tsx";
 import { fire, mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
