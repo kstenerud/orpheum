@@ -249,6 +249,14 @@ export function firstFocusTargetIn(
 export const coversTopAttribute = "data-focus-covers-top";
 
 /**
+ * The attribute on a row of controls the search reads as one line: each control by its own left and
+ * right and the row's top and bottom, so one taller than the rest, the overlay's larger play and
+ * pause (D555 §8), is no nearer to an arrow from above or below it, which keeps to the row's first
+ * control (D407 §3).
+ */
+export const levelRowAttribute = "data-focus-level-row";
+
+/**
  * Where element is for the search: its box on the screen, or, inside the banner over the page's
  * top, its box at the page's top, where it stands unscrolled. A page scrolled down holds what is
  * above the screen between its content and the banner, and Up from the screen's top row goes there
@@ -316,6 +324,7 @@ function candidatesFor(
 ): Placed<HTMLElement>[] {
   const skipped = new Set<Element>(searched?.querySelectorAll(focusableSelector) ?? []);
   const coveringTop = coveringTopIn(region.ownerDocument);
+  const levelled = levelRowsIn(region);
   const candidates: Placed<HTMLElement>[] = [];
   for (const element of region.querySelectorAll<HTMLElement>(focusableSelector)) {
     if (
@@ -324,10 +333,9 @@ function candidatesFor(
       !skipped.has(element) &&
       !from.contains(element)
     ) {
-      candidates.push({
-        item: element,
-        box: searchBoxIn(laidOutAround(element), coveringTop.has(element)),
-      });
+      const box = searchBoxIn(laidOutAround(element), coveringTop.has(element));
+      const row = levelled.get(element);
+      candidates.push({ item: element, box: row === undefined ? box : { ...row, ...sides(box) } });
     }
   }
   return candidates;
@@ -364,6 +372,26 @@ function coveringTopIn(document: Document): Set<Element> {
     }
   }
   return coveringTop;
+}
+
+/**
+ * The controls in region inside a row read as one line (levelRowAttribute), each with its row's top
+ * and bottom.
+ */
+function levelRowsIn(region: Element): Map<Element, Pick<Box, "top" | "bottom">> {
+  const levelled = new Map<Element, Pick<Box, "top" | "bottom">>();
+  for (const row of region.querySelectorAll(`[${levelRowAttribute}]`)) {
+    const { top, bottom } = row.getBoundingClientRect();
+    for (const element of row.querySelectorAll(focusableSelector)) {
+      levelled.set(element, { top, bottom });
+    }
+  }
+  return levelled;
+}
+
+/** A box's left and right. */
+function sides(box: Box): Pick<Box, "left" | "right"> {
+  return { left: box.left, right: box.right };
 }
 
 /**

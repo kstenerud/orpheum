@@ -116,17 +116,26 @@ function shownByAMouse(): void {
 describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
   it("draws every icon button, the status tray's signs too, a fingertip square: 2.75rem", async () => {
     // From a tablet up: on a phone the banner's signs stand a quarter closer, by the owner's word
-    // (2026-10-28), which app-shell.browser.test.tsx measures.
+    // (2026-10-28), which app-shell.browser.test.tsx measures. The overlay's play and pause is
+    // larger, 4rem (D555 §8–9).
     await page.viewport(1280, 720);
     await drawn(<UiGallery />, (mounted) => {
-      const sizes = [
-        ...mounted.container.querySelectorAll(".icon-button, .status-tray__button--warning"),
-      ].map((each) => {
+      const sizeOf = (each: Element): string => {
         const box = each.getBoundingClientRect();
         return `${String(Math.round(box.width))}×${String(Math.round(box.height))}`;
-      });
+      };
+      const isOverlaysPlay = (each: Element): boolean =>
+        each.closest(".player-overlay") !== null &&
+        ["Play", "Pause"].includes(each.getAttribute("aria-label") ?? "");
+      const buttons = [
+        ...mounted.container.querySelectorAll(".icon-button, .status-tray__button--warning"),
+      ];
+      const sizes = buttons.filter((each) => !isOverlaysPlay(each)).map(sizeOf);
       expect(sizes.length).toBeGreaterThan(5);
       expect(new Set(sizes)).toEqual(new Set(["44×44"]));
+      const plays = buttons.filter(isOverlaysPlay).map(sizeOf);
+      expect(plays.length).toBeGreaterThan(0);
+      expect(new Set(plays)).toEqual(new Set(["64×64"]));
     });
   });
 

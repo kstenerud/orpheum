@@ -20,6 +20,7 @@ import { isPausedAsAsked } from "./film-waits.tsx";
 import { ConvenienceArea, EndsAt, leftMsOf, type OfferPiece } from "./convenience-area.tsx";
 import { useIsVolumeSettable } from "./film-volume-slider.tsx";
 import type { FilmParts } from "./film-player.tsx";
+import { levelRowAttribute } from "./focus-engine.ts";
 import { isThisHandheld } from "./handheld.ts";
 import { useHeldDown } from "./held-down.ts";
 import { useCommands } from "./input-layer.tsx";
@@ -332,14 +333,14 @@ export function OverlayRowsOf(props: {
         ref={buttonsRef}
         className="player-overlay__row player-overlay__buttons"
         data-focus-container=""
+        {...{ [levelRowAttribute]: "" }}
       >
         <PlayerControls
           source={source}
           controls={props.controls}
           isOverVideo
           isOverlayRow
-          // Larger off a television (D555 §8): a remote's Down from the scrub bar keeps to the
-          // row's first button, its tops level (D407 §3).
+          // Larger off a television (D555 §8); a television's keeps its size.
           isPlayLarger={!isOnTelevision()}
           playRef={playRef}
           moves={props.moves}
