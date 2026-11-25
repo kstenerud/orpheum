@@ -54,6 +54,7 @@ export {
 export type { Loopback, LoopbackResult } from "./rtc-loopback.ts";
 export { browserFetch, textWhenReady, whenReady } from "./ready.ts";
 export { waitMs } from "./wait-ms.ts";
+export { discoveryWaitMs, refusedClientVersions } from "./client-floor.ts";
 export {
   connectRtc,
   isSecureUnfinished,
@@ -130,7 +131,8 @@ export {
   offerKey,
   pathsOf,
   CoreOffline,
-  discoveryWaitMs,
+  discoveryAnswerMs,
+  DiscoveryUnanswered,
   coreNotConnectedRefusal,
   isCoreOffline,
   isKeyRefused,
@@ -138,7 +140,6 @@ export {
   proofRefusal,
   protocolVersion,
   readLinkFragment,
-  refusedClientVersions,
   reportDeadEnd,
   sessionOfferKey,
   verifyClientManifest,

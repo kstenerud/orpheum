@@ -3,7 +3,13 @@
 
 import "./i18n.ts";
 
-import { PageNotControlled, type FetchRequest, type KeptCore } from "@orpheum/sdk";
+import {
+  discoveryAnswerMs,
+  PageNotControlled,
+  type FetchRequest,
+  type KeptCore,
+} from "@orpheum/sdk";
+import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DiscoveryGate, type GateParts } from "./discovery-gate.tsx";
@@ -183,6 +189,45 @@ describe("the loader's page while its path is lost (§28)", () => {
     await vi.advanceTimersByTimeAsync(2 * pathLostRetryMostMs);
     expect(tries).toBe(1);
     expect(page.textContent).not.toContain(waitingWords);
+  });
+
+  it("waits out a discovery that never answers its first ask, and connects on the next (D551)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    // As uBlock Origin on Firefox for Android held each request to the discovery (2026-11-25).
+    const heard: string[] = [];
+    const answering = discoveryFinding(heard);
+    let locates = 0;
+    const holdingTheFirst: typeof fetch = (url, init) => {
+      const address = url instanceof Request ? url.url : url.toString();
+      if (address.endsWith("/locate")) {
+        locates += 1;
+        if (locates === 1) {
+          return new Promise<Response>(() => undefined);
+        }
+      }
+      return answering(url, init);
+    };
+    const connected: string[] = [];
+    const parts: GateParts = {
+      ...loaderParts((core) => {
+        connected.push(core.coreId);
+        return Promise.resolve();
+      }),
+      client: { clientApi: "https://discovery.example/client/v1", fetch: holdingTheFirst },
+    };
+    mounted = await mount(<DiscoveryGate start={linkTo(anotherFingerprint)} parts={parts} />);
+    await click(buttonWithText(mounted.container, "Connect"));
+    const page = mounted.container;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(discoveryAnswerMs);
+    });
+    await settleUntil(() => page.textContent.includes(waitingWords));
+    expect(page.textContent).not.toContain("Can't reach the server from this network");
+    await act(async () => {
+      await advanceUntil(() => connected.length > 0, 500, (2 * pathLostRetryMostMs) / 500);
+    });
+    expect(locates).toBe(2);
+    expect(connected).toEqual(["k7xq2"]);
   });
 
   it("waits out no refusal: the client's, a hand-off's, or a page no worker controls", () => {

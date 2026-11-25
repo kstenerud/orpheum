@@ -31586,7 +31586,7 @@ never settled. It amends no decision: the page's waiting out of a lost path came
 §28 with the owner's train report (2026-11-13), recorded in no decision, and this gives it one more
 way in.
 
-**Status:** decided; not built. Its code is `web/packages/sdk/src/discovery.ts`'s `postToDiscovery`,
+**Status:** decided; built. Its code is `web/packages/sdk/src/discovery.ts`'s `postToDiscovery`,
 `discoveryAnswerMs` and `DiscoveryUnanswered`.
 
 1. **What went wrong.** On the owner's phone (Firefox for Android 160.0.1 with uBlock Origin), a
@@ -31617,3 +31617,10 @@ way in.
    at `discoveryAnswerMs` and not before, its request aborted; one answered within it is unaffected;
    and the loader's gate, whose discovery holds its first locate, says it waits for the network and
    connects on the next try. `VQ400` for the owner's phone with the extension on again.
+
+**Proven by:**
+- 1: VQ400, `web/packages/sdk/src/discovery.test.ts`
+- 2: `web/packages/sdk/src/discovery.test.ts`
+- 3: `web/apps/web/src/loader-path-lost.test.tsx`
+- 4: `web/apps/web/src/loader-path-lost.test.tsx`
+- 5: `web/packages/sdk/src/discovery.test.ts`, `web/apps/web/src/loader-path-lost.test.tsx`, VQ400

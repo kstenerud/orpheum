@@ -23,9 +23,11 @@ import {
   isKeyRefused,
   KeyRefused,
   locatedOf,
-  discoveryWaitMs,
-  refusedClientVersions,
+  discoveryAnswerMs,
+  DiscoveryUnanswered,
+  postToDiscovery,
 } from "./discovery.ts";
+import { discoveryWaitMs, refusedClientVersions } from "./client-floor.ts";
 import { isUnreached } from "./rtc-reopen.ts";
 
 // Vectors the Go code made: discovery/link and discovery/proof, with an Ed25519 key from the seed
@@ -468,5 +470,52 @@ describe("the discovery's client floor (D486)", () => {
     const refused = refusedClientVersions({ clientApi: "/api", fetch: slow });
     await vi.advanceTimersByTimeAsync(discoveryWaitMs);
     expect(await refused).toEqual(["0.3.1"]);
+  });
+});
+
+describe("a call to the discovery's client API (D551)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("ends a request never answered, its abort unheard too, after discoveryAnswerMs as DiscoveryUnanswered", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    // As uBlock Origin on Firefox for Android held it (2026-11-25): no answer, no failure, ever.
+    let signal: AbortSignal | undefined;
+    const held = (_url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      signal = init?.signal ?? undefined;
+      return new Promise<Response>(() => undefined);
+    };
+    let ended: unknown;
+    void postToDiscovery({ clientApi: "/api", path: "/locate", body: {}, fetch: held }).catch(
+      (problem: unknown) => {
+        ended = problem;
+      },
+    );
+
+    await vi.advanceTimersByTimeAsync(discoveryAnswerMs - 1);
+    expect(ended).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(ended).toBeInstanceOf(DiscoveryUnanswered);
+    expect(String(ended)).toContain("did not answer within 15 s");
+    expect(signal?.aborted).toBe(true);
+  });
+
+  it("takes an answer that comes within discoveryAnswerMs, and gives nothing up after it", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    let signal: AbortSignal | undefined;
+    const slow = (_url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      signal = init?.signal ?? undefined;
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve(Response.json({ coreId: "k7xq2" }));
+        }, discoveryAnswerMs - 100);
+      });
+    };
+    const answered = postToDiscovery({ clientApi: "/api", path: "/locate", body: {}, fetch: slow });
+    await vi.advanceTimersByTimeAsync(discoveryAnswerMs - 100);
+    expect(await answered).toEqual({ coreId: "k7xq2" });
+    await vi.advanceTimersByTimeAsync(discoveryAnswerMs);
+    expect(signal?.aborted).toBe(false);
   });
 });

@@ -497,13 +497,56 @@ export interface ClientCall {
   readonly fetch?: typeof fetch | undefined;
 }
 
-/** Posts a call's body and returns its answer's JSON; NotFound when the discovery finds no core. */
+/**
+ * How long a call to a discovery's client API waits for its answer (D551): a justified constant, not a
+ * setting. An answer takes one round trip past its connection's own, and the worst link that still
+ * works in the slow-link war game answers in well under it (see client-floor.ts's discoveryWaitMs); a request the
+ * browser holds and never answers (uBlock Origin on Firefox for Android, 2026-11-25) must end, so the
+ * page can wait out the path and try again rather than say "Connecting" forever.
+ */
+export const discoveryAnswerMs = 15_000;
+
+/**
+ * A call to the discovery not answered within discoveryAnswerMs (D551): the path's loss, as far as the
+ * page can tell, which a new try may get through.
+ */
+export class DiscoveryUnanswered extends Error {
+  constructor() {
+    super(`the discovery did not answer within ${String(discoveryAnswerMs / 1000)} s`);
+    this.name = "DiscoveryUnanswered";
+  }
+}
+
+/**
+ * Posts a call's body and returns its answer's JSON; NotFound when the discovery finds no core, and
+ * DiscoveryUnanswered when it has not answered within discoveryAnswerMs (D551). The wait is raced, not
+ * left to the request's abort alone: a request held where its abort is not heard still ends.
+ */
 export async function postToDiscovery(call: ClientCall): Promise<unknown> {
+  const asked = new AbortController();
+  let isSettled = false;
+  const unanswered = waitMs(discoveryAnswerMs).then((): never => {
+    const problem = new DiscoveryUnanswered();
+    if (!isSettled) {
+      asked.abort(problem);
+    }
+    throw problem;
+  });
+  try {
+    return await Promise.race([answerOf(call, asked.signal), unanswered]);
+  } finally {
+    isSettled = true;
+  }
+}
+
+/** The answer to call, asked under signal: postToDiscovery's, without its bound. */
+async function answerOf(call: ClientCall, signal: AbortSignal): Promise<unknown> {
   const send = call.fetch ?? fetch;
   const response = await send(`${call.clientApi}${call.path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Orpheum-Discovery-Protocol": protocolVersion },
     body: JSON.stringify(call.body),
+    signal,
   });
   if (response.status === 404) {
     throw new NotFound();
@@ -519,55 +562,6 @@ export async function postToDiscovery(call: ClientCall): Promise<unknown> {
   }
   const answer: unknown = await response.json();
   return answer;
-}
-
-/**
- * How long a loader waits on its discovery's origin for what it can open without (D486): the loader's
- * page, past which its worker answers the page it kept, and the client floor, past which it is taken
- * as not reached. A justified constant, not a setting: a fresh connection's three round trips (TCP,
- * TLS and the request) on the worst link that still works in the slow-link war game, 800 ms each
- * (2026-11-14), fit in it, and a link that cannot answer in it showed a white page for as long as
- * its browser waited, up to minutes.
- */
-export const discoveryWaitMs = 2500;
-
-/**
- * The client versions the discovery refuses, its floor (D308 §6): a loader runs none of them. None
- * when the discovery keeps no floor, or is not reached within discoveryWaitMs (D486), so a discovery
- * without one still serves, and a link that cannot answer holds no page up for it.
- */
-export async function refusedClientVersions(client: DiscoveryClient): Promise<readonly string[]> {
-  const send = client.fetch ?? fetch;
-  const asked = new AbortController();
-  const unanswered = waitMs(discoveryWaitMs).then(() => {
-    asked.abort();
-    return [];
-  });
-  return await Promise.race([floorOf(send, client.clientApi, asked.signal), unanswered]);
-}
-
-/** The floor, as the discovery's clientApi answers it over send; none when it does not. */
-async function floorOf(
-  send: typeof fetch,
-  clientApi: string,
-  signal: AbortSignal,
-): Promise<readonly string[]> {
-  try {
-    const response = await send(`${clientApi}/client-floor`, {
-      headers: { "Orpheum-Discovery-Protocol": protocolVersion },
-      signal,
-    });
-    const answer: unknown = response.ok ? await response.json() : undefined;
-    const refused: unknown =
-      typeof answer === "object" && answer !== null
-        ? Reflect.get(answer, "refusedVersions")
-        : undefined;
-    return Array.isArray(refused)
-      ? refused.filter((version): version is string => typeof version === "string")
-      : [];
-  } catch {
-    return [];
-  }
 }
 
 /** An address family, as a discovery sees a request's source or a core's name reaches it. */

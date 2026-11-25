@@ -74,6 +74,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A read-through over a share that dropped mid-film was answered as complete, its loudness that of part of the film. | [FFmpeg whose input read fails part way exits 0 with an answer made of what it read](#ffmpeg-whose-input-read-fails-part-way-exits-0-with-an-answer-made-of-what-it-read) |
 | A guest who opened her link from Telegram on an iPhone was told "This browser can't play from the server"; the same link in Safari played. | [An app's built-in browser on iOS runs no service worker](#an-apps-built-in-browser-on-ios-runs-no-service-worker) |
 | A guest's link said "Can't reach the server from this network" while the core logged the connection held and ended at once, with no request. | [Firefox runs no service worker in a private window](#firefox-runs-no-service-worker-in-a-private-window) |
+| On a phone's Firefox, a client origin's page sat at "Connecting" for minutes, its console clean; a private tab worked. | [uBlock Origin on Firefox for Android holds every request to the discovery's host, never answering](#ublock-origin-on-firefox-for-android-holds-every-request-to-the-discoverys-host-never-answering) |
 | At a discovery's page at home, every request failed with "NetworkError when attempting to fetch resource." after a realm sign-in. | [Firefox fails a public page's requests to a LAN name until its local-network prompt is answered, and again after a grant not remembered](#firefox-fails-a-public-pages-requests-to-a-lan-name-until-its-local-network-prompt-is-answered-and-again-after-a-grant-not-remembered) |
 | After the kill switch was on and off again, a fresh Chrome tab said "Can't reach the server from this network"; its registered worker had no fetch handler, and incognito worked. | [Cloudflare's Browser Cache TTL rewrites an origin's `no-cache` on a proxied page, and Chrome then served a kept kill worker to new registrations](#cloudflares-browser-cache-ttl-rewrites-an-origins-no-cache-on-a-proxied-page-and-chrome-then-served-a-kept-kill-worker-to-new-registrations) |
 | A worker's `client.navigate(client.url)` loaded nothing and left the page under the worker; its next reload spent the hand-off again (401). | [A service worker's `Client.url` is the page's creation URL, so navigating a client to it can move only the fragment](#a-service-workers-clienturl-is-the-pages-creation-url-so-navigating-a-client-to-it-can-move-only-the-fragment) |
@@ -343,6 +344,31 @@ User-Agent (D263; the User-Agent is logged only).
   gate (`web/apps/web/src/discovery-gate.tsx`) says this browser window cannot play from the server
   and to open the link in an ordinary window, with what happened to copy, and tells the discovery
   of no dead end. Playing with no service worker at all is the owner's to decide.
+
+### uBlock Origin on Firefox for Android holds every request to the discovery's host, never answering
+
+- **Symptom:** on the owner's phone (Samsung SM-S911B, Firefox for Android 160.0.1, build
+  20261116; 2026-11-25), a client origin's page sat at "Connecting" for more than 24 minutes. Over
+  USB remote debugging, the service worker answered the page's own files in 309 ms, and then no
+  request was made at all; the console was clean. In the stuck page's console, WebCrypto's digest
+  answered, a fetch of the worker probe answered 200, and a fetch of another site (`www.gstatic.com`) answered (200 in
+  `no-cors` mode, a CORS refusal in `cors` mode: both answers); but every request to the
+  discovery's host, `api.orpheum.dev`, by `fetch` in `cors` or `no-cors` mode or by
+  `XMLHttpRequest`, never settled and never appeared in the Network tab: it never became a request
+  on the network. A private tab worked, and disabling the uBlock Origin extension fixed it.
+  Desktop Firefox 157 with uBlock Origin is fine.
+- **Cause:** uBlock Origin holds the request in its blocking listener and never lets it go. Why is
+  not proven. A guess: its CNAME uncloaking, which only Firefox's extension API allows, looks the
+  host's name up inside that listener, and on Android the lookup never returns; but
+  `api.orpheum.dev` is a plain A record with no CNAME. A private tab works because Firefox for
+  Android runs no extension there (nor a service worker, see the entry above).
+- **The person's workaround:** disable uBlock Origin for the site, or mark the site trusted in its
+  panel.
+- **What we do:** every request to the discovery is bounded (D551): `postToDiscovery`
+  (`web/packages/sdk/src/discovery.ts`) gives one not answered within `discoveryAnswerMs` (15 s) up
+  as `DiscoveryUnanswered`, racing the wait rather than trusting the request's abort to be heard.
+  The gate at a client origin takes it as the path's loss: the page says it is waiting for the
+  network and tries again by itself (5 s, doubling to a minute), instead of "Connecting" forever.
 
 ### Firefox fails a public page's requests to a LAN name until its local-network prompt is answered, and again after a grant not remembered
 
