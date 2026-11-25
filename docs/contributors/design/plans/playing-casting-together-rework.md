@@ -216,6 +216,12 @@ the row's size, so a remote's Down from the scrub bar still lands on the row's f
 **Left (items 1–2):** the castee's page (`CasteePlay`) keeps its bar under the key frame on its
 side and on a computer: it draws no overlay yet.
 
+**Walked (items 1–2, staging, 2026-11-26, the Pixel):** upright, the top bar, the picture and
+the controls under it, all shown; on its side, the top bar and the overlay with the 64 px play;
+full screen fills the screen, the signs in its bar, and leaving it brings the top bar back. For
+the owner: on its side and not full screen, the top bar, the trail and the title leave the phone
+about half its height for the picture; upright, Full screen sits alone on a row of its own.
+
 ### Phase 5: the lab goes (D555 §12)
 
 Its pages, routes, words, menu entry and the server's `/lab/` endpoints.
