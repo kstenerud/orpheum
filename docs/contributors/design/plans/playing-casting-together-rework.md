@@ -132,17 +132,21 @@ chosen here counted (`reportedAtMs`), and its menus' choices. Its two implementa
 `useVideoTarget` for the video here and `useCasteeTarget` for the castee, which the cast remote
 now uses. The one timeline, `TargetTimeline`, drawn by the bar, the overlay and the remote. The
 remote's key frame is asked for at the castee's reported place: while a seek is sent it stays on
-the frame it showed, and moves once the castee says it got there.
+the frame it showed, and moves once the castee says it got there. One menus entry point, `TargetMenus`
+(`web/apps/web/src/target-menus.tsx`), drawn by the bar, the overlay and the remote from the
+target's choices, a castee's with no 🔈 (its level the pad's). One Up next, `TargetUpNext`
+(`web/apps/web/src/up-next.tsx`), drawn by the Play page's offers and the remote's, reading where
+the target stands and its end.
 
 **Left:**
 
-- **One set of menus.** The Play page still draws `PlayerMenus` over the video and the remote
-  `RemoteMenus` over the castee's choices (`CasteeChoices`). Making them one entry point that
-  reads the target's choices is next; making them one body needs the video here to say its
-  sound and picture as a castee does, which the receiver's command core moving into a package
-  gives.
-- **One Up next.** The Play page's (`up-next.tsx`) runs off the video, with its countdown; the
-  remote's (`cast-remote-offer.tsx`) moves the cast on. Neither reads the target yet.
+- **One body for the menus.** `TargetMenus` still delegates to the two bodies, `PlayerMenus` and
+  `RemoteMenus`; making them one needs the video here to say its sound and picture as a castee
+  does, which the receiver's command core moving into a package gives.
+- **One body for Up next.** `TargetUpNext` delegates to `UpNextOffer` over the video and
+  `CasteeUpNext` over a castee; they differ as the pages did: here a countdown, Still watching and
+  Back to put it away, there no count and a ✕. Making that one is a design choice for the owner.
+  How to move on is still the page's (the sequence's next, or the cast moved on), not the target's.
 - **A guest's rights.** No choice is hidden for a guest that was not hidden before.
 
 **Found:** the server does not tell a caster the castee's own reports: the castee's report of
