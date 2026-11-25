@@ -9,18 +9,31 @@ import "./tokens.css";
 import "./base.css";
 import "./i18n.ts";
 
+import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 
+import { notAnsweringAfterMs } from "./cast-remote-offer.tsx";
 import { CastRemote } from "./cast-remote.tsx";
 import { castingRemote, receiverSays } from "./test-cast-remote.tsx";
 import type { Mounted } from "./test-dom.tsx";
 
 let mounted: Mounted | undefined;
+let drawnSockets: Awaited<ReturnType<typeof castingRemote>>["sockets"] | undefined;
+
+/** The sockets of the remote remoteAt drew. */
+function sockets(): NonNullable<typeof drawnSockets> {
+  if (drawnSockets === undefined) {
+    throw new Error("no remote drawn");
+  }
+  return drawnSockets;
+}
 
 afterEach(() => {
+  vi.useRealTimers();
   mounted?.unmount();
   mounted = undefined;
+  drawnSockets = undefined;
   vi.restoreAllMocks();
 });
 
@@ -29,6 +42,7 @@ async function remoteAt(width: number, height: number): Promise<HTMLElement> {
   await page.viewport(width, height);
   const drawn = await castingRemote({}, [], { remote: CastRemote, onPlayHere: vi.fn() });
   mounted = drawn.mounted;
+  drawnSockets = drawn.sockets;
   await receiverSays(drawn.sockets.session, {
     delivery: "direct",
     sound: {
@@ -148,6 +162,26 @@ describe("the cast remote's layout (D548 §1, §8)", () => {
     const offer = boxOf(short, ".cast-remote__offer");
     expect(offer.width).toBeGreaterThanOrEqual(740 * 0.3);
     expect(Math.abs(offer.width / 16 - offer.height / 9) * 9).toBeLessThan(1);
+  });
+
+  // The note is a size container with no width of its own as a flex item: beside Play here it was a
+  // column one word wide, the button drawn over its overflow (the owner's phone, 2026-11-25).
+  it("lays the not-answering note out the width of the card, its words on few lines and Play here under them, apart", async () => {
+    const phone = await remoteAt(390, 844);
+    const devices = { type: "devices", inFrontDeviceIds: [], receivingDeviceIds: [2] };
+    await sockets().live.say({ ...devices, deviceIds: [1, 2] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+    await sockets().live.say({ ...devices, deviceIds: [1], receivingDeviceIds: [] });
+    act(() => {
+      vi.advanceTimersByTime(notAnsweringAfterMs);
+    });
+    const words = boxOf(phone, ".cast-remote__note .status-line__words");
+    const playHere = boxOf(phone, ".cast-remote__note > button");
+    expect(words.width).toBeGreaterThan(200);
+    expect(words.height).toBeLessThan(3 * 32);
+    expect(playHere.top).toBeGreaterThanOrEqual(
+      boxOf(phone, ".cast-remote__note .status-line").bottom,
+    );
   });
 
   it("fits a phone upright with its browser's bars, nothing to scroll to", async () => {

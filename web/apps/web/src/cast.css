@@ -135,19 +135,28 @@ html:has(.cast-remote__stage) {
   }
 }
 
-/* "‹TV› isn't answering" on the page's own ground over the picture, centred (§9). */
+/* "‹TV› isn't answering" on the page's own ground over the picture, centred (§9): the note the
+   row's whole width, Play here under it. The note is a size container (status-note.css), so as a
+   flex item it has no width of its own: beside Play here it collapsed to a column one word wide,
+   the button over its overflow (the owner's phone, 2026-11-25). */
 .cast-remote__note {
   position: absolute;
   z-index: var(--layer-raised);
   inset: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
   padding: var(--space-3);
   background: var(--color-surface);
   color: var(--color-text);
+}
+
+.cast-remote__note > .status-line {
+  inline-size: 100%;
+  justify-content: center;
+  margin: 0;
 }
 
 /* The timeline the whole width, the time under it at the start (§4). */
