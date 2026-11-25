@@ -146,7 +146,7 @@ back within 1–3 s of where it stood, headless); the host's Move here ends the 
 ending the session mid-cast; a signed-in guest's "Move it here" on a second device, casting and
 not; a plain cast from the Pixel to the Chromecast, and its Stop.
 
-**Fails, being fixed in this batch:**
+**Failed, fixed and walked again the same day** (both pass on headless browsers):
 
 1. **A signed-in person casting alone who joins a session by a link:** their castee is told
    nothing at the join and plays its own film on. At their leave it is handed twice, the second
@@ -164,6 +164,13 @@ picker after its local-network question); a castee switched off at the wall; the
 after phase 1's last step.
 
 **Next batch, or the phase named:**
+
+- A guest who leaves a session while casting lands on Home, the cast's remote behind the cast
+  button (phase 4's landing).
+- One change of part sends its "together" message five or six times, and a leave its "ended"
+  several times; a "together" message lost while the live socket reconnects is not asked for again.
+- The Watch Together dialog names the other device for one who was moved away from, and says
+  "another of your devices" on a page that never held the part.
 
 - A signed-in person opening their own session's invitation link is let in as a by-link guest
   under a name, a second place in the session for one person.
