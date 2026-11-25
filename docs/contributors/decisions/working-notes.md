@@ -31743,3 +31743,65 @@ onSessionEnded and `google-cast.ts`'s linkCastSession.
 - 4: `web/apps/web/src/cast-remote-ends.test.tsx`, `web/apps/web/src/cast-remote-stop.test.tsx`, VQ402
 - 5: `web/apps/web/src/google-cast.test.tsx`, `internal/core/api/casts_end_test.go`, VQ402
 - 6: `web/apps/web/src/cast-remote-ends.test.tsx`, `web/apps/web/src/google-cast.test.tsx`
+
+## D553 — A cast's end the sender did not ask for: alone, say why and offer Play here; hosting Watch Together, play here with the reason, the session an obligation
+
+**Decided** (2026-11-25), by the project owner, asked what would make the most sense to a person
+when a cast ends, with and without Watch Together, disregarding what was built so far: *"It seems
+like we can just bring playback to the caster device when the user explicitly stopped it. When the
+device stops in other circumstances, we must handle the possibility that the user doesn't know
+why. So we need to inform the user, and then the question is whether it makes sense to continue
+playback on the caster device."* On Watch Together: *"a watch together session implies an
+obligation. If you don't want to watch together anymore, it's your obligation to leave the session
+so that the others know what's going on. So in this case, turning off the TV and having it
+auto-return to playing your phone (with a message) would remind you that you've left your friends
+hanging."* And: *"We already have code in place to handle a host becoming unavailable (floating
+leadership), so we should be able to let the users carry on if the host forgets and their phone is
+locked."* **Amends** D552 §4–5 (a take-back's note; the sender's Chromecast session loss, an end
+there) and D550 §3 (the Chromecast's loss as a hint), and **extends** D552 §1 (hosting Watch
+Together, the film plays here by itself).
+
+**Status:** decided; not built.
+
+1. **An end the sender asked for brings the film to the sender at once**, as the receiver had it,
+   paused or playing: Stop casting in Cast's dialog, Play here while Reaching, and the person's
+   Stop in Chrome's own Cast control (D552 §4–5, D446 §2, D549). Hosting Watch Together, the
+   sender's player leads the session on, and the guests notice nothing.
+2. **Any other end, alone, says why in the receiver's name and offers Play here**; nothing plays
+   by itself (D552 §4). The reasons, in the owner's words: switching the television off is how
+   most people stop watching, and a phone that then plays in a hand or a pocket is the one outcome
+   nobody asked for; the person next to a television that died is about to bring it back; and a
+   phone with its screen off cannot play anyway. The notes: *"‹TV› took control"* where its person
+   took the film back (`takenBack`: the film plays on there, amending D552 §4's *"‹TV› stopped
+   casting"*); *"‹TV› unreachable"* where it is gone (`receiverGone`); *"Casting ended"* for any
+   other. Beside Play here, **Cast again** once the receiver is back among the person's devices
+   (the live devices message; a Chromecast as the Cast sender SDK finds it again), which casts the
+   film to it from where Play here would start.
+3. **Hosting Watch Together, the receiver gone plays the film here by itself, with the reason**:
+   the note *"‹TV› unreachable. Playing here so your session goes on"*, Cast again and Leave
+   session beside it. The session is an obligation, and the note reminds its host of it. The
+   phone locked, it plays as it wakes; meanwhile the lead passes to a guest at once (D372 §5,
+   D377 §2) and the group goes on, and the host's player, contending again, takes the lead back
+   in step with the group (D377 §2, §4), not from its own clock. The guests are told the
+   television left as they are told any device's going (ComingAndGoing); no further word. A
+   take-back while hosting keeps §2's note and Play here alone: the television leads the session
+   on, and a second leader would fight it.
+4. **The sender offline is not the receiver gone.** A remote that cannot reach the server says so
+   and keeps trying (its reconnecting state), ends nothing, and takes the cast up again as the
+   server still sends it. The server's silence limit (D364 §6, D550 §4) is the one judge of a
+   receiver gone, for every kind of receiver.
+5. **The sender's Chromecast session loss is a hint, not an end**: the Cast sender SDK's
+   SESSION_ENDED alone (D552 §5) puts the remote into its not-answering state (D550 §3, Reaching
+   with Play here) and ends no cast; a Chromecast playing on while the phone's own Wi-Fi dropped
+   its session is left playing, and the server's silence limit ends a cast whose receiver is truly
+   gone. Its SESSION_ENDING first, the person's own Stop in Chrome's Cast control, stays §1's
+   stopped. The server's end no longer needs `receiverGone` from a sender; it may keep accepting
+   it.
+
+**Proven by:**
+
+- 1: `web/apps/web/src/cast-remote-ends.test.tsx`, `web/apps/web/src/cast-remote-stop.test.tsx`
+- 2: `web/apps/web/src/cast-remote-ends.test.tsx`, the Cast again test, VQ402's successor
+- 3: a host's remote test over a session, the leader tests of `internal/core/together`
+- 4: `web/apps/web/src/cast-remote-reconnect.test.tsx`
+- 5: `web/apps/web/src/google-cast.test.tsx`
