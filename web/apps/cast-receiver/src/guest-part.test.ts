@@ -3,11 +3,12 @@
 
 import {
   apiPrefix,
+  castReportEveryMs,
   createApi,
   type OpenTogetherSocket,
   type TogetherEndReason,
 } from "@orpheum/sdk";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { receiverFormats } from "./device.ts";
 import { GuestPart } from "./guest-part.ts";
@@ -40,6 +41,7 @@ function guestsPart(): {
   readonly notes: string[];
   readonly welcomed: number[];
   readonly ended: TogetherEndReason[];
+  readonly sent: string[];
   readonly socket: () => Parameters<OpenTogetherSocket>[0] | undefined;
   readonly isClosed: () => boolean;
 } {
@@ -47,6 +49,7 @@ function guestsPart(): {
   const notes: string[] = [];
   const welcomed: number[] = [];
   const ended: TogetherEndReason[] = [];
+  const sent: string[] = [];
   const sockets: Parameters<OpenTogetherSocket>[0][] = [];
   let isClosed = false;
   const api = createApi({
@@ -68,7 +71,7 @@ function guestsPart(): {
       openSocket: (listeners) => {
         sockets.push(listeners);
         return {
-          send: () => undefined,
+          send: (text: string) => sent.push(text),
           close: () => {
             isClosed = true;
           },
@@ -87,6 +90,7 @@ function guestsPart(): {
     notes,
     welcomed,
     ended,
+    sent,
     socket: () => sockets[0],
     isClosed: () => isClosed,
   };
@@ -136,5 +140,27 @@ describe("a Chromecast taking a Watch Together guest's part (D518 §1)", () => {
     await Promise.resolve();
     expect(guest.asked).toEqual([]);
     expect(guest.ended).toEqual([]);
+  });
+});
+
+describe("a guest's Chromecast says where it is each 5 s, its silence ending its cast (D555 §3)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("reports its state each castReportEveryMs, nothing on yet", () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const { part, sent, socket } = guestsPart();
+    const stop = part.start();
+    socket()?.onOpen();
+    socket()?.onMessage(JSON.stringify(welcome));
+    const states = (): number => sent.filter((text) => text.includes('"type":"state"')).length;
+    const before = states();
+    for (let report = 1; report <= 3; report += 1) {
+      vi.advanceTimersByTime(castReportEveryMs);
+      expect(states() - before).toBeGreaterThanOrEqual(report);
+      socket()?.onMessage(JSON.stringify({ v: 3, type: "pong", tMono: 0 }));
+    }
+    stop();
   });
 });

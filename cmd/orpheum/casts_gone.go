@@ -38,6 +38,7 @@ type guestRemover interface {
 type castEnder interface {
 	EndCast(sessionID, userID int64, reason string) error
 	EndSilentCasts() []together.EndedCast
+	EndGuestCasts(unansweredAfter, idleAfter time.Duration) []together.EndedCast
 	CastIdleFor(sessionID, userID int64) (time.Duration, error)
 }
 
@@ -45,7 +46,8 @@ type castEnder interface {
 // for together.CastSilentAfter, by each cast's own deadline, their senders told (D555 §3), and those
 // whose receiver left its question unanswered for live.UnansweredAfter, ended as
 // unanswered (D358 §4), and the casts to a guest receiver a device code made with nothing played for
-// live.GuestIdleAfter, ended as idle (D469 §3); then it removes each guest receiver whose cast is
+// live.GuestIdleAfter, ended as idle (D469 §3), and a guest's casts by link by the same waits, on the
+// hub's one end path (D555 §2, §5); then it removes each guest receiver whose cast is
 // over, or that none was cast to in time (D465 §1). As it starts, it removes the guest receivers a stopped core left.
 func endGoneCasts(
 	ctx context.Context, casts goneReceivers, hub castEnder, guests guestRemover, tick <-chan time.Time,
@@ -72,6 +74,10 @@ func endGoneCasts(
 			_ = hub.EndCast(unanswered.ID, unanswered.UserID, together.CastUnanswered) //nolint:errcheck // ended
 			logger.InfoContext(ctx, "cast: a cast ended, never answered", "castId", unanswered.ID,
 				"userId", unanswered.UserID, "to", unanswered.ReceiverDeviceID)
+		}
+		for _, ended := range hub.EndGuestCasts(live.UnansweredAfter, live.GuestIdleAfter) {
+			logger.InfoContext(ctx, "cast: a guest's cast by link ended, never answered or idle",
+				"castId", ended.CastID)
 		}
 		endIdleGuestCasts(ctx, casts, hub, logger)
 		for _, guest := range casts.EndGuests() {

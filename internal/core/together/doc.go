@@ -199,9 +199,11 @@
 //     §11), a signed-in guest's following as just another follower (D371 §4), enforced by
 //     TestCast_AHostsReceiverHasACredentialForTheirSession and
 //     TestCast_AGuestsReceiverTakesTheirPartAsAFollower. A Google Cast device a guest by link, signed
-//     in to nothing, cast to is no cast: it is given a credential of the guest's own membership, a
-//     follower with their rights alone, found by its locator, and ends as the membership does
-//     (D518 §1), enforced by TestGuestCastPart_IsAnotherDeviceOfTheGuestsWithTheirRights,
+//     in to nothing, cast to is given a credential of the guest's own membership, a follower with
+//     their rights alone, found by its locator, and ends as the membership does (D518 §1); it is a
+//     cast as any other, on the one end path, its castee's silence, its hello never said and its
+//     session idle ending it, each end taking its credential back (D555 §2, §5), enforced by
+//     TestGuestCastPart_EndsAsEveryCastEnds and TestGuestCastPart_IsAnotherDeviceOfTheGuestsWithTheirRights,
 //     TestGuestCastPart_ItsLocatorFindsTheGuestsMember and
 //     TestGuestCastPart_EndsAsTheMembershipEnds. One device casts to one other at a time (D520 §1): a
 //     cast's credential is the sending device's, whose new cast replaces its last alone, that receiver

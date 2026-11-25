@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"testing"
+	"time"
 
 	discoverylink "github.com/kstenerud/orpheum/discovery/link"
 )
@@ -333,5 +334,66 @@ func TestGuestAirPlayHold_HoldsTheGuestsMembershipAsTheirOneCast(t *testing.T) {
 	}
 	if _, isViewer = stage.hub.ViewerHeldBy(last); isViewer {
 		t.Error("the removed guest's hold still admits them")
+	}
+}
+
+// A guest's cast by link is a cast as any other, on the one end path (D555 §2, §5): its castee
+// silent for CastSilentAfter ends it, told receiverGone; a castee that never says hello within the
+// unanswered wait ends it as unanswered; and its session playing nothing for the idle wait ends it
+// as idle. Each end takes its credential back, the guest's own device staying in.
+func TestGuestCastPart_EndsAsEveryCastEnds(t *testing.T) {
+	t.Parallel()
+	const unansweredAfter, idleAfter = 90 * time.Second, time.Hour
+	stage := newStage(t)
+	guest := stage.join(t)
+	sender := senderOf(guest.MembershipCredential)
+	silent, err := stage.hub.GuestCastPart(guest.SessionID, guest.MemberID, sender)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, silentBox := stage.attach(t, silent.MembershipCredential, RoleVideo)
+	stage.clock.Advance(CastSilentAfter)
+	if ended := stage.hub.EndSilentCasts(); len(ended) != 1 {
+		t.Errorf("a guest's castee silent for %s ended %+v; want its cast", CastSilentAfter, ended)
+	}
+	if told := silentBox.last(MessageEnded).Reason; told != CastReceiverGone {
+		t.Errorf("the guest's silent castee was told %q; want %s", told, CastReceiverGone)
+	}
+	unanswered, err := stage.hub.GuestCastPart(guest.SessionID, guest.MemberID, sender)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stage.clock.Advance(unansweredAfter - time.Second)
+	if ended := stage.hub.EndGuestCasts(unansweredAfter, idleAfter); len(ended) != 0 {
+		t.Errorf("a guest's cast %s old ended %+v; want it waiting on its hello", unansweredAfter-time.Second, ended)
+	}
+	stage.clock.Advance(time.Second)
+	if ended := stage.hub.EndGuestCasts(unansweredAfter, idleAfter); len(ended) != 1 {
+		t.Errorf("a guest's castee that never said hello in %s ended %+v; want its cast", unansweredAfter, ended)
+	}
+	idle, err := stage.hub.GuestCastPart(guest.SessionID, guest.MemberID, sender)
+	if err != nil {
+		t.Fatal(err)
+	}
+	idleAt, idleBox := stage.attach(t, idle.MembershipCredential, RoleVideo)
+	stage.clock.Advance(idleAfter - CastSilentAfter/2)
+	stage.report(t, idleAt, 0, false, false)
+	stage.clock.Advance(CastSilentAfter / 2)
+	if ended := stage.hub.EndGuestCasts(unansweredAfter, idleAfter); len(ended) != 1 {
+		t.Errorf("a guest's cast in a session idle for %s ended %+v; want it", idleAfter, ended)
+	}
+	if told := idleBox.last(MessageEnded).Reason; told != CastIdle {
+		t.Errorf("the guest's idle castee was told %q; want %s", told, CastIdle)
+	}
+	for _, credential := range []string{
+		silent.MembershipCredential, unanswered.MembershipCredential,
+		idle.MembershipCredential,
+	} {
+		if _, isViewer := stage.hub.ViewerOf(credential); isViewer {
+			t.Error("an ended guest's cast's credential still admits them; want it taken back")
+		}
+	}
+	if _, isViewer := stage.hub.ViewerOf(guest.MembershipCredential); !isViewer {
+		t.Error("the guest's own credential admits nothing after their casts ended; want them in")
 	}
 }

@@ -93,6 +93,18 @@ type casting struct {
 	// zero until it first does or takes the cast (CastHeard), the wait for its OK bounded by the
 	// live registry's (D358 §4).
 	heardAt time.Time
+	// sender is, for a guest's cast by link (GuestCastPart), the hash of the credential of the
+	// guest's device that cast (D520 §1), its caster known by membership alone, userID 0; zero for a
+	// signed-in person's.
+	sender [sha256.Size]byte
+	// openedAt is when the cast began: a guest's castee that says nothing for the unanswered wait
+	// from then ends it (EndGuestCasts).
+	openedAt time.Time
+}
+
+// isGuests is whether the cast is a guest's by link, cast by their device sender.
+func (of *casting) isGuests() bool {
+	return of.sender != ([sha256.Size]byte{})
 }
 
 // EndedCast is a cast the hub ended of itself, for its caster's pages to be told: its id and whose.
@@ -106,7 +118,7 @@ type EndedCast struct {
 func (hub *Hub) CastHeard(castID, userID int64) {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
-	if heard, found := hub.casts[castID]; found && heard.userID == userID {
+	if heard, found := hub.casts[castID]; found && heard.userID == userID && !heard.isGuests() {
 		heard.heardAt = hub.clock.Now()
 	}
 }
@@ -138,13 +150,61 @@ func (hub *Hub) EndSilentCasts() []EndedCast {
 	now := hub.clock.Now()
 	ended := []EndedCast{}
 	for _, each := range hub.casts {
-		if each.heardAt.IsZero() || now.Sub(each.heardAt) < CastSilentAfter {
+		if hub.forgetGone(each) || each.heardAt.IsZero() || now.Sub(each.heardAt) < CastSilentAfter {
 			continue
 		}
 		ended = append(ended, EndedCast{CastID: each.id, UserID: each.userID})
 		hub.endCast(each, CastReceiverGone)
 	}
 	return ended
+}
+
+// EndGuestCasts ends each guest's cast by link (GuestCastPart) whose castee has not said hello
+// within unansweredAfter of the cast's start, as unanswered (D358 §4), or whose session has played
+// nothing for idleAfter, as idle (D469 §3): each by the one end a cast has, its devices told why and
+// its credentials taken back, as its silence ends it by EndSilentCasts (D555 §3, §5). It returns
+// them, whose casters are known by membership alone, for the ends to be logged.
+func (hub *Hub) EndGuestCasts(unansweredAfter, idleAfter time.Duration) []EndedCast {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	now := hub.clock.Now()
+	ended := []EndedCast{}
+	for _, each := range hub.casts {
+		if !each.isGuests() || hub.forgetGone(each) {
+			continue
+		}
+		where, _ := hub.castersPart(each)
+		reason := ""
+		switch {
+		case each.heardAt.IsZero():
+			if now.Sub(each.openedAt) >= unansweredAfter {
+				reason = CastUnanswered
+			}
+		case where.group.state != GroupPlaying && now.Sub(where.group.at) >= idleAfter:
+			reason = CastIdle
+		}
+		if reason == "" {
+			continue
+		}
+		ended = append(ended, EndedCast{CastID: each.id})
+		hub.endCast(each, reason)
+	}
+	return ended
+}
+
+// forgetGone forgets the cast where its caster's membership has gone, or holds none of its
+// credentials any more, as a guest's sending device's credential gone takes back its cast's
+// (endCastsWhere): whether it was. Its devices were let go as its credentials went. The caller holds
+// the mutex.
+func (hub *Hub) forgetGone(cast *casting) bool {
+	_, caster := hub.castersPart(cast)
+	if caster != nil && slices.ContainsFunc(caster.credentials, func(held credential) bool {
+		return held.castID == cast.id
+	}) {
+		return false
+	}
+	delete(hub.casts, cast.id)
+	return true
 }
 
 // castCredentialsKept is how many credentials a cast keeps, its castee's and its remote's, each page
@@ -175,7 +235,7 @@ func (hub *Hub) OpenCast(host Person, held string) (CastOpened, error) {
 	}
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
-	opened := &casting{userID: host.UserID, held: held}
+	opened := &casting{userID: host.UserID, held: held, openedAt: hub.clock.Now()}
 	if hub.castIntoPart(opened) {
 		hub.lastID++
 		opened.id = hub.lastID
@@ -303,7 +363,7 @@ func (hub *Hub) EndCast(castID, userID int64, reason string) error {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
 	ended, found := hub.casts[castID]
-	if !found || ended.userID != userID {
+	if !found || ended.userID != userID || ended.isGuests() {
 		return ErrNoSession
 	}
 	hub.endCast(ended, reason)
@@ -455,7 +515,7 @@ func (hub *Hub) CastReady(castID, userID int64) error {
 // The caller holds the mutex.
 func (hub *Hub) castOf(castID, userID int64) (castPlace, error) {
 	held, found := hub.casts[castID]
-	if !found || held.userID != userID {
+	if !found || held.userID != userID || held.isGuests() {
 		return castPlace{}, ErrNoSession
 	}
 	where, caster := hub.castersPart(held)

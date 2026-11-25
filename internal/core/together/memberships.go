@@ -56,13 +56,14 @@ func newCredential(random io.Reader) (madeCredential, error) {
 // sending device's credential is no longer kept ends with it (D520 §1), its receiver told its place
 // moved away and let go. Whether any device was let go.
 func (each *member) addCredential(made madeCredential) bool {
-	return each.addCastCredential(made, [sha256.Size]byte{})
+	return each.addCastCredential(made, [sha256.Size]byte{}, 0)
 }
 
 // addCastCredential is addCredential for a cast's credential, the device whose credential's hash is
-// castOf casting; zero for a device's own.
-func (each *member) addCastCredential(made madeCredential, castOf [sha256.Size]byte) bool {
-	kept := credential{hash: sha256.Sum256([]byte(made.credential)), castOf: castOf}
+// castOf casting, castID the hub's cast it is the castee's of (0 for an AirPlay grant's hold, no
+// castee's); zero and 0 for a device's own.
+func (each *member) addCastCredential(made madeCredential, castOf [sha256.Size]byte, castID int64) bool {
+	kept := credential{hash: sha256.Sum256([]byte(made.credential)), castOf: castOf, castID: castID}
 	if made.locator != "" {
 		kept.locatorHash = discoverylink.LocatorHash(made.locator)
 	}

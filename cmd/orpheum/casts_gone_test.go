@@ -91,6 +91,15 @@ type endings struct {
 	silent chan together.EndedCast
 	// idleFor is how long nothing has played in each cast, by id.
 	idleFor map[int64]time.Duration
+	// guestWaits takes the waits each look for a guest's casts' ends was given, where not nil.
+	guestWaits chan [2]time.Duration
+}
+
+func (ender endings) EndGuestCasts(unansweredAfter, idleAfter time.Duration) []together.EndedCast {
+	if ender.guestWaits != nil {
+		ender.guestWaits <- [2]time.Duration{unansweredAfter, idleAfter}
+	}
+	return []together.EndedCast{}
 }
 
 func (ender endings) CastIdleFor(sessionID, _ int64) (time.Duration, error) {
@@ -191,5 +200,23 @@ func TestEndGoneCasts_EndsACastToAGuestByCodeIdleForGuestIdleAfter(t *testing.T)
 			t.Error("a cast idle for less than GuestIdleAfter was ended")
 		}
 	default:
+	}
+}
+
+// Each tick ends a guest's casts by link by the waits every cast has, live.UnansweredAfter for a
+// castee that never said hello and live.GuestIdleAfter for one with nothing playing, on the hub's one
+// end path (D555 §2, §5).
+func TestEndGoneCasts_EndsAGuestsCastsByLinkByTheWaitsOfEveryCast(t *testing.T) {
+	t.Parallel()
+	ender := endings{ended: make(chan string, 1), guestWaits: make(chan [2]time.Duration, 2)}
+	tick := make(chan time.Time)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	go endGoneCasts(ctx, &goneOnce{}, ender, noRemovals(), tick, slog.New(slog.DiscardHandler))
+	tick <- time.Time{}
+	waits := testutil.Receive(t, ender.guestWaits, "the look for a guest's casts' ends")
+	if waits != [2]time.Duration{live.UnansweredAfter, live.GuestIdleAfter} {
+		t.Errorf("a guest's casts were ended by the waits %v; want %v and %v", waits, live.UnansweredAfter,
+			live.GuestIdleAfter)
 	}
 }

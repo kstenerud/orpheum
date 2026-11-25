@@ -2,11 +2,13 @@
 
 import { playChunked, type ChunkedPlayback } from "@orpheum/player";
 import {
+  castReportEveryMs,
   createTogetherConnection,
   expectedGroupPositionMs,
   failureText,
   followGroup,
   requestTogetherPlayback,
+  tellsNoFilmHere,
   type Api,
   type TogetherConnection,
   type TogetherEndReason,
@@ -75,6 +77,7 @@ export class GuestPart {
       client: "cast-receiver",
       openSocket: reached.openSocket,
       monotonicMs: () => performance.now(),
+      stateEveryMs: castReportEveryMs, // its silence ends the cast (D555 §3)
     });
     this.together = together;
     const unsubscribe = together.subscribe(() => {
@@ -107,6 +110,8 @@ export class GuestPart {
       this.isWelcomed = true;
       note("welcomed in the guest's session: following the group");
       this.options.onWelcomed(snapshot.deviceId ?? 0);
+      // Nothing on yet, it still says where it is: a castee silent for 20 s ends its cast (D555 §3).
+      this.stopFollowing = tellsNoFilmHere(together);
     }
     const fileId = snapshot.group?.fileId ?? 0;
     if (fileId !== this.playingFileId) {
@@ -120,6 +125,7 @@ export class GuestPart {
     this.stopFilm();
     this.playingFileId = fileId;
     if (fileId === 0) {
+      this.stopFollowing = tellsNoFilmHere(together);
       return;
     }
     try {

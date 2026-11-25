@@ -11,14 +11,17 @@ import (
 // membership (internal/core/auth's IssueMembershipGuestGrant) for a credential of the member's own,
 // and with it follows the group as just another follower, as a signed-in guest's receiver does
 // (CastPart, D371 §4), playing what the session plays by the membership (D246 §3) with exactly
-// the guest's rights (D372 §4). It is no cast: no session of one, no person, no device of anyone's.
-// It ends as the membership ends, the guest removed or the session ended, its device told why as each
-// of the member's is. One device casts to one other at a time (D520 §1, amending D519 §2): a cast's
-// credential is the sending device's, the one whose membership credential asked, and that device's
-// new cast replaces its last alone, whose receiver is cut off as a device whose place moved away is;
-// it ends as the sending device's credential goes; and a device being cast to casts nothing itself.
-// So casting again and again never pushes the guest's own browser out of the newest credentials the
-// member keeps.
+// the guest's rights (D372 §4). It is a cast as any other is (D555 §2): a casting in the hub, its
+// caster known by membership alone, with no person and no device of anyone's, on the one end path:
+// its castee's silence for CastSilentAfter, its hello never said and its session idle end it
+// (EndSilentCasts, EndGuestCasts), each end taking its credential back. It ends as the membership
+// ends too, the guest removed or the session ended, its device told why as each of the member's is.
+// One device casts to one other at a time (D520 §1, amending D519 §2): a cast's credential is the
+// sending device's, the one whose membership credential asked, and that device's new cast replaces
+// its last alone, whose receiver is cut off as a device whose place moved away is; it ends as the
+// sending device's credential goes; and a device being cast to casts nothing itself. So casting
+// again and again never pushes the guest's own browser out of the newest credentials the member
+// keeps.
 
 // GuestCastPart is a new credential, and its device's locator, for a Google Cast device to take the
 // part of member memberID in session sessionID, a guest's, while they are in (D518 §1), cast by the
@@ -34,7 +37,7 @@ func (hub *Hub) GuestCastPart(sessionID, memberID int64, sender [sha256.Size]byt
 	}
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
-	if replaceErr := hub.replaceGuestsCastLocked(sessionID, memberID, sender, made); replaceErr != nil {
+	if replaceErr := hub.replaceGuestsCastLocked(sessionID, memberID, sender, made, true); replaceErr != nil {
 		return Joined{}, replaceErr
 	}
 	hub.linksChanged()
@@ -56,7 +59,7 @@ func (hub *Hub) GuestAirPlayHold(sessionID, memberID int64, sender [sha256.Size]
 	made.locator = ""
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
-	if replaceErr := hub.replaceGuestsCastLocked(sessionID, memberID, sender, made); replaceErr != nil {
+	if replaceErr := hub.replaceGuestsCastLocked(sessionID, memberID, sender, made, false); replaceErr != nil {
 		return "", replaceErr
 	}
 	hub.linksChanged()
@@ -87,37 +90,54 @@ func (each *member) isCastCredential(hash [sha256.Size]byte) bool {
 }
 
 // replaceGuestsCastLocked gives guest memberID of session sessionID made as the cast's credential of
-// their device whose credential's hash is sender, in place of that device's last cast's
-// (replaceCastCredential), and hands the lead on and tells the roster where that receiver was cut
-// off; the mutex is held. Errors as GuestCastPart's.
+// their device whose credential's hash is sender, in place of that device's last cast's: a cast in
+// the hub that device made ends, its receiver told its place moved away (endCast), and any other
+// credential of its goes (replaceCastCredential); the lead is handed on and the roster told where a
+// receiver was cut off. With isCastee, made is a castee's, a cast in the hub of its own (D555 §2);
+// else an AirPlay grant's hold, which no device says hello by. The mutex is held. Errors as
+// GuestCastPart's.
 func (hub *Hub) replaceGuestsCastLocked(
-	sessionID, memberID int64, sender [sha256.Size]byte, made madeCredential,
+	sessionID, memberID int64, sender [sha256.Size]byte, made madeCredential, isCastee bool,
 ) error {
-	casting, found := hub.sessions[sessionID]
-	if !found || casting.isCast {
+	where, found := hub.sessions[sessionID]
+	if !found || where.isCast {
 		return ErrNoSession
 	}
-	guest, found := casting.members[memberID]
+	guest, found := where.members[memberID]
 	if !found || guest.isHost || !guest.admits(sender) {
 		return ErrNoMember
 	}
 	if guest.isCastCredential(sender) {
 		return ErrBeingCastTo
 	}
-	if guest.replaceCastCredential(made, sender) {
-		casting.leaderStillHere(hub.clock.Now(), false, goneReplaced)
-		casting.sendRoster()
+	for _, each := range hub.casts {
+		if each.sessionID == sessionID && each.memberID == memberID && each.sender == sender {
+			hub.endCast(each, "movedAway")
+		}
+	}
+	castID := int64(0)
+	if isCastee {
+		hub.lastID++
+		castID = hub.lastID
+		hub.casts[castID] = &casting{
+			id: castID, sessionID: sessionID, memberID: memberID, sender: sender, openedAt: hub.clock.Now(),
+		}
+	}
+	if guest.replaceCastCredential(made, sender, castID) {
+		where.leaderStillHere(hub.clock.Now(), false, goneReplaced)
+		where.sendRoster()
 	}
 	return nil
 }
 
 // replaceCastCredential makes made the cast's credential of the member's device whose credential's
-// hash is sender (D520 §1): that device's last cast's admits nothing more, and each device that said
-// hello with it is told its place moved away and let go (endCastsWhere); another device's cast plays
-// on. Whether any device was let go.
-func (each *member) replaceCastCredential(made madeCredential, sender [sha256.Size]byte) bool {
+// hash is sender (D520 §1), the castee's of the hub's cast castID (0 for an AirPlay grant's hold):
+// that device's last cast's admits nothing more, and each device that said hello with it is told its
+// place moved away and let go (endCastsWhere); another device's cast plays on. Whether any device was
+// let go.
+func (each *member) replaceCastCredential(made madeCredential, sender [sha256.Size]byte, castID int64) bool {
 	isCutOff := each.endCastsWhere(func(cast credential) bool { return cast.castOf == sender })
-	return each.addCastCredential(made, sender) || isCutOff
+	return each.addCastCredential(made, sender, castID) || isCutOff
 }
 
 // MemberOfLocator is the session and member one of whose devices finds the core by the locator whose
