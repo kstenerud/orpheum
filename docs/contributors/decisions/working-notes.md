@@ -31874,3 +31874,60 @@ send, is unchanged.
 - 2: `web/apps/web/src/cast-remote-reaching.test.tsx`
 - 3: `web/apps/web/src/cast-remote-ends.test.tsx`, VQ404
 - 4: `web/apps/web/src/cast-remote-reaching.test.tsx`, VQ404
+
+## D555 — Playing, casting and Watch Together are one model: a member's playing device and its remote, one Play page, one end for every cast
+
+**Decided** (2026-11-25), by the project owner, after two casts in a day that showed a black
+screen and a week of rules laid on the cast remote's ends (D550 §3, D552, D553, D554): *"I'm
+worried that we've developed independent code paths that do much of the same thing when it comes
+to playback, casting, and watch together."* The owner gave the model and agreed each point below
+in the design conversation the plan file records (plans/navigation-and-widgets-answers-2026-10-27.md,
+"The rework batch"). **Amends**, in what each says of a cast's place on the server, its ends and
+its remote: D337, D338, D364 §6, D385, D389 §1, D446, D468, D548, D549, D550, D552, D553 and D554;
+the build plan names each section replaced. D88 (a cast alone is a session of one), D120 (the
+remote plays nothing) and D518 (a guest's cast is their own part) stand, and become the one way.
+
+**Status:** decided; not built. The build plan follows, for the owner's review.
+
+1. **A device plays a video itself or passes the playing to another device, its castee.** The cast
+   belongs to the device. To a Watch Together session it is a detail of how a member plays: the
+   castee has no effect on the session beyond what the caster would have, playing itself.
+2. **On the server there is one mechanism: a member with a playing device and, while casting, a
+   remote.** Casting alone is a hidden session of one. In a Watch Together session the caster's
+   page is the remote and the castee the playing device in that same session under the one
+   membership, with no second session for the cast. The live registry keeps which devices are
+   connected and the hand-off, and no cast's control.
+3. **The castee is the ordinary player, led by a remote.** A browser receiver and the Google Cast
+   receiver share the playing code with the Play page. A Google Cast device takes what it needs
+   from the app's regular pages alone. AirPlay stays the playing device's own, local.
+4. **A cast is starting, waiting for its OK on the castee (D468 §2), or running, and the castee
+   says which,** so the remote can.
+5. **Every end of a cast puts the caster on its playing screen at the last position the castee
+   reported:** paused when watching alone, playing on in a Watch Together session. Nothing is
+   anticipated about where the castee got to since: the person scans, and is never too far ahead.
+   No dialog explains the end or waits for a press. The ends are: Stop on either device, the
+   castee's Not now, its question unanswered, its page closed or left (at once), the castee
+   silent for 20 s, a guest receiver idle, and the caster's rights to the video lost.
+6. **The server alone decides that a castee is gone,** at 20 s of silence, and the caster reflects
+   it. From 5 s of silence the caster shows a reconnecting sign on the key frames. The caster's own
+   connection lost ends nothing: it finds its cast again as it returns.
+7. **A cast outlives what would not stop a device playing itself:** the video's end with another
+   next, joining or leaving a Watch Together session (the castee goes along), and a session's
+   end, while the caster has rights to the video without the session. A guest whose rights came
+   from the session loses the cast with it.
+8. **One Play page, for a person alone, a session's host and a guest by link.** Upright, it shows
+   the video or, casting, the castee's key frames, with the same controls in the same places
+   behaving alike, and the overlay does not hide: it hides only where it would sit on the video.
+   On its side, full screen or on a computer it is the full-screen player as it was, with a
+   larger play and pause.
+9. **The top bar shows when the page is not full screen,** and carries cast and Watch Together;
+   the bottom bar carries them only when the top bar is hidden. A guest by link's top bar carries
+   the session's name, cast and leave.
+10. **A bottom-bar control shows only where it has a use, and of its parts only those that do
+    something in the situation.** So the cast screen has the castee's volume, and a phone playing
+    itself has none.
+11. **Touch, a remote's arrows and a mouse each get the interface that suits them.** Layouts may
+    differ for each; being alike is the aim, never at the cost of using it.
+12. **The device lab's pages go,** with the separate cast remote, the guest's cast page and the
+    separate session viewer, their parts folded into the one Play page. A part of the lab with a
+    reason to stay is named in the build plan for the owner to keep or drop.

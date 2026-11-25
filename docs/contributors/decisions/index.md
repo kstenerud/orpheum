@@ -560,6 +560,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D552](working-notes.md#d552--a-cast-whose-receiver-is-gone-ends-with-the-remote-kept-play-here-is-the-one-way-on-from-where-the-receiver-likely-got-to) A cast whose receiver is gone ends with the remote kept: Play here is the one way on, from where the receiver likely got to — *revisited by D553*
 - [D553](working-notes.md#d553--a-casts-end-the-sender-did-not-ask-for-alone-say-why-and-offer-play-here-hosting-watch-together-play-here-with-the-reason-the-session-an-obligation) A cast's end the sender did not ask for: alone, say why and offer Play here; hosting Watch Together, play here with the reason, the session an obligation — *revisited by D554*
 - [D554](working-notes.md#d554--a-receiver-that-stops-answering-is-given-up-as-the-remote-would-offer-try-again-and-the-hosts-notice-closes) A receiver that stops answering is given up as the remote would offer Try again, and the host's notice closes
+- [D555](working-notes.md#d555--playing-casting-and-watch-together-are-one-model-a-members-playing-device-and-its-remote-one-play-page-one-end-for-every-cast) Playing, casting and Watch Together are one model: a member's playing device and its remote, one Play page, one end for every cast
 
 ## Archived
 
