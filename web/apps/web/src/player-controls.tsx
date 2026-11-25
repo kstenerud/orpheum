@@ -26,7 +26,7 @@ import {
 } from "./player-icons.tsx";
 import type { PlaybackTarget } from "./playback-target.ts";
 import { askedByOf, seekAheadOf, seekAimedEvent, seekStepMs } from "./seek-ahead.ts";
-import { Timeline } from "./timeline.tsx";
+import { TargetTimeline } from "./target-timeline.tsx";
 import { useVideoStanding, type StandingTaken, type VideoStanding } from "./video-standing.ts";
 import { VolumeRange } from "./volume-range.tsx";
 
@@ -112,7 +112,6 @@ export function PlayerControls(props: {
   /** The film's video, whose stage full screen puts full screen; none, the stage the bar is in. */
   readonly videoRef?: RefObject<HTMLVideoElement | null> | undefined;
 }): JSX.Element {
-  const { t } = useTranslation();
   const { source, controls, isOverVideo, playRef, aside, isOverlayRow, moves, menus } = props;
   return (
     <div className="player-controls">
@@ -128,14 +127,10 @@ export function PlayerControls(props: {
         videoRef={props.videoRef}
       />
       {controls.includes("timeline") ? (
-        <Timeline
+        <TargetTimeline
+          target={source}
           inputRef={props.timelineRef}
-          label={t("playerControls.where")}
-          atMs={source.atMs}
-          durationMs={source.durationMs}
-          isDisabled={!source.isReady}
           hasArrowsAsCommands={props.hasArrowsAsCommands}
-          onSeek={source.seekTo}
         />
       ) : null}
     </div>

@@ -14,7 +14,6 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { useTranslation } from "react-i18next";
 
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
 import { isPausedAsAsked } from "./film-waits.tsx";
@@ -54,7 +53,7 @@ import { SideTapsContext, type SideTaps } from "./phone-side-taps.tsx";
 import { useStartRefused } from "./start-refused-shown.tsx";
 import { StopCastingHere } from "./stop-casting-here.tsx";
 import { useIsFullScreen } from "./full-screen-button.tsx";
-import { ClockTimes, shownAtMsOf, Timeline } from "./timeline.tsx";
+import { TargetTimeline } from "./target-timeline.tsx";
 import { TogetherSignOverTheFilm } from "./together-over-the-film.tsx";
 import { peopleOf, useSessionVoice } from "./together-voice.tsx";
 import { isOnTelevision, isTouchPointer } from "./input-mode.ts";
@@ -315,7 +314,6 @@ export function OverlayRowsOf(props: {
   readonly menus: ReactNode;
   readonly isOverTheFilm: boolean;
 }): JSX.Element {
-  const { t } = useTranslation();
   const { source } = props;
   const { playRef, scrubRef, buttonsRef, videoRef } = props.refs ?? noRefs;
   return (
@@ -324,22 +322,12 @@ export function OverlayRowsOf(props: {
         {props.top}
       </div>
       <div className="player-overlay__row player-overlay__scrub" data-focus-container="">
-        <Timeline
+        <TargetTimeline
+          target={source}
           inputRef={scrubRef}
-          label={t("playerControls.where")}
-          atMs={source.atMs}
-          durationMs={source.durationMs}
-          isDisabled={!source.isReady}
           hasArrowsAsCommands={props.isOverTheFilm}
-          onSeek={source.seekTo}
-          hasTimes={false}
+          timesClassName="player-overlay__times"
         />
-        <span className="player-overlay__times">
-          <ClockTimes
-            atMs={shownAtMsOf(source.atMs, source.durationMs)}
-            durationMs={source.durationMs}
-          />
-        </span>
       </div>
       <div
         ref={buttonsRef}

@@ -31,7 +31,7 @@ import { useLeavesFullScreen } from "./film-fullscreen.ts";
 import { useShowsARemote } from "./hidden-need.ts";
 import type { PlayerSource, SequenceMoves } from "./player-controls.tsx";
 import { useVolumeShown } from "./over-the-picture.tsx";
-import { ClockTimes, shownAtMsOf, Timeline } from "./timeline.tsx";
+import { TargetTimeline } from "./target-timeline.tsx";
 import { EndsAt, leftMsOf } from "./convenience-area.tsx";
 import { readTitle, titleKey } from "./item-detail.ts";
 import { RemoteOffer, type RemoteEnded } from "./cast-remote-offer.tsx";
@@ -570,25 +570,14 @@ function RemoteTimeline(props: {
   readonly source: PlayerSource;
   readonly isDisabled: boolean;
 }): JSX.Element {
-  const { t } = useTranslation();
-  const { source } = props;
   return (
     <div className="cast-remote__timeline" data-focus-container="">
-      <Timeline
-        label={t("playerControls.where")}
-        atMs={source.atMs}
-        durationMs={source.durationMs}
+      <TargetTimeline
+        target={props.source}
         isDisabled={props.isDisabled}
         hasArrowsAsCommands={false}
-        onSeek={source.seekTo}
-        hasTimes={false}
+        timesClassName="cast-remote__time"
       />
-      <span className="cast-remote__time">
-        <ClockTimes
-          atMs={shownAtMsOf(source.atMs, source.durationMs)}
-          durationMs={source.durationMs}
-        />
-      </span>
     </div>
   );
 }
