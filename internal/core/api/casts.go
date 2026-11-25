@@ -82,7 +82,7 @@ type EndCastInput struct {
 	AuthorizationHeader
 	CastID int64 `minimum:"1" path:"id"`
 	Body   struct {
-		Reason string `doc:"takenBack on the receiver, stopped on the remote, receiverGone on the sender as its Google Cast session is lost (D552 §5), declined or unanswered as the receiver was asked (D358); no receiver takes the cast over (D446 §4)" enum:"takenBack,stopped,receiverGone,declined,unanswered" json:"reason"` //nolint:lll // one struct tag
+		Reason string `doc:"takenBack on the receiver, stopped on the remote, receiverGone on the sender as the remote gives a receiver unheard for its wait up (D554 §1), declined or unanswered as the receiver was asked (D358); no receiver takes the cast over (D446 §4)" enum:"takenBack,stopped,receiverGone,declined,unanswered" json:"reason"` //nolint:lll // one struct tag
 	}
 }
 
