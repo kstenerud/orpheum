@@ -7,7 +7,8 @@
      answering, so casting ended" with Play here alone, the spinner gone, and whether the film
      stays on the remote (nothing plays on the phone by itself).
   3. Press Play here. Report whether the film plays on the phone as an ordinary play, and from
-     about where the television stood when it went off.
+     about where the television stood when it went off, or a little before it (D552 §2: up to
+     about half a minute behind, never ahead).
 > **ABOUTME:** Checks that only a person with the hardware can do — a film on a television, a
 > voice call across two houses. A fix that no automated test can turn red names its item here
 > in a `Verified-By: VQ<n>` trailer; until it is ticked it is owed, which revert-red lists (D378).

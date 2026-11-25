@@ -5,7 +5,9 @@ import "./play-words.ts";
 import "./cast-words.ts";
 
 import {
+  expectedGroupPositionMs,
   leaderOf,
+  pingEveryMs,
   type components,
   type CastSending,
   type PlaybackReport,
@@ -47,7 +49,7 @@ import { TogetherBehindTheRemote } from "./together-on-the-remote.tsx";
 import { useAroundFile, type AroundFile } from "./around-file.ts";
 import { useLeavesForThePageAbove } from "./up-next.tsx";
 import { useResource, type Resource } from "./use-resource.ts";
-import { useTogether } from "./use-together.ts";
+import { monotonicMs, useTogether } from "./use-together.ts";
 
 /** A title's pictures, as its detail names them. */
 type ArtBody = components["schemas"]["ArtBody"];
@@ -66,8 +68,8 @@ export type PlaysHereFrom = (atMs: number | undefined, isPaused?: boolean) => vo
  * controls, which work the receiver. Stop casting, in Cast's dialog or on the receiver, brings the
  * film back to the page (onPlayHere) from where the receiver last stood, playing or paused as it
  * was, and with nothing on there sends the page home (D446 §2). The receiver gone, the cast over,
- * the remote stays with its note, and only Play here brings the film back (D552 §1); a cast the
- * server no longer knows sends the page home, saying so in a pop-up
+ * the remote stays with its note, and only Play here brings the film back, from where the receiver
+ * likely got to (D552); a cast the server no longer knows sends the page home, saying so in a pop-up
  * (D386 §2). Where the cast plays another film than the page's by then, the film comes back on that
  * film's Play page, in this one's place. A cast started from the browser's full screen leaves it,
  * and the remote fills the window under the top bar instead: the player's own view, a still where
@@ -142,8 +144,10 @@ function usePlaysHere(
  * clock between. With a video playing: the full-screen overlay's rows, its title as a sign, the
  * controls and Up next at the episode's end; with none, "Ready on ‹Device›" (D444). Stop casting, the
  * one way to bring the film back here (D388), is in the Cast sign's dialog, as everywhere (D444).
- * Stopped here or on the receiver, or the receiver gone, the film plays here again at once, as the
- * receiver left it, or the page goes home where nothing was on (D446 §2); lost, the server knowing it no more, the page goes home (D386 §2).
+ * Stopped here or on the receiver, the film plays here again at once, as the receiver left it, or
+ * the page goes home where nothing was on (D446 §2); the receiver gone, the cast over, the remote
+ * stays with its note, and only Play here brings the film back, from where the receiver likely got
+ * to (D552); lost, the server knowing it no more, the page goes home (D386 §2).
  * The cast's film ended with nothing next, the page goes to the page above it, or above the episode
  * the cast had moved on to, the cast going on (useLeavesAtTheCastsEnd).
  */
@@ -331,25 +335,48 @@ function useTakesTheFilmOver(
 }
 
 /**
+ * How far before the roster lost a receiver its last word came, plus how far it likely got past it
+ * (D552 §2). The server takes a device for gone once it has sent nothing for three of its pings
+ * (silenceLimit, internal/core/api/together_socket.go, held to the client's pingEveryMs by
+ * TestTogether_TheSilenceLimitIsThreeOfTheClientsPings), so the receiver's last word came three gaps
+ * before the roster lost it; a television switched off played on from that word for at most the one
+ * gap before the ping it never sent. Two gaps back from the loss, then: a little behind what the
+ * person last saw, never ahead of it (the owner, 2026-11-25: "It's fine to be off by an amount; we
+ * just want to remain close to where it's likely to be"). A receiver whose page closed in order,
+ * heard at once, is placed two gaps behind by the same rule, and scanned ahead from.
+ */
+const lostBeforeGoneMs = 2 * pingEveryMs;
+
+/**
  * Where the receiver last stood while a device led the session the remote works, the cast's or,
  * while this tab hosts Watch Together, that session (D364 §11): its film's position, moved on by the
  * clock, and whether it was paused, kept at each render while a device leads. Control taken back,
  * the cast ends as it stands. The receiver gone, it led no more once the server found its connection
- * lost, and where it stood then is its last position, never where the clock has moved a cast's
- * session on to since, which is not held for want of a player (D385 §3: "The caster doesn't need to
- * get its position exactly right").
+ * lost, and where it stood then is where it likely got to (D552 §2): its position lostBeforeGoneMs
+ * before the roster lost it, never short of where its last group report placed it, and never where
+ * the clock has moved a cast's session on to since, which is not held for want of a player (D385
+ * §3: "The caster doesn't need to get its position exactly right").
  */
 function useWhereItStood(snapshot: TogetherSnapshot | undefined): RefObject<ReopenAt | undefined> {
   const positionMs = usePositionNow(snapshot);
   const stoodRef = useRef<ReopenAt | undefined>(undefined);
+  const wasLedRef = useRef(false);
   const isLed =
     snapshot !== undefined && snapshot.status !== "ended" && leaderOf(snapshot) !== undefined;
   const isPaused = snapshot?.group?.state === "paused";
   useEffect(() => {
     if (isLed && positionMs !== undefined) {
       stoodRef.current = { positionMs, isPaused };
+    } else if (wasLedRef.current && snapshot !== undefined && snapshot.status !== "ended") {
+      // The leader lost while the session goes on: the receiver gone, where it likely got to.
+      const lostAtMs = Math.max(monotonicMs() - lostBeforeGoneMs, snapshot.groupReceivedAtMs);
+      const likelyMs = expectedGroupPositionMs(snapshot, lostAtMs);
+      if (likelyMs !== undefined) {
+        stoodRef.current = { positionMs: likelyMs, isPaused };
+      }
     }
-  }, [isLed, positionMs, isPaused]);
+    wasLedRef.current = isLed;
+  }, [isLed, positionMs, isPaused, snapshot]);
   return stoodRef;
 }
 

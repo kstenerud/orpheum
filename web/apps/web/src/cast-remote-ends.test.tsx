@@ -83,7 +83,7 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
   // The owner, 2026-11-25, as the cast took the film over by itself two minutes after the television
   // was switched off: "not auto-changeover. The user has to select play here if they want to
   // continue … but the cast session is over."
-  it("stays as the cast ends with its receiver gone, saying so with Play here alone, which plays the film here, playing, from where the receiver last stood, not where the clock has moved it to since (D552 §1, D385 §3)", async () => {
+  it("stays as the cast ends with its receiver gone, saying so with Play here alone, which plays the film here, playing, from where the receiver likely got to, two ping gaps before the roster lost it, not where the clock has moved it to since (D552 §1–2, D385 §3)", async () => {
     vi.useFakeTimers({ toFake: ["performance", "setInterval", "clearInterval"] });
     try {
       const heard: Heard[] = [];
@@ -92,9 +92,15 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
       await sockets.session.say({ type: "group", seq: 4, group: { ...playing, event: "played" } });
       await sockets.session.say({ type: "roster", roster: receiverLeads });
       act(() => {
-        vi.advanceTimersByTime(5000);
+        vi.advanceTimersByTime(25_000);
       });
-      // The receiver's connection lost: the server detaches it, and no device leads the cast.
+      await sockets.session.say({ type: "roster", roster: receiverLeads }); // heard: its pings are answered
+      act(() => {
+        vi.advanceTimersByTime(25_000);
+      });
+      // The receiver's connection lost, its silence past the server's limit of three pings: the
+      // server detaches it, and no device leads the cast. Its last word came 45 s before this, and it
+      // likely played on for one more ping gap: to 61 + 50 − 30 s.
       await sockets.session.say({ type: "roster", roster: [] });
       act(() => {
         // The server sure it is gone: its minutes, shortened, as this stand-in answers no ping.
@@ -108,7 +114,7 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
       expect(buttonWithText(mounted!.container, "Try again")).toBeUndefined();
       expect(mounted!.container.querySelector(".cast-remote__spinner")).toBeNull();
       await click(buttonWithText(mounted!.container, "Play here"));
-      expect(onPlayHere).toHaveBeenCalledExactlyOnceWith(66_000, false);
+      expect(onPlayHere).toHaveBeenCalledExactlyOnceWith(81_000, false);
       // The cast is over: Play here asks the server for no end.
       expect(heard.filter((each) => each.methodAndPath.startsWith("POST /me/casts/"))).toEqual([]);
       expect(mounted!.container.textContent).not.toContain("was gone");

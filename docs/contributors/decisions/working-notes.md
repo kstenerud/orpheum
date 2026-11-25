@@ -31643,8 +31643,9 @@ device, plus however far it was likely to get."* **Amends** D446 §5 and D385 §
 had the sender take the film over at once, and **extends** D550 §3, whose Play here was offered
 while the cast still lasted.
 
-**Status:** decided; not built (§2 awaits the owner's choice of the rule). Its code is
-`cast-remote.tsx`'s endWayOf and `cast-remote-offer.tsx`'s RemoteOffer (`gone`).
+**Status:** decided; built (§1 in the commit that recorded it, §2 in the next, each read back
+against the code). Its code is `cast-remote.tsx`'s endWayOf and useWhereItStood (lostBeforeGoneMs)
+and `cast-remote-offer.tsx`'s RemoteOffer (`gone`).
 
 1. **The remote stays as the cast ends with its receiver gone.** The server's end stands (D364 §6:
    two minutes after the receiver's connection was lost, reason `receiverGone`), and the cast is
@@ -31655,15 +31656,30 @@ while the cast still lasted.
    server for no end: there is none left to ask. A cast with nothing on ends as D446 §2 has it,
    the page home with no word. A television back on finds no cast: the person starts one.
 2. **Where Play here starts.** The owner's rule: where contact with the device was lost, plus
-   however far it was likely to get. *Open:* the reading of "likely to get" is the owner's choice,
-   asked 2026-11-25; until then the film starts where D549 §2 has it, where the receiver last
-   stood as the remote knew it, moved on by the clock until the server gave the receiver up.
+   however far it was likely to get. The reading, of three offered (the receiver's last word plus
+   one ping gap; the clock run on to the server's giving the receiver up, about 45 s past the
+   loss; the clock run on to the cast's end, about two minutes past it), the owner chose the first
+   (2026-11-25): *"It's fine to be off by an amount; we just want to remain close to where it's
+   likely to be, and then they can scan back/ahead as necessary. When casting, the most likely
+   cause of an interruption is the hardware going down rather than home internet going down."* The
+   server takes a device for gone once it has sent nothing for three of its pings (D364 §6's
+   silence limit; `together_socket.go`'s silenceLimit, held to the client's pingEveryMs by a
+   test), so the receiver's last word came three gaps before the roster lost it, and a television
+   switched off played on for at most one more gap, to the ping it never sent. The remote places
+   the film two ping gaps (30 s) before the moment the roster lost the leader, never short of where
+   the receiver's last group report placed it, and Play here starts there: a little behind what
+   the person last saw, never ahead. Not from the server's ended message, which says where nothing;
+   the remote's own clock serves, as D385 §3 allows ("The caster doesn't need to get its position
+   exactly right"). A receiver whose page closed in order, heard at once, is placed 30 s behind by
+   the same rule: the remote cannot tell the two apart, the difference is one scan ahead, and a
+   switched-off device is the likelier case, in the owner's words. Where no device was ever heard
+   leading, D549 §2–3 stand.
 3. **Tests:** the remote's end tests: an end with the receiver gone leaves `onPlayHere` uncalled,
-   shows the note with no Try again and no spinner, and Play here plays the film from where the
-   receiver last stood, playing, with no end asked of the server; a cast with nothing on goes
-   home. VQ401 for the owner's phone and a switched-off receiver.
+   shows the note with no Try again and no spinner, and Play here plays the film from two ping gaps
+   before the roster lost the leader, playing, with no end asked of the server; a cast with nothing
+   on goes home. VQ401 for the owner's phone and a switched-off receiver.
 
 **Proven by:**
 - 1: `web/apps/web/src/cast-remote-ends.test.tsx`, VQ401
-- 2: `web/apps/web/src/cast-remote-ends.test.tsx` (the standing rule)
+- 2: `web/apps/web/src/cast-remote-ends.test.tsx`, VQ401
 - 3: `web/apps/web/src/cast-remote-ends.test.tsx`

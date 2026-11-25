@@ -240,7 +240,11 @@ export type {
   TogetherEndReason,
   VoiceSignal,
 } from "./together.ts";
-export { createTogetherConnection, expectedGroupPositionMs } from "./together-connection.ts";
+export {
+  createTogetherConnection,
+  expectedGroupPositionMs,
+  pingEveryMs,
+} from "./together-connection.ts";
 export { isLeaderOf, leaderOf } from "./together-roster.ts";
 export { createLiveConnection } from "./live-connection.ts";
 export { scrubPauseWindowMs } from "./together-lead.ts";
