@@ -13,7 +13,8 @@ import { useIsOnAirPlay } from "./airplay-here.ts";
 import { AirPlayEntry } from "./airplay-entry.tsx";
 import { BusyGroup } from "./busy-group.tsx";
 import { castKindOf, CastKindMark } from "./cast-kind.tsx";
-import { CastRemote, type PlaysHereFrom } from "./cast-remote.tsx";
+import type { PlaysHereFrom } from "./castee-session.tsx";
+import { CasteePlay } from "./play-castee.tsx";
 import {
   castTakenWithinMs,
   endCastRetrying,
@@ -613,11 +614,12 @@ export interface PlayedHereFrom {
 /**
  * Where a Play page's film plays, the page keeping its place throughout (D364 §3, D384 §2): on a
  * device that casts, it goes on to the receiver, from atMs or, undefined, where the person left it,
- * and the page's video area becomes the cast's remote (CastRemote); a cast started from Cast's dialog
- * over the page, moving its film, does the same. One played here on purpose (shouldPlayHere), once the
- * server says the device casts nothing, or not within sendingKnownWithinMs, plays here (playHere), as
- * it does again once the cast is stopped, from where the receiver stood. Nothing plays while a cast
- * the tab received before the page loaded again is in doubt (Live's isReceivingInDoubt, D383 §2).
+ * and the Play page draws its controls over the castee (CasteePlay, D555 §8); a cast started from
+ * Cast's dialog over the page, moving its film, does the same. One played here on purpose
+ * (shouldPlayHere), once the server says the device casts nothing, or not within
+ * sendingKnownWithinMs, plays here (playHere), as it does again as the cast ends, however it ends,
+ * from where the receiver stood (D555 §5). Nothing plays while a cast the tab received before the
+ * page loaded again is in doubt (Live's isReceivingInDoubt, D383 §2).
  */
 export function PlayOrSendOn(props: {
   readonly fileId: number;
@@ -641,7 +643,7 @@ export function PlayOrSendOn(props: {
       return <p>{t("cast.sendingOn")}</p>;
     case "remote":
       return (
-        <CastRemote
+        <CasteePlay
           key={where.castId}
           castId={where.castId}
           fileId={props.fileId}

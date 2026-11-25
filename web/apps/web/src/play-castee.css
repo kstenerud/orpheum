@@ -1,0 +1,67 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The Play page while its device casts (play-castee.tsx, D555 §8): the way up and the cast's sign,
+   the castee's key frame where the video would be, the Play page's bar under it (page-controls.css). */
+.castee-play {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block: var(--space-2);
+}
+
+.castee-play__top {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.castee-play__where {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+}
+
+.castee-play__sign {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The stage: the video's black box (film-player.css's empty stage), the key frame filling it. */
+.castee-play__stage {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  max-height: 80vh;
+  border-radius: var(--radius-card);
+  background: var(--color-video-background);
+  color: var(--color-on-video);
+}
+
+.castee-play__picture,
+.castee-play__picture > * {
+  position: absolute;
+  inset: 0;
+}
+
+/* Up next or a skip top-right over the picture, as over the video. */
+.castee-play__offers > * {
+  position: absolute;
+  z-index: var(--layer-raised);
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  max-inline-size: calc(100% - 2 * var(--space-3));
+}
+
+/* The reconnecting sign in the picture's centre. */
+.castee-play__centre {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.castee-play [aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: default;
+}

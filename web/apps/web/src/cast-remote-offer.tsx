@@ -153,7 +153,7 @@ function RemoteVolumePill(props: { readonly film: PlayerSound | undefined }): JS
  * in, Skip credits left to Up next where an episode plays next (RemoteSkipOffer), its press seeking
  * the cast past it.
  */
-function RemoteOffers(props: {
+export function RemoteOffers(props: {
   readonly sent: CastSending;
   readonly source: PlaybackTarget;
   readonly upNext: UpNext | undefined;
@@ -191,7 +191,7 @@ function RemoteOffers(props: {
  * phase 3), renewed every 3 s while it moves (CastFrame, D545),
  * and until the first has loaded, or where the node makes none, the film's art (RemoteArt).
  */
-function RemotePicture(props: {
+export function RemotePicture(props: {
   readonly fileId: number;
   readonly atMs: number;
   readonly art: ArtBody | undefined;

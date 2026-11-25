@@ -6,29 +6,14 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CastRemote } from "./cast-remote.tsx";
-import { PlayOrSendOn } from "./cast-to.tsx";
-import { LiveProvider } from "./live.tsx";
 import {
   castingRemote,
   catReads,
-  filmReads,
-  cast,
   receiverLeads,
   sending,
-  welcome,
   type RemoteShown,
 } from "./test-cast-remote.tsx";
-import {
-  buttonWithText,
-  click,
-  mount,
-  servedBy,
-  settleUntil,
-  type Heard,
-  type Mounted,
-} from "./test-dom.tsx";
-import { withServices } from "./test-services.tsx";
-import { liveAndSession } from "./test-together.ts";
+import { buttonWithText, click, type Heard, type Mounted } from "./test-dom.tsx";
 
 /** The person's devices, as the live connection tells them: this phone, 1, and the receiver, 2. */
 const bothConnected = {
@@ -127,44 +112,5 @@ describe("the ended cast remote's Cast again (D553 §2)", () => {
       sending: { ...sending, castId: 10, fileId: 5, itemName: "Cat" },
     });
     expect(services.navigation.route()).toEqual({ screen: "play", fileId: 5 });
-  });
-
-  it("makes the Play page the new cast's remote as its receiver takes it", async () => {
-    const services = servedBy(
-      {
-        ...castAgainAnswer,
-        "GET /me/casts": [200, { casts: [cast] }],
-        "GET /files/4/up-next": [200, {}],
-        ...filmReads,
-      },
-      [],
-      "token",
-    );
-    const sockets = liveAndSession();
-    mounted = await mount(
-      withServices(
-        <LiveProvider>
-          <PlayOrSendOn fileId={4} shouldPlayHere={false} playHere={() => <p>playing here</p>} />
-        </LiveProvider>,
-        { ...services, openTogetherSocket: sockets.openSocket },
-      ),
-    );
-    await sockets.live.accept();
-    await sockets.live.say({ type: "sending", sending });
-    await sockets.session.accept();
-    await sockets.session.say(welcome);
-    await sockets.session.say({ type: "roster", roster: receiverLeads });
-    await sockets.live.say(bothConnected);
-    await sockets.live.say({ type: "sending" });
-    await sockets.session.say({ type: "ended", reason: "takenBack" });
-    await click(castAgain());
-    const opened = sockets.session.openedCount();
-    await sockets.live.say({ type: "sending", sending: { ...sending, castId: 10 } });
-    await settleUntil(() => sockets.session.openedCount() > opened);
-    await sockets.session.accept();
-    await sockets.session.say({ ...welcome, sessionId: 10 });
-    expect(mounted.container.querySelector(".cast-remote__note")).toBeNull();
-    expect(castAgain()).toBeUndefined();
-    expect(mounted.container.textContent).not.toContain("playing here");
   });
 });
