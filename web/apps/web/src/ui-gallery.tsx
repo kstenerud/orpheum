@@ -707,7 +707,12 @@ function GalleryOverlayRows(): JSX.Element {
           <div className="ui-gallery__film">
             <div className="player-overlay" data-shown="full">
               <OverlayRows
-                source={galleryFilm}
+                source={{
+                  ...galleryFilm,
+                  kind: "here",
+                  reportedAtMs: galleryFilm.atMs,
+                  choices: { kind: "here", videoRef },
+                }}
                 isTv={false}
                 refs={{ playRef, scrubRef, buttonsRef, videoRef }}
                 convenience={{

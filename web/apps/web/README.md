@@ -377,8 +377,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   column at most 28rem wide, the bar, a 16:9 offer area with the receiver's picture at full
   brightness under Up next or a skip at its top-right and a Pill at its centre, the timeline with
   the time under it, the pad (`src/cast-remote-pad.tsx`: ⏮ ⏭, −10 s, Play and +10 s, the film's
-  level, its keys the player's) and the menus at the bottom (`src/cast-remote-choices.tsx`'s
-  `RemoteMenus`); two columns, the pad's at the end, on a phone on its side or a page 60rem wide
+  level, its keys the player's) and the menus at the bottom (`TargetMenus` over the castee,
+  `src/cast-remote-choices.tsx`'s `RemoteMenus`); two columns, the pad's at the end, on a phone on its side or a page 60rem wide
   (`src/cast-remote-layout.browser.test.tsx`). While the receiver is not reached it says *Reaching
   ‹Device›…*, the pad and the menus taking no press (D548 §9); a receiver unheard for 15 s
   (`src/cast-remote-heard.ts`'s `useReceiverHeard`, the remote's own connection to the server up)
@@ -1216,9 +1216,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **The controls command a playback target** (D555 §8, §10): a `PlaybackTarget`
   (`src/playback-target.ts`), the video here (`useVideoTarget`) or the castee through the session
   (`useCasteeTarget`, `src/castee-target.ts`), its place, play or pause, seeks, sound and the
-  choices its menus make. A castee's key frames are asked for at its `reportedAtMs`, where it last
+  choices its menus make, which one entry point draws, `TargetMenus` (`src/target-menus.tsx`), on
+  the Play page's bar and overlay and the cast remote alike, a choice the target has no use for not
+  drawn (a castee's has no 🔈). A castee's key frames are asked for at its `reportedAtMs`, where it last
   said it stands, never where a seek chosen on the remote aims. `src/castee-target.test.tsx`,
-  `src/cast-remote-frame.test.tsx`.
+  `src/cast-remote-frame.test.tsx`, `src/target-menus.test.tsx`.
 - **A failure about what was typed marks the fields it is about** (plans 11-22 batch, item 6):
   `aria-invalid="true"` and described by the line that says why, from one hook, `useFormFields`
   (`src/field.tsx`), fed the fields a refusal names by `failedFields` (`src/problem.ts`: its

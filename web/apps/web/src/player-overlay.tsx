@@ -26,14 +26,13 @@ import { useCommands } from "./input-layer.tsx";
 import { useLatest } from "./latest.ts";
 import { OverlayUp, PlayUpwardContext } from "./play-up.tsx";
 import { answerPlayerCommand, seekBy, usePlayersControls } from "./player-commands.ts";
-import type { PlayerSource } from "./playback-target.ts";
+import type { PlaybackTarget, PlayerSource } from "./playback-target.ts";
 import {
   PlayerControls,
   useVideoTarget,
   type PlayerControl,
   type SequenceMoves,
 } from "./player-controls.tsx";
-import { PlayerMenus } from "./player-menus.tsx";
 import {
   afterPictureTap,
   controlsShown,
@@ -53,6 +52,7 @@ import { SideTapsContext, type SideTaps } from "./phone-side-taps.tsx";
 import { useStartRefused } from "./start-refused-shown.tsx";
 import { StopCastingHere } from "./stop-casting-here.tsx";
 import { useIsFullScreen } from "./full-screen-button.tsx";
+import { TargetMenus } from "./target-menus.tsx";
 import { TargetTimeline } from "./target-timeline.tsx";
 import { TogetherSignOverTheFilm } from "./together-over-the-film.tsx";
 import { peopleOf, useSessionVoice } from "./together-voice.tsx";
@@ -156,7 +156,7 @@ function useOverlay(
   },
 ): {
   readonly state: OverlayState;
-  readonly source: PlayerSource;
+  readonly source: PlaybackTarget;
   readonly isTv: boolean;
   readonly signs: PictureSigns;
   readonly sideTaps: SideTaps;
@@ -258,7 +258,7 @@ export function OverlayRows({
   moves,
   onMenuOpenChange,
 }: {
-  readonly source: PlayerSource;
+  readonly source: PlaybackTarget;
   readonly isTv: boolean;
   readonly refs: Pick<OverlayRefs, "playRef" | "scrubRef" | "buttonsRef" | "videoRef">;
   readonly convenience: Omit<ComponentProps<typeof ConvenienceArea>, "ends">;
@@ -266,7 +266,6 @@ export function OverlayRows({
   readonly onMenuOpenChange: (isOpen: boolean) => void;
 }): JSX.Element {
   const shown = useControlsShown(isTv, moves);
-  const menus = { videoRef: refs.videoRef, shown, sound: source.sound };
   return (
     <OverlayRowsOf
       top={
@@ -285,7 +284,7 @@ export function OverlayRows({
       moves={moves}
       menus={
         <>
-          <PlayerMenus {...menus} onOpenChange={onMenuOpenChange} />
+          <TargetMenus target={source} shown={shown} onOpenChange={onMenuOpenChange} />
           <SignsOverTheFilm onOpenChange={onMenuOpenChange} />
         </>
       }

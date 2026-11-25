@@ -24,7 +24,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { tabStorage } from "./browser-storage.ts";
-import { RemoteMenus, useRemotePrevious } from "./cast-remote-choices.tsx";
+import { useRemotePrevious } from "./cast-remote-choices.tsx";
 import { RemotePad, remoteSoundMovesOf } from "./cast-remote-pad.tsx";
 import { listMyCasts, moveCastOn, myCastsKey, takeEndAnswerOf, type Cast } from "./cast.ts";
 import { useLeavesFullScreen } from "./film-fullscreen.ts";
@@ -32,6 +32,7 @@ import { useShowsARemote } from "./hidden-need.ts";
 import type { PlayerSource } from "./playback-target.ts";
 import type { SequenceMoves } from "./player-controls.tsx";
 import { useVolumeShown } from "./over-the-picture.tsx";
+import { TargetMenus } from "./target-menus.tsx";
 import { TargetTimeline } from "./target-timeline.tsx";
 import { EndsAt, leftMsOf } from "./convenience-area.tsx";
 import { readTitle, titleKey } from "./item-detail.ts";
@@ -512,7 +513,7 @@ function RemoteOf(props: {
  * where it plays and when it ends (RemoteUp); the offer area, the film's picture with the offer, the
  * Pills and the receiver's silence over it (RemoteOffer); the timeline, the time under it; the pad,
  * in a thumb's reach (RemotePad, D548 §5), its volume the film's level on the receiver
- * (useReceiverFilmSound, §6); the menus over the receiver (RemoteMenus). Two columns where the window
+ * (useReceiverFilmSound, §6); the menus over the receiver (TargetMenus). Two columns where the window
  * is landscape and short or wide (§7, §8: cast.css). While the receiver is not reached the pad, the
  * timeline and the menus take no press (§9). The castee is the playback target (D555 §8); its sound
  * and choices are the cast session's, whatever else it plays in (the owner, 2026-11-06: "It
@@ -570,11 +571,7 @@ function RemotePlaying(props: {
         isDisabled={isDisabled}
       />
       <RemoteButtons isDisabled={isDisabled}>
-        <RemoteMenus
-          playback={source.choices.playback}
-          connection={source.choices.connection}
-          report={source.choices.report}
-        />
+        <TargetMenus target={source} />
       </RemoteButtons>
     </PlayUpwardContext>
   );
