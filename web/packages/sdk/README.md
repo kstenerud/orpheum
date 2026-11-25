@@ -75,6 +75,11 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   /together/playback, by a viewer's membership's credential in place of a session, D246 §3), used by
   the web app and the Google Cast receiver alike; what each says of itself is its own.
   `src/playback-request.test.ts`.
+- **One way to choose Up next** (D555 §3): where it shows, from its credits' start or within
+  `upNextLeadMs` of the end (`isNearItsEnd`, D139, D339); whether it shows and counts down, by the
+  person's dismissal and stop and autoplay (`offerState`); and whether an episode before or after
+  can be played (`isPlayableNext`): the Play page's, the cast's remote's and a Chromecast's Up next
+  all choose by these. `src/up-next-offer.test.ts`.
 - **A group held for want of a player is a paused group** (D375): everyone's screen gone, the server
   holds it `paused` where it stood, and `isHeldPlaying` says whether it was playing, to play on as a
   screen comes back (event `resumedOnReturn`); a player follows it as any paused group, its clock

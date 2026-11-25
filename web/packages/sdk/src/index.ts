@@ -16,6 +16,7 @@ export type { components, operations, paths } from "./gen/api.ts";
 export { allPages, pageLimitMax } from "./pages.ts";
 export { creditsStartOf, isNearItsEnd, upNextLeadMs } from "./up-next-lead.ts";
 export type { Ending } from "./up-next-lead.ts";
+export { isPlayableNext, noOfferChoice, offerState, type OfferChoice } from "./up-next-offer.ts";
 export type { ListPage, PageQuery } from "./pages.ts";
 export { browserPlayableFormats, playableFormatsFrom } from "./playable-formats.ts";
 export { canFollowAGroup } from "./follow-support.ts";

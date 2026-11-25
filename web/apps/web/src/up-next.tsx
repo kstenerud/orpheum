@@ -15,7 +15,14 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { isNearItsEnd, type Ending } from "@orpheum/sdk";
+import {
+  isNearItsEnd,
+  isPlayableNext,
+  noOfferChoice as noChoice,
+  offerState,
+  type Ending,
+  type OfferChoice,
+} from "@orpheum/sdk";
 import { useTranslation } from "react-i18next";
 
 import { useAroundFile, type Previous, type UpNext } from "./around-file.ts";
@@ -50,6 +57,9 @@ import { useServices } from "./services.tsx";
 import { parentOf } from "./upward.ts";
 import { useVideoStanding, type StandingTaken, type VideoStanding } from "./video-standing.ts";
 import { watchingOf } from "./watching.ts";
+
+// Up next's choice is the SDK's (D555 §3); the cast's remote reads it from here.
+export { offerState };
 
 /**
  * How long autoplay counts down before it plays the next episode, in ms: long enough to read the
@@ -202,7 +212,7 @@ export function useSequenceMoves(offered: UpNextOffered | undefined): SequenceMo
   const receiving = offered?.receiving;
   return useMemo(() => {
     const isPlayable = (episode: Previous | undefined): episode is Previous =>
-      episode !== undefined && episode.unavailable === undefined;
+      isPlayableNext(episode);
     const playing = (episode: Previous | undefined): (() => void) | undefined => {
       if (!isPlayable(episode)) {
         return undefined;
@@ -247,41 +257,6 @@ export function useSequenceCommands(offered: UpNextOffered): Required<MediaTrack
   const hasPrevious = moves.previous !== undefined;
   const hasNext = moves.next !== undefined;
   return useMemo(() => ({ hasPrevious, hasNext }), [hasPrevious, hasNext]);
-}
-
-/** What the person did to the offer: dismissed it, or stopped its countdown. */
-export interface OfferChoice {
-  readonly isDismissed: boolean;
-  readonly isCancelled: boolean;
-}
-
-/** The offer as it first shows: neither dismissed nor stopped. */
-const noChoice: OfferChoice = { isDismissed: false, isCancelled: false };
-
-/**
- * Whether the film is near its end, and whether the offer shows and counts down: it shows from its
- * credits' start where the file has a credits segment, else within upNextLeadMs of the end, and on
- * the end screen, unless dismissed (isNearItsEnd); it counts from the credits' start, else once the
- * film has ended, with autoplay on, unless stopped.
- */
-export function offerState(
-  ending: Ending,
-  choice: OfferChoice,
-  isAutoplayOn: boolean,
-): { readonly isNearTheEnd: boolean; readonly isShown: boolean; readonly isCounting: boolean } {
-  const isNearTheEnd = isNearItsEnd(ending);
-  const isShown = isNearTheEnd && !choice.isDismissed;
-  return {
-    isNearTheEnd,
-    isShown,
-    isCounting: isShown && isAtItsCredits(ending) && isAutoplayOn && !choice.isCancelled,
-  };
-}
-
-/** Whether the film has ended, or plays its credits where a segment says where they start. */
-function isAtItsCredits(ending: Ending): boolean {
-  const { creditsStartMs } = ending;
-  return ending.hasEnded || (creditsStartMs !== undefined && ending.atMs >= creditsStartMs);
 }
 
 /**

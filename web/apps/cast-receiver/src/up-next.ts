@@ -5,6 +5,7 @@ import {
   dataOrThrow,
   failureText,
   isNearItsEnd,
+  isPlayableNext,
   type Api,
   type components,
 } from "@orpheum/sdk";
@@ -43,7 +44,7 @@ function placeOf(upNext: UpNext): string {
  * where nothing plays next, or it cannot be read now (the caster offers none then either).
  */
 export function upNextLines(upNext: UpNext | undefined): readonly string[] | undefined {
-  if (upNext === undefined || upNext.episode.unavailable !== undefined) {
+  if (upNext === undefined || !isPlayableNext(upNext.episode)) {
     return undefined;
   }
   return [
