@@ -437,6 +437,38 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     expect(onLeave).toHaveBeenCalledOnce();
   });
 
+  it("plays its person's Watch Together session in that one session alone where the cast is their part in it (D555 §2)", async () => {
+    const services = servedBy({}, [], "token");
+    const socket = fakeTogetherServer();
+    const openSocket = vi.fn(socket.openSocket);
+    const video = document.createElement("video");
+    document.body.append(video);
+    const onLeave = vi.fn();
+    mounted = await mount(
+      withServices(
+        <CastReceiver
+          receiving={{
+            cast: { ...cast, togetherCredential: cast.membershipCredential },
+            onLeave,
+          }}
+          fileId={4}
+          video={video}
+          startPositionMs={0}
+        />,
+        { ...services, openTogetherSocket: openSocket },
+      ),
+    );
+    await socket.accept();
+    expect(openSocket).toHaveBeenCalledOnce();
+    expect(socket.heard[0]).toMatchObject({ credential: "receiver", role: "video" });
+    await socket.say(welcome);
+    expect(socket.heard).toContainEqual(
+      expect.objectContaining({ command: "changeItem", fileId: 4, positionMs: 61_000 }),
+    );
+    await socket.say({ type: "ended", reason: "stopped" });
+    expect(onLeave).toHaveBeenCalledOnce();
+  });
+
   it("leaves its film's end to Up next where an episode plays next (plans/up-next.md)", async () => {
     const { server, video, heard, onLeave } = await receiver({}, true);
     await server.say(welcome);

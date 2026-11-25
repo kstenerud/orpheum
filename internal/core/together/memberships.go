@@ -28,6 +28,9 @@ type credential struct {
 	// hash of the credential of the device that cast (D520 §1): the one cast that device has, which
 	// its next replaces and which ends as that credential goes. Zero for a device's own.
 	castOf [sha256.Size]byte
+	// castID is, for a credential of a cast in the hub (casting), the cast's id, whose end takes it
+	// back; 0 for any other. Kept apart from the member's own: castCredentialsKept of each cast.
+	castID int64
 }
 
 // madeCredential is a new credential and its locator, before the member keeps their hashes; the
@@ -64,16 +67,43 @@ func (each *member) addCastCredential(made madeCredential, castOf [sha256.Size]b
 		kept.locatorHash = discoverylink.LocatorHash(made.locator)
 	}
 	each.credentials = append(each.credentials, kept)
-	extra := len(each.credentials) - credentialsKeptPerMember
-	if extra <= 0 {
+	if !each.dropOldest(credentialsKeptPerMember, func(held credential) bool { return held.castID == 0 }) {
 		return false
 	}
-	each.credentials = each.credentials[extra:]
 	senders := map[[sha256.Size]byte]bool{}
 	for _, still := range each.credentials {
 		senders[still.hash] = true
 	}
 	return each.endCastsWhere(func(cast credential) bool { return !senders[cast.castOf] })
+}
+
+// addCastPart admits a device of the cast castID by credential, keeping that cast's newest
+// castCredentialsKept apart from the member's own (D555 §2).
+func (each *member) addCastPart(made string, castID int64) {
+	each.credentials = append(each.credentials, credential{hash: sha256.Sum256([]byte(made)), castID: castID})
+	each.dropOldest(castCredentialsKept, func(held credential) bool { return held.castID == castID })
+}
+
+// dropOldest drops the oldest of the member's credentials isCounted counts past keep of them:
+// whether any went.
+func (each *member) dropOldest(keep int, isCounted func(held credential) bool) bool {
+	extra := -keep
+	for _, held := range each.credentials {
+		if isCounted(held) {
+			extra++
+		}
+	}
+	if extra <= 0 {
+		return false
+	}
+	each.credentials = slices.DeleteFunc(each.credentials, func(held credential) bool {
+		if extra > 0 && isCounted(held) {
+			extra--
+			return true
+		}
+		return false
+	})
+	return true
 }
 
 // endCastsWhere lets go of each cast's credential isEnded says ends: it admits nothing more, and each

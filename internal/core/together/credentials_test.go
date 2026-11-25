@@ -138,14 +138,14 @@ func TestHub_OnlyItsHostManagesASessionByItsID(t *testing.T) {
 func TestCast_OnlyItsSenderHasACredentialForItOrEndsIt(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	cast, err := stage.hub.OpenCast(stage.owner)
+	cast, err := stage.hub.OpenCast(stage.owner, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for name, ask := range map[string]struct{ sessionID, userID int64 }{
-		"another person":            {cast.SessionID, 2},
+		"another person":            {cast.CastID, 2},
 		"the sender, of a session":  {stage.opened.SessionID, stage.owner.UserID},
-		"the sender, of no session": {cast.SessionID + 100, stage.owner.UserID},
+		"the sender, of no session": {cast.CastID + 100, stage.owner.UserID},
 	} {
 		if credential, err := stage.hub.CastCredential(ask.sessionID, ask.userID); err == nil {
 			t.Errorf("%s: CastCredential gave %q", name, credential)

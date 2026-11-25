@@ -515,6 +515,45 @@ func TestCast_AHostsReceiverIsHandedTheirWatchTogetherSession(t *testing.T) {
 	}
 }
 
+// A member of a Watch Together session who casts from a page that names no film has the castee play
+// the session's film, as the member's playing device in that one session, by the cast's own
+// credential, no second session opened (D555 §2): this week's black screen, a castee handed nothing
+// to play while its session played a film.
+func TestCast_AMembersCastFromAPageNamingNoFilmPlaysTheSessionsFilm(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	tvToken := harness.signIn(t, "owner", "owner-password")
+	television := harness.thisDevice(t, tvToken)
+	tvSocket := harness.dialLive(t, tvToken)
+	tvSocket.awaitDevices(television)
+	hosted := harness.openTogether(t, phoneToken)
+	player := harness.dialCast(t, hosted.Body.MembershipCredential, together.RoleVideo)
+	player.awaitWelcome()
+	player.send(together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageCommand, Command: together.CommandChangeItem, FileID: 1,
+	})
+	player.send(together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageState, IsPlaying: true, FileID: 1,
+	})
+	player.awaitGroup(together.GroupPlaying)
+	asked := map[string]any{"toDeviceId": television}
+	started := startedCast(t, harness.do(t, http.MethodPost, "/me/casts", phoneToken, asked))
+	if started.FileID != 1 {
+		t.Errorf("the cast started playing file %d; want the session's, 1", started.FileID)
+	}
+	handed := tvSocket.await(live.MessageReceive, func(live.Outbound) bool { return true }).Receive
+	if handed.FileID != 1 || handed.TogetherCredential != handed.Credential || handed.IsTogetherFollower {
+		t.Fatalf("the TV was handed %+v; want the session's film 1 by the cast's one credential, leading", handed)
+	}
+	castee := harness.dialCast(t, handed.Credential, together.RoleVideo)
+	if welcome := castee.awaitWelcome(); !welcome.IsHost || welcome.SessionID != hosted.Body.SessionID ||
+		welcome.Group.FileID != 1 {
+		t.Errorf("the TV's welcome = %+v; want the host's part in session %d, film 1 on", welcome,
+			hosted.Body.SessionID)
+	}
+}
+
 // No receiver takes the cast over (D446 §4, amending D443): its end refuses the reason movedHere,
 // which moved the session its person hosts to the receiver, and the cast goes on, its remote told
 // nothing.

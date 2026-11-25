@@ -10,7 +10,7 @@ import (
 // device as another device of their membership (D518 §1): the device trades a grant bound to the
 // membership (internal/core/auth's IssueMembershipGuestGrant) for a credential of the member's own,
 // and with it follows the group as just another follower, as a signed-in guest's receiver does
-// (TogetherPart, D371 §4), playing what the session plays by the membership (D246 §3) with exactly
+// (CastPart, D371 §4), playing what the session plays by the membership (D246 §3) with exactly
 // the guest's rights (D372 §4). It is no cast: no session of one, no person, no device of anyone's.
 // It ends as the membership ends, the guest removed or the session ended, its device told why as each
 // of the member's is. One device casts to one other at a time (D520 §1, amending D519 §2): a cast's
@@ -25,7 +25,7 @@ import (
 // guest's device whose membership credential's hash is sender. It replaces that device's last cast's
 // credential, that receiver told its place moved away and cut off (D520 §1). ErrNoSession for a
 // session ended, or a cast; ErrNoMember for a member gone, removed or left, or the host, whose cast
-// is a signed-in person's (TogetherPart), and for a sender whose credential no longer admits them;
+// is a signed-in person's (OpenCast), and for a sender whose credential no longer admits them;
 // ErrBeingCastTo for a sender that is itself a cast's receiver.
 func (hub *Hub) GuestCastPart(sessionID, memberID int64, sender [sha256.Size]byte) (Joined, error) {
 	made, err := newCredential(hub.random)

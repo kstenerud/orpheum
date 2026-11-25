@@ -228,8 +228,10 @@ export function CastReceiver(props: {
 /**
  * The sessions a cast's receiver is in: the cast's own, which says how it ends, and the one its video
  * leads, the cast's or, while its person hosts Watch Together, that session, as their player (D364
- * §11), the cast's then joined as a panel, playing nothing. Gives the led session's connection and
- * whether it is welcomed, and the cast's own snapshot and connection, which its remote works.
+ * §11), the cast's then joined as a panel, playing nothing. A cast that is its person's part in a
+ * Watch Together session, handed the one credential for both (D555 §2), is in that one session
+ * alone, as their playing device. Gives the led session's connection and whether it is welcomed,
+ * and the cast's own snapshot and connection, which its remote works.
  */
 function useReceiversSessions(cast: CastToReceive): {
   readonly connection: (TogetherConnection & CarriesSoundChoices) | undefined;
@@ -239,13 +241,18 @@ function useReceiversSessions(cast: CastToReceive): {
 } {
   const token = useToken();
   // A guest's part is followed from the ready page (cast-ready.tsx); a film of the cast's own leads it.
-  const isLeadingHosted = cast.togetherCredential !== undefined && cast.isTogetherFollower !== true;
+  const isOne = cast.togetherCredential === cast.membershipCredential;
+  const isLeadingHosted =
+    !isOne && cast.togetherCredential !== undefined && cast.isTogetherFollower !== true;
   const castSession = useTogether({
     credential: cast.membershipCredential,
     sessionToken: token,
     role: isLeadingHosted ? "panel" : undefined,
   });
-  const hosted = useTogether({ credential: cast.togetherCredential, sessionToken: token });
+  const hosted = useTogether({
+    credential: isOne ? undefined : cast.togetherCredential,
+    sessionToken: token,
+  });
   const led = isLeadingHosted ? hosted : castSession;
   return {
     connection: led.connection,

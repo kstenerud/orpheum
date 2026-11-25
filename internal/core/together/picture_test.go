@@ -14,7 +14,7 @@ import (
 func TestCast_TheRemoteChoosesTheReceiversPicture(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	cast, err := stage.hub.OpenCast(stage.owner)
+	cast, err := stage.hub.OpenCast(alone, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func TestCast_TheRemoteChoosesTheReceiversPicture(t *testing.T) {
 func TestHub_TheRosterSaysWhatEachPlayerShows(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	cast, err := stage.hub.OpenCast(stage.owner)
+	cast, err := stage.hub.OpenCast(stage.owner, "")
 	if err != nil {
 		t.Fatal(err)
 	}

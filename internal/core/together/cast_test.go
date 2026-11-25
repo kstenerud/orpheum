@@ -9,43 +9,62 @@ import (
 	"time"
 )
 
-// A cast is a session of one that nothing else finds: it has no links, is not among the person's
-// sessions, and their party is opened and kept beside it (plans/cast-to-device.md §3, §8 step 4).
-func TestCast_IsASessionOfOneNoOneElseFindsAndAPartyStaysBesideIt(t *testing.T) {
+// alone is a person in no Watch Together session, whose cast is a session of one (D88).
+var alone = Person{UserID: 77, Name: "Caster"}
+
+// A cast by a person in no Watch Together session is a session of one that nothing else finds: it has
+// no links and is not among the person's sessions (plans/cast-to-device.md §3). A party its person
+// starts then takes the cast in as their part, no second session beside it (D555 §2).
+func TestCast_AloneIsASessionOfOneAndAPartyTakesItIn(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	cast, err := stage.hub.OpenCast(stage.owner)
+	cast, err := stage.hub.OpenCast(alone, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cast.SessionID == stage.opened.SessionID {
-		t.Fatalf("the cast is the party, session %d", cast.SessionID)
+	if cast.TogetherSessionID != 0 {
+		t.Fatalf("a cast alone is in session %d; want its own", cast.TogetherSessionID)
 	}
-	mine, err := stage.hub.Mine(stage.owner.UserID)
-	if err != nil || len(mine) != 1 || mine[0].SessionID != stage.opened.SessionID {
-		t.Errorf("the person's sessions are %+v, %v; want their party alone", mine, err)
+	if mine, mineErr := stage.hub.Mine(alone.UserID); mineErr != nil || len(mine) != 0 {
+		t.Errorf("the person's sessions are %+v; want none, the cast found by no one", mine)
 	}
-	again, err := stage.hub.Open(stage.owner)
-	if err != nil || again.SessionID == cast.SessionID {
-		t.Errorf("starting a party again gave session %d, %v; want a new party, not the cast", again.SessionID, err)
+	stage.isFoundAsNoSession(t, cast.CastID)
+	party, err := stage.hub.Open(alone)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, _, err = stage.hub.CastPosition(cast.SessionID, stage.owner.UserID); err != nil {
-		t.Errorf("the cast after a party was started again: %v; want it on, beside it (D372 §8)", err)
+	again, err := stage.hub.CastCredential(cast.CastID, alone.UserID)
+	if err != nil {
+		t.Fatalf("the cast after its person started a party: %v; want it on, in the party", err)
 	}
-	_, err = stage.hub.AddLink(cast.SessionID, stage.owner.UserID, "someone", Rights{})
+	if sessionID, _, isMember := stage.hub.MemberOf(again); !isMember || sessionID != party.SessionID {
+		t.Errorf("the cast's credential is of session %d (%v); want the party, %d", sessionID, isMember,
+			party.SessionID)
+	}
+	if sessionID, isHost := stage.hub.CastPart(cast.CastID, alone.UserID); sessionID != party.SessionID || !isHost {
+		t.Errorf("the cast is the part in session %d (host %v); want the party's host's", sessionID, isHost)
+	}
+}
+
+// isFoundAsNoSession checks the cast castID, alone's, is no party: no link is made in it, it has no
+// details and is not ended as one, and no cast's credential is had for the party or for someone else.
+func (stage sessionStage) isFoundAsNoSession(t *testing.T, castID int64) {
+	t.Helper()
+	_, err := stage.hub.AddLink(castID, alone.UserID, "someone", Rights{})
 	if !errors.Is(err, ErrNoSession) {
 		t.Errorf("a link in the cast was %v, want ErrNoSession", err)
 	}
-	if _, err := stage.hub.DetailsOf(cast.SessionID, stage.owner.UserID); !errors.Is(err, ErrNoSession) {
+	if _, err = stage.hub.DetailsOf(castID, alone.UserID); !errors.Is(err, ErrNoSession) {
 		t.Errorf("the cast's details were %v, want ErrNoSession", err)
 	}
-	if err := stage.hub.End(cast.SessionID, stage.owner.UserID); !errors.Is(err, ErrNoSession) {
+	if err = stage.hub.End(castID, alone.UserID); !errors.Is(err, ErrNoSession) {
 		t.Errorf("ending the cast as a party was %v, want ErrNoSession", err)
 	}
-	if _, err := stage.hub.CastCredential(stage.opened.SessionID, stage.owner.UserID); !errors.Is(err, ErrNoSession) {
+	_, err = stage.hub.CastCredential(stage.opened.SessionID, stage.owner.UserID)
+	if !errors.Is(err, ErrNoSession) {
 		t.Errorf("a cast's credential for the party was %v, want ErrNoSession", err)
 	}
-	if _, err := stage.hub.CastCredential(cast.SessionID, 99); !errors.Is(err, ErrNoSession) {
+	if _, err = stage.hub.CastCredential(castID, 99); !errors.Is(err, ErrNoSession) {
 		t.Errorf("a cast's credential for someone else was %v, want ErrNoSession", err)
 	}
 }
@@ -55,7 +74,7 @@ func TestCast_IsASessionOfOneNoOneElseFindsAndAPartyStaysBesideIt(t *testing.T) 
 func TestCast_TheRemoteCommandsTheReceiverAndEndingTellsBothWhy(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	cast, err := stage.hub.OpenCast(stage.owner)
+	cast, err := stage.hub.OpenCast(stage.owner, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +92,7 @@ func TestCast_TheRemoteCommandsTheReceiverAndEndingTellsBothWhy(t *testing.T) {
 	if group := remoteBox.last(MessageGroup).Group; group.State != GroupPaused || group.FileID != 12 {
 		t.Errorf("the remote sees %+v, want file 12 paused", group)
 	}
-	if err = stage.hub.EndCast(cast.SessionID, stage.owner.UserID, CastTakenBack); err != nil {
+	if err = stage.hub.EndCast(cast.CastID, stage.owner.UserID, CastTakenBack); err != nil {
 		t.Fatal(err)
 	}
 	for name, box := range map[string]*inbox{"receiver": receiverBox, "remote": remoteBox} {
@@ -94,15 +113,15 @@ func TestCast_TheRemoteCommandsTheReceiverAndEndingTellsBothWhy(t *testing.T) {
 func TestCast_AHelloJustAfterTheEndIsToldWhyForAMinute(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	cast, err := stage.hub.OpenCast(stage.owner)
+	cast, err := stage.hub.OpenCast(stage.owner, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	again, err := stage.hub.CastCredential(cast.SessionID, stage.owner.UserID)
+	again, err := stage.hub.CastCredential(cast.CastID, stage.owner.UserID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = stage.hub.EndCast(cast.SessionID, stage.owner.UserID, CastTakenBack); err != nil {
+	if err = stage.hub.EndCast(cast.CastID, stage.owner.UserID, CastTakenBack); err != nil {
 		t.Fatal(err)
 	}
 	attach := func(credential string) error {
@@ -133,20 +152,20 @@ func TestCast_AHelloJustAfterTheEndIsToldWhyForAMinute(t *testing.T) {
 func TestCast_ADeviceComingBackHasACredentialOfItsOwn(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	cast, err := stage.hub.OpenCast(stage.owner)
+	cast, err := stage.hub.OpenCast(alone, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	again, err := stage.hub.CastCredential(cast.SessionID, stage.owner.UserID)
+	again, err := stage.hub.CastCredential(cast.CastID, alone.UserID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for name, credential := range map[string]string{
 		"sender's": cast.SenderCredential, "receiver's": cast.ReceiverCredential, "new": again,
 	} {
-		if sessionID, _, isMember := stage.hub.MemberOf(credential); !isMember || sessionID != cast.SessionID {
+		if sessionID, _, isMember := stage.hub.MemberOf(credential); !isMember || sessionID != cast.CastID {
 			t.Errorf("the %s credential is of session %d (%v), want the cast, %d",
-				name, sessionID, isMember, cast.SessionID)
+				name, sessionID, isMember, cast.CastID)
 		}
 	}
 }
@@ -158,7 +177,7 @@ func TestCast_ADeviceComingBackHasACredentialOfItsOwn(t *testing.T) {
 func TestCast_ReadyPlaysNothingSoTheNextIsPutOnAfresh(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	cast, err := stage.hub.OpenCast(stage.owner)
+	cast, err := stage.hub.OpenCast(alone, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +191,7 @@ func TestCast_ReadyPlaysNothingSoTheNextIsPutOnAfresh(t *testing.T) {
 		t.Fatalf("the cast put on %+v; want file 12 as title %d", group, titleOf12)
 	}
 	stage.ready(t, receiver, false)
-	if err = stage.hub.CastReady(cast.SessionID, stage.owner.UserID); err != nil {
+	if err = stage.hub.CastReady(cast.CastID, alone.UserID); err != nil {
 		t.Fatal(err)
 	}
 	for name, box := range map[string]*inbox{"receiver": receiverBox, "remote": remoteBox} {
@@ -180,13 +199,13 @@ func TestCast_ReadyPlaysNothingSoTheNextIsPutOnAfresh(t *testing.T) {
 			t.Errorf("the %s sees %+v once ready, want nothing on, as no title", name, group)
 		}
 	}
-	if played := stage.hub.playedOf(cast.SessionID); played != (Played{}) {
+	if played := stage.hub.playedOf(cast.CastID); played != (Played{}) {
 		t.Errorf("the cast once ready plays %+v; want nothing, as no title", played)
 	}
-	if err := stage.hub.CastReady(cast.SessionID, 99); !errors.Is(err, ErrNoSession) {
+	if err := stage.hub.CastReady(cast.CastID, 99); !errors.Is(err, ErrNoSession) {
 		t.Errorf("someone else made the cast ready: %v; want ErrNoSession", err)
 	}
-	if err := stage.hub.CastReady(stage.opened.SessionID, stage.owner.UserID); !errors.Is(err, ErrNoSession) {
+	if err := stage.hub.CastReady(stage.opened.SessionID, alone.UserID); !errors.Is(err, ErrNoSession) {
 		t.Errorf("the party was made ready as a cast: %v; want ErrNoSession", err)
 	}
 }
@@ -196,13 +215,13 @@ func TestCast_ReadyPlaysNothingSoTheNextIsPutOnAfresh(t *testing.T) {
 func TestCast_AHostsReceiverHasACredentialForTheirSession(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	if _, err := stage.hub.OpenCast(Person{UserID: 77, Name: "Caster"}); err != nil {
+	if _, err := stage.hub.OpenCast(Person{UserID: 77, Name: "Caster"}, ""); err != nil {
 		t.Fatal(err)
 	}
-	if credential, _, _ := stage.hub.TogetherPart(77, ""); credential != "" {
+	if credential, _, _ := stage.castPart(t, 77, ""); credential != "" {
 		t.Errorf("a person with only a cast was given %q; want none", credential)
 	}
-	credential, isHost, _ := stage.hub.TogetherPart(stage.owner.UserID, "")
+	credential, isHost, _ := stage.castPart(t, stage.owner.UserID, "")
 	sessionID, memberID, isMember := stage.hub.MemberOf(credential)
 	if !isMember || !isHost || sessionID != stage.opened.SessionID ||
 		stage.hub.hostOf(sessionID) != stage.owner.UserID {
@@ -224,15 +243,15 @@ func TestHub_EveryWayASessionEndsIsToldWithThePartsCastsEndWith(t *testing.T) {
 		}
 		told = append(told, sessionID)
 	})
-	_, _, partIn := stage.hub.TogetherPart(stage.owner.UserID, "")
+	_, _, partIn := stage.castPart(t, stage.owner.UserID, "")
 	if partIn != stage.opened.SessionID {
 		t.Fatalf("the host's part is in session %d; want %d", partIn, stage.opened.SessionID)
 	}
-	cast, err := stage.hub.OpenCast(stage.owner)
+	cast, err := stage.hub.OpenCast(stage.owner, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = stage.hub.EndCast(cast.SessionID, stage.owner.UserID, CastStopped); err != nil {
+	if err = stage.hub.EndCast(cast.CastID, stage.owner.UserID, CastStopped); err != nil {
 		t.Fatal(err)
 	}
 	again, err := stage.hub.Open(stage.owner)
@@ -282,7 +301,7 @@ func TestCast_AGuestsReceiverTakesTheirPartAsAFollower(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	credential, isHost, _ := stage.hub.TogetherPart(guestPerson.UserID, "")
+	credential, isHost, _ := stage.castPart(t, guestPerson.UserID, "")
 	if sessionID, memberID, isMember := stage.hub.MemberOf(credential); !isMember || isHost ||
 		sessionID != stage.opened.SessionID || memberID != joined.MemberID {
 		t.Fatalf("the guest's receiver was given session %d, member %d (%v, host %v); want the guest's own part",
@@ -320,12 +339,12 @@ func TestCast_AHostsGuestDeviceCastsAsTheirGuest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	credential, isHost, _ := stage.hub.TogetherPart(owner.UserID, joined.MembershipCredential)
+	credential, isHost, _ := stage.castPart(t, owner.UserID, joined.MembershipCredential)
 	if _, memberID, isMember := stage.hub.MemberOf(credential); !isMember || isHost || memberID != joined.MemberID {
 		t.Fatalf("the guest's device's receiver was given member %d (%v, host %v); want the guest's part %d",
 			memberID, isMember, isHost, joined.MemberID)
 	}
-	if _, isHost, _ := stage.hub.TogetherPart(owner.UserID, ""); !isHost {
+	if _, isHost, _ := stage.castPart(t, owner.UserID, ""); !isHost {
 		t.Error("a cast from a page holding no guest's membership took a guest's part; want the host's")
 	}
 }
@@ -396,11 +415,11 @@ func TestCast_TheRemoteChoosesTheReceiversSound(t *testing.T) {
 func TestCast_TheRemoteWorksTheReceiverInTheCastWhileItLeadsWatchTogether(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	cast, err := stage.hub.OpenCast(stage.owner)
+	cast, err := stage.hub.OpenCast(stage.owner, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	receiver, receiverBox := stage.attach(t, cast.ReceiverCredential, RolePanel)
+	receiver, receiverBox := stage.attach(t, cast.ReceiverCredential, RoleVideo)
 	remote, remoteBox := stage.attach(t, cast.SenderCredential, RolePanel)
 	earlier := int64(-400)
 	said := &Playback{Delivery: DeliveryConverted, QualityKbps: 4000, Sound: &PlaybackSound{SoundOffsetMs: &earlier}}
@@ -429,7 +448,7 @@ func TestCast_TheRemoteWorksTheReceiverInTheCastWhileItLeadsWatchTogether(t *tes
 func TestHub_TheRosterSaysHowEachPlayersFilmSounds(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	cast, err := stage.hub.OpenCast(stage.owner)
+	cast, err := stage.hub.OpenCast(stage.owner, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -488,13 +507,13 @@ func TestHub_TheRosterSaysHowEachPlayersFilmSounds(t *testing.T) {
 func TestCast_IdleForCountsFromWhenItLastStoppedPlaying(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	cast, err := stage.hub.OpenCast(stage.owner)
+	cast, err := stage.hub.OpenCast(stage.owner, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	userID := stage.owner.UserID
 	stage.clock.Advance(time.Minute)
-	if idle, idleErr := stage.hub.CastIdleFor(cast.SessionID, userID); idleErr != nil || idle != time.Minute {
+	if idle, idleErr := stage.hub.CastIdleFor(cast.CastID, userID); idleErr != nil || idle != time.Minute {
 		t.Errorf("nothing put on for a minute: idle %v, %v; want a minute", idle, idleErr)
 	}
 	receiver, _ := stage.attach(t, cast.ReceiverCredential, RoleVideo)
@@ -502,15 +521,31 @@ func TestCast_IdleForCountsFromWhenItLastStoppedPlaying(t *testing.T) {
 	stage.command(t, receiver, CommandChangeItem, 12)
 	stage.ready(t, receiver, false)
 	stage.clock.Advance(time.Hour)
-	if idle, idleErr := stage.hub.CastIdleFor(cast.SessionID, userID); idleErr != nil || idle != 0 {
+	if idle, idleErr := stage.hub.CastIdleFor(cast.CastID, userID); idleErr != nil || idle != 0 {
 		t.Errorf("playing for an hour: idle %v, %v; want none", idle, idleErr)
 	}
 	stage.command(t, remote, CommandPause, 0)
 	stage.clock.Advance(2 * time.Minute)
-	if idle, idleErr := stage.hub.CastIdleFor(cast.SessionID, userID); idleErr != nil || idle != 2*time.Minute {
+	if idle, idleErr := stage.hub.CastIdleFor(cast.CastID, userID); idleErr != nil || idle != 2*time.Minute {
 		t.Errorf("paused two minutes: idle %v, %v; want two minutes", idle, idleErr)
 	}
-	if _, idleErr := stage.hub.CastIdleFor(cast.SessionID+1, userID); idleErr == nil {
+	if _, idleErr := stage.hub.CastIdleFor(cast.CastID+1, userID); idleErr == nil {
 		t.Error("a cast that is not there has an idle time")
 	}
+}
+
+// castPart is a cast's receiver credential for the person userID's part in the Watch Together session
+// they are in, the page holding held, whether they host it, and the session: a cast's castee is
+// their part (D555 §2). "" and 0 when they are in none, the cast alone.
+func (stage sessionStage) castPart(t *testing.T, userID int64, held string) (string, bool, int64) {
+	t.Helper()
+	cast, err := stage.hub.OpenCast(Person{UserID: userID, Name: "caster"}, held)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sessionID, isHost := stage.hub.CastPart(cast.CastID, userID)
+	if sessionID == 0 {
+		return "", false, 0
+	}
+	return cast.ReceiverCredential, isHost, sessionID
 }

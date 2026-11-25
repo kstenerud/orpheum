@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
@@ -65,17 +66,42 @@ func (ended *CastEndedError) Error() string {
 // Unwrap is ErrNoSession: the session is gone.
 func (ended *CastEndedError) Unwrap() error { return ErrNoSession }
 
-// CastOpened is a new cast: its session, and a credential each for the device that cast and the
-// one that receives.
-type CastOpened struct {
-	SessionID          int64
-	SenderCredential   string
-	ReceiverCredential string
+// casting is one cast in the hub (D555 §2): a member's playing device, the castee, and its remote,
+// the caster's page, in one session under the one membership. Alone it is a session of one, the
+// cast's own (D88), whose id it shares; in a Watch Together session it is the caster's part in that
+// session, no second session beside it. Its credentials are the member's, each marked with the
+// cast's id (credential.castID), and its end takes them back.
+type casting struct {
+	id     int64
+	userID int64
+	// sessionID is the session the cast is in, and memberID its caster's membership there.
+	sessionID, memberID int64
+	// isOwn is whether the session is the cast's own, of one, which ends with it.
+	isOwn bool
+	// held is the membership the casting page holds as a guest, whose part the cast takes (a host
+	// who joined their own session as a guest from another device casts as that guest); "" for the
+	// person's own. A secret: never logged.
+	held string
 }
 
-// OpenCast starts a cast hosted by host, nothing playing: a session of one, beside any session they
-// host (D88, D337).
-func (hub *Hub) OpenCast(host Person) (CastOpened, error) {
+// castCredentialsKept is how many credentials a cast keeps, its castee's and its remote's, each page
+// loaded again adding one: the newest, past every page a cast's two devices could have open.
+const castCredentialsKept = 8
+
+// CastOpened is a new cast: its id, a credential each for the device that cast and the one that
+// receives, and the Watch Together session it is the caster's part in, 0 for its own of one.
+type CastOpened struct {
+	CastID             int64
+	SenderCredential   string
+	ReceiverCredential string
+	TogetherSessionID  int64
+}
+
+// OpenCast starts a cast by host, the casting page holding the guest's membership held, or "" for
+// the person's own part (D555 §2): in the Watch Together session they are in, the caster's part in
+// it, the castee to attach as their playing device and the remote as their panel, no session opened
+// beside it; else a hidden session of one with nothing playing (D88, D337), beside any party.
+func (hub *Hub) OpenCast(host Person, held string) (CastOpened, error) {
 	sender, err := randbytes.Base64URLSecret(hub.random, secretBytes)
 	if err != nil {
 		return CastOpened{}, fmt.Errorf("make a cast's credential: %w", err)
@@ -86,8 +112,49 @@ func (hub *Hub) OpenCast(host Person) (CastOpened, error) {
 	}
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
+	opened := &casting{userID: host.UserID, held: held}
+	if hub.castIntoPart(opened) {
+		hub.lastID++
+		opened.id = hub.lastID
+	} else {
+		hub.castAlone(opened, host)
+	}
+	hub.casts[opened.id] = opened
+	_, caster := hub.castersPart(opened)
+	caster.addCastPart(sender, opened.id)
+	caster.addCastPart(receiver, opened.id)
+	return CastOpened{
+		CastID: opened.id, SenderCredential: sender, ReceiverCredential: receiver,
+		TogetherSessionID: opened.togetherSessionID(),
+	}, nil
+}
+
+// castIntoPart puts the cast in its person's part in the Watch Together session they are in, the
+// part held names first: whether they are in one. The caller holds the mutex.
+func (hub *Hub) castIntoPart(into *casting) bool {
+	places := hub.placesOf(&Person{UserID: into.userID}, into.held, 0)
+	if len(places) == 0 {
+		return false
+	}
+	taken := places[0] // the host's first, should a person be in two by a sign-in at a hello
+	if into.held != "" {
+		heldHash := sha256.Sum256([]byte(into.held))
+		for _, each := range places {
+			if each.as.admits(heldHash) {
+				taken = each
+				break
+			}
+		}
+	}
+	into.sessionID, into.memberID, into.isOwn = taken.in.id, taken.as.id, false
+	return true
+}
+
+// castAlone opens the cast's own session of one, hosted by host, nothing playing (D88), the cast
+// taking its id. The caller holds the mutex.
+func (hub *Hub) castAlone(into *casting, host Person) {
 	hub.lastID++
-	opened := &session{
+	alone := &session{
 		id: hub.lastID, hostUserID: host.UserID, isCast: true, links: map[int64]*link{},
 		members: map[int64]*member{}, group: group{state: GroupIdle, rate: 1, at: hub.clock.Now()},
 		logger: hub.logger, snapSeeksBeyond: StartingSnapSeeksBeyond,
@@ -98,52 +165,146 @@ func (hub *Hub) OpenCast(host Person) (CastOpened, error) {
 	caster := &member{
 		id: hub.lastID, name: host.Name, isHost: true, person: &hostPerson, devices: map[int64]*device{},
 	}
-	caster.addCredential(madeCredential{credential: sender})
-	caster.addCredential(madeCredential{credential: receiver})
-	opened.members[caster.id] = caster
-	hub.sessions[opened.id] = opened
-	return CastOpened{SessionID: opened.id, SenderCredential: sender, ReceiverCredential: receiver}, nil
+	alone.members[caster.id] = caster
+	hub.sessions[alone.id] = alone
+	into.id, into.sessionID, into.memberID, into.isOwn = alone.id, alone.id, caster.id, true
 }
 
-// CastCredential is another credential for the cast sessionID that userID cast, for a device of
-// theirs coming back to it: a page loaded again.
-func (hub *Hub) CastCredential(sessionID, userID int64) (string, error) {
+// castersPart is the session the cast is in and its caster's membership there; nil for none, its
+// session ended or its member gone. The caller holds the mutex.
+func (hub *Hub) castersPart(cast *casting) (*session, *member) {
+	where, found := hub.sessions[cast.sessionID]
+	if !found {
+		return nil, nil
+	}
+	caster, found := where.members[cast.memberID]
+	if !found {
+		return nil, nil
+	}
+	return where, caster
+}
+
+// togetherSessionID is the Watch Together session the cast is a part in, 0 for its own of one.
+func (of *casting) togetherSessionID() int64 {
+	if of.isOwn {
+		return 0
+	}
+	return of.sessionID
+}
+
+// CastPart is the Watch Together session the cast castID that userID cast is their part in, 0 for its
+// own of one, and whether they host it: its castee leads that session as their player if so, and
+// follows it as any guest's player does if not (D555 §1, §2).
+func (hub *Hub) CastPart(castID, userID int64) (sessionID int64, isHost bool) {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	place, err := hub.castOf(castID, userID)
+	if err != nil || place.cast.isOwn {
+		return 0, false
+	}
+	return place.where.id, place.caster.isHost
+}
+
+// CastCredential is another credential for the cast castID that userID cast, for a device of
+// theirs coming back to it: a page loaded again. A cast alone whose person is now in a Watch Together
+// session moves into their part in it first, its own session let go, its devices to say hello again
+// by the credential handed them (D555 §2).
+func (hub *Hub) CastCredential(castID, userID int64) (string, error) {
 	credential, err := randbytes.Base64URLSecret(hub.random, secretBytes)
 	if err != nil {
 		return "", fmt.Errorf("make a cast's credential: %w", err)
 	}
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
-	cast, err := hub.castOf(sessionID, userID)
+	place, err := hub.castOf(castID, userID)
 	if err != nil {
 		return "", err
 	}
-	for _, each := range cast.members {
-		each.addCredential(madeCredential{credential: credential})
+	caster := place.caster
+	if place.cast.isOwn {
+		alone := place.cast.sessionID
+		if hub.castIntoPart(place.cast) {
+			delete(hub.sessions, alone)
+			_, caster = hub.castersPart(place.cast)
+		}
 	}
+	caster.addCastPart(credential, castID)
 	return credential, nil
 }
 
-// EndCast ends the cast sessionID that userID cast: each of its devices is told why, and its
-// credentials admit nothing more; a device saying hello with one within endedCastKept is told why
-// too (Attach's *CastEndedError).
-func (hub *Hub) EndCast(sessionID, userID int64, reason string) error {
+// EndCast ends the cast castID that userID cast: each of its devices is told why and let go, and its
+// credentials admit nothing more, its own session of one ended with it; a device saying hello with
+// one within endedCastKept is told why too (Attach's *CastEndedError). In a Watch Together session
+// the session goes on, with the caster's other devices in it (D555 §2).
+func (hub *Hub) EndCast(castID, userID int64, reason string) error {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
-	cast, err := hub.castOf(sessionID, userID)
-	if err != nil {
-		return err
+	ended, found := hub.casts[castID]
+	if !found || ended.userID != userID {
+		return ErrNoSession
 	}
-	cast.broadcast(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: reason})
-	delete(hub.sessions, sessionID)
+	hub.endCast(ended, reason)
+	return nil
+}
+
+// endCast ends the cast ended for reason (EndCast). The caller holds the mutex.
+func (hub *Hub) endCast(ended *casting, reason string) {
+	delete(hub.casts, ended.id)
+	where, caster := hub.castersPart(ended)
+	if where == nil {
+		return
+	}
 	now := hub.clock.Now()
 	hub.endedCasts = hub.endedCastsKeptAt(now)
-	for _, each := range cast.members {
-		for _, held := range each.credentials {
+	for _, held := range caster.credentials {
+		if held.castID == ended.id {
 			hub.endedCasts = append(hub.endedCasts, endedCast{hash: held.hash, reason: reason, endedAt: now})
 		}
 	}
-	return nil
+	told := Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: reason}
+	if ended.isOwn {
+		where.broadcast(told)
+		delete(hub.sessions, where.id)
+		return
+	}
+	where.letCastGo(now, caster, ended.id, told)
+}
+
+// endCastsIn ends every cast that is a part where the Watch Together session ended as it ends, each of
+// its devices told sessionEnded rather than the session's own reason (D389 §1). The caller holds the
+// mutex.
+func (hub *Hub) endCastsIn(ended *session) {
+	for _, each := range hub.casts {
+		if each.sessionID == ended.id && !each.isOwn {
+			hub.endCast(each, CastSessionEnded)
+		}
+	}
+}
+
+// letCastGo takes back the credentials of the cast castID from its caster and lets go each device
+// that said hello with one, telling it told; the lead passes on as a device's going passes it. The
+// caller holds the mutex.
+func (current *session) letCastGo(now time.Time, caster *member, castID int64, told Outbound) {
+	hashes := map[[sha256.Size]byte]bool{}
+	caster.credentials = slices.DeleteFunc(caster.credentials, func(kept credential) bool {
+		if kept.castID == castID {
+			hashes[kept.hash] = true
+			return true
+		}
+		return false
+	})
+	for id, attached := range caster.devices {
+		if !hashes[attached.credentialHash] {
+			continue
+		}
+		attached.send(told)
+		delete(caster.devices, id)
+		current.endRun(caster, attached, string(goneRemoved))
+		if id == current.leaderID {
+			current.leaderGone(now, caster.isHost, goneRemoved)
+		}
+	}
+	current.sendRoster()
 }
 
 // endedCastsKeptAt is the ended casts' credentials still kept at now (endedCastKept), the oldest
@@ -168,91 +329,82 @@ func (hub *Hub) noSessionFor(credential string) error {
 	return ErrNoSession
 }
 
-// CastPosition is where the cast sessionID that userID cast stands now, in milliseconds, and
-// whether it plays: where a remote offers to play from once the cast ends (§9 Q5).
-func (hub *Hub) CastPosition(sessionID, userID int64) (positionMs int64, isPlaying bool, err error) {
+// CastPosition is where the cast castID that userID cast stands now, in milliseconds, and whether it
+// plays, in the session it is in, its own or the Watch Together session: where a remote offers to
+// play from once the cast ends (§9 Q5).
+func (hub *Hub) CastPosition(castID, userID int64) (positionMs int64, isPlaying bool, err error) {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
-	cast, err := hub.castOf(sessionID, userID)
+	place, err := hub.castOf(castID, userID)
 	if err != nil {
 		return 0, false, err
 	}
-	return cast.positionAt(hub.clock.Now()).Milliseconds(), cast.group.state == GroupPlaying, nil
+	return place.where.positionAt(hub.clock.Now()).Milliseconds(), place.where.group.state == GroupPlaying, nil
 }
 
-// CastIdleFor is how long nothing has played in the cast sessionID that userID cast: none while it
-// plays, else since its group last changed, a film stopped, paused or put on (D469 §3).
-func (hub *Hub) CastIdleFor(sessionID, userID int64) (time.Duration, error) {
+// CastPlays is the film the cast castID that userID cast plays in its session now; FileID 0 for none.
+func (hub *Hub) CastPlays(castID, userID int64) Played {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
-	cast, err := hub.castOf(sessionID, userID)
+	place, err := hub.castOf(castID, userID)
+	if err != nil {
+		return Played{}
+	}
+	return Played{FileID: place.where.group.fileID, ItemID: place.where.group.itemID}
+}
+
+// CastIdleFor is how long nothing has played in the cast castID that userID cast: none while it
+// plays, else since its group last changed, a film stopped, paused or put on (D469 §3).
+func (hub *Hub) CastIdleFor(castID, userID int64) (time.Duration, error) {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	place, err := hub.castOf(castID, userID)
 	if err != nil {
 		return 0, err
 	}
-	if cast.group.state == GroupPlaying {
+	if place.where.group.state == GroupPlaying {
 		return 0, nil
 	}
-	return hub.clock.Now().Sub(cast.group.at), nil
+	return hub.clock.Now().Sub(place.where.group.at), nil
 }
 
-// CastReady has the cast sessionID that userID cast play nothing, its receiver ready between videos
+// CastReady has the cast castID that userID cast play nothing, its receiver ready between videos
 // (D364 §5): the next video is put on afresh, from where it is asked to start, even the one that
-// played before.
-func (hub *Hub) CastReady(sessionID, userID int64) error {
+// played before. A cast in a Watch Together session leaves the session's film to the session.
+func (hub *Hub) CastReady(castID, userID int64) error {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
-	cast, err := hub.castOf(sessionID, userID)
+	place, err := hub.castOf(castID, userID)
 	if err != nil {
 		return err
 	}
-	if cast.group.fileID == 0 {
+	where := place.where
+	if !place.cast.isOwn || where.group.fileID == 0 {
 		return nil
 	}
-	cast.group.fileID, cast.group.itemID, cast.group.position = 0, 0, 0
-	cast.filmChanged(hub.clock.Now()) // nothing on, no one leads (D374 §1)
-	cast.change(hub.clock.Now(), GroupIdle, EventStopped, 0)
+	where.group.fileID, where.group.itemID, where.group.position = 0, 0, 0
+	where.filmChanged(hub.clock.Now()) // nothing on, no one leads (D374 §1)
+	where.change(hub.clock.Now(), GroupIdle, EventStopped, 0)
 	return nil
 }
 
-// TogetherPart is a new credential for the Watch Together session userID is in, for a cast's receiver
-// to take their part in it (D371 §4), and whether it is the host's: the session they host, the
-// receiver then playing it as their player, its leader, so what they play plays for the group (D364
-// §11; plans/cast-to-device.md §7); else the one they joined signed in as a guest, the receiver then
-// just another follower. A person is in one session at most (D372 §8). The sender's own part, held,
-// the membership credential its page holds as a guest, is taken where given: a person who hosts a
-// session and joined it as a guest from another device casts from that device as its guest, the
-// receiver following the group, not leading it as their host's player. "" when they are in none, or
-// none can be made. SessionID is the session the part is in, whose end ends the cast (D389 §1).
-func (hub *Hub) TogetherPart(userID int64, held string) (credential string, isHost bool, sessionID int64) {
-	made, err := randbytes.Base64URLSecret(hub.random, secretBytes)
-	if err != nil {
-		return "", false, 0
+// castOf is the cast userID cast by castID, the session it is in and its caster's membership there.
+// The caller holds the mutex.
+func (hub *Hub) castOf(castID, userID int64) (castPlace, error) {
+	held, found := hub.casts[castID]
+	if !found || held.userID != userID {
+		return castPlace{}, ErrNoSession
 	}
-	hub.mutex.Lock()
-	defer hub.mutex.Unlock()
-	places := hub.placesOf(&Person{UserID: userID}, held, 0)
-	if len(places) == 0 {
-		return "", false, 0
+	where, caster := hub.castersPart(held)
+	if where == nil {
+		return castPlace{}, ErrNoSession
 	}
-	taken := places[0] // the host's first, should a person be in two by a sign-in at a hello
-	if held != "" {
-		heldHash := sha256.Sum256([]byte(held))
-		for _, each := range places {
-			if each.as.admits(heldHash) {
-				taken = each
-				break
-			}
-		}
-	}
-	taken.as.addCredential(madeCredential{credential: made})
-	return made, taken.as.isHost, taken.in.id
+	return castPlace{cast: held, where: where, caster: caster}, nil
 }
 
-// castOf is the cast userID cast by sessionID.
-func (hub *Hub) castOf(sessionID, userID int64) (*session, error) {
-	cast, found := hub.sessions[sessionID]
-	if !found || !cast.isCast || cast.hostUserID != userID {
-		return nil, ErrNoSession
-	}
-	return cast, nil
+// castPlace is a cast, the session it is in and its caster's membership there.
+type castPlace struct {
+	cast   *casting
+	where  *session
+	caster *member
 }

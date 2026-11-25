@@ -260,21 +260,24 @@ func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*St
 	if err != nil {
 		return nil, err
 	}
-	opened, err := dependencies.Together.OpenCast(together.Person{UserID: principal.UserID, Name: principal.Name})
+	opened, err := dependencies.Together.OpenCast(
+		together.Person{UserID: principal.UserID, Name: principal.Name}, input.Body.TogetherCredential)
 	if err != nil {
 		return nil, server.logInternalError(ctx, "open a cast", err)
 	}
+	if film.FileID == 0 && opened.TogetherSessionID != 0 {
+		film = server.sessionsFilm(ctx, dependencies, principal, opened.CastID)
+	}
 	cast := live.Cast{
-		ID: opened.SessionID, UserID: principal.UserID, SenderDeviceID: principal.DeviceID,
+		ID: opened.CastID, UserID: principal.UserID, SenderDeviceID: principal.DeviceID,
 		ReceiverDeviceID: input.Body.ToDeviceID, SenderName: senderName, ReceiverName: receiverName,
 		FileID: film.FileID, ItemID: film.ItemID, ItemName: film.ItemName, DurationMs: film.DurationMs,
 		PositionMs: input.Body.PositionMs, IsPaused: input.Body.IsPaused,
-		SendersMembership: input.Body.TogetherCredential,
 	}
 	cast, left, err := dependencies.Live.Cast(cast, opened.ReceiverCredential)
 	if err != nil {
 		//nolint:errcheck // just opened, it ends
-		_ = dependencies.Together.EndCast(opened.SessionID, principal.UserID, together.CastStopped)
+		_ = dependencies.Together.EndCast(opened.CastID, principal.UserID, together.CastStopped)
 		return nil, server.castRefused(ctx, principal, "start", err, "to", input.Body.ToDeviceID)
 	}
 	for _, each := range left { // the sender went on to another receiver
@@ -289,6 +292,26 @@ func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*St
 // opened is the file a cast is to play, as the title it was opened from.
 func (item CastItem) opened() library.Opened {
 	return library.Opened{FileID: item.FileID, TitleID: item.ItemID}
+}
+
+// sessionsFilm is the film the Watch Together session the cast castID is a part in plays, for a cast
+// from a page that names none (D555 §2): the castee plays the session's film, as the member's
+// playing device, never a black screen waiting for one. A film the person cannot reach by their own
+// rights, a guest's in their host's library, is named by its ids alone: the castee plays it by the
+// membership (D246 §3).
+func (server *Server) sessionsFilm(
+	ctx context.Context, dependencies *Dependencies, principal auth.Principal, castID int64,
+) live.Film {
+	played := dependencies.Together.CastPlays(castID, principal.UserID)
+	if played.FileID == 0 {
+		return live.Film{}
+	}
+	opened := library.Opened{FileID: played.FileID, TitleID: played.ItemID}
+	film, err := server.castFilmOf(ctx, dependencies, principal, opened)
+	if err != nil {
+		return live.Film{FileID: played.FileID, ItemID: played.ItemID}
+	}
+	return film
 }
 
 // castFilmOf is the opened file as a cast plays it, as the title it was opened from, which the

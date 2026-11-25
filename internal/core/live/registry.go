@@ -34,12 +34,10 @@ var (
 // CastCredential.
 type Credential func(castID, userID int64) (string, error)
 
-// TogetherPart mints a credential for the Watch Together session userID is in, for a cast's receiver
-// to take their part in it, and whether it is the host's, which the receiver leads (plans/cast-to-
-// device.md §7; D371 §4), or "" when they are in none: the hub's TogetherPart. Held, where given, is
-// the membership the sender holds as a guest, whose part is taken. SessionID is the session the part
-// is in, whose end ends the cast (EndPartIn, D389 §1).
-type TogetherPart func(userID int64, held string) (credential string, isHost bool, sessionID int64)
+// TogetherPart is the Watch Together session the cast castID that userID cast is their part in, 0 for
+// a cast alone, and whether they host it, its receiver then leading it as their player, else following
+// it (D555 §1, §2): the hub's CastPart. The session is the one whose end ends the cast (EndPartIn).
+type TogetherPart func(castID, userID int64) (sessionID int64, isHost bool)
 
 // ReceiverGoneAfter is how long a cast's receiver may have no connection before its cast ends, the
 // sender told (D364 §6): a television switched off or its page closed, not one loaded again or
@@ -77,10 +75,6 @@ type Cast struct {
 	IsPaused bool
 	// IsAccepted is whether the receiver took the session, asking nothing (D468 §1).
 	IsAccepted bool
-	// SendersMembership is the Watch Together membership credential the sender's page holds as a
-	// guest, whose part in the session the receiver takes (TogetherPart); "" for the person's own
-	// part, the session they host first. A secret: never logged or answered.
-	SendersMembership string
 }
 
 // Connection is one registered live connection, which Disconnect takes.
@@ -523,12 +517,13 @@ func (registry *Registry) handOff(held *heldCast, to *connection) {
 // session its person is in, if any, and whether the receiver follows it (TakesPartBy); held notes
 // the session its part is in (partIn).
 func (registry *Registry) receiveOf(held *heldCast, credential string) *Receive {
-	partCredential, isHost, partIn := "", false, int64(0)
+	partIn, isHost := int64(0), false
 	if registry.togetherPart != nil {
-		partCredential, isHost, partIn = registry.togetherPart(held.UserID, held.SendersMembership)
+		partIn, isHost = registry.togetherPart(held.ID, held.UserID)
 	}
-	if partCredential == "" {
-		partIn = 0
+	partCredential := ""
+	if partIn != 0 {
+		partCredential = credential // the one membership: the cast is the person's part (D555 §2)
 	}
 	held.partIn = partIn
 	cast := held.Cast

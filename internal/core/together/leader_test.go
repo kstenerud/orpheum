@@ -421,7 +421,7 @@ func TestHub_WithEveryoneGoneTheGroupPausesWhereItStandsThenEndsIdle(t *testing.
 		t.Errorf("everyone gone for the idle end: EndStale ended %v; want the session", ended)
 	}
 
-	cast, err := stage.hub.OpenCast(stage.owner)
+	cast, err := stage.hub.OpenCast(stage.owner, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -464,7 +464,7 @@ func TestHub_LogsALeadingGuestsUndoneMove(t *testing.T) {
 func TestCast_AReceiversStallStandsItsGroupForIt(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	cast, err := stage.hub.OpenCast(stage.owner)
+	cast, err := stage.hub.OpenCast(stage.owner, "")
 	if err != nil {
 		t.Fatal(err)
 	}

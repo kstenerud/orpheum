@@ -99,6 +99,8 @@ type Hub struct {
 	// by mutex.
 	lifetimes Lifetimes
 	sessions  map[int64]*session // guarded by mutex
+	// casts are the casts in the hub, by id (cast.go, D555 §2); guarded by mutex.
+	casts map[int64]*casting
 	// endedCasts are the credentials of the casts that ended within endedCastKept, the oldest
 	// first, each with why (cast.go); guarded by mutex.
 	endedCasts []endedCast
@@ -113,7 +115,7 @@ type Hub struct {
 func NewHub(clockSource clock.Clock, random io.Reader, mayPlay MayPlay, logger *slog.Logger) *Hub {
 	return &Hub{
 		clock: clockSource, random: random, mayPlay: mayPlay, logger: logger, sessions: map[int64]*session{},
-		lifetimes: startingLifetimes(),
+		casts: map[int64]*casting{}, lifetimes: startingLifetimes(),
 	}
 }
 
@@ -453,6 +455,7 @@ func (hub *Hub) OnSessionEnded(ended func(sessionID int64)) {
 // credential and link admits nothing more, and onSessionEnded is told as the lock is let go
 // (unlockTellingEnds). The one way a Watch Together session ends; the caller holds the mutex.
 func (hub *Hub) endSession(ended *session, reason string) {
+	hub.endCastsIn(ended)
 	ended.broadcast(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: reason})
 	delete(hub.sessions, ended.id)
 	hub.endedToTell = append(hub.endedToTell, ended.id)

@@ -124,8 +124,8 @@
 //     remote, is relayed to their own other devices that play it, which carry it out as their own
 //     press, and to no one else's; one no remote may make is refused. The server keeps nothing of
 //     it. In a cast it reaches the receiver whatever its part, and the receiver may say its playback
-//     alone (MessagePlayback), so the remote works it in the cast's session while it leads its
-//     person's Watch Together session. Enforced by TestCast_TheRemoteChoosesTheReceiversSound and
+//     alone (MessagePlayback), so the remote works it in the one session the cast is in, its own or
+//     its person's Watch Together session. Enforced by TestCast_TheRemoteChoosesTheReceiversSound and
 //     TestCast_TheRemoteWorksTheReceiverInTheCastWhileItLeadsWatchTogether.
 //   - A player's playback may say what it shows that its person may choose, its subtitles and the
 //     original, and its person's choice of them on a cast's remote (MessagePicture) is relayed as a
@@ -164,9 +164,9 @@
 //     TestTogether_JoiningAnotherSessionAsksToLeaveTheOneYouAreIn.
 //   - Every way a Watch Together session ends, its host's end, its host starting or joining another,
 //     or its idle end, goes through one (endSession): each device told why, and whoever registered
-//     (OnSessionEnded) told the session once the hub's lock is let go, so the casts whose receiver
-//     takes a part in it end with it, as sessionEnded (D389 §1); TogetherPart says which session a
-//     part is in. A cast's own end is no Watch Together session's. Enforced by
+//     (OnSessionEnded) told the session once the hub's lock is let go; the casts that are a part in
+//     it end with it, their devices told sessionEnded (D389 §1); CastPart says which session a cast
+//     is a part in. A cast's own end is no Watch Together session's. Enforced by
 //     TestHub_EveryWayASessionEndsIsToldWithThePartsCastsEndWith and, through the API,
 //     TestCast_ASessionsEndEndsTheCastsThatTakeAPartInIt in internal/core/api.
 //   - A Watch Together invitation is short-term (D346): a link admits its person for its lifetime
@@ -175,18 +175,23 @@
 //     as the host's end would, each device told "idle". Enforced by
 //     TestHub_ALinkAdmitsNoOneOnceItsLifetimeHasPassed, TestHub_ASessionIdleForItsIdleEndIsEnded and
 //     TestHub_AGroupPlayingToNoPlayerIsIdle.
-//   - A cast is a session of one (D88, D337): its host is the person who cast, its receiver leads,
-//     playing as the device plays a film alone, and its remote, a device with no player, commands it,
-//     each command standing for the receiver to carry out (D371 §4, §5); it has no links and is never among the
-//     person's sessions nor their party, which is opened and kept beside it; ending it tells each
-//     of its devices why. Enforced by TestCast_IsASessionOfOneNoOneElseFindsAndAPartyStaysBesideIt
+//   - A cast is a relation in the hub (casting, D555 §2): a member's playing device, the castee, and
+//     its remote, the caster's page, in one session under the one membership. By a person in no
+//     Watch Together session it is a session of one (D88, D337): its host is the person who cast,
+//     its receiver leads, playing as the device plays a film alone, and its remote, a device with no
+//     player, commands it, each command standing for the receiver to carry out (D371 §4, §5); it has
+//     no links and is never among the person's sessions; a party they start takes it in as their
+//     part. By a person in a Watch Together session it is their part in it, no second session
+//     beside it, the castee playing the session's film. Ending it tells each of its devices why and
+//     takes its credentials back, the session it was a part in going on. Enforced by
+//     TestCast_AloneIsASessionOfOneAndAPartyTakesItIn, TestCast_AnEndedCastLeavesTheWatchTogetherSessionGoingOn
 //     and TestCast_TheRemoteCommandsTheReceiverAndEndingTellsBothWhy; a device saying hello with
 //     one of its credentials within a minute of its end is told why too (CastEndedError), enforced
 //     by TestCast_AHelloJustAfterTheEndIsToldWhyForAMinute. Ready between videos it plays
 //     nothing, so the next is put on afresh (D364 §5), enforced by
 //     TestCast_ReadyPlaysNothingSoTheNextIsPutOnAfresh; a receiver takes its person's part in the
-//     Watch Together session they are in, a host's credential leading it (D364 §11), a signed-in
-//     guest's following as just another follower (D371 §4), enforced by
+//     Watch Together session they are in, by the cast's own credential, a host's leading it (D364
+//     §11), a signed-in guest's following as just another follower (D371 §4), enforced by
 //     TestCast_AHostsReceiverHasACredentialForTheirSession and
 //     TestCast_AGuestsReceiverTakesTheirPartAsAFollower. A Google Cast device a guest by link, signed
 //     in to nothing, cast to is no cast: it is given a credential of the guest's own membership, a
@@ -294,5 +299,6 @@
 //   - leader.go: who contends for the lead, who leads, and how the lead passes (D371, D372, D374).
 //   - places.go: a person in one session at most (D372 §8).
 //   - lifetimes.go: how long a link admits, and when an idle session ends (D346).
-//   - cast.go: a cast's session of one (D337; plans/cast-to-device.md §3).
+//   - cast.go: a cast, alone a session of one (D337; plans/cast-to-device.md §3), in a Watch Together
+//     session its person's part (D555 §2).
 package together
