@@ -133,15 +133,17 @@ Play page's own 355 tests stay and grow.
 2. **The castee reports each 5 s** while it plays.
 3. **A session lives on one device for each person in it, that device with its castee where it
    casts** (the owner's words for D442's rule): the caster's page is the remote and the castee
-   plays, the two as one. A sign-in on a third device still takes the session over, castee and
-   all, and no longer cuts the castee off from the device that cast to it.
+   plays, the two as one.
 4. **The sound-timing page stays,** as a page of Settings.
 5. **The admin's "offer device tests" setting goes** with the lab.
 6. **The television's own controls while it receives stay:** a player without menus.
 7. **D288's pairing of a Chromecast through the lab goes.**
 
 Under point 3 (the owner, 2026-11-25): **everyone in a session, host or guest, takes part from
-one place, a device with its castee where it casts.** A signed-in person may take their part
-over on another device; it then runs there alone. Today a signed-in guest gets a credential for
-each of their devices and may be in on several: phase 1 ends that, a guest's part moving as a
-host's does.
+one place, a device with its castee where it casts.** A signed-in person may take their seat
+over on another device, by an act of theirs (the host's Move here, offered to a guest too), never
+by a page loading. **Taking a seat over ends that person's cast:** a Chromecast started from one
+browser cannot be worked from another, and a castee carried over could be left with no remote.
+The seat then runs on the new device alone, playing itself. Today a signed-in guest gets a
+credential for each of their devices and may be in on several: phase 1 ends that.
+
