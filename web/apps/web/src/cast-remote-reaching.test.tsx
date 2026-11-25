@@ -166,4 +166,28 @@ describe("the cast remote reaches for a receiver the server no longer hears (D55
     expect(ends.map((each) => bodyField(each, "reason"))).toEqual(["stopped"]);
     expect(onPlayHere).toHaveBeenCalledExactlyOnceWith(75_000, true);
   });
+
+  // The owner, 2026-11-25: a phone's Wi-Fi gone a moment, the cast should not end; the television
+  // plays on, and the remote comes back with the connection (D553 §4).
+  it("says it can't reach the server while its own connection reconnects, ending nothing and saying no note, and takes the cast up again as it returns (D553 §4)", async () => {
+    const heard: Heard[] = [];
+    const { sockets, onPlayHere } = await casting({}, { welcome: playing }, heard);
+    await sockets.session.say({ type: "roster", roster: receiverLeads });
+    await sockets.live.say(bothConnected);
+    fakeClock();
+    const opened = sockets.session.openedCount();
+    await sockets.session.drop();
+    expect(pill()).toBe("Can't reach the server");
+    step(notAnsweringAfterMs + 1_000);
+    expect(mounted!.container.querySelector(".cast-remote__note")).toBeNull();
+    expect(pill()).toBe("Can't reach the server");
+    await settleUntil(() => sockets.session.openedCount() > opened);
+    await sockets.session.accept();
+    await sockets.session.say(playing);
+    await sockets.session.say({ type: "roster", roster: receiverLeads });
+    expect(pill()).toBeUndefined();
+    expect(isPadDisabled()).toBe(false);
+    expect(heard.filter((each) => each.methodAndPath.startsWith("POST /me/casts/"))).toEqual([]);
+    expect(onPlayHere).not.toHaveBeenCalled();
+  });
 });

@@ -36,7 +36,14 @@ import { ClockTimes, shownAtMsOf, Timeline } from "./timeline.tsx";
 import { EndsAt, leftMsOf } from "./convenience-area.tsx";
 import { readTitle, titleKey } from "./item-detail.ts";
 import { RemoteOffer, type RemoteEnded } from "./cast-remote-offer.tsx";
-import { useEndWay, useRemoteEnded } from "./cast-remote-ends.ts";
+import { useCastAgain } from "./cast-remote-again.ts";
+import {
+  playsFromWhereItStood,
+  useEndWay,
+  useRemoteEnded,
+  useTellsTheHost,
+} from "./cast-remote-ends.ts";
+import { useReceiverHeard } from "./cast-remote-heard.ts";
 import { OverlayUp, PlayUpwardContext, usePlayUpward } from "./play-up.tsx";
 import { useLatest } from "./latest.ts";
 import { useLive } from "./live.tsx";
@@ -146,9 +153,11 @@ function usePlaysHere(
  * controls and Up next at the episode's end; with none, "Ready on ‹Device›" (D444). Stop casting, the
  * one way to bring the film back here (D388), is in the Cast sign's dialog, as everywhere (D444).
  * Stopped by this tab, the film plays here again at once, as the receiver left it (D446 §2); ended
- * any other way, the cast over, the remote stays with its note saying why, and only Play here brings
- * the film back, from where the receiver likely got to (D552 §2, §4); with nothing on, the page goes
- * home (D446 §2, D386 §2).
+ * any other way, the cast over, the remote stays with its note saying why, Play here bringing the
+ * film back from where the receiver likely got to, and Cast again, once the receiver is back, casting
+ * it there anew (D552 §2, §4, D553 §2); while this tab hosts Watch Together, a receiver gone has the
+ * film play here at once, a notice saying why (D553 §3); with nothing on, the page goes home (D446
+ * §2, D386 §2).
  * The cast's film ended with nothing next, the page goes to the page above it, or above the episode
  * the cast had moved on to, the cast going on (useLeavesAtTheCastsEnd).
  */
@@ -157,21 +166,29 @@ function Remote(props: {
   readonly pageFileId: number;
   readonly onPlayHere: PlaysHereFrom;
 }): JSX.Element | null {
-  const { sent } = props;
+  const { sent, pageFileId } = props;
   const { connection, snapshot, over, casts } = useCastSession(sent.castId);
   const hosted = useHostedPanel();
+  const isHosting = hosted !== undefined;
   const stoodRef = useWhereItStood(hosted?.snapshot ?? snapshot);
-  const playHere = usePlaysHere(sent, props.pageFileId, props.onPlayHere);
-  const way = useEndWay(sent.castId, over?.reason, sent.fileId);
-  useTakesTheFilmOver(sent.castId, way === "takenOver" ? over : undefined, { stoodRef, playHere });
+  const playHere = usePlaysHere(sent, pageFileId, props.onPlayHere);
+  const reason = over?.reason;
+  const way = useEndWay(sent.castId, { reason, fileId: sent.fileId, isHosting });
+  const takeOver = useTellsTheHost(playHere, { reason, isHosting, name: sent.receiverName });
+  useTakesTheFilmOver(sent.castId, way === "takenOver" ? over : undefined, {
+    stoodRef,
+    playHere: takeOver,
+  });
   useGoesHomeAsTheCastIsLost(way === "lost" ? over : undefined);
   const episodes = useEpisodesMovedTo();
-  useLeavesAtTheCastsEnd(sent.fileId, props.pageFileId, episodes.of);
-  const ended = useRemoteEnded(
-    { way, over },
-    sent.receiverName,
-    playsFromWhereItStood(over, { stoodRef, playHere }),
-  );
+  useLeavesAtTheCastsEnd(sent.fileId, pageFileId, episodes.of);
+  const stood = playsFromWhereItStood(over, { stoodRef, playHere });
+  const itemId = useCastItemId(casts, sent.castId, sent.fileId);
+  const castAgain = useCastAgain(sent, { pageFileId, itemId }, stood.from);
+  const ended = useRemoteEnded({ way, over }, sent.receiverName, {
+    playHere: stood.play,
+    castAgain,
+  });
   if (over !== undefined && way !== "ended") {
     return null; // the film plays here again at once, or the page goes home
   }
@@ -188,24 +205,6 @@ function Remote(props: {
       <TogetherBehindTheRemote hostedSnapshot={hosted?.snapshot} />
     </>
   );
-}
-
-/**
- * Plays the film here as an ordinary play from where the receiver last stood, or, not heard, where
- * the cast stood as it ended (over), playing or paused as it was: Play here after an end this tab did
- * not ask (D552 §2, §4).
- */
-function playsFromWhereItStood(
-  over: CastEnd | undefined,
-  where: {
-    readonly stoodRef: RefObject<ReopenAt | undefined>;
-    readonly playHere: (atMs: number | undefined, isPaused?: boolean) => void;
-  },
-): () => void {
-  return () => {
-    const from = where.stoodRef.current ?? over?.stood;
-    where.playHere(from?.positionMs, from?.isPaused);
-  };
 }
 
 /**
@@ -463,29 +462,6 @@ function receiverPlaybackIn(snapshot: TogetherSnapshot | undefined): PlaybackRep
 }
 
 /**
- * Whether the receiver is heard (D550 §2): its device among the person's connected devices (the live
- * connection's, told once it has said any), and, once a device was heard leading the cast's session,
- * one still leading it. The remote's own connection stands with a television switched off, so it
- * alone does not say. A receiver still loading, never heard leading, is not gone. A guest receiver
- * (a Chromecast's, D465 §1) is in no devices message, so it is heard by its session alone: the
- * server ends its cast as it goes.
- */
-function useReceiverHeard(sent: CastSending, snapshot: TogetherSnapshot | undefined): boolean {
-  const { connectedDeviceIds } = useLive();
-  const isLeading = snapshot !== undefined && leaderOf(snapshot) !== undefined;
-  const [hasLed, setHasLed] = useState(false);
-  if (isLeading && !hasLed) {
-    setHasLed(true); // kept as it renders, so the render that loses the leader already knows
-  }
-  const isDeviceGone =
-    !sent.isGuestReceiver &&
-    connectedDeviceIds.length > 0 &&
-    !connectedDeviceIds.includes(sent.receiverDeviceId);
-  const isLeaderGone = hasLed && !isLeading;
-  return !isDeviceGone && !isLeaderGone;
-}
-
-/**
  * What the remote shows of what plays on the receiver: its own page, laid out for a hand holding a
  * phone (D548 §1, amending D444's full-screen overlay), its stage filling the window under the top
  * bar, kept so a person can go elsewhere (the owner, 2026-11-23), its Cast the dialog, Stop casting
@@ -574,6 +550,9 @@ function RemotePlaying(props: {
         art={title.art}
         film={volume.isShown ? film : undefined}
         ended={props.ended}
+        isServerLost={[props.cast, hosted].some(
+          (each) => each?.snapshot?.status === "reconnecting",
+        )}
       />
       <RemoteTimeline source={source} isDisabled={isDisabled} />
       <RemotePad

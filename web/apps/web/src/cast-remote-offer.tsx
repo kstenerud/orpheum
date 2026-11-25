@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 
 import type { UpNext } from "./around-file.ts";
 import { CastFrame } from "./cast-frame.tsx";
+import type { CastAgain } from "./cast-remote-again.ts";
 import { RemoteSkipOffer, useFileSegments } from "./cast-segments.tsx";
 import { moveCastOn } from "./cast.ts";
 import { IconButton } from "./icon-button.tsx";
@@ -41,17 +42,21 @@ export const notAnsweringAfterMs = 15_000;
  * remote's sign tells where it plays; at its top-right the offer, Up next or a skip (RemoteOffers);
  * at its centre a Pill, "Reaching ‹TV›…" while the receiver is not reached, else the film's level a
  * moment after the pad moves it (film); "‹TV› isn't answering" with Try again and Play here once it
- * has not been reached for notAnsweringAfterMs; and, the cast ended by anything but this tab's own
- * ask (ended), its note saying why, "‹TV› stopped casting", "‹TV› unreachable" or "Casting ended",
- * with Play here alone, nothing left to try (D552 §1, §4).
+ * has not been reached for notAnsweringAfterMs; while the remote's own connection to the server is
+ * lost (isServerLost), "Can't reach the server" in Reaching's place, and no note: the receiver may
+ * play on, and nothing is ended (D553 §4); and, the cast ended by anything but this tab's own ask
+ * (ended), its note saying why, "‹TV› took control", "‹TV› unreachable" or "Casting ended", with
+ * Play here, nothing left to try, and Cast again once the receiver is back (D552 §1, §4, D553 §2).
  */
 /**
- * A cast's end this tab did not ask for, as the remote shows it (D552 §4): its note, why it ended,
- * and Play here, which plays the film here as an ordinary play, asking the server for no end.
+ * A cast's end this tab did not ask for, as the remote shows it (D552 §4, D553 §2): its note, why it
+ * ended; Play here, which plays the film here as an ordinary play, asking the server for no end; and
+ * Cast again, where the receiver is back.
  */
 export interface RemoteEnded {
   readonly text: string;
   readonly playHere: () => void;
+  readonly castAgain: CastAgain | undefined;
 }
 
 export function RemoteOffer(props: {
@@ -63,11 +68,12 @@ export function RemoteOffer(props: {
   readonly film: PlayerSound | undefined;
   /** The cast's end this tab did not ask, said and played here from (D552 §4); undefined while it lasts. */
   readonly ended: RemoteEnded | undefined;
+  /** Whether the remote's own connection to the server is lost, reconnecting (D553 §4). */
+  readonly isServerLost: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { sent, source, ended } = props;
-  const notAnswering = useNotAnswering(source.isReady);
-  const playHere = useCastEnding(sent.castId, "stopped"); // the remote's Stop, which plays the film here (D549)
+  const { sent, source, ended, isServerLost } = props;
+  const notAnswering = useNotAnswering(source.isReady || isServerLost);
   const name = sent.receiverName;
   return (
     <div className="cast-remote__offer-cell">
@@ -82,37 +88,71 @@ export function RemoteOffer(props: {
           {source.isReady ? <RemoteVolumePill film={props.film} /> : null}
           {source.isReady || ended !== undefined ? null : (
             <Pill icon={<span className="cast-remote__spinner" />}>
-              {t("cast.reaching", { name })}
+              {isServerLost ? t("cast.serverLost") : t("cast.reaching", { name })}
             </Pill>
           )}
         </span>
         {notAnswering.isLate || ended !== undefined ? (
-          <div className="cast-remote__note">
-            <StatusNote
-              told={
-                ended === undefined
-                  ? {
-                      kind: "problem",
-                      text: t("cast.notAnswering", { name }),
-                      onTryAgain: notAnswering.tryAgain,
-                    }
-                  : { kind: "problem", text: ended.text }
-              }
-            />
-            <button
-              type="button"
-              disabled={playHere.isBusy}
-              onClick={ended?.playHere ?? playHere.end}
-            >
-              {t("cast.playHere")}
-            </button>
-            {playHere.problem === undefined ? null : (
-              <StatusNote told={{ kind: "problem", text: playHere.problem }} />
-            )}
-          </div>
+          <RemoteNote sent={sent} ended={ended} tryAgain={notAnswering.tryAgain} />
         ) : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * The remote's note (RemoteOffer): the cast's end and why (ended), or, while it lasts, "‹TV› isn't
+ * answering" with Try again; Play here, which, the cast lasting, ends it stopped and plays the film
+ * here (the remote's Stop, D549); and Cast again where the ended cast offers it (D553 §2).
+ */
+function RemoteNote(props: {
+  readonly sent: CastSending;
+  readonly ended: RemoteEnded | undefined;
+  readonly tryAgain: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { sent, ended } = props;
+  const playHere = useCastEnding(sent.castId, "stopped");
+  return (
+    <div className="cast-remote__note">
+      <StatusNote
+        told={
+          ended === undefined
+            ? {
+                kind: "problem",
+                text: t("cast.notAnswering", { name: sent.receiverName }),
+                onTryAgain: props.tryAgain,
+              }
+            : { kind: "problem", text: ended.text }
+        }
+      />
+      <button type="button" disabled={playHere.isBusy} onClick={ended?.playHere ?? playHere.end}>
+        {t("cast.playHere")}
+      </button>
+      <CastAgainButton castAgain={ended?.castAgain} />
+      {playHere.problem === undefined ? null : (
+        <StatusNote told={{ kind: "problem", text: playHere.problem }} />
+      )}
+    </div>
+  );
+}
+
+/** The ended remote's Cast again beside Play here (D553 §2), and why it failed; none where not offered. */
+function CastAgainButton(props: { readonly castAgain: CastAgain | undefined }): JSX.Element | null {
+  const { t } = useTranslation();
+  const { castAgain } = props;
+  if (castAgain === undefined) {
+    return null;
+  }
+  return (
+    <>
+      <button type="button" disabled={castAgain.isBusy} onClick={castAgain.press}>
+        {t("cast.over.castAgain")}
+      </button>
+      {castAgain.problem === undefined ? null : (
+        <StatusNote told={{ kind: "problem", text: castAgain.problem }} />
+      )}
+    </>
   );
 }
 

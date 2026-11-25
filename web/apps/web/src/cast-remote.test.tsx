@@ -29,6 +29,7 @@ import {
   type RemoteShown,
   catReads,
   filmReads,
+  receiverLeads,
 } from "./test-cast-remote.tsx";
 import {
   buttonNamed,
@@ -431,6 +432,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
 
   it("says it is reaching the receiver while it is not reached, its pad and menus taking no press, and after 15 s that it isn't answering, with Try again (D548 §9)", async () => {
     const { sockets } = await casting({});
+    await sockets.session.say({ type: "roster", roster: receiverLeads });
     const page = mounted!.container;
     const pill = (): string | undefined =>
       page.querySelector(".cast-remote__centre .pill")?.textContent ?? undefined;
@@ -439,7 +441,9 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     // The page's own waits (a turn of the event loop) run as real time does; the 15 s is stepped.
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
     try {
-      await sockets.session.drop();
+      // The receiver no longer heard, its leader gone from the cast's roster: not the remote's own
+      // connection dropping, which says it can't reach the server (D553 §4).
+      await sockets.session.say({ type: "roster", roster: [] });
       expect(pill()).toBe("Reaching Fire TV…");
       expect(buttonNamed(page, "Play")?.getAttribute("aria-disabled")).toBe("true");
       expect(page.querySelector(".cast-remote__buttons")?.getAttribute("aria-disabled")).toBe(

@@ -11,6 +11,7 @@ import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { castSenderScript, type CastChannel } from "./cast-sdk.ts";
+import { isCastSessionLost } from "./cast-session-lost.ts";
 import { CastTargets } from "./cast-to.tsx";
 import { DebugToolsContext } from "./debug-tools.tsx";
 import { castReceiverAppIdOf } from "./discovery-page.ts";
@@ -393,7 +394,7 @@ describe("the Cast menu's Chromecast (D465 §3)", () => {
 
   // The owner, staging, 2026-11-25: the Chromecast switched off, the phone's Cast session ended and
   // the page ended the cast as the person's Stop, so the film played on the phone by itself.
-  it("ends the cast with its receiver gone, not stopped, as the Cast session ends with no Stop in Chrome's control: the device switched off or lost (D552 §5)", async () => {
+  it("ends no cast and says its Cast session lost, as that session ends with no Stop in Chrome's control: the device switched off, lost, or the phone's Wi-Fi gone (D553 §5)", async () => {
     const heard: Heard[] = [];
     const server = fakeTogetherServer();
     const services = underTheLoader(
@@ -427,13 +428,15 @@ describe("the Cast menu's Chromecast (D465 §3)", () => {
       await Promise.resolve();
     });
     await settleUntil(() => heard.some((each) => each.methodAndPath === "POST /me/casts"));
+    expect(isCastSessionLost(9)).toBe(false);
     await act(async () => {
       device.vanish();
       await Promise.resolve();
     });
-    await settleUntil(() => heard.some((each) => each.methodAndPath === "POST /me/casts/9/end"));
-    const ended = heard.find((each) => each.methodAndPath === "POST /me/casts/9/end");
-    expect(ended === undefined ? undefined : bodyField(ended, "reason")).toBe("receiverGone");
+    await settleUntil(() => isCastSessionLost(9));
+    // A hint for the remote, not an end: a Chromecast playing on is left playing, and the server's
+    // silence limit ends a cast whose receiver is truly gone (D364 §6).
+    expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/end")).toBe(false);
   });
 
   it("stops a receiver older than the page, left running on the device, and launches it again for the grant (the owner, 2026-11-12)", async () => {

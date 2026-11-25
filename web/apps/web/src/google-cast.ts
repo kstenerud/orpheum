@@ -28,6 +28,7 @@ import {
   openCastSession,
   type CastChannel,
 } from "./cast-sdk.ts";
+import { tellCastSessionLinked, tellCastSessionLost } from "./cast-session-lost.ts";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { useLive } from "./live.tsx";
 import { dataOrThrow } from "./problem.ts";
@@ -368,25 +369,29 @@ let sentCastId: number | undefined;
 
 /**
  * Links channel's Cast session to the cast castId made to its device: the session ended from
- * Chrome's own Cast control ends the cast, as Stop casting does (endCastRetrying, "stopped"), and
- * one ended as its device was lost, switched off or gone from the network, ends it with its
- * receiver gone, so the remote stays and offers Play here, playing nothing by itself (D552 §4–5);
- * the cast's end ends the session (castSentNow).
+ * Chrome's own Cast control ends the cast, as Stop casting does (endCastRetrying, "stopped"); one
+ * ended with no Stop there, its device switched off, out of reach, or the phone's own Wi-Fi gone,
+ * ends nothing: it is a hint the remote reaches for its receiver by (tellCastSessionLost), a
+ * Chromecast still playing left to play on, and the server's silence limit ends a cast whose
+ * receiver is truly gone (D553 §5, amending D552 §5). The cast's end ends the session (castSentNow).
  */
 export function linkCastSession(api: Api, channel: CastChannel, castId: number): void {
   if (linked !== undefined && linked.castId !== castId) {
     endLinked();
   }
   linked = { channel, castId, isSent: sentCastId === castId };
+  tellCastSessionLinked(castId);
   channel.onEnded((isStoppedThere) => {
     if (linked?.castId !== castId) {
       return; // its cast ended first, and ended it
     }
     linked = undefined;
+    if (!isStoppedThere) {
+      tellCastSessionLost(castId);
+      return;
+    }
     // Failing twice, the core ends it itself once its receiver is gone.
-    endCastRetrying(api, castId, isStoppedThere ? "stopped" : "receiverGone").catch(
-      () => undefined,
-    );
+    endCastRetrying(api, castId, "stopped").catch(() => undefined);
   });
 }
 

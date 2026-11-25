@@ -640,16 +640,20 @@ export function PlayOrSendOn(props: {
     case "sending":
       return <p>{t("cast.sendingOn")}</p>;
     case "remote":
-      return <CastRemote castId={where.castId} fileId={props.fileId} onPlayHere={playHereFrom} />;
+      return (
+        <CastRemote
+          key={where.castId}
+          castId={where.castId}
+          fileId={props.fileId}
+          onPlayHere={playHereFrom}
+        />
+      );
     case "unknown":
       return null;
   }
 }
 
-/**
- * Where a Play page's film plays: here; being sent on to the cast castId's receiver; sent, the page
- * its remote; or not known yet.
- */
+/** Where a Play page's film plays: here; sent on to cast castId's receiver; its remote; unknown. */
 type PlaysWhere =
   | { readonly kind: "here"; readonly from: PlayedHereFrom; readonly leftCastId?: number }
   | { readonly kind: "sending"; readonly castId: number }
@@ -698,15 +702,19 @@ function useWhereItPlays(props: {
 }
 
 /**
- * Whether taken, a cast its receiver took, took on the page's film fileId while it played here:
- * one started from Cast's dialog over the page, not one the page played here from.
+ * Whether taken, a cast its receiver took, took on the page's film fileId: from Cast's dialog as it
+ * played here, not one it played here from, or from an ended remote's Cast again (D553 §2).
  */
 function isTakenOn(
   where: PlaysWhere,
   taken: CastSending | undefined,
   fileId: number,
 ): taken is CastSending {
-  return where.kind === "here" && taken?.fileId === fileId && taken.castId !== where.leftCastId;
+  if (where.kind !== "here" && where.kind !== "remote") {
+    return false;
+  }
+  const leftCastId = where.kind === "remote" ? where.castId : where.leftCastId;
+  return taken?.fileId === fileId && taken.castId !== leftCastId;
 }
 
 /** Playing here from atMs, the round-th time, paused there where isPaused. */

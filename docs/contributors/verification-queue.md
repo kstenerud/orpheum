@@ -4126,3 +4126,24 @@ An item is ticked only by the person who did it, and only with what they saw.
   4. Cast a film to the Fire TV and take control back on it (Back, or OK twice). Report whether the
      phone's remote says "Fire TV stopped casting" with Play here alone, and nothing plays on the
      phone until you press it; then press it and report whether it plays from where the TV left it.
+- [ ] **VQ403** — A cast's end the sender did not ask for, alone and hosting Watch Together (D553):
+  only a real Chromecast, a real Fire TV and a phone's real Wi-Fi show it. On the phone's Chrome:
+  1. Cast a film to the Chromecast and let it play a minute, then switch the Chromecast off at the
+     wall. Report whether the remote says "Reaching ‹TV›…", then "‹TV› isn't answering", then,
+     within about two minutes, "‹TV› unreachable" with Play here, and whether nothing plays on the
+     phone by itself.
+  2. Switch the Chromecast back on and wait for it to show on the network. Report whether a Cast
+     again button shows beside Play here (it is built for an Orpheum tab as the receiver alone, so a
+     Chromecast should show none), and press Play here: report whether the film plays on the phone
+     from about where the television stood.
+  3. Host a Watch Together session on the phone and join it from a second device, then cast the
+     session's film to the Chromecast and switch the Chromecast off at the wall. Report whether the
+     phone plays the film by itself within about two minutes, saying "‹TV› unreachable. Playing here
+     so your session goes on", and whether the second device carried on playing meanwhile.
+  4. Cast a film to the Fire TV and take control back on it (Back, or OK twice). Report whether the
+     phone's remote says "Fire TV took control" with Play here and Cast again, and nothing plays on
+     the phone by itself; press Cast again and report whether the Fire TV plays the film from where
+     it stood, paused, and the phone shows its remote again.
+  5. Cast a film to the Chromecast, then switch the phone's Wi-Fi off for 20 s (no mobile data) and
+     on again. Report whether the remote says "Can't reach the server" meanwhile, whether the
+     Chromecast plays on, and whether the remote comes back working once the Wi-Fi is on.
