@@ -84,4 +84,18 @@ describe("the API client", () => {
       });
     expect(sendsARenamedField).toBeTypeOf("function");
   });
+
+  it("refuses, when it is compiled, a sender ending its cast as its receiver gone (D555 §3)", () => {
+    const api = createApi({
+      getToken: () => undefined,
+      fetch: () => Promise.resolve(new Response(null, { status: 204 })),
+    });
+    const endsAsReceiverGone = (): unknown =>
+      api.POST("/me/casts/{id}/end", {
+        params: { path: { id: 1 } },
+        // @ts-expect-error -- a castee unheard is the server's end alone, by its own deadline
+        body: { reason: "receiverGone" },
+      });
+    expect(endsAsReceiverGone).toBeTypeOf("function");
+  });
 });
