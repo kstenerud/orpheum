@@ -31834,7 +31834,12 @@ Try again).
 
 **Status:** decided; not built.
 
-1. **A receiver unreached for `notAnsweringAfterMs` is given up by the remote**: where the
+1. **A receiver unheard for `notAnsweringAfterMs` is given up by the remote**: unheard as
+   `useReceiverHeard` says (its device gone from the live roster, its session lost, its lead lost
+   after leading), not a receiver that has not begun: a receiver page holding the cast for its press
+   (D468 §2) is connected and answering, with no position yet, and is never given up for that, nor
+   said not to answer (the owner's Fire TV, 2026-11-25, said not answering while it waited for OK).
+   Where the
    not-answering note would show Try again (D548 §9, D550 §3), the remote ends the cast instead,
    with the reason `receiverGone`, and the cast's end is met as D553 says: alone, *"‹TV›
    unreachable"* with Play here and Cast again, nothing playing by itself (D553 §2); hosting Watch
@@ -31849,8 +31854,15 @@ Try again).
    goes on"* (D553 §3) stayed after OK on the owner's phone; it is shown once, as the film is
    brought here, and OK dismisses it as any notice.
 
+4. **The Cast sender SDK's session loss is a hint the server overrides** (extends D553 §5):
+   while the remote's session snapshot shows the receiver leading, the receiver is heard, whatever
+   the SDK said; the hint counts only while the roster shows no leader. The owner's phone in
+   airplane mode for 26 s ended its Cast session without `SESSION_ENDING`; back, the remote said
+   *"‹Chromecast› isn't answering"* while the server saw the receiver leading and playing all along
+   (2026-11-25, 14:55Z), and §1 would then have ended a cast that played.
 **Proven by:**
 
 - 1: `web/apps/web/src/cast-remote-ends.test.tsx`, VQ404
 - 2: `web/apps/web/src/cast-remote-reaching.test.tsx`
 - 3: `web/apps/web/src/cast-remote-ends.test.tsx`, VQ404
+- 4: `web/apps/web/src/cast-remote-reaching.test.tsx`, VQ404
