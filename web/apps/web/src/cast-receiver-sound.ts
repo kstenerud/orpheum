@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import {
-  PlaybackTold,
-  playerSwitchedQualityEvent,
+  toldTheCastHowItPlays,
+  workedByTheRemote,
   type CarriesSoundChoices,
   type PlaybackReport,
   type TellsPlaybackAlone,
   type TogetherConnection,
 } from "@orpheum/sdk";
-import { heardVolumeOf, setHeardVolume } from "@orpheum/player";
+import { chooseFilmChannel, hearFilmChannel, type FilmChannel } from "@orpheum/player";
 import { use, useEffect, useState } from "react";
 
 import { PicturePanelContext } from "./picture-panel.ts";
@@ -32,15 +32,7 @@ export function useSoundWorkedByTheRemote(sessions: {
     if (cast === undefined || panel === undefined) {
       return undefined;
     }
-    const unsubscribe = cast.subscribeToSoundChoices(panel.choose);
-    const unwatch = panel.subscribe(() => {
-      led?.reportState();
-      cast.reportPlayback();
-    });
-    return () => {
-      unsubscribe();
-      unwatch();
-    };
+    return workedByTheRemote(cast.subscribeToSoundChoices, panel, { cast, led });
   }, [cast, led, panel]);
 }
 
@@ -51,28 +43,13 @@ export function useSoundWorkedByTheRemote(sessions: {
  * the film's channel, apart from the TV's own volume; they last for the session and are not saved.
  */
 export function useFilmChannelWorkedByTheRemote(video: HTMLVideoElement | null): void {
-  const [heard, setHeard] = useState<{ readonly level: number; readonly isMuted: boolean }>();
-  useEffect(() => {
-    if (video === null) {
-      return undefined;
-    }
-    const read = (): void => {
-      // The volume the person set, not the element's, which a lowering by levelling is in (D436).
-      setHeard({ level: heardVolumeOf(video), isMuted: video.muted });
-    };
-    read();
-    video.addEventListener("volumechange", read);
-    return () => {
-      video.removeEventListener("volumechange", read);
-    };
-  }, [video]);
+  const [heard, setHeard] = useState<FilmChannel>();
+  useEffect(() => (video === null ? undefined : hearFilmChannel(video, setHeard)), [video]);
   useSoundPart(heard === undefined ? undefined : { kind: "channel", ...heard }, (choice) => {
     if (choice.kind !== "channel" || video === null) {
       return;
     }
-    setHeardVolume(video, choice.level);
-    // eslint-disable-next-line no-param-reassign -- muting the film is setting its video's muted
-    video.muted = choice.isMuted;
+    chooseFilmChannel(video, choice);
   });
 }
 
@@ -96,17 +73,6 @@ export function useToldTheCastHowItPlays(told: {
     if (cast === undefined || video === null) {
       return undefined;
     }
-    const playback = new PlaybackTold(delivery, panel?.read, readPicture);
-    const heardQuality = (event: Event): void => {
-      if (playback.heard(event)) {
-        cast.reportPlayback();
-      }
-    };
-    video.addEventListener(playerSwitchedQualityEvent, heardQuality);
-    cast.setPlayback(() => playback.report());
-    return () => {
-      video.removeEventListener(playerSwitchedQualityEvent, heardQuality);
-      cast.setPlayback(undefined);
-    };
+    return toldTheCastHowItPlays(cast, video, { delivery, readSound: panel?.read, readPicture });
   }, [cast, video, delivery, panel, readPicture]);
 }

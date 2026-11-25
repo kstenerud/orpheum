@@ -365,6 +365,9 @@ for Watch Together:
 - The API types and client: regenerate; never edit `src/gen/`. The client's setup:
   `src/client.ts`.
 - What this browser can play: `src/playable-formats.ts`.
+- What a receiver of a cast does with its remote's choices of sound and picture, and how it tells
+  the cast's session its film plays (`workedByTheRemote`, `toldTheCastHowItPlays`), apart from any
+  framework (D555 §3): `src/receiver-panels.ts`.
 - Waiting for a file the server is still making (`whenReady`, `textWhenReady`): `src/ready.ts`.
 - How much a player waits to have loaded before it plays: `src/ready-ahead.ts`; the wait itself,
   before a start or a seek plays: `src/start-gate.ts`.

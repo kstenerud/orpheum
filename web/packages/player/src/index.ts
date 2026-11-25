@@ -32,6 +32,8 @@ export {
   webAudioLateAboveMs,
 } from "./heard-volume.ts";
 export type { SoundLatencyMemory } from "./heard-volume.ts";
+export { chooseFilmChannel, filmChannelOf, hearFilmChannel } from "./film-channel.ts";
+export type { FilmChannel } from "./film-channel.ts";
 export { canMoveSoundEarlier, moveSoundEarlier, soundEarlierMsOf } from "./audio-shift.ts";
 export { hlsSupport, hlsMethod, playHls, playNative } from "./hls.ts";
 export type {

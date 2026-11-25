@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { CarriesPictureChoices, TellsPlaybackAlone, TogetherConnection } from "@orpheum/sdk";
+import {
+  workedByTheRemote,
+  type CarriesPictureChoices,
+  type TellsPlaybackAlone,
+  type TogetherConnection,
+} from "@orpheum/sdk";
 import { use, useEffect } from "react";
 
 import { PicturePanelContext, type PicturePanel } from "./picture-panel.ts";
@@ -23,15 +28,7 @@ export function usePictureWorkedByTheRemote(sessions: {
     if (cast === undefined || panel === undefined) {
       return undefined;
     }
-    const unsubscribe = cast.subscribeToPictureChoices(panel.choose);
-    const unwatch = panel.subscribe(() => {
-      led?.reportState();
-      cast.reportPlayback();
-    });
-    return () => {
-      unsubscribe();
-      unwatch();
-    };
+    return workedByTheRemote(cast.subscribeToPictureChoices, panel, { cast, led });
   }, [cast, led, panel]);
   return panel;
 }

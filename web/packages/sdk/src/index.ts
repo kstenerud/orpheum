@@ -350,6 +350,8 @@ export {
   soundMovedOf,
 } from "./together-player-events.ts";
 export { PlaybackTold } from "./together-leader.ts";
+export { toldTheCastHowItPlays, workedByTheRemote } from "./receiver-panels.ts";
+export type { HowItPlays, PanelSessions, RemotesPanel } from "./receiver-panels.ts";
 export { putOnCommands } from "./together-put-on.ts";
 export {
   requestPlayback,
