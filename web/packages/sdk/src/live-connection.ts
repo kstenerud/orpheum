@@ -98,6 +98,11 @@ export interface LiveSnapshot {
   readonly isRefused: boolean;
   /** The server's words for refusing the sign-in, where its close frame said any. */
   readonly refusalReason: string | undefined;
+  /**
+   * How many times the server has said, since the page loaded, that the person's Watch Together part
+   * changed, on this device or another of theirs: each time, the page reads it again.
+   */
+  readonly togetherChanges: number;
 }
 
 /** A page's live connection. */
@@ -145,6 +150,7 @@ const startingSnapshot: LiveSnapshot = {
   isReceiveKnown: false,
   isRefused: false,
   refusalReason: undefined,
+  togetherChanges: 0,
 };
 
 /** A record's number field, or undefined. */
@@ -245,7 +251,9 @@ export type LiveMessage =
   | { readonly type: "sending"; readonly sending: CastSending | undefined }
   /** The answer to a ping, carrying back its tMono. */
   | { readonly type: "pong"; readonly tMono: number }
-  | { readonly type: "signedOut" };
+  | { readonly type: "signedOut" }
+  /** The person's Watch Together part changed, here or on another device of theirs: read it again. */
+  | { readonly type: "together" };
 
 /** A list of ids as a message carries it; empty for none or one malformed. */
 function idsIn(ids: unknown): number[] {
@@ -290,8 +298,18 @@ export function parseLiveMessage(text: string): LiveMessage | undefined {
       return { type: "sending", sending: parseSending(record["sending"]) };
     case "pong":
       return { type: "pong", tMono: numberIn(record, "tMono") ?? 0 };
+    default:
+      return bareMessageOf(record["type"]);
+  }
+}
+
+/** A message the server sends that carries nothing but its type; undefined for any other. */
+function bareMessageOf(type: unknown): LiveMessage | undefined {
+  switch (type) {
     case "signedOut":
       return { type: "signedOut" };
+    case "together":
+      return { type: "together" };
     default:
       return undefined;
   }
@@ -491,6 +509,9 @@ class PageLiveConnection implements LiveConnection {
         return;
       case "signedOut":
         this.#refused();
+        return;
+      case "together":
+        this.#change({ ...this.#snapshot, togetherChanges: this.#snapshot.togetherChanges + 1 });
         return;
     }
   }

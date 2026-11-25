@@ -150,6 +150,21 @@ describe("a page's live connection (D337 §2)", () => {
     expect(sockets.opened).toHaveLength(1);
   });
 
+  it("counts each time the server says the person's Watch Together part changed, for the page to read it again", () => {
+    const sockets = fakeSockets();
+    const connection = createLiveConnection({
+      sessionToken: "session",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    expect(connection.snapshot().togetherChanges).toBe(0);
+    sockets.opened[0]!.onMessage(JSON.stringify({ type: "together" }));
+    sockets.opened[0]!.onMessage(JSON.stringify({ type: "together" }));
+    expect(connection.snapshot().togetherChanges).toBe(2);
+  });
+
   it("keeps a cast handed to it until it is taken", () => {
     const sockets = fakeSockets();
     const connection = createLiveConnection({

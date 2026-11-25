@@ -34,6 +34,7 @@ import { problemText } from "./problem.ts";
 import type { Route } from "./router.ts";
 import { useServices, useToken } from "./services.tsx";
 import { hasPageBeenPressed } from "./start-refused.ts";
+import { haveBackMySessions } from "./together-mine.ts";
 import { monotonicMs } from "./use-together.ts";
 
 /** What every signed-in screen knows of the page's live connection (D337 §2). */
@@ -107,6 +108,7 @@ export function LiveProvider(props: { readonly children: ReactNode }): JSX.Eleme
   const { navigation, api } = useServices();
   const { connection, snapshot } = usePageLiveConnection();
   useChecksTheSessionWhenRefused(snapshot?.isRefused === true, api);
+  useHasBackMySessionsAsTheyChange(snapshot?.togetherChanges ?? 0, api);
   useMarksTheLiveOpen(snapshot?.isConnected === true);
   const received = useReceiving(connection, navigation);
   const isInDoubt = useLeavesACastNoOneControls(snapshot?.isReceiveKnown === true, received);
@@ -247,6 +249,21 @@ function useChecksTheSessionWhenRefused(isRefused: boolean, api: Api): void {
       api.GET("/me").catch(() => undefined); // a failure is the next check's, or the next press's
     }
   }, [isRefused, api]);
+}
+
+/**
+ * Has back the person's Watch Together sessions again each time the server says their part changed,
+ * here or on another device of theirs (changes, LiveSnapshot.togetherChanges): what Watch Together
+ * offers follows it without a reload. A page open before a session started elsewhere offered "Start
+ * a session", and one kept offering "Move it here" after the session ended (the owner's staging walk,
+ * 2026-11-25).
+ */
+function useHasBackMySessionsAsTheyChange(changes: number, api: Api): void {
+  useEffect(() => {
+    if (changes > 0) {
+      void haveBackMySessions(api).catch(() => undefined); // the next change's, or the next load's
+    }
+  }, [changes, api]);
 }
 
 /**

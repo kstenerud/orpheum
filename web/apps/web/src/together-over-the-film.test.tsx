@@ -480,3 +480,59 @@ it("shows no Watch Together sign over the film on the device the session its per
   expect(document.querySelector(".player-overlay__together")).toBeNull();
   expect(buttonWithText(document.body, "Move it here")).toBeUndefined();
 });
+
+it("offers to move here the part the person took on another device while this page stayed open, as the server says it changed, with no reload", async () => {
+  const services = servedBy(
+    {
+      "GET /me/together": [
+        200,
+        { sessions: [{ sessionId: 3, memberId: 4, isHost: false, deviceName: "the Mac" }] },
+      ],
+    },
+    [],
+    "token",
+  );
+  services.navigation.go({ screen: "play", fileId: 9 });
+  const sockets = liveAndSession();
+  mounted = await mount(
+    withServices(
+      <LiveProvider>
+        <PlayerToStartFrom canStart />
+      </LiveProvider>,
+      { ...services, openTogetherSocket: sockets.openSocket },
+    ),
+  );
+  await sockets.live.accept();
+  await settleUntil(() => startSign() !== null);
+  expect(elsewhereSign()).toBeNull();
+  await sockets.live.say({ type: "together" });
+  await settleUntil(() => elsewhereSign() !== null);
+  await act(async () => {
+    elsewhereSign()?.click();
+    await Promise.resolve();
+  });
+  await settleUntil(() => buttonWithText(document.body, "Move it here") !== undefined);
+  const dialog = document.querySelector<HTMLDialogElement>(".player-overlay dialog[open]");
+  expect(dialog?.textContent).toContain("You're watching together on the Mac.");
+  expect(dialog === null ? undefined : buttonWithText(dialog, "Start a session")).toBeUndefined();
+});
+
+it("stops offering to move a session here once the server says the person's part changed and lists it no more, its session ended, with no reload", async () => {
+  const services = servedBy({ "GET /me/together": [200, { sessions: [] }] }, [], "token");
+  services.navigation.go({ screen: "play", fileId: 9 });
+  noteHostedElsewhere({ sessionId: 3, deviceName: "the Mac", isGuest: true });
+  const sockets = liveAndSession();
+  mounted = await mount(
+    withServices(
+      <LiveProvider>
+        <PlayerToStartFrom canStart />
+      </LiveProvider>,
+      { ...services, openTogetherSocket: sockets.openSocket },
+    ),
+  );
+  await sockets.live.accept();
+  await settleUntil(() => elsewhereSign() !== null);
+  await sockets.live.say({ type: "together" });
+  await settleUntil(() => elsewhereSign() === null);
+  expect(startSign()).not.toBeNull();
+});
