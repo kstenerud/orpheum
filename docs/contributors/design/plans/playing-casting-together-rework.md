@@ -60,6 +60,27 @@ castee must play the session's film. It passes at the end of phase 1.
    and ends it where not. A host starting another session keeps the cast.
 6. **The caster's own connection lost ends nothing,** and a caster returning is told its cast.
 
+**Built (2026-11-25):** every step.
+
+- A cast is a relation on its caster's membership: alone a session of one, in Watch Together
+  the castee is the member's playing device, and it follows its member on a join, a leave and
+  a session's end.
+- The server alone decides a castee gone, at 20 s of silence; the castee reports each 5 s; a
+  by-link guest's cast ends by the same path.
+- The castee says starting, waiting for its OK or running, and the caster is told.
+- A signed-in person takes part from one device; Move here, for a host and a guest alike, ends
+  that person's cast and cuts the old device off.
+- The hub alone holds what a cast plays, where it stands, whether it was taken and when it
+  ends; the registry keeps presence and the hand-off.
+
+**Found:**
+
+- A guest cannot press Start while their part is on another device.
+- A reloaded castee was handed the position its cast started from; it now gets where the cast
+  stands.
+- Nothing but its own test calls the hub's `OnSessionEnded` now; it goes in phase 6 unless
+  phase 4 finds a use.
+
 ### Phase 2: one playing code for every device that plays (D555 §3)
 
 1. **The framework-free parts move to the packages:** leading and following a session, asking
