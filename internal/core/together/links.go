@@ -124,7 +124,7 @@ func (hub *Hub) Join(secret, name string, person *Person, leaving Leaving) (Join
 		return Joined{}, err
 	}
 	hub.mutex.Lock()
-	defer hub.unlockTellingEnds()
+	defer hub.unlockTelling()
 	now := hub.clock.Now()
 	joined, used := hub.admittingLink(secret, now)
 	if used == nil {

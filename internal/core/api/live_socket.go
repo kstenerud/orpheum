@@ -139,10 +139,10 @@ func readLive(
 		case live.MessageFront:
 			showFront(!message.IsBehind)
 		// The server's own messages, never a page's: a cast's sending (D364; VQ90) and a removed
-		// device's signing out (VQ87) among them.
+		// device's signing out (VQ87) among them, and a Watch Together part's change.
 		case live.MessageHello, live.MessageOldHello, live.MessageDevices, live.MessageReceive,
 			live.MessageSending, live.MessagePong,
-			live.MessageSignedOut:
+			live.MessageSignedOut, live.MessageTogether:
 		default:
 			heardUnknown(message.Type)
 		}

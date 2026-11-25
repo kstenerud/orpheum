@@ -96,6 +96,9 @@ type Hub struct {
 	// onCastMoved is told each cast that moved to a session of one as its caster's part ended, after
 	// the hub's lock is let go (OnCastMoved); nil tells nothing.
 	onCastMoved func(moved EndedCast)
+	// onPartChanged is told each signed-in person whose part in a Watch Together session changed,
+	// after the hub's lock is let go (OnPartChanged); nil tells nothing.
+	onPartChanged func(userID int64)
 
 	mutex sync.Mutex
 	// lifetimes are what links made now live for, and when an idle session ends (EndStale); guarded
@@ -108,12 +111,15 @@ type Hub struct {
 	// first, each with why (cast.go); guarded by mutex.
 	endedCasts []endedCast
 	// endedToTell are the sessions ended since the lock was taken, which onSessionEnded is told as
-	// it is let go (unlockTellingEnds); guarded by mutex.
+	// it is let go (unlockTelling); guarded by mutex.
 	endedToTell []int64
 	// movedToTell are the casts moved to a session of one since the lock was taken (moveCastAlone),
 	// which onCastMoved is told as it is let go; guarded by mutex.
 	movedToTell []EndedCast
-	lastID      int64 // the last id given a session, link, member or device; guarded by mutex
+	// partsEnded are the people whose part ended with a session since the lock was taken
+	// (endSession), which onPartChanged is told as it is let go (partsChanged); guarded by mutex.
+	partsEnded []int64
+	lastID     int64 // the last id given a session, link, member or device; guarded by mutex
 }
 
 // NewHub returns an empty hub, which asks mayPlay whether a host may play what they put on, and
@@ -158,6 +164,8 @@ type session struct {
 	logger *slog.Logger
 	// lastActiveAt is when a member last did something in it, or it last played (EndStale, D346).
 	lastActiveAt time.Time
+	// toldParts are its signed-in people's parts as onPartChanged was last told them (partsChanged).
+	toldParts map[int64]part
 }
 
 // group is the group's state: Position is where it was at At, moving at Rate while it plays.
@@ -313,7 +321,7 @@ func (hub *Hub) Open(host Person) (Opened, error) {
 		return Opened{}, fmt.Errorf("make a membership credential: %w", err)
 	}
 	hub.mutex.Lock()
-	defer hub.unlockTellingEnds()
+	defer hub.unlockTelling()
 	for _, held := range hub.placesOf(&host, "", 0) {
 		hub.leavePlace(held)
 	}
@@ -417,7 +425,7 @@ type Joined struct {
 // credential admits nothing more (D119). Only the host ejects, and never themselves.
 func (hub *Hub) Eject(sessionID, hostUserID, memberID int64) error {
 	hub.mutex.Lock()
-	defer hub.unlockTellingEnds()
+	defer hub.unlockTelling()
 	hosted, err := hub.hostedSession(sessionID, hostUserID)
 	if err != nil {
 		return err
@@ -434,7 +442,7 @@ func (hub *Hub) Eject(sessionID, hostUserID, memberID int64) error {
 // Leave takes a member out of the session at their own asking (D246 §5); the host ends it instead.
 func (hub *Hub) Leave(credential string) error {
 	hub.mutex.Lock()
-	defer hub.unlockTellingEnds()
+	defer hub.unlockTelling()
 	left, leaving := hub.memberByCredential(credential)
 	if leaving == nil {
 		return ErrNoSession
@@ -450,7 +458,7 @@ func (hub *Hub) Leave(credential string) error {
 // End ends the session: every device is told, and every credential and link admits nothing more.
 func (hub *Hub) End(sessionID, hostUserID int64) error {
 	hub.mutex.Lock()
-	defer hub.unlockTellingEnds()
+	defer hub.unlockTelling()
 	hosted, err := hub.hostedSession(sessionID, hostUserID)
 	if err != nil {
 		return err
@@ -479,18 +487,21 @@ func (hub *Hub) OnCastMoved(moved func(EndedCast)) {
 
 // endSession ends the Watch Together session ended: each of its devices is told why, every
 // credential and link admits nothing more, and onSessionEnded is told as the lock is let go
-// (unlockTellingEnds). The one way a Watch Together session ends; the caller holds the mutex.
+// (unlockTelling). The one way a Watch Together session ends; the caller holds the mutex.
 func (hub *Hub) endSession(ended *session, reason string) {
 	hub.castsLeave(ended, nil, CastSessionEnded)
 	ended.broadcast(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: reason})
 	delete(hub.sessions, ended.id)
 	hub.endedToTell = append(hub.endedToTell, ended.id)
+	hub.partsEnded = append(hub.partsEnded, ended.partsGone()...)
 }
 
-// unlockTellingEnds lets the mutex go, then tells onSessionEnded each session ended while it was
-// held (endSession): every method that may end a session lets its lock go here.
-func (hub *Hub) unlockTellingEnds() {
-	ended, moved := hub.endedToTell, hub.movedToTell
+// unlockTelling lets the mutex go, then tells onCastMoved each cast moved, onSessionEnded each
+// session ended while it was held (endSession), and onPartChanged each person whose part in a
+// session changed (partsChanged): every method that may end a session, or change a person's part in
+// one, lets its lock go here.
+func (hub *Hub) unlockTelling() {
+	ended, moved, changed := hub.endedToTell, hub.movedToTell, hub.partsChanged()
 	hub.endedToTell, hub.movedToTell = nil, nil
 	hub.mutex.Unlock()
 	if hub.onCastMoved != nil {
@@ -498,11 +509,15 @@ func (hub *Hub) unlockTellingEnds() {
 			hub.onCastMoved(each)
 		}
 	}
-	if hub.onSessionEnded == nil {
-		return
+	if hub.onSessionEnded != nil {
+		for _, id := range ended {
+			hub.onSessionEnded(id)
+		}
 	}
-	for _, id := range ended {
-		hub.onSessionEnded(id)
+	if hub.onPartChanged != nil {
+		for _, userID := range changed {
+			hub.onPartChanged(userID)
+		}
 	}
 }
 
@@ -561,7 +576,7 @@ func (hub *Hub) Attach(
 		return Attachment{}, fmt.Errorf("role %q: want video, panel or both", role)
 	}
 	hub.mutex.Lock()
-	defer hub.mutex.Unlock()
+	defer hub.unlockTelling()
 	attached, attachedMember := hub.memberByCredential(credential)
 	if attachedMember == nil {
 		return Attachment{}, hub.noSessionFor(credential)
@@ -598,7 +613,7 @@ func (hub *Hub) Attach(
 // The leader leaving hands the lead on at once (leaderGone, D372 §5).
 func (hub *Hub) Detach(attachment Attachment, because GoneBecause) {
 	hub.mutex.Lock()
-	defer hub.mutex.Unlock()
+	defer hub.unlockTelling()
 	detached, found := hub.sessions[attachment.SessionID]
 	if !found {
 		return

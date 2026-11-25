@@ -163,7 +163,7 @@ type Membership struct {
 // device, has one made for the device that asks, which takes it from none (D267 §2).
 func (hub *Hub) Mine(userID int64) ([]Membership, error) {
 	hub.mutex.Lock()
-	defer hub.mutex.Unlock()
+	defer hub.unlockTelling()
 	mine := []Membership{}
 	isMade := false
 	for _, each := range hub.sessions {
@@ -229,7 +229,7 @@ func (hub *Hub) HostHere(sessionID, hostUserID int64) (string, []EndedCast, erro
 		return "", nil, err
 	}
 	hub.mutex.Lock()
-	defer hub.mutex.Unlock()
+	defer hub.unlockTelling()
 	hosted, err := hub.hostedSession(sessionID, hostUserID)
 	if err != nil {
 		return "", nil, err
@@ -254,7 +254,7 @@ func (hub *Hub) GuestHere(sessionID, userID int64) (Joined, []EndedCast, error) 
 		return Joined{}, nil, err
 	}
 	hub.mutex.Lock()
-	defer hub.mutex.Unlock()
+	defer hub.unlockTelling()
 	joined, found := hub.sessions[sessionID]
 	if !found || joined.isCast {
 		return Joined{}, nil, ErrNoSession

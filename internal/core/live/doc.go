@@ -71,6 +71,11 @@
 //     device is, so its page goes to sign in at once. Enforced by
 //     TestRegistry_ARemovedDeviceIsToldItsSignInEnded and, through the socket,
 //     TestLive_ARemovedDeviceIsToldItsSignInEnded in internal/core/api.
+//   - Every connection of a person whose Watch Together part changed, by any path, is told so
+//     (MessageTogether), and no other is, so each page of theirs left open reads it again rather
+//     than offering what is no longer so. Enforced by
+//     TestRegistry_APersonsConnectionsAreToldTheirTogetherPartChanged and, through the socket,
+//     TestTogether_APersonsOpenPagesAreToldTheirPartChanged in internal/core/api.
 //   - A guest receiver (D465 §1) is listed to no one, casts to no one, and is cast to once, by the
 //     device that asked for its grant alone; EndGuests ends it as that cast ends, or UnansweredAfter
 //     its sign-in if none started. Enforced by

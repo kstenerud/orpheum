@@ -40,7 +40,7 @@ func startingLifetimes() Lifetimes {
 func (hub *Hub) EndStale(lifetimes Lifetimes) []int64 {
 	now := hub.clock.Now()
 	hub.mutex.Lock()
-	defer hub.unlockTellingEnds()
+	defer hub.unlockTelling()
 	hub.lifetimes = lifetimes
 	var ended []int64
 	for id, each := range hub.sessions {

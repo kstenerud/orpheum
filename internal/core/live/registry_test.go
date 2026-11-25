@@ -427,6 +427,30 @@ func TestRegistry_ARemovedDeviceIsToldItsSignInEnded(t *testing.T) {
 	registry.SignedOut(laptop, laptop) // a person with no connection: nothing to tell
 }
 
+// Every connection of a person whose Watch Together part changed is told so, to read it again, and
+// no one else's is: their part is theirs alone (the owner's staging walk, 2026-11-25).
+func TestRegistry_APersonsConnectionsAreToldTheirTogetherPartChanged(t *testing.T) {
+	t.Parallel()
+	registry := NewRegistry(minted(), newClock())
+	phoneBox, firstTab, secondTab, partnerBox := &inbox{}, &inbox{}, &inbox{}, &inbox{}
+	registry.Connect(owner, phone, inFront, phoneBox.send)
+	registry.Connect(owner, television, inFront, firstTab.send)
+	registry.Connect(owner, television, behind, secondTab.send)
+	registry.Connect(partner, television, inFront, partnerBox.send)
+	registry.TellTogetherChanged(owner)
+	for name, box := range map[string]*inbox{
+		"the phone": phoneBox, "the TV's first tab": firstTab, "the TV's second tab": secondTab,
+	} {
+		if box.count(MessageTogether) != 1 {
+			t.Errorf("%s was told its part changed %d times, want once", name, box.count(MessageTogether))
+		}
+	}
+	if partnerBox.count(MessageTogether) != 0 {
+		t.Error("the partner's device was told the owner's part changed")
+	}
+	registry.TellTogetherChanged(laptop) // a person with no connection: nothing to tell
+}
+
 // castWithNothingOn connects a phone and a TV of the owner's, the phone casting to the TV with
 // nothing playing, and returns what each was sent.
 func castWithNothingOn(t *testing.T, registry *Registry) (sender, receiver *inbox) {

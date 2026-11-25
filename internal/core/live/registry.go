@@ -268,6 +268,20 @@ func (registry *Registry) SignedOut(userID, deviceID int64) {
 	}
 }
 
+// TellTogetherChanged tells every connection of userID that their part in a Watch Together session
+// changed (MessageTogether): the hub's OnPartChanged, whatever path changed it.
+func (registry *Registry) TellTogetherChanged(userID int64) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	owner := registry.people[userID]
+	if owner == nil {
+		return
+	}
+	for _, each := range owner.connections {
+		each.send(Outbound{Type: MessageTogether})
+	}
+}
+
 // Connected is userID's devices connected now, by id, in order.
 func (registry *Registry) Connected(userID int64) []int64 {
 	registry.mutex.Lock()

@@ -36,6 +36,12 @@ const (
 	// its page asks whether its session still works and, refused, goes to sign in at once rather than
 	// at its person's next press (the owner's Fire TV, 2026-10-27).
 	MessageSignedOut MessageType = "signedOut"
+	// MessageTogether tells the device its person's part in a Watch Together session changed, on this
+	// device or another of theirs: started, joined, left, moved, or ended, by any path. Its page reads
+	// its part again (GET /me/together) rather than the message carrying it, so the one answer that
+	// says it stays the page load's (the owner's staging walk, 2026-11-25: a page open before showed
+	// "Start a session" until reloaded).
+	MessageTogether MessageType = "together"
 )
 
 // Inbound is one message a device sends.

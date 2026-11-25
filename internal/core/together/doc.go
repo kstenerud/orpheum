@@ -167,6 +167,13 @@
 //     (OnSessionEnded) told the session once the hub's lock is let go; CastPart says which session a
 //     cast is a part in. A cast's own end is no Watch Together session's. Enforced by
 //     TestHub_EveryWayASessionEndsIsToldWithThePartsCastsEndWith.
+//   - A signed-in person's part in a session, as Mine lists it, changing by any path, a start, a
+//     join, a leave, a move to another device, a device attached or gone, the session's end, is told
+//     whoever registered (OnPartChanged), once for each person, once the hub's lock is let go: the
+//     hub compares each session's parts with those last told (partsChanged) as every method that may
+//     change one lets its lock go (unlockTelling), rather than each path saying so. Enforced by
+//     TestOnPartChanged_TellsEachPersonWhosePartChangedByAnyPath and
+//     TestOnPartChanged_TellsEveryoneInASessionAsItEnds.
 //   - The castee goes where its member goes (D555 §7): a signed-in person's cast that is a part in a
 //     session plays on alone, in a session of one, as the session ends or they leave it (castsLeave),
 //     whoever registered (OnCastMoved) told once the lock is let go, to hand it again or end it where

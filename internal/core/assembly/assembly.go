@@ -482,6 +482,8 @@ func (services *Services) wireJobsInto(ctx context.Context, parts Parts) error {
 	// A cast whose caster's part ended plays on alone where its film is theirs by right (D555 §7).
 	dependencies.Together.OnCastMoved(castMoved(ctx, dependencies.Live, dependencies.Together, mayPlayBy(dependencies),
 		parts.Logger))
+	// Each page of a person whose Watch Together part changed reads it again, whatever changed it.
+	dependencies.Together.OnPartChanged(dependencies.Live.TellTogetherChanged)
 	// The last resort when the server's upload cannot carry its players at their lowest (D286 §5).
 	dependencies.Playback.SendAwayBy(func() (int64, int64, bool) {
 		return dependencies.Together.SendAwayNewest(playback.UploadFullReason)
