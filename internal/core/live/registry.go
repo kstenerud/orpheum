@@ -55,21 +55,29 @@ type Cast struct {
 	ReceiverDeviceID int64
 	// SenderName and ReceiverName are the devices' names, as the person's list shows them.
 	SenderName, ReceiverName string
-	// FileID is what the receiver plays now; 0 while it plays nothing, ready between videos (D364 §5).
+}
+
+// Handed is what a cast hands its receiver, and its sender's pages show: the hub's alone (D555 §2),
+// read at each hand-off (HandsBy).
+type Handed struct {
+	// FileID is what the receiver plays; 0 while it plays nothing, ready between videos (D364 §5).
 	FileID int64
 	// ItemID and ItemName are the item the file is, which the remote shows; 0 and "" for none.
 	ItemID   int64
 	ItemName string
 	// DurationMs is how long the film plays, for the remote's timeline; 0 when unknown.
 	DurationMs int64
-	// PositionMs is where the sender stood, or nil to start where the person left the film.
+	// PositionMs is where the receiver starts it, or nil for where the person left the film.
 	PositionMs *int64
-	// IsPaused is whether the receiver opens the film paused at PositionMs, as the sender had it as the
-	// cast started (the owner, 2026-11-08); a film played in the cast after it plays.
+	// IsPaused is whether the receiver opens the film paused at PositionMs (the owner, 2026-11-08).
 	IsPaused bool
 	// IsAccepted is whether the receiver took the session, asking nothing (D468 §1).
 	IsAccepted bool
 }
+
+// HandedOf is what the cast castID that userID cast hands its receiver now: the hub's CastHandedOf;
+// nothing for a cast the hub no longer holds.
+type HandedOf func(castID, userID int64) Handed
 
 // Connection is one registered live connection, which Disconnect takes.
 type Connection struct {
@@ -85,6 +93,8 @@ type Registry struct {
 	// togetherPart, when set, mints the credential of the person's part in a Watch Together session
 	// for each hand-off (TakesPartBy).
 	togetherPart TogetherPart
+	// handedOf, when set, is what each cast hands its receiver and its sender's pages show (HandsBy).
+	handedOf HandedOf
 
 	mutex  sync.Mutex
 	people map[int64]*person // by user; guarded by mutex
@@ -142,6 +152,23 @@ func (registry *Registry) TakesPartBy(part TogetherPart) {
 	registry.togetherPart = part
 }
 
+// HandsBy has each cast's receiver handed, and its sender's pages told, what handedOf says the cast
+// plays, from where, and whether its receiver took it: the hub's, which the registry keeps none of
+// (D555 §2).
+func (registry *Registry) HandsBy(handedOf HandedOf) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	registry.handedOf = handedOf
+}
+
+// handed is what held hands its receiver now (HandsBy). The caller holds the mutex.
+func (registry *Registry) handed(held *heldCast) Handed {
+	if registry.handedOf == nil {
+		return Handed{}
+	}
+	return registry.handedOf(held.ID, held.UserID)
+}
+
 // Connect registers a connection of userID's device deviceID, its tab in front or behind (isInFront),
 // sending to send: it is told the person's devices connected now and those in front, and so is every
 // other connection of theirs when that changes; a cast to the device that no connection holds is
@@ -162,7 +189,7 @@ func (registry *Registry) Connect(userID, deviceID int64, isInFront bool, send S
 		opened.frontSince = registry.fronts
 	}
 	owner.connections[opened.id] = opened
-	send(owner.sendingMessage(deviceID)) // before the devices, so the page knows both at once
+	send(registry.sendingMessage(owner, deviceID)) // before the devices, so the page knows both at once
 	if wasConnected && wasInFront == owner.isInFront(deviceID) {
 		send(owner.devicesMessage())
 	} else {
@@ -298,7 +325,7 @@ func (registry *Registry) Cast(cast Cast, receiverCredential string) (started Ca
 		receiving.hasReceived = true
 	}
 	front.send(Outbound{Type: MessageReceive, Receive: registry.receiveOf(held, receiverCredential)})
-	owner.tellSending(cast.SenderDeviceID)
+	registry.tellSending(owner, cast.SenderDeviceID)
 	owner.tellDevices()
 	return cast, left, nil
 }
@@ -357,7 +384,7 @@ func (registry *Registry) endHeld(userID int64, held *heldCast) (Cast, error) {
 	}
 	owner := registry.people[userID]
 	delete(owner.casts, held.ReceiverDeviceID)
-	owner.tellSending(held.SenderDeviceID)
+	registry.tellSending(owner, held.SenderDeviceID)
 	owner.tellDevices()
 	if owner.isEmpty() {
 		delete(registry.people, userID)
@@ -365,21 +392,13 @@ func (registry *Registry) endHeld(userID int64, held *heldCast) (Cast, error) {
 	return held.Cast, nil
 }
 
-// Film is what a cast plays: the file, the title it is and its name, and how long it plays.
-type Film struct {
-	FileID     int64
-	ItemID     int64
-	ItemName   string
-	DurationMs int64
-}
-
-// Play has the cast castID play film from positionMs, or from where its person left it for nil, at
-// the asking of userID's device deviceID, its sender or its receiver: whatever the person plays on the
-// sender, and the next episode as a film ends (D364 §3; plans/up-next.md). A film of FileID 0 plays
-// nothing: the receiver waits ready for the next (§5). The cast goes on; its receiver is handed it
-// again, by a credential of its own, on the connection that holds it, or the next one it opens, and
-// its sender's pages are told. It returns the cast as it is now.
-func (registry *Registry) Play(userID, deviceID, castID int64, film Film, positionMs *int64) (Cast, error) {
+// Play hands the cast castID again, at the asking of userID's device deviceID, its sender or its
+// receiver, as the hub has it play another film (the hub's CastPuts): whatever the person plays on the
+// sender, and the next episode as a film ends (D364 §3; plans/up-next.md), or nothing, the receiver
+// ready for the next (§5). The cast goes on; its receiver is handed it again, by a credential of its
+// own, on the connection that holds it, or the next one it opens, and its sender's pages are told. It
+// returns the cast.
+func (registry *Registry) Play(userID, deviceID, castID int64) (Cast, error) {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
 	owner := registry.people[userID]
@@ -387,18 +406,15 @@ func (registry *Registry) Play(userID, deviceID, castID int64, film Film, positi
 	if held == nil {
 		return Cast{}, ErrNoCast
 	}
-	held.FileID, held.ItemID, held.ItemName, held.DurationMs = film.FileID, film.ItemID, film.ItemName,
-		film.DurationMs
-	held.PositionMs, held.IsPaused = positionMs, false
 	if holder := owner.connections[held.heldBy]; holder != nil {
 		registry.handOff(held, holder)
 	}
-	owner.tellSending(held.SenderDeviceID)
+	registry.tellSending(owner, held.SenderDeviceID)
 	return held.Cast, nil
 }
 
-// Accept notes that the receiver, userID's device deviceID, took the cast castID, which it is
-// asked once (D364 §2), and tells its sender's pages.
+// Accept tells the sender's pages that the receiver, userID's device deviceID, took the cast castID,
+// which it is asked once (D364 §2), as the hub has it taken (the hub's CastHeard).
 func (registry *Registry) Accept(userID, deviceID, castID int64) (Cast, error) {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
@@ -410,17 +426,15 @@ func (registry *Registry) Accept(userID, deviceID, castID int64) (Cast, error) {
 	if held == nil || held.ID != castID {
 		return Cast{}, ErrNoCast
 	}
-	held.IsAccepted = true
-	owner.tellSending(held.SenderDeviceID)
+	registry.tellSending(owner, held.SenderDeviceID)
 	return held.Cast, nil
 }
 
 // PartChanged hands each cast userID sends again to its receiver, by the connection that holds it,
 // as the Watch Together session they are in changed: one started while they cast, which the receiver
 // takes their part in, as their host's player leading it with the film it plays (D364 §11, D371 §4,
-// D372 §8). Where each cast stands now, in milliseconds, is positionOf's, the film playing on from
-// there; false leaves where it was to start. It returns the casts handed again.
-func (registry *Registry) PartChanged(userID int64, positionOf func(castID int64) (int64, bool)) []Cast {
+// D372 §8), the film playing on from where the hub says it stands. It returns the casts handed again.
+func (registry *Registry) PartChanged(userID int64) []Cast {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
 	owner := registry.people[userID]
@@ -429,7 +443,7 @@ func (registry *Registry) PartChanged(userID int64, positionOf func(castID int64
 	}
 	handed := []Cast{}
 	for _, held := range owner.casts {
-		if registry.handAgain(owner, held, positionOf) {
+		if registry.handAgain(owner, held) {
 			handed = append(handed, held.Cast)
 		}
 	}
@@ -439,10 +453,10 @@ func (registry *Registry) PartChanged(userID int64, positionOf func(castID int64
 
 // HandAgain hands userID's cast castID again to its receiver, by the connection that holds it, as
 // its part moved: its caster's Watch Together session ended or they left it, and it plays on in a
-// session of one of its own (D555 §7). Where it stands is positionOf's, as PartChanged's. Whether it
-// was handed: false where the cast is not the registry's, or its receiver holds no connection now,
+// session of one of its own (D555 §7), from where the hub says it stands. Whether it was handed:
+// false where the cast is not the registry's, or its receiver holds no connection now,
 // whose next is handed it with the part as it is then.
-func (registry *Registry) HandAgain(userID, castID int64, positionOf func(castID int64) (int64, bool)) bool {
+func (registry *Registry) HandAgain(userID, castID int64) bool {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
 	owner := registry.people[userID]
@@ -456,20 +470,17 @@ func (registry *Registry) HandAgain(userID, castID int64, positionOf func(castID
 		if registry.togetherPart != nil { // its old session's end is not its own (EndPartIn)
 			held.partIn, _ = registry.togetherPart(held.ID, held.UserID)
 		}
-		return registry.handAgain(owner, held, positionOf)
+		return registry.handAgain(owner, held)
 	}
 	return false
 }
 
-// handAgain hands held to the connection of owner's that holds it, from where positionOf says it
-// stands: whether one did. The caller holds the mutex.
-func (registry *Registry) handAgain(owner *person, held *heldCast, positionOf func(castID int64) (int64, bool)) bool {
+// handAgain hands held to the connection of owner's that holds it: whether one did. The caller holds
+// the mutex.
+func (registry *Registry) handAgain(owner *person, held *heldCast) bool {
 	holder := owner.connections[held.heldBy]
 	if holder == nil {
 		return false // the next connection of the receiver is handed it, with the part as it is then
-	}
-	if positionMs, isKnown := positionOf(held.ID); isKnown && held.FileID != 0 {
-		held.PositionMs = &positionMs
 	}
 	registry.handOff(held, holder)
 	return true
@@ -495,7 +506,7 @@ func (registry *Registry) endEvery(isEnded func(held *heldCast) bool) []Cast {
 				continue
 			}
 			delete(owner.casts, receiverID)
-			owner.tellSending(held.SenderDeviceID)
+			registry.tellSending(owner, held.SenderDeviceID)
 			ended = append(ended, held.Cast)
 		}
 		if len(ended) > endedBefore {
@@ -533,8 +544,8 @@ func (registry *Registry) handOff(held *heldCast, to *connection) {
 }
 
 // receiveOf is the receive message of held, by credential, with a credential for the Watch Together
-// session its person is in, if any, and whether the receiver follows it (TakesPartBy); held notes
-// the session its part is in (partIn).
+// session its person is in, if any, and whether the receiver follows it (TakesPartBy), handed what
+// the hub says it plays (HandsBy); held notes the session its part is in (partIn).
 func (registry *Registry) receiveOf(held *heldCast, credential string) *Receive {
 	partIn, isHost := int64(0), false
 	if registry.togetherPart != nil {
@@ -545,12 +556,12 @@ func (registry *Registry) receiveOf(held *heldCast, credential string) *Receive 
 		partCredential = credential // the one membership: the cast is the person's part (D555 §2)
 	}
 	held.partIn = partIn
-	cast := held.Cast
+	cast, handed := held.Cast, registry.handed(held)
 	return &Receive{
-		CastID: cast.ID, Credential: credential, FileID: cast.FileID, ItemName: cast.ItemName, TitleName: cast.ItemName,
-		ItemID: cast.ItemID, PositionMs: cast.PositionMs, IsPaused: cast.IsPaused,
+		CastID: cast.ID, Credential: credential, FileID: handed.FileID, ItemName: handed.ItemName,
+		TitleName: handed.ItemName, ItemID: handed.ItemID, PositionMs: handed.PositionMs, IsPaused: handed.IsPaused,
 		FromDeviceID: cast.SenderDeviceID, FromDeviceName: cast.SenderName,
-		IsAccepted: cast.IsAccepted, TogetherCredential: partCredential,
+		IsAccepted: handed.IsAccepted, TogetherCredential: partCredential,
 		IsTogetherFollower: partCredential != "" && !isHost,
 	}
 }
@@ -568,22 +579,25 @@ func (owner *person) castByEither(castID, deviceID int64) *heldCast {
 	return nil
 }
 
-// sendingMessage is the sending message of the cast deviceID sends, without one when it sends none.
-func (owner *person) sendingMessage(deviceID int64) Outbound {
+// sendingMessage is the sending message of the cast owner's device deviceID sends, what it plays the
+// hub's (HandsBy), without one when it sends none. The caller holds the mutex.
+func (registry *Registry) sendingMessage(owner *person, deviceID int64) Outbound {
 	held := owner.sentBy(deviceID)
 	if held == nil {
 		return Outbound{Type: MessageSending}
 	}
+	handed := registry.handed(held)
 	return Outbound{Type: MessageSending, Sending: &Sending{
 		CastID: held.ID, ReceiverDeviceID: held.ReceiverDeviceID, ReceiverName: held.ReceiverName,
-		FileID: held.FileID, ItemName: held.ItemName, TitleName: held.ItemName, DurationMs: held.DurationMs,
-		IsAccepted: held.IsAccepted, IsGuestReceiver: owner.guests[held.ReceiverDeviceID] != nil,
+		FileID: handed.FileID, ItemName: handed.ItemName, TitleName: handed.ItemName, DurationMs: handed.DurationMs,
+		IsAccepted: handed.IsAccepted, IsGuestReceiver: owner.guests[held.ReceiverDeviceID] != nil,
 	}}
 }
 
-// tellSending tells every connection of deviceID the cast it sends now, or that it sends none.
-func (owner *person) tellSending(deviceID int64) {
-	message := owner.sendingMessage(deviceID)
+// tellSending tells every connection of owner's device deviceID the cast it sends now, or that it
+// sends none. The caller holds the mutex.
+func (registry *Registry) tellSending(owner *person, deviceID int64) {
+	message := registry.sendingMessage(owner, deviceID)
 	for _, each := range owner.connections {
 		if each.deviceID == deviceID {
 			each.send(message)

@@ -488,12 +488,9 @@ func signedInBy(
 // Watch Together session sessionID they opened or joined: the castee goes where its member goes, the
 // film it plays on from where it stands (D364 §11, D371 §4, D555 §7).
 func (server *Server) castsTakePart(ctx context.Context, dependencies *Dependencies, userID, sessionID int64) {
-	for _, each := range dependencies.Live.PartChanged(userID, func(castID int64) (int64, bool) {
-		positionMs, _, positionErr := dependencies.Together.CastPosition(castID, userID)
-		return positionMs, positionErr == nil
-	}) {
+	for _, each := range dependencies.Live.PartChanged(userID) {
 		server.logger.InfoContext(ctx, "cast: a receiver takes its person's part in the session they are in",
-			"castId", each.ID, "sessionId", sessionID, "fileId", each.FileID, logKeyUserID, each.UserID)
+			"castId", each.ID, "sessionId", sessionID, logKeyUserID, each.UserID)
 	}
 }
 

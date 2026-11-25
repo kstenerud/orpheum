@@ -30,14 +30,17 @@
 //     front last; a device with none in front is refused, and the person's connections are told which
 //     devices have one (D338 §2). A connection in front once none holds the cast, loaded again or come
 //     to the front, is handed it again, with a credential of its own (§4: a reload comes back
-//     receiving). Enforced by TestRegistry_TheTabInFrontReceives,
+//     receiving), from where the hub says the cast stands then. Enforced by
+//     TestRegistry_TheTabInFrontReceives,
 //     TestRegistry_AReceiverLoadedAgainIsHandedItsCastAgain and, through the socket,
 //     TestCast_GoesOnlyToADeviceWithATabInFront in internal/core/api.
 //   - A cast is a session with the receiver (D364): it plays another film, or nothing between videos,
 //     only at its sender's or its receiver's asking, in the same cast, its receiver handed it again;
 //     only the receiver takes it, once, asking nothing (D468 §1); and the sender's every page is
 //     told the cast it sends, as a page opens before its devices, and at each change and its end
-//     (plans/up-next.md).
+//     (plans/up-next.md). What it plays, from where, and whether it was taken are the hub's alone
+//     (D555 §2): the registry keeps none of them, reading each at every hand-off (HandsBy, the
+//     assembly's wiring of the hub's CastHandedOf).
 //     Enforced by TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt,
 //     TestRegistry_EachFilmPlayedInACastIsHandedToItsReceiver and
 //     TestRegistry_ACastIsASessionTheSenderIsToldOf.

@@ -66,6 +66,18 @@ func minted() Credential {
 	}
 }
 
+// handing is a fake hub's handed facts, by cast: what each cast plays, from where, and whether its
+// receiver took it, which the registry hands as they are (HandsBy, D555 §2).
+type handing map[int64]Handed
+
+// handsFrom has registry hand each cast what the returned facts say, the test setting them as the hub
+// would.
+func handsFrom(registry *Registry) handing {
+	facts := handing{}
+	registry.HandsBy(func(castID, _ int64) Handed { return facts[castID] })
+	return facts
+}
+
 const (
 	owner      = int64(1)
 	partner    = int64(2)
@@ -182,9 +194,9 @@ func TestRegistry_ACastGoesOnlyToAnotherConnectedDeviceOfTheSamePerson(t *testin
 		}
 	}
 	position := int64(61_000)
+	handsFrom(registry)[7] = Handed{FileID: 3, PositionMs: &position, IsPaused: true}
 	_, left, err := registry.Cast(Cast{
-		ID: 7, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television, SenderName: "Pixel", FileID: 3,
-		PositionMs: &position, IsPaused: true,
+		ID: 7, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television, SenderName: "Pixel",
 	}, "secret")
 	if err != nil || len(left) != 0 {
 		t.Fatalf("the cast to the TV: %v, leaving %v", err, left)
@@ -317,10 +329,14 @@ func castToTheTV(t *testing.T, registry *Registry, castID, sender int64) Cast {
 }
 
 // A receiver whose page is loaded again is handed its cast again, with a credential of its own, once
-// the connection that held it is gone; a second tab behind it is not (§4).
+// the connection that held it is gone, from where the hub says the cast stands then, not where it
+// started (D555 §2); a second tab behind it is not (§4).
 func TestRegistry_AReceiverLoadedAgainIsHandedItsCastAgain(t *testing.T) {
 	t.Parallel()
 	registry := NewRegistry(minted(), newClock())
+	facts := handsFrom(registry)
+	started, since := int64(1_000), int64(42_000)
+	facts[5] = Handed{FileID: 3, PositionMs: &started}
 	first, second, third := &inbox{}, &inbox{}, &inbox{}
 	registry.Connect(owner, phone, inFront, (&inbox{}).send)
 	held := registry.Connect(owner, television, inFront, first.send)
@@ -333,10 +349,14 @@ func TestRegistry_AReceiverLoadedAgainIsHandedItsCastAgain(t *testing.T) {
 		t.Error("a second tab behind the one receiving was handed the cast")
 	}
 	registry.Disconnect(held)
+	facts[5] = Handed{FileID: 3, PositionMs: &since}
 	registry.Connect(owner, television, inFront, third.send)
 	received, isTold := third.last(MessageReceive)
 	if !isTold || received.Receive.CastID != 5 || received.Receive.Credential != "again-1" {
 		t.Errorf("the page loaded again was handed %+v (%v), want cast 5 by a new credential", received.Receive, isTold)
+	}
+	if at := received.Receive.PositionMs; at == nil || *at != since {
+		t.Errorf("the page loaded again was handed the film from %v; want 42 s, where the hub says it stands", at)
 	}
 }
 
@@ -350,24 +370,25 @@ func TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt(t *testing.T
 	registry.Connect(owner, phone, inFront, (&inbox{}).send)
 	registry.Connect(owner, laptop, inFront, (&inbox{}).send)
 	registry.Connect(owner, television, inFront, receiver.send)
+	sender := &inbox{}
+	registry.Connect(owner, phone, inFront, sender.send)
+	facts := handsFrom(registry)
 	from := int64(61_000)
-	cast := Cast{
-		ID: 5, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television, FileID: 1, PositionMs: &from,
-		IsPaused: true,
-	}
+	facts[5] = Handed{FileID: 1, PositionMs: &from, IsPaused: true}
+	cast := Cast{ID: 5, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television}
 	if _, _, err := registry.Cast(cast, "a"); err != nil {
 		t.Fatal(err)
 	}
-	next := Film{FileID: 2, ItemID: 22, ItemName: "Cat", DurationMs: 1000}
-	if _, err := registry.Play(owner, laptop, 5, next, nil); !errors.Is(err, ErrNoCast) {
+	facts[5] = Handed{FileID: 2, ItemID: 22, ItemName: "Cat", DurationMs: 1000} // the hub's CastPuts
+	if _, err := registry.Play(owner, laptop, 5); !errors.Is(err, ErrNoCast) {
 		t.Errorf("a device neither sending nor receiving moved it on: %v; want ErrNoCast", err)
 	}
-	if _, err := registry.Play(partner, television, 5, next, nil); !errors.Is(err, ErrNoCast) {
+	if _, err := registry.Play(partner, television, 5); !errors.Is(err, ErrNoCast) {
 		t.Errorf("another person moved it on: %v; want ErrNoCast", err)
 	}
-	moved, err := registry.Play(owner, television, 5, next, nil)
-	if err != nil || moved.FileID != 2 || moved.ItemName != "Cat" || moved.PositionMs != nil {
-		t.Fatalf("moved on by its receiver: %+v (%v); want file 2, Cat, from where the person left it", moved, err)
+	moved, err := registry.Play(owner, television, 5)
+	if err != nil || moved.ID != 5 {
+		t.Fatalf("moved on by its receiver: %+v (%v); want cast 5 going on", moved, err)
 	}
 	received, isTold := receiver.last(MessageReceive)
 	want := "true 2 &{CastID:5 Credential:again-1 FileID:2 ItemName:Cat TitleName:Cat ItemID:22 " +
@@ -377,8 +398,8 @@ func TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt(t *testing.T
 		t.Errorf("the receiver was handed %s; want cast 5 again, of file 2 as title 22, Cat, playing, "+
 			"by a new credential", got)
 	}
-	if listed := registry.CastsOf(owner, phone); len(listed) != 1 || listed[0].FileID != 2 {
-		t.Errorf("the sender's casts = %+v; want the one, now of file 2", listed)
+	if told, _ := sender.last(MessageSending); told.Sending == nil || told.Sending.FileID != 2 {
+		t.Errorf("the sender was told it sends %+v; want the one cast, now of file 2", told.Sending)
 	}
 }
 
@@ -439,6 +460,7 @@ func TestRegistry_ACastIsASessionTheSenderIsToldOf(t *testing.T) {
 	if _, err := registry.Accept(owner, phone, 5); !errors.Is(err, ErrNoCast) {
 		t.Errorf("the sender said Use for the receiver: %v; want ErrNoCast", err)
 	}
+	handsFrom(registry)[5] = Handed{IsAccepted: true} // the hub's CastHeard
 	if _, err := registry.Accept(owner, television, 5); err != nil {
 		t.Fatal(err)
 	}
@@ -465,9 +487,12 @@ func TestRegistry_EachFilmPlayedInACastIsHandedToItsReceiver(t *testing.T) {
 	t.Parallel()
 	registry := NewRegistry(minted(), newClock())
 	sender, receiver := castWithNothingOn(t, registry)
+	facts := handsFrom(registry)
 	from := int64(5_000)
-	for _, film := range []Film{{FileID: 2, ItemName: "Cat"}, {FileID: 3, ItemName: "Dog"}, {}} {
-		if _, err := registry.Play(owner, phone, 5, film, &from); err != nil {
+	for _, film := range []Handed{{FileID: 2, ItemName: "Cat"}, {FileID: 3, ItemName: "Dog"}, {}} {
+		film.PositionMs = &from
+		facts[5] = film // the hub's CastPuts
+		if _, err := registry.Play(owner, phone, 5); err != nil {
 			t.Fatal(err)
 		}
 		handed, _ := receiver.last(MessageReceive)
@@ -546,11 +571,10 @@ func TestRegistry_StartingWatchTogetherWhileCastingHandsTheReceiverItsPart(t *te
 	registry.Connect(owner, television, inFront, receiver.send)
 	registry.Connect(partner, 20, inFront, (&inbox{}).send)
 	registry.Connect(partner, 21, inFront, partnerReceiver.send)
-	sevenSeconds := int64(7_000)
-	ownCast := Cast{
-		ID: 5, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television, FileID: 3,
-		ItemName: "Metropolis", PositionMs: &sevenSeconds,
-	}
+	facts := handsFrom(registry)
+	sevenSeconds, fiftySeconds := int64(7_000), int64(50_000)
+	facts[5] = Handed{FileID: 3, ItemName: "synthetic film", PositionMs: &sevenSeconds}
+	ownCast := Cast{ID: 5, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television}
 	if _, _, err := registry.Cast(ownCast, "a"); err != nil {
 		t.Fatal(err)
 	}
@@ -562,7 +586,8 @@ func TestRegistry_StartingWatchTogetherWhileCastingHandsTheReceiverItsPart(t *te
 		t.Fatalf("before any session the TV was handed %q", handed.Receive.TogetherCredential)
 	}
 	sessions[owner], sessions[partner] = 1, 2
-	handed := registry.PartChanged(owner, func(castID int64) (int64, bool) { return castID * 10_000, true })
+	facts[5] = Handed{FileID: 3, ItemName: "synthetic film", PositionMs: &fiftySeconds} // where it stands
+	handed := registry.PartChanged(owner)
 	if len(handed) != 1 || handed[0].ID != 5 {
 		t.Fatalf("PartChanged handed %+v again; want cast 5 alone", handed)
 	}
@@ -666,7 +691,8 @@ func TestRegistry_TheItemsNameIsSentByItsOldNameTooForOneRelease(t *testing.T) {
 	t.Parallel()
 	registry := NewRegistry(minted(), newClock())
 	sender, receiver := castWithNothingOn(t, registry)
-	if _, err := registry.Play(owner, phone, 5, Film{FileID: 2, ItemName: "Cat"}, nil); err != nil {
+	handsFrom(registry)[5] = Handed{FileID: 2, ItemName: "Cat"}
+	if _, err := registry.Play(owner, phone, 5); err != nil {
 		t.Fatal(err)
 	}
 	handed, _ := receiver.last(MessageReceive)

@@ -189,8 +189,12 @@ func (server *Server) moveCast(ctx context.Context, input *MoveCastOnInput, way 
 		return nil, server.castRefused(ctx, principal, request, live.ErrNoCast, "castId", input.CastID)
 	}
 	cast := casts[index]
+	handed, err := dependencies.Together.CastHandedOf(cast.ID, principal.UserID)
+	if err != nil {
+		return nil, server.castRefused(ctx, principal, request, live.ErrNoCast, "castId", input.CastID)
+	}
 	member, err := server.castMovesTo(ctx, dependencies, principal,
-		library.Opened{FileID: cast.FileID, TitleID: cast.ItemID}, way)
+		library.Opened{FileID: handed.Film.FileID, TitleID: handed.Film.ItemID}, way)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +213,7 @@ func (server *Server) moveCast(ctx context.Context, input *MoveCastOnInput, way 
 		// ended as it moved
 		return nil, server.castRefused(ctx, principal, request, live.ErrNoCast, "castId", input.CastID)
 	}
-	moved, err := dependencies.Live.Play(principal.UserID, principal.DeviceID, cast.ID, liveFilmOf(film), nil)
+	moved, err := dependencies.Live.Play(principal.UserID, principal.DeviceID, cast.ID)
 	if err != nil {
 		return nil, server.castRefused(ctx, principal, request, err, "castId", input.CastID)
 	}
@@ -283,8 +287,6 @@ func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*St
 	cast := live.Cast{
 		ID: opened.CastID, UserID: principal.UserID, SenderDeviceID: principal.DeviceID,
 		ReceiverDeviceID: input.Body.ToDeviceID, SenderName: senderName, ReceiverName: receiverName,
-		FileID: film.FileID, ItemID: film.ItemID, ItemName: film.ItemName, DurationMs: film.DurationMs,
-		PositionMs: input.Body.PositionMs, IsPaused: input.Body.IsPaused,
 	}
 	cast, left, err := dependencies.Live.Cast(cast, opened.ReceiverCredential)
 	if err != nil {
@@ -348,11 +350,6 @@ func (server *Server) castFilmOf(
 	}, nil
 }
 
-// liveFilmOf is film as the live registry keeps it.
-func liveFilmOf(film together.CastFilm) live.Film {
-	return live.Film{FileID: film.FileID, ItemID: film.ItemID, ItemName: film.ItemName, DurationMs: film.DurationMs}
-}
-
 // PlayInCastInput plays a film on a cast's receiver, the asking device its sender or its receiver.
 type PlayInCastInput struct {
 	AuthorizationHeader
@@ -398,8 +395,7 @@ func (server *Server) playInCast(ctx context.Context, input *PlayInCastInput) (*
 	if err != nil {
 		return nil, server.castRefused(ctx, principal, "play", live.ErrNoCast, "castId", input.CastID)
 	}
-	played, err := dependencies.Live.Play(principal.UserID, principal.DeviceID, input.CastID, liveFilmOf(film),
-		input.Body.PositionMs)
+	played, err := dependencies.Live.Play(principal.UserID, principal.DeviceID, input.CastID)
 	if err != nil {
 		return nil, server.castRefused(ctx, principal, "play", err, "castId", input.CastID)
 	}
@@ -418,6 +414,13 @@ func sendsOrReceives(casts []live.Cast, castID int64) bool {
 	return slices.ContainsFunc(casts, func(each live.Cast) bool { return each.ID == castID })
 }
 
+// receives is whether casts, deviceID's, hold the cast castID as the one deviceID receives.
+func receives(casts []live.Cast, deviceID, castID int64) bool {
+	return slices.ContainsFunc(casts, func(each live.Cast) bool {
+		return each.ID == castID && each.ReceiverDeviceID == deviceID
+	})
+}
+
 // AcceptCastInput is the receiver's Use to a cast it was asked about.
 type AcceptCastInput struct {
 	AuthorizationHeader
@@ -433,11 +436,16 @@ func (server *Server) acceptCast(ctx context.Context, input *AcceptCastInput) (*
 	if err != nil {
 		return nil, err
 	}
+	if !receives(dependencies.Live.CastsOf(principal.UserID, principal.DeviceID), principal.DeviceID, input.CastID) {
+		return nil, server.castRefused(ctx, principal, "accept", live.ErrNoCast, "castId", input.CastID)
+	}
+	// Taken in the hub first, so the sender's pages are told it taken (D468 §1); its deadline runs
+	// (D555 §3).
+	dependencies.Together.CastHeard(input.CastID, principal.UserID)
 	accepted, err := dependencies.Live.Accept(principal.UserID, principal.DeviceID, input.CastID)
 	if err != nil {
 		return nil, server.castRefused(ctx, principal, "accept", err, "castId", input.CastID)
 	}
-	dependencies.Together.CastHeard(accepted.ID, principal.UserID) // its deadline runs (D555 §3)
 	body, err := server.castBodyFor(dependencies, accepted, principal)
 	if err != nil {
 		return nil, server.castRefused(ctx, principal, "accept", live.ErrNoCast, "castId", input.CastID)

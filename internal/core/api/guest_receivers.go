@@ -192,7 +192,8 @@ func guestPlays(dependencies *Dependencies, guest auth.Principal, fileID int64) 
 		if cast.ReceiverDeviceID != guest.DeviceID {
 			continue
 		}
-		if cast.FileID == fileID {
+		if handed, err := dependencies.Together.CastHandedOf(cast.ID, guest.UserID); err == nil &&
+			handed.Film.FileID == fileID {
 			return true
 		}
 		details, err := dependencies.Together.DetailsOf(cast.ID, guest.UserID)

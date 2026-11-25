@@ -327,12 +327,25 @@ func castMoved(
 				"castId", moved.CastID, "userId", moved.UserID, "reason", together.CastSessionEnded)
 			return
 		}
-		casts.HandAgain(moved.UserID, moved.CastID, func(castID int64) (int64, bool) {
-			positionMs, _, err := hub.CastPosition(castID, moved.UserID)
-			return positionMs, err == nil
-		})
+		casts.HandAgain(moved.UserID, moved.CastID)
 		logger.InfoContext(ctx, "cast: a cast left its caster's part, to play on alone",
 			"castId", moved.CastID, "userId", moved.UserID)
+	}
+}
+
+// handedBy is what each cast hands its receiver, as the live registry reads it: the hub's, nothing
+// for a cast the hub no longer holds (D555 §2).
+func handedBy(hub *together.Hub) live.HandedOf {
+	return func(castID, userID int64) live.Handed {
+		handed, err := hub.CastHandedOf(castID, userID)
+		if err != nil {
+			return live.Handed{}
+		}
+		return live.Handed{
+			FileID: handed.Film.FileID, ItemID: handed.Film.ItemID, ItemName: handed.Film.ItemName,
+			DurationMs: handed.Film.DurationMs, PositionMs: handed.PositionMs, IsPaused: handed.IsPaused,
+			IsAccepted: handed.IsAccepted,
+		}
 	}
 }
 
@@ -478,6 +491,8 @@ func (services *Services) wireJobsInto(ctx context.Context, parts Parts) error {
 	dependencies.Live = live.NewRegistry(dependencies.Together.CastCredential, parts.Clock)
 	// A cast's receiver plays the Watch Together session its person hosts, if any (D364 §11).
 	dependencies.Live.TakesPartBy(dependencies.Together.CastPart)
+	// What a cast plays, from where, and whether its receiver took it, are the hub's alone (D555 §2).
+	dependencies.Live.HandsBy(handedBy(dependencies.Together))
 	// A Watch Together session's end ends every cast whose receiver takes a part in it and did not
 	// move to play on alone (D555 §7).
 	dependencies.Together.OnSessionEnded(endCastsOfSession(dependencies.Live, dependencies.Together, parts.Logger))
