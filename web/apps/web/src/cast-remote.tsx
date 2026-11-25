@@ -394,6 +394,10 @@ interface CastEnd {
  * The cast castId's session, joined as this device's remote by a credential read from the server for
  * it: what it says, and how it ended once it has (ended, as by Stop casting in Cast's dialog, or no
  * longer the server's); and this device's casts as read for it, which name its title (useCastTitle).
+ * The cast moved into its person's part in a Watch Together session, its own session let go
+ * ("castMoved", D555 §2, §7), is no end: its casts are read again, what they showed kept meanwhile,
+ * and the remote joins the session it moved to by the credential read for it (the walk on staging,
+ * 2026-11-25: it said "Casting ended" while the receiver played on).
  */
 function useCastSession(castId: number): {
   readonly connection: ReturnType<typeof useTogether>["connection"];
@@ -404,7 +408,13 @@ function useCastSession(castId: number): {
   const { api } = useServices();
   const token = useToken();
   // The cast started here handed its answer; only a page loaded anew asks (D478).
-  const [casts] = useResource(myCastsKey(castId), async () => await listMyCasts(api));
+  const [casts, readCastsAgain] = useResource(
+    myCastsKey(castId),
+    async () => await listMyCasts(api),
+    {
+      isKeptOnReload: true,
+    },
+  );
   const own =
     casts.state === "loaded"
       ? casts.value.find((each) => each.castId === castId && each.isSender)
@@ -415,7 +425,14 @@ function useCastSession(castId: number): {
     role: "panel",
   });
   const positionMs = usePositionNow(snapshot);
-  const endReason = snapshot?.status === "ended" ? snapshot.endReason : undefined;
+  const told = snapshot?.status === "ended" ? snapshot.endReason : undefined;
+  const isMoved = told === "castMoved";
+  useEffect(() => {
+    if (isMoved) {
+      readCastsAgain();
+    }
+  }, [isMoved, readCastsAgain]);
+  const endReason = isMoved ? undefined : told;
   const isGone = casts.state === "loaded" && own === undefined;
   return {
     connection,

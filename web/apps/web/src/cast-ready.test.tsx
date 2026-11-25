@@ -152,6 +152,12 @@ describe("a cast's receiver between videos (D364 §5, §9, §10)", () => {
     }
   });
 
+  it("stays as the cast's own session is let go for the Watch Together part it moved to, no end of the cast (D555 §2)", async () => {
+    const { services, sockets } = await readyPage([]);
+    await sockets.session.say({ type: "ended", reason: "castMoved" });
+    expect(services.navigation.route()).not.toEqual({ screen: "home" });
+  });
+
   it("goes to its home page as the sender stops casting (D384 §1)", async () => {
     const { services, sockets } = await readyPage([]);
     await sockets.session.say({ type: "ended", reason: "stopped" });

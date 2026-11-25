@@ -191,6 +191,8 @@ export type TogetherEndReason =
   | "declined"
   | "unanswered"
   | "sessionEnded"
+  /** No end: a cast's own session let go as it moved into a Watch Together part (D555 §2). */
+  | "castMoved"
   /**
    * Said by no server: the core refused this page's messages for their version (versionMismatchCode),
    * so the page is older or newer than the core, and a reload fetches the client it speaks with.
@@ -592,6 +594,7 @@ const endReasons: readonly TogetherEndReason[] = [
   "declined",
   "unanswered",
   "sessionEnded",
+  "castMoved",
 ];
 
 /** A welcome's tuning, each value the starting one where it says none. */

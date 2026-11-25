@@ -181,7 +181,11 @@
 //     Opening a session takes a running cast into the new part (CastCredential), leading with its
 //     film; joining one by link takes it in at the join (Joined.CastsMoved), following the session's
 //     film from where the session stands; leaving, it plays on with the session's film from where the
-//     session stood as they left. Enforced by TestHub_LeavingASessionMovesTheGuestsCastToPlayAlone,
+//     session stood as they left. A cast moving into a part lets its own session of one go, each
+//     of its devices told castMoved (CastMoved), no reason a cast ends, and a hello by that
+//     session's credential within endedCastKept told so too, so each reads its credential anew and
+//     its remote shows the cast live (TestCast_MovingIntoAPartTellsTheOwnSessionsDevicesTheCastMoved).
+//     Enforced by TestHub_LeavingASessionMovesTheGuestsCastToPlayAlone,
 //     TestCast_ACastJoiningASessionByLinkFollowsTheSessionAndLeavesWithItsFilm and, through the API,
 //     TestCast_ACastPlaysOnAloneAsTheSessionItTookAPartInEnds,
 //     TestCast_AGuestsCastOfTheHostsFilmEndsWithTheSession, TestCast_JoiningASessionTakesTheCastIntoIt,

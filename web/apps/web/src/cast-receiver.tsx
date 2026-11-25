@@ -279,8 +279,8 @@ export function useEndsAsTheCastDoes(
 ): void {
   const { t } = useTranslation();
   useEffect(() => {
-    if (endReason === undefined) {
-      return;
+    if (endReason === undefined || endReason === "castMoved") {
+      return; // moved into its person's part elsewhere, no end: the cast is handed again there
     }
     onLeave();
     if (endReason === "gone") {

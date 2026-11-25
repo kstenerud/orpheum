@@ -140,6 +140,47 @@ describe("a Chromecast's casts, one after another", () => {
     });
   }
 
+  it("keeps its cast as the cast's own session is let go for the part it moved to, ending nothing (D555 §2)", () => {
+    const sockets: Parameters<OpenTogetherSocket>[0][] = [];
+    const notes: string[] = [];
+    const device = new CastDevice({
+      api: createApi({
+        origin: "https://core.example",
+        getToken: () => "token",
+        fetch: () => Promise.resolve(new Response("{}", { status: 503 })),
+      }),
+      token: "token",
+      reached: {
+        fetch: () => Promise.reject(new Error("no film's bytes in this test")),
+        openSocket: (listeners) => {
+          sockets.push(listeners);
+          return { send: () => undefined, close: () => undefined };
+        },
+        close: () => undefined,
+      },
+      video: {
+        addEventListener: () => undefined,
+        currentTime: 0,
+        paused: true,
+        seeking: false,
+        readyState: 0,
+      } as unknown as HTMLVideoElement,
+      note: (line) => {
+        notes.push(line);
+      },
+      onRefused: () => undefined,
+    });
+    const stop = device.start();
+    const [live] = sockets;
+    live?.onOpen();
+    live?.onMessage(receiveText(1));
+    const castSession = sockets[1];
+    castSession?.onOpen();
+    castSession?.onMessage(JSON.stringify({ type: "ended", reason: "castMoved" }));
+    expect(notes.filter((line) => line.startsWith("the cast ended"))).toEqual([]);
+    stop();
+  });
+
   it("takes the next cast after one is stopped", async () => {
     const asked: string[] = [];
     const api = createApi({

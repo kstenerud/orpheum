@@ -46,6 +46,14 @@ const (
 	CastIdle = "idle"
 )
 
+// CastMoved is no end of a cast but what the devices of its own session of one are told as the cast
+// moves into its caster's part in the Watch Together session they are in, that session let go
+// (moveIntoPart, D555 §2, §7): the cast plays on there, and each device says hello again by a
+// credential read anew for it (CastCredential), its remote showing the cast live throughout. Distinct
+// from every reason a cast ends (the walk on staging, 2026-11-25: a remote told nothing took the
+// session's loss for the cast's end).
+const CastMoved = "castMoved"
+
 // CastSilentAfter is how long a cast's castee may say nothing before the hub ends its cast, its
 // devices told receiverGone (D555 §3): it says where it is each 5 s while it plays, so four of those
 // missed, a television switched off or its page closed, while a page loaded again says hello well
@@ -58,7 +66,8 @@ const CastSilentAfter = 20 * time.Second
 // slow phone's read and hello, many times over.
 const endedCastKept = time.Minute
 
-// endedCast is one credential of a cast that ended, why, and when.
+// endedCast is one credential of a cast that ended, why, and when; or of a cast's own session of one
+// let go as the cast moved into a Watch Together part, CastMoved.
 type endedCast struct {
 	hash    [sha256.Size]byte
 	reason  string
@@ -66,7 +75,8 @@ type endedCast struct {
 }
 
 // CastEndedError is a hello whose credential was a cast's that ended within endedCastKept: why it
-// ended, a cast's reason. It is ErrNoSession too, to every caller that asks only that.
+// ended, a cast's reason; or CastMoved, the cast's own session of one let go as it moved, to read the
+// cast's credential anew. It is ErrNoSession too, to every caller that asks only that.
 type CastEndedError struct {
 	Reason string
 }
@@ -395,19 +405,19 @@ func (hub *Hub) castsIntoPart(userID int64) []int64 {
 }
 
 // moveIntoPart moves the cast, alone in its own session of one, into its person's part in the Watch
-// Together session they are in, its own session let go, its devices to say hello again by the
-// credential handed them (D555 §2): whether they are in one. As the host's player it leads that
+// Together session they are in, its own session let go, its devices told so to say hello again by
+// the credential handed them (letMovedGo, D555 §2): whether they are in one. As the host's player it leads that
 // session with the film it plays, from where it stood; as a guest's it follows the session, handed
 // the session's film from where the session stands, its own film left behind (§1, §7). The caller
 // holds the mutex.
 func (hub *Hub) moveIntoPart(cast *casting) bool {
-	alone, _ := hub.castersPart(cast)
+	alone, aloneCaster := hub.castersPart(cast)
 	if alone == nil || !hub.castIntoPart(cast) {
 		return false
 	}
-	delete(hub.sessions, alone.id)
-	into, caster := hub.castersPart(cast)
 	now := hub.clock.Now()
+	hub.letMovedGo(alone, aloneCaster, now)
+	into, caster := hub.castersPart(cast)
 	if caster.isHost {
 		cast.handed.anchor(alone, into, now) // it plays on from where it stood
 	} else {
@@ -416,6 +426,19 @@ func (hub *Hub) moveIntoPart(cast *casting) bool {
 	hub.logger.Info("watch together: a cast took its caster's part in the session they are in",
 		"castId", cast.id, sessionIDAttribute, into.id, "isHost", caster.isHost)
 	return true
+}
+
+// letMovedGo lets go the cast's own session of one, alone, as the cast moved out of it into a Watch
+// Together part: each of its devices is told CastMoved, and a device saying hello by one of its
+// caster's credentials within endedCastKept is told so too, so each reads the cast's credential anew
+// rather than take the cast for ended (D555 §2). The caller holds the mutex.
+func (hub *Hub) letMovedGo(alone *session, caster *member, now time.Time) {
+	alone.broadcast(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: CastMoved})
+	hub.endedCasts = hub.endedCastsKeptAt(now)
+	for _, held := range caster.credentials {
+		hub.endedCasts = append(hub.endedCasts, endedCast{hash: held.hash, reason: CastMoved, endedAt: now})
+	}
+	delete(hub.sessions, alone.id)
 }
 
 // EndCast ends the cast castID that userID cast: each of its devices is told why and let go, and its

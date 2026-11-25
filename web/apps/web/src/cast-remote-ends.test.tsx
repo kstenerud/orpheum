@@ -287,6 +287,39 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
     );
   });
 
+  it("follows its cast into the Watch Together session it moved to, its casts read again and the session joined by their new credential, never saying casting ended (D555 §2, §7)", async () => {
+    const moved = { ...cast, membershipCredential: "remote in the party" };
+    const heard: Heard[] = [];
+    const { services, sockets, onPlayHere } = await casting(
+      {
+        "GET /me/casts": [
+          [200, { casts: [cast] }],
+          [200, { casts: [moved] }],
+        ],
+      },
+      heard,
+    );
+    const castsRead = (): number =>
+      heard.filter((each) => each.methodAndPath === "GET /me/casts").length;
+    const isEndedShown = (): boolean =>
+      mounted!.container
+        .querySelector(".cast-remote__note")
+        ?.textContent.includes("Casting ended") === true;
+    await sockets.session.say({ type: "ended", reason: "castMoved" });
+    expect(isEndedShown()).toBe(false);
+    await settleUntil(() => castsRead() === 2 && sockets.session.openedCount() === 2);
+    expect(isEndedShown()).toBe(false);
+    await sockets.session.accept();
+    const hellos = sockets.session.heard.filter((each) => each["type"] === "hello");
+    expect(hellos.at(-1)).toMatchObject({ credential: "remote in the party", role: "panel" });
+    await sockets.session.say(welcome);
+    await sockets.session.say({ type: "roster", roster: receiverLeads });
+    expect(isEndedShown()).toBe(false);
+    expect(onPlayHere).not.toHaveBeenCalled();
+    expect(services.navigation.route().screen).not.toBe("home");
+    expect(buttonWithText(mounted!.container, "Play here")).toBeUndefined();
+  });
+
   it("stays, saying casting ended, where the server lists the cast no more, Play here alone playing the film here from its own start (D552 §4)", async () => {
     const services = servedBy(
       {

@@ -46,6 +46,60 @@ func TestCast_AloneIsASessionOfOneAndAPartyTakesItIn(t *testing.T) {
 	}
 }
 
+// A cast moving into its person's part in a Watch Together session, by the party they start or the
+// one they join by link, tells each device of its own session of one, let go, that the cast moved, no
+// reason a cast ends; a device saying hello by that session's credential after it is told so too, to
+// read its credential anew (the walk on staging, 2026-11-25: the remote, told nothing, took the
+// session's loss for the cast's end and said "Casting ended" while the receiver played on).
+func TestCast_MovingIntoAPartTellsTheOwnSessionsDevicesTheCastMoved(t *testing.T) {
+	t.Parallel()
+	moves := map[string]func(stage sessionStage, castID int64){
+		"a party started": func(stage sessionStage, castID int64) {
+			if _, err := stage.hub.Open(alone); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := stage.hub.CastCredential(castID, alone.UserID); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"a session joined by link": func(stage sessionStage, _ int64) {
+			made, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "a friend", Rights{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = stage.hub.Join(made.Secret, "Friend", &alone, Leaving{}); err != nil {
+				t.Fatal(err)
+			}
+		},
+	}
+	for name, move := range moves {
+		stage := newStage(t)
+		cast, err := stage.hub.OpenCast(alone, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, receiverBox := stage.attach(t, cast.ReceiverCredential, RoleVideo)
+		_, remoteBox := stage.attach(t, cast.SenderCredential, RolePanel)
+		move(stage, cast.CastID)
+		for device, box := range map[string]*inbox{"receiver": receiverBox, "remote": remoteBox} {
+			wantToldMoved(t, name+": the "+device, box)
+		}
+		_, err = stage.hub.Attach(cast.SenderCredential, RolePanel, false, nil, testTuning, (&inbox{}).send)
+		if moved, isMoved := errors.AsType[*CastEndedError](err); !isMoved || moved.Reason != CastMoved {
+			t.Errorf("%s: a hello by the own session's credential after the move = %v; want told %q", name, err,
+				CastMoved)
+		}
+	}
+}
+
+// wantToldMoved checks the device whose messages box holds, named who, was told one end, CastMoved.
+func wantToldMoved(t *testing.T, who string, box *inbox) {
+	t.Helper()
+	if count, reason := box.count(MessageEnded), box.last(MessageEnded).Reason; count != 1 || reason != CastMoved {
+		t.Errorf("%s was told %d ends, the last %q; want one, %q", who, count, reason, CastMoved)
+	}
+}
+
 // isFoundAsNoSession checks the cast castID, alone's, is no party: no link is made in it, it has no
 // details and is not ended as one, and no cast's credential is had for the party or for someone else.
 func (stage sessionStage) isFoundAsNoSession(t *testing.T, castID int64) {

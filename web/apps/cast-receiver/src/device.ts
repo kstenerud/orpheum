@@ -336,6 +336,11 @@ export class CastDevice {
       return;
     }
     const snapshot = together.snapshot();
+    if (snapshot.endReason === "castMoved") {
+      // No end: the cast moved into its person's part elsewhere, and is handed again there (join).
+      this.options.note("the cast's own session was let go as it moved");
+      return;
+    }
     if (snapshot.endReason !== undefined) {
       this.options.note(`the cast ended: ${snapshot.endReason}`);
       this.endCast();
