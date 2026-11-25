@@ -24,14 +24,16 @@ import {
   SeekForwardIcon,
   SoundIcon,
 } from "./player-icons.tsx";
+import type { PlaybackTarget } from "./playback-target.ts";
 import { askedByOf, seekAheadOf, seekAimedEvent, seekStepMs } from "./seek-ahead.ts";
 import { Timeline } from "./timeline.tsx";
 import { useVideoStanding, type StandingTaken, type VideoStanding } from "./video-standing.ts";
 import { VolumeRange } from "./volume-range.tsx";
 
 /**
- * What a bar of player controls plays and commands (D369 §1): a video on this page
- * (useVideoSource), or a film another device plays, as a cast's remote commands its receiver.
+ * What a bar of player controls plays and commands (D369 §1): the bar's part of the playback target
+ * (PlaybackTarget, D555 §8), the video on this page (useVideoTarget), or a film another device plays,
+ * as a cast's remote commands its castee (useCasteeTarget).
  */
 export interface PlayerSource {
   /**
@@ -359,26 +361,33 @@ export function SoundControls(props: {
   );
 }
 
-/** Where a video stands, its length, and whether it is paused, as it says them at its own events. */
+/**
+ * Where a video stands, its length, and whether it is paused, as it says them at its own events;
+ * where it stands is a seek's place while one is chosen (atMs), and the video's own (reportedAtMs).
+ */
 interface Standing {
   readonly atMs: number;
+  readonly reportedAtMs: number;
   readonly durationMs: number;
   readonly isPaused: boolean;
 }
 
 /**
- * The video in videoRef as a bar's source: where it stands, read at its own events, and at each
- * timeupdate only while the bar shows (isHidden false), or where a seek chosen on it sends it
- * (seekAheadOf); play or pause and seeks made on it at once; and its sound.
+ * The video in videoRef as the playback target here (PlaybackTarget, D555 §8): where it stands, read
+ * at its own events, and at each timeupdate only while the bar shows (isHidden false), or where a
+ * seek chosen on it sends it (seekAheadOf); play or pause and seeks made on it at once; its sound;
+ * and its choices, the film's tracks around its stage (HereChoices).
  */
-export function useVideoSource(
+export function useVideoTarget(
   videoRef: RefObject<HTMLVideoElement | null>,
   isHidden = false,
-): PlayerSource {
+): PlaybackTarget {
   const stand = useStanding(videoRef, isHidden);
   const sound = useVideoSound(videoRef);
   return {
     ...stand,
+    kind: "here",
+    choices: { kind: "here", videoRef },
     isReady: true,
     sound,
     playOrPause: () => {
@@ -419,6 +428,7 @@ const shownStandingEvents = [...standingEvents, "timeupdate"];
 function barStandingOf(standing: VideoStanding, video: HTMLVideoElement): Standing {
   return {
     atMs: seekAheadOf(video).shownMs(standing.atMs),
+    reportedAtMs: standing.atMs,
     durationMs: standing.durationMs,
     // A film meant to play that waits for enough to be loaded shows Pause (isPausedAsAsked).
     isPaused: standing.isPaused && isPausedAsAsked(video),
@@ -428,6 +438,7 @@ function barStandingOf(standing: VideoStanding, video: HTMLVideoElement): Standi
 function isSameStanding(one: Standing, other: Standing): boolean {
   return (
     one.atMs === other.atMs &&
+    one.reportedAtMs === other.reportedAtMs &&
     one.durationMs === other.durationMs &&
     one.isPaused === other.isPaused
   );
@@ -437,7 +448,7 @@ function isSameStanding(one: Standing, other: Standing): boolean {
 const shownTaking: StandingTaken<Standing> = {
   take: barStandingOf,
   isSame: isSameStanding,
-  initial: { atMs: 0, durationMs: 0, isPaused: true },
+  initial: { atMs: 0, reportedAtMs: 0, durationMs: 0, isPaused: true },
   isReadAtOnce: true,
 };
 

@@ -21,7 +21,7 @@ import {
   type Mounted,
 } from "./test-dom.tsx";
 import { overlayUpClass } from "./play-up.tsx";
-import { PlayerControls, useVideoSource } from "./player-controls.tsx";
+import { PlayerControls, useVideoTarget } from "./player-controls.tsx";
 import { OpenedAsContext, useAroundFile, type Previous, type UpNext } from "./around-file.ts";
 import type { Services } from "./services.tsx";
 import { SegmentsContext } from "./segments.tsx";
@@ -314,7 +314,7 @@ describe("the Up next offer over the film", () => {
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", video);
     function BarAndOffer(): JSX.Element {
-      const source = useVideoSource(videoRef);
+      const source = useVideoTarget(videoRef);
       return (
         <div data-at-ms={source.atMs}>
           <PlayerControls source={source} controls={["play"]} />

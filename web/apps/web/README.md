@@ -1209,7 +1209,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `IconButton` (`src/icon-button.tsx`), one size, 2.75rem, the status tray's too; a film's timeline
   is a `Timeline` (`src/timeline.tsx`), in milliseconds, touched anywhere; and the controls over a
   film or for one elsewhere are one bar, `PlayerControls` (`src/player-controls.tsx`), fed by the
-  video here (`useVideoSource`) or by a cast's remote, the TV overlay, a computer's and a phone's
+  video here (`useVideoTarget`) or by a cast's remote, the TV overlay, a computer's and a phone's
   controls and the cast remote alike. `src/icon-button.test.tsx`, `src/timeline.test.tsx`,
   `src/player-controls.test.tsx`, `src/cast-remote.test.tsx`.
 - **A failure about what was typed marks the fields it is about** (plans 11-22 batch, item 6):

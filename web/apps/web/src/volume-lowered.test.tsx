@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { filmVolume, followFilmVolume, setFilmVolume } from "./film-volume.ts";
 import { answerPlayerCommand } from "./player-commands.ts";
-import { PlayerControls, useVideoSource } from "./player-controls.tsx";
+import { PlayerControls, useVideoTarget } from "./player-controls.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -65,7 +65,7 @@ describe("the volume the person set, on a sound levelling lowers by the element'
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", video);
     function Bar(): React.JSX.Element {
-      return <PlayerControls source={useVideoSource(videoRef)} controls={["sound"]} />;
+      return <PlayerControls source={useVideoTarget(videoRef)} controls={["sound"]} />;
     }
     mounted = await mount(withServices(<Bar />));
     lowerByHalf(video);

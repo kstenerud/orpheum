@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   PlayerControls,
-  useVideoSource,
+  useVideoTarget,
   type PlayerSource,
   type SequenceMoves,
 } from "./player-controls.tsx";
@@ -82,7 +82,7 @@ describe("the player's bar (D369 §1)", () => {
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", video);
     function Bar(): React.JSX.Element {
-      return <PlayerControls source={useVideoSource(videoRef)} controls={["play", "sound"]} />;
+      return <PlayerControls source={useVideoTarget(videoRef)} controls={["play", "sound"]} />;
     }
     mounted = await mount(withServices(<Bar />));
     await click(buttonNamed(mounted.container, "Mute"));
@@ -101,7 +101,7 @@ describe("the player's bar (D369 §1)", () => {
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", video);
     function Bar(): React.JSX.Element {
-      return <PlayerControls source={useVideoSource(videoRef)} controls={["play"]} />;
+      return <PlayerControls source={useVideoTarget(videoRef)} controls={["play"]} />;
     }
     mounted = await mount(withServices(<Bar />));
     await click(buttonNamed(mounted.container, "Play"));

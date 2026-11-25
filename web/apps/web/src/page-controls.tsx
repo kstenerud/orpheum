@@ -15,7 +15,7 @@ import { useIsFullScreen } from "./full-screen-button.tsx";
 import { useCommands } from "./input-layer.tsx";
 import { OverlayUp } from "./play-up.tsx";
 import { answerPlayerCommand, usePlayersControls } from "./player-commands.ts";
-import { PlayerControls, useVideoSource, type SequenceMoves } from "./player-controls.tsx";
+import { PlayerControls, useVideoTarget, type SequenceMoves } from "./player-controls.tsx";
 import { PlayerMenus } from "./player-menus.tsx";
 import { barControlsOf, PlayerOverlay, useControlsShown } from "./player-overlay.tsx";
 import { isAMousesClick, TouchClock, touchClockEvents } from "./player-taps.ts";
@@ -118,7 +118,7 @@ function ControlsBar(props: {
   const { film, offer, moves, playRef, skipped } = props;
   const { videoRef } = film;
   const barRef = useRef<HTMLDivElement>(null);
-  const source = useVideoSource(videoRef);
+  const source = useVideoTarget(videoRef);
   const isTv = isOnTelevision();
   const shown = useControlsShown(isTv, moves);
   usePlayersControls(barRef, videoRef);

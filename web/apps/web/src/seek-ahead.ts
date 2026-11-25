@@ -340,7 +340,7 @@ const videoAheads = new WeakMap<HTMLVideoElement, SeekAhead>();
 
 /**
  * The seek being chosen on video, one for every press and bar that seeks it: an arrow's command
- * (player-commands.ts) and its timeline (useVideoSource), so a press on one ends what the other
+ * (player-commands.ts) and its timeline (useVideoTarget), so a press on one ends what the other
  * chose. It tells the video seekAimedEvent as the place shown changes, and takes the video's seeked
  * as its seek landed; the player stops it as it lets the video go (stopSeekAheadOf).
  */

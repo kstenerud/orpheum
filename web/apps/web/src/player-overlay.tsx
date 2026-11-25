@@ -29,7 +29,7 @@ import { OverlayUp, PlayUpwardContext } from "./play-up.tsx";
 import { answerPlayerCommand, seekBy, usePlayersControls } from "./player-commands.ts";
 import {
   PlayerControls,
-  useVideoSource,
+  useVideoTarget,
   type PlayerControl,
   type PlayerSource,
   type SequenceMoves,
@@ -166,7 +166,7 @@ function useOverlay(
   const isTv = isOnTelevision();
   const [state, setState] = useState<OverlayState>(() => openedWith(isTv));
   const isCovered = state.shown === "hidden" || state.shown === "convenience";
-  const source = useVideoSource(refs.videoRef, isCovered);
+  const source = useVideoTarget(refs.videoRef, isCovered);
   const notePress = useOverlayHiding({
     state,
     setState,
