@@ -66,6 +66,10 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   play (`subscribeToSoundChoices`). Its person's own moves are commands, as any player's. A follower
   whose session another device leads follows the group as above. `src/together-leader.test.ts`,
   `src/together-connection-leader.test.ts`.
+- **One way to put a leading player's film on for its session** (D555 §3): `putOnCommands`, the
+  film's `changeItem` at its position as the title it was opened as, then `pause` where it waits
+  paused; the web app's leading player and the Google Cast receiver both send these, each at its own
+  time. `src/together-put-on.test.ts`.
 - **A group held for want of a player is a paused group** (D375): everyone's screen gone, the server
   holds it `paused` where it stood, and `isHeldPlaying` says whether it was playing, to play on as a
   screen comes back (event `resumedOnReturn`); a player follows it as any paused group, its clock
@@ -363,5 +367,5 @@ for Watch Together:
   `src/shown-check.ts`; who its roster says leads and follows, `src/together-roster.ts`; following
   the group with a video element,
   `src/together-follow.ts`, by where the group is and what a drift calls for,
-  `src/together-drift.ts`, or leading it, `src/together-leader.ts`; voice's calls, `src/together-voice.ts`, over the
+  `src/together-drift.ts`, or leading it, `src/together-leader.ts`, its film put on by `src/together-put-on.ts`; voice's calls, `src/together-voice.ts`, over the
   browser's microphone, RTCPeerConnection and Web Audio in `src/together-voice-browser.ts`.

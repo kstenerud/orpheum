@@ -6,6 +6,7 @@ import {
   createLiveConnection,
   createTogetherConnection,
   dataOrThrow,
+  putOnCommands,
   expectedGroupPositionMs,
   failureText,
   type Api,
@@ -107,24 +108,6 @@ export function stepsToFollow(
       ? [{ step: "seek", positionMs } as const]
       : []),
     ...playOrPause(isPlaying, player.isPlaying),
-  ];
-}
-
-/**
- * What the receiver commands the session it leads to put the cast's film on (D337: in a cast the
- * receiver leads, casts.go's startCast), as the web app's receiver does (together-host.tsx's putOn):
- * the film at positionMs, as the title itemId it was opened as (B0 question 20), paused there where
- * the sender had it paused (the owner, 2026-11-08).
- */
-export function putOnCommands(
-  film: { readonly fileId: number; readonly itemId?: number | undefined },
-  positionMs: number,
-  isPaused: boolean,
-): readonly GroupCommand[] {
-  const { fileId, itemId } = film;
-  return [
-    { command: "changeItem", fileId, ...(itemId === undefined ? {} : { itemId }), positionMs },
-    ...(isPaused ? [{ command: "pause" } as const] : []),
   ];
 }
 

@@ -1,16 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { createApi, type GroupView, type OpenTogetherSocket } from "@orpheum/sdk";
+import { createApi, putOnCommands, type GroupView, type OpenTogetherSocket } from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  CastDevice,
-  groupToFollow,
-  handedWhat,
-  putOnCommands,
-  seekPastMs,
-  stepsToFollow,
-} from "./device.ts";
+import { CastDevice, groupToFollow, handedWhat, seekPastMs, stepsToFollow } from "./device.ts";
 import { reachedAt } from "./reach.ts";
 
 /** A group as the server tells it, playing fileId at positionMs. */

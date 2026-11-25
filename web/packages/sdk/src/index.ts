@@ -346,6 +346,7 @@ export {
   soundMovedOf,
 } from "./together-player-events.ts";
 export { PlaybackTold } from "./together-leader.ts";
+export { putOnCommands } from "./together-put-on.ts";
 export type {
   ChunkLoaded,
   LoadingHold,

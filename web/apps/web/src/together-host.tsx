@@ -4,6 +4,7 @@ import {
   everyRight,
   followGroup,
   playedMutedEvent,
+  putOnCommands,
   soundOnAtTap,
   type CannotKeepUp,
   type PlaybackReport,
@@ -168,14 +169,9 @@ function putOn(
   const positionMs = isFirst
     ? (putOnAtMs ?? standsAtMs ?? startPositionMs)
     : (standsAtMs ?? putOnAtMs ?? startPositionMs);
-  connection.command({
-    command: "changeItem",
-    fileId,
-    ...(itemId === undefined ? {} : { itemId }),
-    positionMs,
-  });
-  if (isFirst ? film.isPutOnPaused === true : video?.paused === true) {
-    connection.command({ command: "pause" });
+  const isPaused = isFirst ? film.isPutOnPaused === true : video?.paused === true;
+  for (const each of putOnCommands({ fileId, itemId }, positionMs, isPaused)) {
+    connection.command(each);
   }
 }
 
