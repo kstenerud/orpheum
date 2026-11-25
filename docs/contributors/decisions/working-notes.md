@@ -31761,7 +31761,20 @@ locked."* **Amends** D552 §4–5 (a take-back's note; the sender's Chromecast s
 there) and D550 §3 (the Chromecast's loss as a hint), and **extends** D552 §1 (hosting Watch
 Together, the film plays here by itself).
 
-**Status:** decided; not built.
+**Status:** decided; built, each clause read back against the code. §1 stands as D552 §4 built it
+(`cast-remote-ends.ts`'s `endWayOf`). §2's notes are `locales/en-cast.ts`'s `cast.over`; its Cast
+again is `web/apps/web/src/cast-remote-again.ts`'s `useCastAgain`, beside Play here in
+`cast-remote-offer.tsx`, and `cast-to.tsx`'s `isTakenOn` hands the Play page to the new cast's
+remote. **Cast again is built for a device receiver alone** (an Orpheum tab, in the live devices
+message): a Chromecast is cast to through Chrome's picker alone, which names no device the page
+could find again, so the SDK's device availability cannot say this receiver is back, and a
+Chromecast's ended remote offers Play here alone. §3 is `endWayOf`'s hosting branch and
+`useTellsTheHost`; **its words are a notice, which takes no action** (`notice.ts`), so Cast again
+and Leave session are not beside it: Leave session stays the Watch Together panel's. §4 is
+`cast-remote-offer.tsx`'s `isServerLost`, "Can't reach the server", read in `cast-remote.tsx` from
+the cast's and the hosted session's reconnecting state. §5 is `google-cast.ts`'s `linkCastSession`
+and `cast-session-lost.ts`, read by `cast-remote-heard.ts`'s `useReceiverHeard`; the server's
+accepted `receiverGone` is unchanged.
 
 1. **An end the sender asked for brings the film to the sender at once**, as the receiver had it,
    paused or playing: Stop casting in Cast's dialog, Play here while Reaching, and the person's
@@ -31801,7 +31814,9 @@ Together, the film plays here by itself).
 **Proven by:**
 
 - 1: `web/apps/web/src/cast-remote-ends.test.tsx`, `web/apps/web/src/cast-remote-stop.test.tsx`
-- 2: `web/apps/web/src/cast-remote-ends.test.tsx`, the Cast again test, VQ402's successor
-- 3: a host's remote test over a session, the leader tests of `internal/core/together`
-- 4: `web/apps/web/src/cast-remote-reconnect.test.tsx`
-- 5: `web/apps/web/src/google-cast.test.tsx`
+- 2: `web/apps/web/src/cast-remote-ends.test.tsx`, `web/apps/web/src/cast-remote-again.test.tsx`,
+  VQ403
+- 3: `web/apps/web/src/cast-remote-ends.test.tsx` (hosting and not), the leader's hand-over in
+  `internal/core/together/new_leader_test.go` and `leader_test.go`, VQ403
+- 4: `web/apps/web/src/cast-remote-reaching.test.tsx`, VQ403
+- 5: `web/apps/web/src/google-cast.test.tsx`, `web/apps/web/src/cast-remote-ends.test.tsx`, VQ403
