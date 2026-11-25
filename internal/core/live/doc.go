@@ -42,12 +42,10 @@
 //     TestRegistry_EachFilmPlayedInACastIsHandedToItsReceiver and
 //     TestRegistry_ACastIsASessionTheSenderIsToldOf.
 //   - A cast's receiver with no connection keeps its cast for its next one: the registry ends none
-//     for it; the hub ends a cast whose castee is silent (D555 §3), and End tells its sender.
-//     Enforced by TestRegistry_AReceiverComingBackKeepsItsCast and
+//     for it; the hub ends a cast whose castee is silent (D555 §3), or never took it (D358 §4), each
+//     by its own deadline, and EndHubEnded tells its sender. Enforced by
+//     TestRegistry_AReceiverComingBackKeepsItsCast and
 //     TestRegistry_EndSilentEndsTheCastByItsIDItsSenderTold.
-//   - A cast its receiver has not taken within UnansweredAfter of being asked ends, its sender
-//     told; an accepted one never does by this (D358 §4, principles §28: no wait without a bound).
-//     Enforced by TestRegistry_ACastNeverAnsweredEndsAndOneAcceptedGoesOn.
 //   - A receiver whose cast is its person's part in a Watch Together session (the hub's CastPart,
 //     D555 §2) is handed that part by the cast's own credential, the one membership: their host's,
 //     to play it as their player (D364 §11), or their guest's, to follow it as just another follower

@@ -90,3 +90,44 @@ func TestCast_ACastMovingIntoItsCastersPartPlaysOnFromWhereItStood(t *testing.T)
 			handed, handed.PositionMs, film, stoodMs)
 	}
 }
+
+// A cast its castee has not taken within CastUnansweredAfter of its start ends, its castee told
+// unanswered, and not before; one taken goes on however long (D358 §4, principles §28): a castee
+// never handed the question, its caster's page gone, left the caster asking (the owner, 2026-11-03).
+// The wait is the hub's, beside the silence's (D555 §2, §3).
+func TestCast_ACastNeverAnsweredEndsAndOneAcceptedGoesOn(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	unanswered, err := stage.hub.OpenCast(stage.owner, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	accepted, err := stage.hub.OpenCast(alone, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, castee := stage.attach(t, unanswered.ReceiverCredential, RoleVideo)
+	stage.hub.CastHeard(accepted.CastID, alone.UserID)
+	stage.clock.Advance(CastUnansweredAfter - time.Second)
+	if ended := stage.hub.EndUnansweredCasts(); len(ended) != 0 {
+		t.Fatalf("a cast asked %s ago was ended: %+v", CastUnansweredAfter-time.Second, ended)
+	}
+	stage.clock.Advance(time.Second)
+	ended := stage.hub.EndUnansweredCasts()
+	if len(ended) != 1 || ended[0] != (EndedCast{CastID: unanswered.CastID, UserID: stage.owner.UserID}) {
+		t.Fatalf("after %s the hub ended %+v; want cast %d alone, %d taken", CastUnansweredAfter, ended,
+			unanswered.CastID, accepted.CastID)
+	}
+	if told := castee.last(MessageEnded).Reason; told != CastUnanswered {
+		t.Errorf("the unanswered castee was told %q; want %s", told, CastUnanswered)
+	}
+	if _, _, isMember := stage.hub.MemberOf(unanswered.ReceiverCredential); isMember {
+		t.Error("the unanswered cast's castee credential still admits; want it taken back")
+	}
+	if _, err = stage.hub.CastCredential(unanswered.CastID, stage.owner.UserID); err == nil {
+		t.Error("the unanswered cast is still held; want it gone, its caster's pages to be told")
+	}
+	if _, err = stage.hub.CastCredential(accepted.CastID, alone.UserID); err != nil {
+		t.Errorf("the cast taken: %v; want it going on", err)
+	}
+}

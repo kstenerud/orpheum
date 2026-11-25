@@ -197,7 +197,14 @@
 //     by TestCast_AHelloJustAfterTheEndIsToldWhyForAMinute. A cast whose castee has said nothing
 //     for CastSilentAfter, from its first word or its taking the cast on, ends by its own deadline,
 //     receiverGone, the hub's end alone, no sender's (D555 §3), enforced by
-//     TestCast_ACastWhoseCasteeIsSilentForItsWaitEnds. A cast is starting, waiting for its OK (D468
+//     TestCast_ACastWhoseCasteeIsSilentForItsWaitEnds; one its castee has not taken within
+//     CastUnansweredAfter of its start ends by its deadline beside that one, unanswered, and one taken
+//     never does by this (D358 §4, principles §28), enforced by
+//     TestCast_ACastNeverAnsweredEndsAndOneAcceptedGoesOn. What a cast hands its castee, the film from
+//     where it was put or from where the cast's group stands once it plays that film on, and whether
+//     the castee took it, is the hub's alone (D555 §2), enforced by
+//     TestCast_ACastHandsItsCasteeTheFilmFromWhereItsGroupStands and
+//     TestCast_ACastMovingIntoItsCastersPartPlaysOnFromWhereItStood. A cast is starting, waiting for its OK (D468
 //     §2) or running as its castee says, kept with the cast and shown in the roster on the castee
 //     alone (D555 §4), enforced by TestCast_TheCasteeSaysWhatStateTheCastIsIn. A person's seat taken
 //     on another device, the host's or a signed-in guest's, ends their cast there, movedAway, on

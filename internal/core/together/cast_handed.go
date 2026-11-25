@@ -91,3 +91,30 @@ func (kept *handed) anchor(from, into *session, now time.Time) {
 	}
 	kept.putSeq = into.group.seq
 }
+
+// CastUnansweredAfter is how long a cast's castee may leave its question unanswered before the hub
+// ends the cast itself (D358 §4; principles §28): the castee ends it at its own minute and the caster
+// a few seconds after, but a castee never handed the question, or a caster whose page went away, ends
+// nothing, and its caster stayed asking (the owner, 2026-11-03). Past both pages' own bounds, so a page
+// there says why first. A justified constant.
+const CastUnansweredAfter = 90 * time.Second
+
+// EndUnansweredCasts ends each signed-in person's cast whose castee has not taken it within
+// CastUnansweredAfter of its start, as unanswered (D358 §4), each of its devices told why, by the
+// cast's own deadline beside its silence's (D555 §3), and returns them for their casters' pages to be
+// told. A cast taken goes on however long; a guest's cast by link ends by EndGuestCasts.
+func (hub *Hub) EndUnansweredCasts() []EndedCast {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	now := hub.clock.Now()
+	ended := []EndedCast{}
+	for _, each := range hub.casts {
+		if each.isGuests() || hub.forgetGone(each) || each.handed.isAccepted ||
+			now.Sub(each.openedAt) < CastUnansweredAfter {
+			continue
+		}
+		ended = append(ended, EndedCast{CastID: each.id, UserID: each.userID})
+		hub.endCast(each, CastUnanswered)
+	}
+	return ended
+}

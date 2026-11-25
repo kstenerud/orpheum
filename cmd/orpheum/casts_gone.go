@@ -12,14 +12,13 @@ import (
 )
 
 // castsGoneEvery is how often the casts whose castee is silent, or never answered, are looked for: a
-// bound on how late, past together.CastSilentAfter's 20 s or live.UnansweredAfter, a cast ends and
+// bound on how late, past together.CastSilentAfter's 20 s or together.CastUnansweredAfter, a cast ends and
 // its sender is told (D555 §3, D358 §4); a look reads memory alone.
 const castsGoneEvery = time.Second
 
-// goneReceivers is what knows which casts' receivers never answered, and which guest receivers'
-// casts are over, and tells a cast's sender it ended: live.Registry.
+// goneReceivers is what knows which guest receivers' casts are over, and tells a cast's sender it
+// ended: live.Registry.
 type goneReceivers interface {
-	EndUnanswered() []live.Cast
 	EndGuests() []live.Guest
 	IsGuest(userID, deviceID int64) bool
 	GuestCastsEndingIdle() []live.Cast
@@ -38,14 +37,15 @@ type guestRemover interface {
 type castEnder interface {
 	EndCast(sessionID, userID int64, reason string) error
 	EndSilentCasts() []together.EndedCast
+	EndUnansweredCasts() []together.EndedCast
 	EndGuestCasts(unansweredAfter, idleAfter time.Duration) []together.EndedCast
 	CastIdleFor(sessionID, userID int64) (time.Duration, error)
 }
 
 // endGoneCasts ends, at each tick until ctx ends, the casts whose castee the hub heard nothing from
 // for together.CastSilentAfter, by each cast's own deadline, their senders told (D555 §3), and those
-// whose receiver left its question unanswered for live.UnansweredAfter, ended as
-// unanswered (D358 §4), and the casts to a guest receiver a device code made with nothing played for
+// whose receiver left its question unanswered for together.CastUnansweredAfter, ended as
+// unanswered by the hub too (D358 §4), and the casts to a guest receiver a device code made with nothing played for
 // live.GuestIdleAfter, ended as idle (D469 §3), and a guest's casts by link by the same waits, on the
 // hub's one end path (D555 §2, §5); then it removes each guest receiver whose cast is
 // over, or that none was cast to in time (D465 §1). As it starts, it removes the guest receivers a stopped core left.
@@ -62,20 +62,9 @@ func endGoneCasts(
 			return
 		case <-tick:
 		}
-		for _, silent := range hub.EndSilentCasts() {
-			gone, err := casts.EndHubEnded(silent.UserID, silent.CastID)
-			if err != nil {
-				continue // ended meanwhile
-			}
-			logger.InfoContext(ctx, "cast: a cast ended, its castee silent", "castId", gone.ID,
-				"userId", gone.UserID, "to", gone.ReceiverDeviceID)
-		}
-		for _, unanswered := range casts.EndUnanswered() {
-			_ = hub.EndCast(unanswered.ID, unanswered.UserID, together.CastUnanswered) //nolint:errcheck // ended
-			logger.InfoContext(ctx, "cast: a cast ended, never answered", "castId", unanswered.ID,
-				"userId", unanswered.UserID, "to", unanswered.ReceiverDeviceID)
-		}
-		for _, ended := range hub.EndGuestCasts(live.UnansweredAfter, live.GuestIdleAfter) {
+		tellHubEnded(ctx, casts, hub.EndSilentCasts(), together.CastReceiverGone, logger)
+		tellHubEnded(ctx, casts, hub.EndUnansweredCasts(), together.CastUnanswered, logger)
+		for _, ended := range hub.EndGuestCasts(together.CastUnansweredAfter, live.GuestIdleAfter) {
 			logger.InfoContext(ctx, "cast: a guest's cast by link ended, never answered or idle",
 				"castId", ended.CastID)
 		}
@@ -89,6 +78,21 @@ func endGoneCasts(
 			logger.InfoContext(ctx, "cast: a guest receiver was removed, its cast over", "userId", guest.UserID,
 				"deviceId", guest.DeviceID)
 		}
+	}
+}
+
+// tellHubEnded tells the senders of the casts the hub ended, each by the registry's EndHubEnded, and
+// logs each with why the hub ended it: its castee silent, or never answered.
+func tellHubEnded(
+	ctx context.Context, casts goneReceivers, ended []together.EndedCast, why string, logger *slog.Logger,
+) {
+	for _, each := range ended {
+		gone, err := casts.EndHubEnded(each.UserID, each.CastID)
+		if err != nil {
+			continue // ended meanwhile
+		}
+		logger.InfoContext(ctx, "cast: the hub ended a cast", "why", why, "castId", gone.ID,
+			"userId", gone.UserID, "to", gone.ReceiverDeviceID)
 	}
 }
 

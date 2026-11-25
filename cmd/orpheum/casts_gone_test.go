@@ -14,18 +14,17 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// goneOnce is a registry with casts never answered and guest receivers whose cast is over, which its
-// first look ends, and the guest receivers live now.
+// goneOnce is a registry with guest receivers whose cast is over, which its first look ends, and the
+// guest receivers live now.
 type goneOnce struct {
-	unanswered []live.Cast
-	guests     []live.Guest
-	liveGuest  int64
+	guests    []live.Guest
+	liveGuest int64
 	// idleable are the casts to guest receivers by code, and endedIdle the ones End ended, their
 	// senders told.
 	idleable []live.Cast
-	// endedSilent are the ids of the casts ended silent, the hub having ended them.
-	endedSilent []int64
-	endedIdle   []int64
+	// endedByHub are the ids of the casts the hub ended, silent or unanswered, their senders told.
+	endedByHub []int64
+	endedIdle  []int64
 }
 
 func (gone *goneOnce) GuestCastsEndingIdle() []live.Cast {
@@ -38,7 +37,7 @@ func (gone *goneOnce) End(_, _, castID int64) (live.Cast, error) {
 }
 
 func (gone *goneOnce) EndHubEnded(_, castID int64) (live.Cast, error) {
-	gone.endedSilent = append(gone.endedSilent, castID)
+	gone.endedByHub = append(gone.endedByHub, castID)
 	return live.Cast{ID: castID}, nil
 }
 
@@ -79,16 +78,12 @@ func noRemovals() removals {
 	return removals{removed: make(chan int64, 8), kept: make(chan []int64, 1)}
 }
 
-func (gone *goneOnce) EndUnanswered() []live.Cast {
-	ended := gone.unanswered
-	gone.unanswered = nil
-	return ended
-}
-
 // endings keeps each cast's session ended, and why, and has the casts in silent end silent, once.
 type endings struct {
 	ended  chan string
 	silent chan together.EndedCast
+	// unanswered are the casts whose castee never took them, which the hub ends unanswered, once.
+	unanswered chan together.EndedCast
 	// idleFor is how long nothing has played in each cast, by id.
 	idleFor map[int64]time.Duration
 	// guestWaits takes the waits each look for a guest's casts' ends was given, where not nil.
@@ -107,10 +102,19 @@ func (ender endings) CastIdleFor(sessionID, _ int64) (time.Duration, error) {
 }
 
 func (ender endings) EndSilentCasts() []together.EndedCast {
+	return drained(ender.silent)
+}
+
+func (ender endings) EndUnansweredCasts() []together.EndedCast {
+	return drained(ender.unanswered)
+}
+
+// drained is what casts holds now, taken from it.
+func drained(casts chan together.EndedCast) []together.EndedCast {
 	ended := []together.EndedCast{}
 	for {
 		select {
-		case each := <-ender.silent:
+		case each := <-casts:
 			ended = append(ended, each)
 		default:
 			return ended
@@ -136,24 +140,27 @@ func TestEndGoneCasts_TellsTheSenderOfEachCastTheHubEndedSilent(t *testing.T) {
 	go endGoneCasts(ctx, registry, ender, noRemovals(), tick, slog.New(slog.DiscardHandler))
 	tick <- time.Time{}
 	tick <- time.Time{} // the first tick's work is done once the second is taken
-	if len(registry.endedSilent) != 1 || registry.endedSilent[0] != 7 {
-		t.Errorf("the registry ended casts %v; want the silent cast 7, its sender told", registry.endedSilent)
+	if len(registry.endedByHub) != 1 || registry.endedByHub[0] != 7 {
+		t.Errorf("the registry ended casts %v; want the silent cast 7, its sender told", registry.endedByHub)
 	}
 }
 
-// Each tick ends the casts never answered too, their sessions told unanswered, so a sender asking a
-// receiver that was never handed the question is told (D358 §4, principles §28).
-func TestEndGoneCasts_EndsEachUnansweredCastsSessionAtATick(t *testing.T) {
+// Each tick tells the senders of the casts the hub ended never answered too, each by the registry's
+// EndHubEnded, so a sender asking a receiver that was never handed the question is told (D358 §4,
+// principles §28; the hub's wait, D555 §2).
+func TestEndGoneCasts_TellsTheSenderOfEachCastTheHubEndedUnanswered(t *testing.T) {
 	t.Parallel()
-	registry := &goneOnce{unanswered: []live.Cast{{ID: 8, UserID: 1, ReceiverDeviceID: 11}}}
-	ender := endings{ended: make(chan string, 1)}
+	registry := &goneOnce{}
+	ender := endings{ended: make(chan string, 1), unanswered: make(chan together.EndedCast, 1)}
+	ender.unanswered <- together.EndedCast{CastID: 8, UserID: 1}
 	tick := make(chan time.Time)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	go endGoneCasts(ctx, registry, ender, noRemovals(), tick, slog.New(slog.DiscardHandler))
 	tick <- time.Time{}
-	if ended := testutil.Receive(t, ender.ended, "the unanswered cast's end"); ended != together.CastUnanswered+" 8" {
-		t.Errorf("the session was ended as %q; want cast 8 as %s", ended, together.CastUnanswered)
+	tick <- time.Time{} // the first tick's work is done once the second is taken
+	if len(registry.endedByHub) != 1 || registry.endedByHub[0] != 8 {
+		t.Errorf("the registry ended casts %v; want the unanswered cast 8, its sender told", registry.endedByHub)
 	}
 }
 
@@ -203,7 +210,7 @@ func TestEndGoneCasts_EndsACastToAGuestByCodeIdleForGuestIdleAfter(t *testing.T)
 	}
 }
 
-// Each tick ends a guest's casts by link by the waits every cast has, live.UnansweredAfter for a
+// Each tick ends a guest's casts by link by the waits every cast has, together.CastUnansweredAfter for a
 // castee that never said hello and live.GuestIdleAfter for one with nothing playing, on the hub's one
 // end path (D555 §2, §5).
 func TestEndGoneCasts_EndsAGuestsCastsByLinkByTheWaitsOfEveryCast(t *testing.T) {
@@ -215,8 +222,8 @@ func TestEndGoneCasts_EndsAGuestsCastsByLinkByTheWaitsOfEveryCast(t *testing.T) 
 	go endGoneCasts(ctx, &goneOnce{}, ender, noRemovals(), tick, slog.New(slog.DiscardHandler))
 	tick <- time.Time{}
 	waits := testutil.Receive(t, ender.guestWaits, "the look for a guest's casts' ends")
-	if waits != [2]time.Duration{live.UnansweredAfter, live.GuestIdleAfter} {
-		t.Errorf("a guest's casts were ended by the waits %v; want %v and %v", waits, live.UnansweredAfter,
+	if waits != [2]time.Duration{together.CastUnansweredAfter, live.GuestIdleAfter} {
+		t.Errorf("a guest's casts were ended by the waits %v; want %v and %v", waits, together.CastUnansweredAfter,
 			live.GuestIdleAfter)
 	}
 }
