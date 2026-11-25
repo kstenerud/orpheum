@@ -35,12 +35,14 @@ answered is gone (D555 §12).
 - **Takes a cast as a device of its sender's person**: by the session a cast's grant traded for, it
   connects as a device (D337), takes a cast handed to it at once, and plays in the cast's session
   (D434): the film each hand names, which it puts on the session it leads (in a cast the receiver
-  leads, so the group has no film until it plays one), then the session's play, pause and position.
-  Its sockets go the way its requests go, by the core's name or over WebRTC (`src/reach.ts`). It
+  leads, so the group has no film until it plays one), then the session's play, pause and position
+  by the SDK's follower (`followGroup`), as the Play page and a browser receiver do (D555 §3): it
+  keeps no follower of its own, and tells the session its buffering, loaded chunks and quality as
+  they do. Its sockets go the way its requests go, by the core's name or over WebRTC (`src/reach.ts`). It
   tells the sender it is a cast target only once the core has welcomed its live connection, and
   tells it the core's words where the core refuses (`isReady: false` with a `refusal`; the 11-24
   batch's item 3). It pairs no device and keeps no session of its own: D288's pairing, which only the
-  lab's sender asked for, is gone (D555 §12). `src/device.test.ts`, `src/guest.test.ts`; only a
+  lab's sender asked for, is gone (D555 §12). `src/device.test.ts`, `src/device-follow.test.ts`, `src/guest.test.ts`; only a
   device shows the whole: VQ286, VQ287.
 - **Casts under a grant with nothing kept** (D465 §2): on `urn:x-cast:org.orpheum.cast`, a sender's
   launch carries a grant for one cast and its core's reach, with no session. The receiver reaches the

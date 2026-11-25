@@ -9,7 +9,7 @@ import {
 } from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CastDevice, groupToFollow, handedWhat, seekPastMs, stepsToFollow } from "./device.ts";
+import { CastDevice, filmToFollow, groupToFollow, handedWhat } from "./device.ts";
 import { reachedAt } from "./reach.ts";
 
 /** A group as the server tells it, playing fileId at positionMs. */
@@ -28,63 +28,29 @@ function groupOf(fields: Partial<GroupView>): GroupView {
 }
 
 describe("a Chromecast following its cast's session (D434)", () => {
-  const stopped = { fileId: 0, positionMs: 0, isPlaying: false };
-
-  it("loads the session's film at where the group stands now, and plays it where the group plays", () => {
-    expect(stepsToFollow(groupOf({ positionMs: 1000 }), 61_000, stopped)).toEqual([
-      { step: "load", fileId: 7, positionMs: 61_000 },
-      { step: "play" },
-    ]);
-    expect(stepsToFollow(groupOf({ state: "paused", positionMs: 5000 }), 5000, stopped)).toEqual([
-      { step: "load", fileId: 7, positionMs: 5000 },
-    ]);
-  });
-
-  it("plays a group waiting for its leader to play, for in a cast the receiver leads it (D371 §1)", () => {
-    // As the staging run of 2026-11-12 had it: the receiver loaded the cast's film, put it on, and
-    // the group waited at 1749.9 s for its leader, the receiver, which stood paused.
-    const loaded = { fileId: 7, positionMs: 1_749_941, isPlaying: false };
-    expect(
-      stepsToFollow(groupOf({ state: "waiting", positionMs: 1_749_941 }), 1_749_941, loaded),
-    ).toEqual([{ step: "play" }]);
-    expect(stepsToFollow(groupOf({ state: "waiting", positionMs: 1000 }), 1000, stopped)).toEqual([
-      { step: "load", fileId: 7, positionMs: 1000 },
-      { step: "play" },
-    ]);
-    expect(
-      stepsToFollow(groupOf({ state: "waiting" }), 30_000, {
-        ...loaded,
-        positionMs: 30_000,
-        isPlaying: true,
-      }),
-    ).toEqual([]);
-  });
-
-  it("plays, pauses and seeks as its remote has the group do", () => {
-    const playing = { fileId: 7, positionMs: 30_000, isPlaying: true };
-    expect(stepsToFollow(groupOf({ state: "paused" }), 30_000, playing)).toEqual([
-      { step: "pause" },
-    ]);
-    expect(stepsToFollow(groupOf({}), 30_000, { ...playing, isPlaying: false })).toEqual([
-      { step: "play" },
-    ]);
-    expect(stepsToFollow(groupOf({}), 30_000 + seekPastMs + 1, playing)).toEqual([
-      { step: "seek", positionMs: 30_000 + seekPastMs + 1 },
-    ]);
-    expect(stepsToFollow(groupOf({}), 30_000 + seekPastMs, playing)).toEqual([]);
+  it("loads the session's film at where the group stands now, playing it along the follower's", () => {
+    expect(filmToFollow(groupOf({ positionMs: 1000 }), 61_000, 0)).toEqual({
+      step: "load",
+      fileId: 7,
+      positionMs: 61_000,
+    });
+    expect(filmToFollow(groupOf({ state: "paused", positionMs: 5000 }), undefined, 0)).toEqual({
+      step: "load",
+      fileId: 7,
+      positionMs: 5000,
+    });
+    // On the group's film already, its playing, pausing and seeking are followGroup's (D555 §3).
+    expect(filmToFollow(groupOf({ state: "paused" }), 30_000, 7)).toBeUndefined();
   });
 
   it("stops where the session plays nothing, and does nothing before it is told the group", () => {
-    const playing = { fileId: 7, positionMs: 30_000, isPlaying: true };
-    expect(stepsToFollow(groupOf({ fileId: 0 }), 0, playing)).toEqual([{ step: "stop" }]);
-    expect(stepsToFollow(groupOf({ fileId: 0 }), 0, stopped)).toEqual([]);
-    expect(stepsToFollow(undefined, undefined, playing)).toEqual([]);
+    expect(filmToFollow(groupOf({ fileId: 0 }), 0, 7)).toEqual({ step: "stop" });
+    expect(filmToFollow(groupOf({ fileId: 0 }), 0, 0)).toBeUndefined();
+    expect(filmToFollow(undefined, undefined, 7)).toBeUndefined();
   });
 });
 
 describe("a Chromecast taking a cast, which it leads (D337: the group has no film until it plays one)", () => {
-  const playing = { fileId: 7, positionMs: 30_000, isPlaying: true };
-
   it("puts the handed film on its session at where it started it, paused where the sender was", () => {
     expect(putOnCommands({ fileId: 1504 }, 185_000, false)).toEqual([
       { command: "changeItem", fileId: 1504, positionMs: 185_000 },
@@ -101,22 +67,21 @@ describe("a Chromecast taking a cast, which it leads (D337: the group has no fil
     expect(putOnCommands({ fileId: 1504, itemId: 2020 }, 185_000, false)).toEqual([
       { command: "changeItem", fileId: 1504, itemId: 2020, positionMs: 185_000 },
     ]);
-    const stopped = { fileId: 0, positionMs: 0, isPlaying: false };
-    expect(stepsToFollow(groupOf({ positionMs: 1000, itemId: 2020 }), 1000, stopped)).toEqual([
-      { step: "load", fileId: 7, itemId: 2020, positionMs: 1000 },
-      { step: "play" },
-    ]);
+    expect(filmToFollow(groupOf({ positionMs: 1000, itemId: 2020 }), 1000, 0)).toEqual({
+      step: "load",
+      fileId: 7,
+      itemId: 2020,
+      positionMs: 1000,
+    });
   });
 
   it("does not stop its film while the session is not yet on it, and follows it once it is", () => {
-    expect(stepsToFollow(groupToFollow(groupOf({ fileId: 0 }), 7), 0, playing)).toEqual([]);
-    expect(stepsToFollow(groupToFollow(groupOf({ fileId: 9 }), 7), 0, playing)).toEqual([]);
-    const paused = groupToFollow(groupOf({ state: "paused" }), 7);
-    expect(stepsToFollow(paused, 30_000, playing)).toEqual([{ step: "pause" }]);
+    expect(filmToFollow(groupToFollow(groupOf({ fileId: 0 }), 7), 0, 7)).toBeUndefined();
+    expect(filmToFollow(groupToFollow(groupOf({ fileId: 9 }), 7), 0, 7)).toBeUndefined();
+    const paused = groupOf({ state: "paused" });
+    expect(groupToFollow(paused, 7)).toBe(paused);
     // Handed nothing, ready for the next: the group's stop is followed.
-    expect(stepsToFollow(groupToFollow(groupOf({ fileId: 0 }), 0), 0, playing)).toEqual([
-      { step: "stop" },
-    ]);
+    expect(filmToFollow(groupToFollow(groupOf({ fileId: 0 }), 0), 0, 7)).toEqual({ step: "stop" });
   });
 
   it("takes a new cast, puts on another film handed under the same cast, and ignores the same again", () => {

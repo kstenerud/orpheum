@@ -7,17 +7,19 @@ import {
   createLiveConnection,
   createTogetherConnection,
   dataOrThrow,
+  everyRight,
+  followGroup,
   putOnCommands,
   requestPlayback,
   expectedGroupPositionMs,
   failureText,
+  tellsNoFilmHere,
   type Api,
   type components,
   type CastToReceive,
   type GroupCommand,
   type GroupView,
   type PlayableFormats,
-  type PlayerState,
   type TellsCastState,
   type TogetherConnection,
 } from "@orpheum/sdk";
@@ -35,26 +37,17 @@ type PlaybackDecision = components["schemas"]["StartPlaybackOutputBody"];
  * connected now (D337); a cast handed to it is taken at once, the Chromecast having no remote to say
  * Use with, and played in the cast's session as a browser receiver plays it (D434), so the sender's
  * remote works it: it plays the film each hand of the cast names, putting it on the session it
- * leads, and follows the session's play, pause and position; sound, picture and the cast's other
- * panels wait on what the device shows.
+ * leads, and follows the session's play, pause and position by the SDK's follower, as every player
+ * does (followGroup, D555 §3); sound, picture and the cast's other panels wait on what the device
+ * shows.
  */
 
 /**
- * How far the receiver may be from the session's position before it seeks there, in milliseconds:
- * past a chunk's start-up, so a film starting or a seek just made is not sought again.
+ * What the receiver does to have the session's film on its player: the group's film loaded at where
+ * the group stands now, or none stopped. Playing, pausing and seeking along are the SDK's follower's
+ * (followGroup), as on the Play page and a browser receiver (D555 §3).
  */
-export const seekPastMs = 3000;
-
-/** Where the receiver's player stands. */
-export interface PlayerNow {
-  /** The film it plays, 0 for none. */
-  readonly fileId: number;
-  readonly positionMs: number;
-  readonly isPlaying: boolean;
-}
-
-/** One thing the receiver's player does to follow its session. */
-export type FollowStep =
+export type FilmStep =
   | {
       readonly step: "load";
       readonly fileId: number;
@@ -62,10 +55,7 @@ export type FollowStep =
       readonly itemId?: number | undefined;
       readonly positionMs: number;
     }
-  | { readonly step: "stop" }
-  | { readonly step: "seek"; readonly positionMs: number }
-  | { readonly step: "play" }
-  | { readonly step: "pause" };
+  | { readonly step: "stop" };
 
 /**
  * The group the receiver follows: none while it is not yet on handedFileId, the film the cast
@@ -80,38 +70,23 @@ export function groupToFollow(
 }
 
 /**
- * What the player does to follow the session's group, expectedMs being where the group stands now:
- * the group's film loaded at its position, or none; then played where the group plays or waits for
- * its leader to (the receiver leads), paused where it is paused, sought
- * where it is further than seekPastMs away.
+ * The step that has the receiver's player, playing playingFileId (0 for none), on the group's film,
+ * expectedMs being where the group stands now: its film loaded at that position, or none stopped;
+ * nothing where it plays the group's film already, or before it is told the group.
  */
-export function stepsToFollow(
+export function filmToFollow(
   group: GroupView | undefined,
   expectedMs: number | undefined,
-  player: PlayerNow,
-): readonly FollowStep[] {
-  if (group === undefined) {
-    return [];
+  playingFileId: number,
+): FilmStep | undefined {
+  if (group === undefined || group.fileId === playingFileId) {
+    return undefined;
   }
   if (group.fileId === 0) {
-    return player.fileId === 0 ? [] : [{ step: "stop" }];
+    return { step: "stop" };
   }
   const positionMs = Math.max(0, expectedMs ?? group.positionMs);
-  // A waiting group is to play, standing until its leader plays (D371 §1), and in a cast the
-  // receiver is the leader (D337), so it plays, as the web app's leader does (together-leader.ts).
-  const isPlaying = group.state === "playing" || group.state === "waiting";
-  if (group.fileId !== player.fileId) {
-    return [
-      { step: "load", fileId: group.fileId, itemId: group.itemId, positionMs },
-      ...(isPlaying ? [{ step: "play" } as const] : []),
-    ];
-  }
-  return [
-    ...(Math.abs(player.positionMs - positionMs) > seekPastMs
-      ? [{ step: "seek", positionMs } as const]
-      : []),
-    ...playOrPause(isPlaying, player.isPlaying),
-  ];
+  return { step: "load", fileId: group.fileId, itemId: group.itemId, positionMs };
 }
 
 /**
@@ -131,14 +106,6 @@ export function handedWhat(
   return handed.fileId === handedFileId ? "same" : "putOn";
 }
 
-/** Play or pause, where the player is not as the group is. */
-function playOrPause(isGroupPlaying: boolean, isPlaying: boolean): readonly FollowStep[] {
-  if (isGroupPlaying === isPlaying) {
-    return [];
-  }
-  return [{ step: isGroupPlaying ? "play" : "pause" }];
-}
-
 /**
  * What the receiver asks to play: the device's own codecs, by no container of a file's own, so the
  * core puts the film on its ladder, which our player plays.
@@ -146,9 +113,6 @@ function playOrPause(isGroupPlaying: boolean, isPlaying: boolean): readonly Foll
 export function receiverFormats(): PlayableFormats {
   return { ...browserPlayableFormats(), containers: [] };
 }
-
-/** The video's events after which the session is told where the player is. */
-const reportedVideoEvents = ["playing", "pause", "seeked", "waiting", "canplay", "ended"] as const;
 
 /** What a cast target needs: its API, session and path to the core, its video, and its log. */
 export interface CastDeviceOptions {
@@ -167,6 +131,8 @@ export interface CastDeviceOptions {
    * person's connected now, which a cast to it needs (the core refuses one to a device not yet).
    */
   readonly onConnected?: () => void;
+  /** Starts a film on the video: our chunked player, a test's stand-in where one is given. */
+  readonly startsFilm?: typeof playChunked | undefined;
 }
 
 /** The receiver as a device of its person's: its live connection, and the cast it plays. */
@@ -174,6 +140,8 @@ export class CastDevice {
   private castId: number | undefined;
   private together: (TogetherConnection & TellsCastState) | undefined;
   private playback: ChunkedPlayback | undefined;
+  /** The SDK's follower of the session's group for the film playing, or the telling of none. */
+  private stopFollowing: (() => void) | undefined;
   private playingFileId = 0;
   /** The film the cast last handed, 0 for none: the one the receiver puts on its session. */
   private handedFileId = 0;
@@ -184,11 +152,6 @@ export class CastDevice {
 
   constructor(private readonly options: CastDeviceOptions) {
     this.upNext = new UpNextCard(options.video, options.api, options.note);
-    for (const type of reportedVideoEvents) {
-      options.video.addEventListener(type, () => {
-        this.together?.reportState();
-      });
-    }
     options.video.addEventListener("ended", () => {
       this.waitsReadyAtTheEnd();
     });
@@ -293,11 +256,12 @@ export class CastDevice {
       monotonicMs: () => performance.now(),
       stateEveryMs: castReportEveryMs, // its silence ends the cast (D555 §3)
     });
-    together.setPlayer(() => this.playerState());
     together.subscribe(() => {
       this.follow(together);
     });
     this.together = together;
+    // Nothing on yet, it still says where it is: a castee silent for 20 s ends its cast (D555 §3).
+    this.stopFollowing = tellsNoFilmHere(together);
     together.setCastState("starting"); // running once its film plays, or at once for none (D555 §4)
     together.open();
     this.hand(handed);
@@ -354,37 +318,11 @@ export class CastDevice {
     this.putOn();
     const expectedMs = expectedGroupPositionMs(snapshot, performance.now());
     const group = groupToFollow(snapshot.group, this.handedFileId);
-    const steps = stepsToFollow(group, expectedMs, this.playerNow());
-    for (const each of steps) {
-      this.apply(each);
-    }
-  }
-
-  private apply(step: FollowStep): void {
-    const { video, note } = this.options;
-    switch (step.step) {
-      case "load": {
-        void this.load(step.fileId, step.positionMs, step.itemId);
-        return;
-      }
-      case "stop": {
-        this.stopFilm();
-        return;
-      }
-      case "seek": {
-        video.currentTime = step.positionMs / 1000;
-        return;
-      }
-      case "play": {
-        void video.play().catch((cause: unknown) => {
-          note(`play refused: ${failureText(cause)}`);
-        });
-        return;
-      }
-      case "pause": {
-        video.pause();
-        return;
-      }
+    const step = filmToFollow(group, expectedMs, this.playingFileId);
+    if (step?.step === "load") {
+      void this.load(step.fileId, step.positionMs, step.itemId);
+    } else if (step?.step === "stop") {
+      this.stopFilm();
     }
   }
 
@@ -398,6 +336,7 @@ export class CastDevice {
     itemId?: number,
   ): Promise<number | undefined> {
     const { token, reached, video, note } = this.options;
+    const startsFilm = this.options.startsFilm ?? playChunked;
     this.stopFilm();
     this.playingFileId = fileId;
     try {
@@ -408,7 +347,7 @@ export class CastDevice {
       const positionMs = atMs ?? decision.resumePositionMs;
       const played = decision.onLadder?.url ?? decision.url;
       note(`playing file ${String(fileId)} from ${(positionMs / 1000).toFixed(1)} s: ${played}`);
-      this.playback = playChunked(video, new URL(played, globalThis.location.origin).href, {
+      this.playback = startsFilm(video, new URL(played, globalThis.location.origin).href, {
         onFailed: (failure) => {
           note(`failed: ${failure}`);
         },
@@ -418,7 +357,7 @@ export class CastDevice {
         authorization: `Bearer ${token}`,
         fetch: reached.fetch,
       });
-      this.together?.reportState();
+      this.followTheGroup(fileId, decision);
       this.upNext.plays(fileId, decision.segments ?? []);
       return positionMs;
     } catch (cause) {
@@ -437,25 +376,35 @@ export class CastDevice {
     });
   }
 
-  private playerNow(): PlayerNow {
-    const { video } = this.options;
-    return {
-      fileId: this.playingFileId,
-      positionMs: Math.round(video.currentTime * 1000),
-      isPlaying: !video.paused,
-    };
-  }
-
-  private playerState(): PlayerState {
-    const { video } = this.options;
-    return {
-      ...this.playerNow(),
-      // Not ready to play along: loading or seeking (HAVE_FUTURE_DATA is 3).
-      isBuffering: this.playingFileId !== 0 && (video.seeking || video.readyState < 3),
-    };
+  /**
+   * Has the SDK's follower play the film fileId along with the session, as the Play page and a
+   * browser receiver do (D555 §3): leading, as in a cast of its own, it carries out each move its
+   * remote has the group make and holds the group while it loads; following, in its person's Watch
+   * Together session, it keeps to the group. It tells the session its buffering, its loaded chunks,
+   * its quality and how it is given the film.
+   */
+  private followTheGroup(fileId: number, decision: PlaybackDecision): void {
+    const { together } = this;
+    if (together === undefined) {
+      return;
+    }
+    this.stopFollowing?.();
+    this.stopFollowing = followGroup(this.options.video, together, {
+      fileId,
+      leads: everyRight, // the person's own playing device, its remote's every move theirs
+      monotonicMs: () => performance.now(),
+      // Its file as it is only where the core gave it so, as the Play page says it (playsOwnFile).
+      delivery:
+        decision.onLadder === undefined && decision.delivery === "direct" ? "direct" : "converted",
+    });
   }
 
   private stopFilm(): void {
+    this.stopFollowing?.();
+    this.stopFollowing = undefined;
+    if (this.together !== undefined) {
+      this.stopFollowing = tellsNoFilmHere(this.together);
+    }
     this.playback?.destroy();
     this.playback = undefined;
     this.playingFileId = 0;
