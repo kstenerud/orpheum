@@ -92,3 +92,28 @@ func samePart(was, is part) bool {
 	return was.memberID == is.memberID && was.isHost == is.isHost && was.isOnADevice == is.isOnADevice &&
 		slices.Equal(was.devices, is.devices)
 }
+
+// unlockTelling lets the mutex go, then tells onCastMoved each cast moved, onSessionEnded each
+// session ended while it was held (endSession), and onPartChanged each person whose part in a
+// session changed (partsChanged): every method that may end a session, or change a person's part in
+// one, lets its lock go here.
+func (hub *Hub) unlockTelling() {
+	ended, moved, changed := hub.endedToTell, hub.movedToTell, hub.partsChanged()
+	hub.endedToTell, hub.movedToTell = nil, nil
+	hub.mutex.Unlock()
+	if hub.onCastMoved != nil {
+		for _, each := range moved {
+			hub.onCastMoved(each)
+		}
+	}
+	if hub.onSessionEnded != nil {
+		for _, id := range ended {
+			hub.onSessionEnded(id)
+		}
+	}
+	if hub.onPartChanged != nil {
+		for _, userID := range changed {
+			hub.onPartChanged(userID)
+		}
+	}
+}
