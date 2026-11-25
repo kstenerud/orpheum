@@ -28,6 +28,32 @@ func (each *device) status(isPlaying, isLeader bool) DeviceStatus {
 	return StatusWatching
 }
 
+// takeCastState keeps what state a cast's castee says its cast is in with the cast (D555 §4), logs
+// each change, and tells everyone, the cast's remote among them; a state no castee says, or one said
+// by a device of no cast, is refused.
+func (current *session) takeCastState(ctx context.Context, who *member, from *device, state CastState) {
+	if !state.isKnown() || from.cast == nil {
+		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeInvalid})
+		return
+	}
+	if state == from.cast.state && from.saysCastState {
+		return
+	}
+	from.cast.state, from.saysCastState = state, true
+	current.logger.InfoContext(ctx, "cast: its castee said what state the cast is in",
+		append(current.deviceAttributes(who, from), "castId", from.cast.id, "castState", string(state))...)
+	current.sendRoster()
+}
+
+// castState is what state the device's cast is in, for a device that said one, its castee; empty
+// for every other device.
+func (each *device) castState() CastState {
+	if each.cast == nil || !each.saysCastState {
+		return ""
+	}
+	return each.cast.state
+}
+
 // takeStanding keeps what a device's page says it waits on, logs each change, and tells everyone; a
 // standing no page says is refused.
 func (current *session) takeStanding(ctx context.Context, who *member, from *device, standing Standing) {

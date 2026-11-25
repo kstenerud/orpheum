@@ -133,6 +133,23 @@ describe("a cast taken on a page never pressed, held for the press that starts i
     await expect(pressed[0]?.fullScreen).resolves.toBe("refused");
   });
 
+  it("tells the cast's session it waits for its OK, for its remote to show (D555 §4)", async () => {
+    const { server } = await held();
+    await server.accept();
+    await server.say({
+      type: "welcome",
+      seq: 1,
+      sessionId: 5,
+      memberId: 2,
+      deviceId: 6,
+      group: { state: "idle", positionMs: 0, rate: 1, fileId: 0 },
+      roster: [],
+    });
+    expect(server.heard).toContainEqual(
+      expect.objectContaining({ type: "castState", castState: "waitingForOK" }),
+    );
+  });
+
   it("closes when the cast ends before its press, its sender gone", async () => {
     const { pressed, gone, server } = await held();
     await server.accept();

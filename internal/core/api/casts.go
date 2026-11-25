@@ -63,8 +63,9 @@ type CastBody struct {
 	ReceiverDeviceID     int64  `json:"receiverDeviceId"`
 	ReceiverName         string `json:"receiverName"`
 	MembershipCredential string `doc:"What this device's session socket says hello with" json:"membershipCredential"`
-	PositionMs           int64  `doc:"Where the cast stands now, for a device coming back to it (D555 §4); none for 0" json:"positionMs,omitempty" required:"false"`          //nolint:lll // one struct tag
-	IsPlaying            bool   `doc:"Whether it plays now rather than stands paused or stopped, for a device coming back to it" json:"isPlaying,omitempty" required:"false"` //nolint:lll // one struct tag
+	PositionMs           int64  `doc:"Where the cast stands now, for a device coming back to it (D555 §4); none for 0" json:"positionMs,omitempty" required:"false"`                                                                                          //nolint:lll // one struct tag
+	IsPlaying            bool   `doc:"Whether it plays now rather than stands paused or stopped, for a device coming back to it" json:"isPlaying,omitempty" required:"false"`                                                                                 //nolint:lll // one struct tag
+	CastState            string `doc:"What state the cast is in, as its castee says, for a device coming back to it (D555 §4): starting, waitingForOK (D468 §2) or running" enum:"starting,waitingForOK,running" json:"castState,omitempty" required:"false"` //nolint:lll // one struct tag
 }
 
 // StartCastOutput is the cast started, as its sender sees it.
@@ -471,6 +472,7 @@ func (server *Server) listMyCasts(ctx context.Context, input *AuthorizationHeade
 		body := castBodyOf(cast, principal.DeviceID, credential)
 		// A caster coming back is told where its cast stands (D555 §4), its remote drawn from there.
 		body.PositionMs, body.IsPlaying, _ = dependencies.Together.CastPosition(cast.ID, principal.UserID) //nolint:errcheck,lll // none ended as it was read
+		body.CastState = string(dependencies.Together.CastStateOf(cast.ID, principal.UserID))
 		output.Body.Casts = append(output.Body.Casts, body)
 	}
 	return output, nil

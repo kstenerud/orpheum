@@ -23,7 +23,7 @@ func (current *session) roster() []MemberView {
 				ID: attached.id, Role: attached.role, IsBuffering: attached.buffering,
 				Suspended: attached.suspended, RTTMs: attached.rttMs, CannotKeepUp: attached.cannotKeepUp,
 				Status: attached.status(current.group.fileID != 0, isLeader), IsLeader: isLeader,
-				Playback: attached.playback, LeadsBecause: leadsBecause,
+				Playback: attached.playback, LeadsBecause: leadsBecause, CastState: attached.castState(),
 			})
 		}
 		slices.SortFunc(view.Devices, func(one, other DeviceView) int { return cmp.Compare(one.ID, other.ID) })

@@ -3095,6 +3095,11 @@ export interface components {
             /** Format: int64 */
             castId: number;
             /**
+             * @description What state the cast is in, as its castee says, for a device coming back to it (D555 §4): starting, waitingForOK (D468 §2) or running
+             * @enum {string}
+             */
+            castState?: "starting" | "waitingForOK" | "running";
+            /**
              * Format: int64
              * @description How long the film plays, 0 when unknown
              */

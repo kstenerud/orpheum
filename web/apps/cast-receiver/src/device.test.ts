@@ -295,6 +295,10 @@ describe("a Chromecast's castee says where it is each 5 s, its silence ending th
         roster: [],
       }),
     );
+    // Nothing to play, it is ready at once: its remote is told the cast runs (D555 §4).
+    expect((sent[1] ?? []).filter((text) => text.includes('"type":"castState"'))).toEqual([
+      expect.stringContaining('"castState":"running"'),
+    ]);
     const states = (): number =>
       (sent[1] ?? []).filter((text) => text.includes('"type":"state"')).length;
     const before = states();

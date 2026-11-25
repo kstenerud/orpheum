@@ -10,6 +10,7 @@ import {
   requestTogetherPlayback,
   tellsNoFilmHere,
   type Api,
+  type TellsCastState,
   type TogetherConnection,
   type TogetherEndReason,
 } from "@orpheum/sdk";
@@ -60,7 +61,7 @@ function groupPositionMs(together: TogetherConnection): number {
 
 /** The receiver as a device of a Watch Together guest's membership. */
 export class GuestPart {
-  private together: TogetherConnection | undefined;
+  private together: (TogetherConnection & TellsCastState) | undefined;
   private playback: ChunkedPlayback | undefined;
   private stopFollowing: (() => void) | undefined;
   /** The group's film it plays, 0 for none. */
@@ -91,7 +92,7 @@ export class GuestPart {
   }
 
   /** Follows what the session says: its film put on or taken off, or its part's end. */
-  private heard(together: TogetherConnection): void {
+  private heard(together: TogetherConnection & TellsCastState): void {
     if (together !== this.together) {
       return;
     }
@@ -110,6 +111,7 @@ export class GuestPart {
       this.isWelcomed = true;
       note("welcomed in the guest's session: following the group");
       this.options.onWelcomed(snapshot.deviceId ?? 0);
+      together.setCastState("running"); // taken at once, asking nothing: its remote shows it (D555 §4)
       // Nothing on yet, it still says where it is: a castee silent for 20 s ends its cast (D555 §3).
       this.stopFollowing = tellsNoFilmHere(together);
     }

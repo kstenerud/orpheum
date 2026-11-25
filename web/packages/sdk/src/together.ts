@@ -3,6 +3,7 @@
 import { apiPrefix } from "./client.ts";
 import type { PictureChoice, PlaybackPicture, SubtitleOption } from "./playback-picture.ts";
 import type { PlaybackSound, SoundChannel, SoundChoice, SoundTrack } from "./playback-sound.ts";
+import { castStateIn, type CastState } from "./cast-state.ts";
 import { fileSoundOffsetChoiceIn, fileSoundOffsetIn, msIn } from "./playback-timing.ts";
 
 /**
@@ -153,6 +154,8 @@ export interface RosterDevice {
   readonly leadsBecause?: string;
   /** How it plays the film, as it said (D371 §4); undefined until it says. */
   readonly playback?: PlaybackReport | undefined;
+  /** For a cast's castee, what state its cast is in (D555 §4); absent for every other device. */
+  readonly castState?: CastState;
 }
 
 /** One member in the roster: the name they chose, whether they host, and their devices. */
@@ -386,6 +389,7 @@ function parseRoster(value: unknown): RosterMember[] {
                   isLeader: fields["isLeader"] === true,
                   playback: playbackIn(fields["playback"]),
                   ...leadsBecauseIn(fields),
+                  ...castStateIn(fields),
                 },
               ];
         }),

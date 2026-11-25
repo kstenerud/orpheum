@@ -215,6 +215,9 @@ export function CastReceiver(props: {
     panel: soundPanel,
   });
   useFillsTheWindow(video);
+  useEffect(() => {
+    castConnection?.setCastState("running"); // taken and put on: its remote shows it (D555 §4)
+  }, [castConnection]);
   useToldHowItStarted({ connection, isWelcomed, video, answer: props.receiving.answer });
   useEndsAsTheCastDoes(snapshot?.status === "ended" ? snapshot.endReason : undefined, onLeave);
   useReadyAtTheEnd({ api, receiving: props.receiving, video, hasNext: props.hasNext === true });

@@ -19,6 +19,7 @@ import {
   type TogetherConnectionOptions,
   type TogetherSnapshot,
 } from "./together-connection-snapshot.ts";
+import type { CastState } from "./cast-state.ts";
 import {
   parseTogetherMessage,
   togetherProtocolVersion,
@@ -213,6 +214,15 @@ export interface TellsStanding {
 }
 
 /**
+ * A connection that can tell a cast's session what state the cast is in on its castee (D555 §4),
+ * which the cast's remote is shown: apart from TogetherConnection, as only a castee says it.
+ */
+export interface TellsCastState {
+  /** Says, from now on, what state the cast is in, again at each welcome. */
+  readonly setCastState: (state: CastState) => void;
+}
+
+/**
  * How a socket was lost, and since when: it closed, nothing was heard on it for its pings, nothing
  * within shownAnswerWithinMs of its page shown again, or its page was left.
  */
@@ -226,6 +236,7 @@ class SessionConnection
     TogetherConnection,
     TellsCannotKeepUp,
     TellsStanding,
+    TellsCastState,
     RelaysVoiceSignals,
     CarriesSoundChoices,
     CarriesPictureChoices,
@@ -244,6 +255,7 @@ class SessionConnection
   #readPlayback: (() => PlaybackReport | undefined) | undefined;
   #cannotKeepUp: CannotKeepUp | undefined;
   #standing: Standing = "";
+  #castState: CastState | undefined;
   #timers: ReturnType<typeof setInterval>[] = [];
   #reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   /** Which socket is the current one: each open and reconnect makes a new one. */
@@ -296,6 +308,13 @@ class SessionConnection
     if (standing !== this.#standing) {
       this.#standing = standing;
       this.#send({ type: "standing", standing });
+    }
+  };
+
+  readonly setCastState = (state: CastState): void => {
+    if (state !== this.#castState) {
+      this.#castState = state;
+      this.#send({ type: "castState", castState: state });
     }
   };
 
@@ -578,6 +597,9 @@ class SessionConnection
     if (this.#standing !== "") {
       this.#send({ type: "standing", standing: this.#standing });
     }
+    if (this.#castState !== undefined) {
+      this.#send({ type: "castState", castState: this.#castState });
+    }
     const lost = this.#lost;
     this.#lost = undefined;
     if (lost !== undefined) {
@@ -716,6 +738,7 @@ export function createTogetherConnection(
 ): TogetherConnection &
   TellsCannotKeepUp &
   TellsStanding &
+  TellsCastState &
   RelaysVoiceSignals &
   CarriesSoundChoices &
   CarriesPictureChoices &

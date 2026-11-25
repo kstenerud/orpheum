@@ -197,10 +197,13 @@
 //     by TestCast_AHelloJustAfterTheEndIsToldWhyForAMinute. A cast whose castee has said nothing
 //     for CastSilentAfter, from its first word or its taking the cast on, ends by its own deadline,
 //     receiverGone, the hub's end alone, no sender's (D555 §3), enforced by
-//     TestCast_ACastWhoseCasteeIsSilentForItsWaitEnds. A person's seat taken on another device, the
-//     host's or a signed-in guest's, ends their cast there, movedAway, on the one end path, its castee
-//     told and its credentials taken back: a castee carried over could be left with no remote that
-//     works it (the owner, 2026-11-25), enforced by TestHostHere_EndsTheHostsCast and
+//     TestCast_ACastWhoseCasteeIsSilentForItsWaitEnds. A cast is starting, waiting for its OK (D468
+//     §2) or running as its castee says, kept with the cast and shown in the roster on the castee
+//     alone (D555 §4), enforced by TestCast_TheCasteeSaysWhatStateTheCastIsIn. A person's seat taken
+//     on another device, the host's or a signed-in guest's, ends their cast there, movedAway, on
+//     the one end path, its castee told and its credentials taken back: a castee carried over could
+//     be left with no remote that works it (the owner, 2026-11-25), enforced by
+//     TestHostHere_EndsTheHostsCast and
 //     TestGuestHere_MakesTheAskingDeviceTheGuestsOneAndEndsTheirCast. Ready between videos it plays
 //     nothing, so the next is put on afresh (D364 §5), enforced by
 //     TestCast_ReadyPlaysNothingSoTheNextIsPutOnAfresh; a receiver takes its person's part in the

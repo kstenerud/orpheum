@@ -105,6 +105,8 @@ describe("a Chromecast taking a Watch Together guest's part (D518 §1)", () => {
     guest.socket()?.onMessage(JSON.stringify(welcome));
     expect(guest.welcomed).toEqual([12]);
     expect(guest.asked).toEqual([]); // the group plays nothing yet
+    // Taken at once, asking nothing: its remote is told the cast runs (D555 §4).
+    expect(guest.sent).toContainEqual(expect.stringContaining('"castState":"running"'));
     guest.socket()?.onMessage(groupAt(7, 2));
     const formats = JSON.stringify({ playableFormats: receiverFormats() });
     await expect

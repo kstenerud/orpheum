@@ -276,10 +276,12 @@ export type {
   TellsCannotKeepUp,
   TellsPlaybackAlone,
   TellsStanding,
+  TellsCastState,
   TogetherConnection,
   TogetherSnapshot,
   VoiceCallStep,
 } from "./together-connection.ts";
+export type { CastState } from "./cast-state.ts";
 export { createTogetherVoice, partnerGainMost } from "./together-voice.ts";
 export type {
   TogetherVoice,

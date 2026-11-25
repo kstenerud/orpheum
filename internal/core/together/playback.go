@@ -235,7 +235,7 @@ func (current *session) takeAside(ctx context.Context, now time.Time, who *membe
 	case MessagePlayback:
 		from.takeState(message)
 		current.sendRosterIfChanged()
-	case MessageHello, MessagePing, MessageState, MessageCommand, MessageSuspend, MessageResume,
+	case MessageHello, MessagePing, MessageState, MessageCommand, MessageSuspend, MessageResume, MessageCastState,
 		MessageRTC, MessageWelcome, MessagePong, MessageGroup, MessageRoster, MessageRejected, MessageEnded:
 		// Handle takes these itself, never here.
 	}

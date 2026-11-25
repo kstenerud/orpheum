@@ -109,6 +109,9 @@ type casting struct {
 	// left to play alone (moveCastAlone), handed it again on their live connections: its end tells
 	// them, as a page not yet back on the cast's own session still listens on them.
 	movedDevices []*device
+	// state is what state its castee last said it is in (D555 §4), kept with its position for a
+	// caster coming back; empty until it says, read as CastStarting.
+	state CastState
 }
 
 // isGuests is whether the cast is a guest's by link, cast by their device sender.
@@ -133,17 +136,18 @@ func (hub *Hub) CastHeard(castID, userID int64) {
 }
 
 // heardFrom notes that from, a device of sender's, said something now: where it plays a cast, by a
-// credential of it, the cast's castee is heard (D555 §3). The caller holds the mutex.
+// credential of it, the cast's castee is heard (D555 §3); any device of a cast keeps which, for the
+// state its castee says it in (§4). The caller holds the mutex.
 func (hub *Hub) heardFrom(sender *member, from *device, now time.Time) {
-	if !from.role.plays() {
-		return
-	}
 	for _, held := range sender.credentials {
 		if held.castID == 0 || held.hash != from.credentialHash {
 			continue
 		}
 		if heard, found := hub.casts[held.castID]; found {
-			heard.heardAt = now
+			from.cast = heard // a panel too: a castee leading its person's session says its state here
+			if from.role.plays() {
+				heard.heardAt = now
+			}
 		}
 		return
 	}
@@ -527,6 +531,22 @@ func (hub *Hub) CastPosition(castID, userID int64) (positionMs int64, isPlaying 
 		return 0, false, err
 	}
 	return place.where.positionAt(hub.clock.Now()).Milliseconds(), place.where.group.state == GroupPlaying, nil
+}
+
+// CastStateOf is what state the cast castID that userID cast is in, as its castee last said, for a
+// caster coming back to it (D555 §4): CastStarting until it says; empty for a cast that is none of
+// theirs or ended.
+func (hub *Hub) CastStateOf(castID, userID int64) CastState {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	place, err := hub.castOf(castID, userID)
+	switch {
+	case err != nil:
+		return ""
+	case place.cast.state == "":
+		return CastStarting
+	}
+	return place.cast.state
 }
 
 // CastPlays is the film the cast castID that userID cast plays in its session now; FileID 0 for none.

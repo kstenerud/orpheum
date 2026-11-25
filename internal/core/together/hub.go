@@ -229,6 +229,11 @@ type device struct {
 	playerChangedAt time.Time
 	// standing is what its page last said it waits on.
 	standing Standing
+	// cast is the cast whose credential it said hello with, its castee's or its remote's, found as it
+	// says anything (heardFrom); nil for any other device. saysCastState is whether it has said what
+	// state that cast is in, as only its castee does, which its roster entry then shows (D555 §4).
+	cast          *casting
+	saysCastState bool
 	// playback is how its player last said it plays the film: delivered as it is or converted, at
 	// which quality, on what link (D371 §4); nil until it says.
 	playback *Playback
@@ -286,7 +291,7 @@ func (each *device) takeState(message Inbound) {
 			each.playback = message.Playback
 		}
 	case MessageHello, MessagePing, MessageCommand, MessageRTC, MessageNote, MessageStanding, MessageSound,
-		MessagePicture, MessageWelcome, MessagePong, MessageGroup,
+		MessagePicture, MessageCastState, MessageWelcome, MessagePong, MessageGroup,
 		MessageRoster, MessageRejected, MessageEnded:
 	}
 }
@@ -658,6 +663,8 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 		handled.relay(from, message)
 	case MessageNote, MessageStanding, MessageSound, MessagePicture, MessagePlayback:
 		handled.takeAside(ctx, now, sender, from, message)
+	case MessageCastState:
+		handled.takeCastState(ctx, sender, from, message.CastState)
 	case MessageHello, MessageWelcome, MessagePong, MessageGroup, MessageRoster, MessageRejected, MessageEnded:
 		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeInvalid})
 	default:

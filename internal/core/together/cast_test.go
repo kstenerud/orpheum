@@ -592,3 +592,51 @@ func TestHub_LeavingASessionMovesTheGuestsCastToPlayAlone(t *testing.T) {
 		t.Errorf("the friend's cast has no credential: %v; want it going on", err)
 	}
 }
+
+// A cast says what state it is in (D555 §4): starting until its castee says, then waiting for its OK
+// (D468 §2) and running as the castee says, kept with the cast for its caster coming back and shown
+// to its remote in the roster; a state no castee says, or one said by a device of no cast, is refused.
+func TestCast_TheCasteeSaysWhatStateTheCastIsIn(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	cast, err := stage.hub.OpenCast(alone, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	castee, casteeBox := stage.attach(t, cast.ReceiverCredential, RoleVideo)
+	_, remoteBox := stage.attach(t, cast.SenderCredential, RolePanel)
+	partyDevice, partyBox := stage.attach(t, stage.opened.MembershipCredential, RoleBoth)
+	if state := stage.hub.CastStateOf(cast.CastID, alone.UserID); state != CastStarting {
+		t.Errorf("a cast whose castee said nothing is %q; want starting", state)
+	}
+	for _, state := range []CastState{CastWaitingForOK, CastRunning} {
+		stage.hub.Handle(t.Context(), castee, Inbound{Type: MessageCastState, CastState: state})
+		if kept := stage.hub.CastStateOf(cast.CastID, alone.UserID); kept != state {
+			t.Errorf("the cast is %q once its castee said %q", kept, state)
+		}
+		if shown := casteeStateIn(remoteBox.last(MessageRoster).Roster); shown != state {
+			t.Errorf("the remote's roster shows the castee %q once it said %q", shown, state)
+		}
+	}
+	stage.hub.Handle(t.Context(), castee, Inbound{Type: MessageCastState, CastState: "playing"})
+	stage.hub.Handle(t.Context(), partyDevice, Inbound{Type: MessageCastState, CastState: CastWaitingForOK})
+	if casteeBox.count(MessageRejected) != 1 || partyBox.count(MessageRejected) != 1 {
+		t.Errorf("refused %d of the castee's and %d of the party's device's; want its unknown state and theirs",
+			casteeBox.count(MessageRejected), partyBox.count(MessageRejected))
+	}
+	if kept := stage.hub.CastStateOf(cast.CastID, alone.UserID); kept != CastRunning {
+		t.Errorf("the cast is %q after the refusals; want it running still", kept)
+	}
+}
+
+// casteeStateIn is the cast state of the one device in roster that says one, or "".
+func casteeStateIn(roster []MemberView) CastState {
+	for _, each := range roster {
+		for _, attached := range each.Devices {
+			if attached.CastState != "" {
+				return attached.CastState
+			}
+		}
+	}
+	return ""
+}

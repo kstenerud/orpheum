@@ -40,6 +40,9 @@ const (
 	// whatever else the receiver is in (the owner, 2026-11-06: "It shouldn't be watch together's
 	// business at all which TV has what offset or playback characteristics").
 	MessagePlayback MessageType = "playback"
+	// MessageCastState is a cast's castee saying what state the cast is in (CastState, D555 §4),
+	// which the hub keeps with the cast and its remote is told in the roster.
+	MessageCastState MessageType = "castState"
 )
 
 // The messages the server sends.
@@ -135,6 +138,30 @@ const (
 func (standing Standing) isKnown() bool {
 	switch standing {
 	case StandingNone, StandingNeedsTap:
+		return true
+	}
+	return false
+}
+
+// CastState is what state a cast is in, as its castee says (D555 §4): starting, waiting for its OK
+// on the castee (D468 §2), or running.
+type CastState string
+
+// The states a castee says its cast is in.
+const (
+	// CastStarting is a cast put on whose castee has not yet said it waits for its OK or runs: what
+	// the hub reads of a castee that has said nothing.
+	CastStarting CastState = "starting"
+	// CastWaitingForOK is a cast its castee holds until a press there starts it (D468 §2).
+	CastWaitingForOK CastState = "waitingForOK"
+	// CastRunning is a cast its castee took and plays, its film or its ready screen.
+	CastRunning CastState = "running"
+)
+
+// isKnown is whether state is one a castee may say.
+func (state CastState) isKnown() bool {
+	switch state {
+	case CastStarting, CastWaitingForOK, CastRunning:
 		return true
 	}
 	return false
@@ -458,6 +485,8 @@ type Inbound struct {
 	CannotKeepUp *CannotKeepUp `json:"cannotKeepUp,omitempty"`
 	// Standing, in a standing, is what the device's page waits on, StandingNone for nothing.
 	Standing Standing `json:"standing,omitempty"`
+	// CastState, in a castState, is what state the castee's cast is in (D555 §4).
+	CastState CastState `json:"castState,omitempty"`
 	// ReadyOnMs and LoadsFaster, in a state, are how much film loaded ahead the player is ready on
 	// now, 3 s after a seek on a link that keeps up well, else 10 s (D283 §1), and how many times
 	// faster than it plays its last chunk of picture loaded: whether the shorter rule applied.
@@ -709,6 +738,9 @@ type DeviceView struct {
 	// Playback is how the device's player says it plays the film, which a cast's remote shows
 	// (D371 §4); nil until it says.
 	Playback *Playback `json:"playback,omitempty"`
+	// CastState is, for a cast's castee, what state its cast is in, which its remote shows (D555
+	// §4); empty for every other device.
+	CastState CastState `json:"castState,omitempty"`
 }
 
 // CannotKeepUp is a device whose link carries less than its lowest quality needs, with both

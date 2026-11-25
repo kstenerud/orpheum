@@ -90,6 +90,37 @@ describe("a cast's receiver says where it is each 5 s, its silence ending the ca
   });
 });
 
+describe("a cast's receiver says what state the cast is in (D555 §4)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+    document.body.replaceChildren();
+  });
+
+  it("tells the cast's session the cast runs, taken and put on, for its remote to show", async () => {
+    const server = fakeTogetherServer();
+    const video = document.createElement("video");
+    document.body.append(video);
+    mounted = await mount(
+      withServices(
+        <CastReceiver
+          receiving={{ cast, onLeave: vi.fn() }}
+          fileId={4}
+          video={video}
+          startPositionMs={0}
+        />,
+        { ...servedBy({}, [], "token"), openTogetherSocket: server.openSocket },
+      ),
+    );
+    await server.accept();
+    await server.say(welcome);
+    expect(server.heard).toContainEqual(
+      expect.objectContaining({ type: "castState", castState: "running" }),
+    );
+  });
+});
+
 describe("a cast's receiver and its person's Watch Together session (D364 §11, D372 §8)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {

@@ -120,4 +120,21 @@ describe("the API client", () => {
     };
     expect(takesItHere).toBeTypeOf("function");
   });
+
+  it("lists, when it is compiled, what state each cast is in, as its castee says (D555 §4)", () => {
+    const api = createApi({
+      getToken: () => undefined,
+      fetch: () => Promise.resolve(new Response(null, { status: 204 })),
+    });
+    const statesOf = async (): Promise<string> => {
+      const casts = dataOrThrow(await api.GET("/me/casts")).casts ?? [];
+      const states: ("starting" | "waitingForOK" | "running" | undefined)[] = casts.map(
+        (each) => each.castState,
+      );
+      // @ts-expect-error -- a castee says no state but these three
+      const unknown: "playing" | undefined = casts[0]?.castState;
+      return [...states, unknown].join();
+    };
+    expect(statesOf).toBeTypeOf("function");
+  });
 });

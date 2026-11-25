@@ -168,3 +168,47 @@ describe("what a device's page waits on (the owner's session, 2026-10-18)", () =
     vi.useRealTimers();
   });
 });
+
+describe("what state a cast is in, as its castee says (D555 §4)", () => {
+  it("tells what state its cast is in once per change, again on each new connection, and reads each device's", () => {
+    vi.useFakeTimers();
+    const sockets = fakeSockets();
+    const connection = createTogetherConnection({
+      credential: "c",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    sockets.opened[0]!.onMessage(JSON.stringify(welcome));
+    const states = (): unknown[] =>
+      sockets.sent.filter((each) => each["type"] === "castState").map((each) => each["castState"]);
+    connection.setCastState("waitingForOK");
+    connection.setCastState("waitingForOK");
+    connection.setCastState("running");
+    expect(states()).toEqual(["waitingForOK", "running"]);
+    sockets.opened[0]!.onClose(1006);
+    vi.advanceTimersByTime(reconnectWaitMs(0));
+    sockets.opened[1]!.onOpen();
+    sockets.opened[1]!.onMessage(
+      JSON.stringify({
+        ...welcome,
+        roster: [
+          {
+            id: 7,
+            name: "Gran",
+            devices: [
+              { id: 9, role: "video", castState: "running" },
+              { id: 10, role: "panel", castState: "dancing" },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(states()).toEqual(["waitingForOK", "running", "running"]);
+    const devices = connection.snapshot().roster[0]?.devices;
+    expect(devices?.[0]?.castState).toBe("running");
+    expect(devices?.[1]?.castState).toBeUndefined(); // one this client does not know
+    vi.useRealTimers();
+  });
+});

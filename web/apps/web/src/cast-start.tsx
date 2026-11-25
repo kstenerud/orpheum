@@ -142,10 +142,19 @@ export function CastStartPress(props: {
   );
 }
 
-/** Tells onGone once the cast ends, as its sender stops it while its receiver waits for its press. */
+/**
+ * Tells onGone once the cast ends, as its sender stops it while its receiver waits for its press; and
+ * tells the cast's session it waits for its OK, which its remote shows (D555 §4).
+ */
 function useEndsWithTheCast(cast: CastToReceive, onGone: () => void): void {
   const token = useToken();
-  const { snapshot } = useTogether({ credential: cast.membershipCredential, sessionToken: token });
+  const { connection, snapshot } = useTogether({
+    credential: cast.membershipCredential,
+    sessionToken: token,
+  });
+  useEffect(() => {
+    connection?.setCastState("waitingForOK");
+  }, [connection]);
   const isEnded = snapshot?.status === "ended";
   const goneRef = useLatest(onGone);
   useEffect(() => {

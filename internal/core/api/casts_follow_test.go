@@ -3,11 +3,16 @@
 package api_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/coder/websocket/wsjson"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/live"
@@ -221,5 +226,40 @@ func TestCast_ACasterComingBackIsToldWhereItsCastStands(t *testing.T) {
 	}
 	if cast := mine.Body.Casts[0]; cast.CastID != session.CastID || cast.PositionMs != 42_000 || cast.IsPlaying {
 		t.Errorf("the phone's cast came back as %+v; want cast %d paused at 42 s", cast, session.CastID)
+	}
+	if state := mine.Body.Casts[0].CastState; state != "starting" {
+		t.Errorf("the phone's cast came back %q, its castee saying nothing; want starting", state)
+	}
+	castPlayer.send(together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageCastState, CastState: together.CastRunning,
+	})
+	castPlayer.awaitRoster(func(roster []together.MemberView) bool {
+		return slices.ContainsFunc(roster, func(each together.MemberView) bool {
+			return slices.ContainsFunc(each.Devices, func(attached together.DeviceView) bool {
+				return attached.CastState == together.CastRunning
+			})
+		})
+	})
+	listed = harness.do(t, http.MethodGet, "/me/casts", tokens[0], nil)
+	if err := json.Unmarshal([]byte(listed.body), &mine.Body); err != nil || len(mine.Body.Casts) != 1 ||
+		mine.Body.Casts[0].CastState != "running" {
+		t.Errorf("GET /me/casts = %d %s; want the cast running, as its castee said (D555 §4)", listed.status,
+			listed.body)
+	}
+}
+
+// awaitRoster reads until a roster isIt takes, which fails the test when none comes in time.
+func (opened socket) awaitRoster(isIt func([]together.MemberView) bool) {
+	opened.t.Helper()
+	ctx, cancel := context.WithTimeout(opened.t.Context(), 5*time.Second)
+	defer cancel()
+	for {
+		var message together.Outbound
+		if err := wsjson.Read(ctx, opened.connection, &message); err != nil {
+			opened.t.Fatalf("no such roster: %v", err)
+		}
+		if message.Type == together.MessageRoster && isIt(message.Roster) {
+			return
+		}
 	}
 }

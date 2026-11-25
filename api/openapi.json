@@ -644,6 +644,15 @@
             "format": "int64",
             "type": "integer"
           },
+          "castState": {
+            "description": "What state the cast is in, as its castee says, for a device coming back to it (D555 §4): starting, waitingForOK (D468 §2) or running",
+            "enum": [
+              "starting",
+              "waitingForOK",
+              "running"
+            ],
+            "type": "string"
+          },
           "durationMs": {
             "description": "How long the film plays, 0 when unknown",
             "format": "int64",

@@ -18,6 +18,7 @@ import {
   type GroupView,
   type PlayableFormats,
   type PlayerState,
+  type TellsCastState,
   type TogetherConnection,
 } from "@orpheum/sdk";
 
@@ -171,7 +172,7 @@ export interface CastDeviceOptions {
 /** The receiver as a device of its person's: its live connection, and the cast it plays. */
 export class CastDevice {
   private castId: number | undefined;
-  private together: TogetherConnection | undefined;
+  private together: (TogetherConnection & TellsCastState) | undefined;
   private playback: ChunkedPlayback | undefined;
   private playingFileId = 0;
   /** The film the cast last handed, 0 for none: the one the receiver puts on its session. */
@@ -297,6 +298,7 @@ export class CastDevice {
       this.follow(together);
     });
     this.together = together;
+    together.setCastState("starting"); // running once its film plays, or at once for none (D555 §4)
     together.open();
     this.hand(handed);
   }
@@ -310,6 +312,7 @@ export class CastDevice {
     this.toPutOn = [];
     if (handed.fileId === 0) {
       this.stopFilm();
+      this.together?.setCastState("running");
       return;
     }
     const { fileId, isPaused, itemId } = handed;
@@ -317,6 +320,7 @@ export class CastDevice {
       if (startedAtMs !== undefined && this.handedFileId === fileId) {
         this.toPutOn = putOnCommands({ fileId, itemId }, startedAtMs, isPaused === true);
         this.putOn();
+        this.together?.setCastState("running");
       }
     });
   }

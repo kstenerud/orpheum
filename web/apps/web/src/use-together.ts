@@ -9,6 +9,7 @@ import {
   type Standing,
   type TellsCannotKeepUp,
   type TellsPlaybackAlone,
+  type TellsCastState,
   type TellsStanding,
   type TogetherConnection,
   type TogetherEndReason,
@@ -53,6 +54,7 @@ export function useTogether(device: TogetherDevice): {
     | (TogetherConnection &
         TellsCannotKeepUp &
         TellsStanding &
+        TellsCastState &
         CarriesSoundChoices &
         CarriesPictureChoices &
         TellsPlaybackAlone)
