@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { createApi, putOnCommands, type GroupView, type OpenTogetherSocket } from "@orpheum/sdk";
+import {
+  castReportEveryMs,
+  createApi,
+  putOnCommands,
+  type GroupView,
+  type OpenTogetherSocket,
+} from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CastDevice, groupToFollow, handedWhat, seekPastMs, stepsToFollow } from "./device.ts";
@@ -218,6 +224,85 @@ describe("a Chromecast's casts, one after another", () => {
     expect(notes.filter((line) => line.startsWith("the cast ended"))).toEqual([
       "the cast ended: stopped",
     ]);
+    stop();
+  });
+});
+
+describe("a Chromecast's castee says where it is each 5 s, its silence ending the cast (D555 §3)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("reports its state to the cast's session each castReportEveryMs", () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const api = createApi({
+      origin: "https://core.example",
+      getToken: () => "token",
+      fetch: () => Promise.resolve(new Response("{}", { status: 503 })),
+    });
+    const sockets: Parameters<OpenTogetherSocket>[0][] = [];
+    const sent: string[][] = [];
+    const video = {
+      addEventListener: () => undefined,
+      currentTime: 0,
+      paused: true,
+      seeking: false,
+      readyState: 0,
+    } as unknown as HTMLVideoElement;
+    const device = new CastDevice({
+      api,
+      token: "token",
+      reached: {
+        fetch: () => Promise.reject(new Error("no film's bytes in this test")),
+        openSocket: (listeners) => {
+          const heard: string[] = [];
+          sockets.push(listeners);
+          sent.push(heard);
+          return { send: (text: string) => heard.push(text), close: () => undefined };
+        },
+        close: () => undefined,
+      },
+      video,
+      note: () => undefined,
+      onRefused: () => undefined,
+    });
+    const stop = device.start();
+    sockets[0]?.onOpen();
+    sockets[0]?.onMessage(
+      JSON.stringify({
+        type: "receive",
+        receive: {
+          castId: 1,
+          membershipCredential: "cast-1",
+          fileId: 0,
+          itemName: "",
+          fromDeviceId: 2,
+          fromDeviceName: "Chrome on Mac",
+        },
+      }),
+    );
+    const castSession = sockets[1];
+    castSession?.onOpen();
+    castSession?.onMessage(
+      JSON.stringify({
+        v: 3,
+        type: "welcome",
+        seq: 1,
+        sessionId: 1,
+        memberId: 2,
+        deviceId: 12,
+        group: { state: "idle", positionMs: 0, rate: 1, fileId: 0 },
+        roster: [],
+      }),
+    );
+    const states = (): number =>
+      (sent[1] ?? []).filter((text) => text.includes('"type":"state"')).length;
+    const before = states();
+    for (let report = 1; report <= 3; report += 1) {
+      vi.advanceTimersByTime(castReportEveryMs);
+      expect(states() - before).toBeGreaterThanOrEqual(report);
+      castSession?.onMessage(JSON.stringify({ v: 3, type: "pong", tMono: 0 }));
+    }
     stop();
   });
 });

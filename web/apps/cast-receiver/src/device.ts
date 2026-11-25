@@ -3,6 +3,7 @@
 import { playChunked, type ChunkedPlayback } from "@orpheum/player";
 import {
   browserPlayableFormats,
+  castReportEveryMs,
   createLiveConnection,
   createTogetherConnection,
   dataOrThrow,
@@ -289,6 +290,7 @@ export class CastDevice {
       client: "cast-receiver",
       openSocket: reached.openSocket,
       monotonicMs: () => performance.now(),
+      stateEveryMs: castReportEveryMs, // its silence ends the cast (D555 §3)
     });
     together.setPlayer(() => this.playerState());
     together.subscribe(() => {
