@@ -160,12 +160,14 @@ html:has(.cast-remote__stage) {
   margin: 0;
 }
 
-/* The timeline the whole width, the time under it at the start (§4). */
+/* The timeline the whole width, the time under it at the start (§4), flush under the card: the
+   slider's touch box (timeline__range, a control's height) keeps its track clear of the picture,
+   which is not pressed (the owner, 2026-11-25: a third closer). */
 .cast-remote__timeline {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  margin: var(--space-2) var(--space-4) 0;
+  margin: 0 var(--space-4);
 }
 
 .cast-remote__timeline > :first-child {
@@ -205,14 +207,15 @@ html:has(.cast-remote__stage) {
   cursor: default;
 }
 
-/* The player's menus at the end, as in the player (§7). */
+/* The player's menus at the end, as in the player (§7), a step more room above them than the
+   pad's (the owner, 2026-11-25: the row felt cramped). */
 .cast-remote__buttons {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4) var(--space-4);
+  padding: var(--space-3) var(--space-4) var(--space-4);
 }
 
 /* Two columns (§8): a phone on its side, or a page 60rem wide or more. The bar across the top, the
@@ -294,6 +297,10 @@ html:has(.cast-remote__stage) {
     min-inline-size: 0;
   }
 
+  .cast-remote__where {
+    margin-block-start: 0;
+  }
+
   .cast-remote__heading > a {
     flex: 0 1 auto;
     min-inline-size: 0;
@@ -329,9 +336,12 @@ html:has(.cast-remote__stage) {
 }
 
 /* Under the way up, as the player's over its film, where it plays and when it ends on one line: "On:
-   ‹TV›" and "Ends: ‹time›" (the owner, 2026-11-23). */
+   ‹TV›" and "Ends: ‹time›" (the owner, 2026-11-23). Drawn up into the way up's touch box, whose
+   text sits above its bottom (player-overlay__up is a control's height): the sign is not pressed,
+   so it may share the room (the owner, 2026-11-25: the page felt cramped, this gap first). */
 .cast-remote__where {
   display: flex;
+  margin-block-start: calc(-1 * var(--space-2));
   flex-wrap: wrap;
   align-items: baseline;
   column-gap: var(--space-4);

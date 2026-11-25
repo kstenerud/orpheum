@@ -191,6 +191,22 @@ describe("the cast remote's layout (D548 §1, §8)", () => {
     expect(phone.querySelector(".cast-remote__picture-area")).not.toBeNull();
   });
 
+  // The page felt cramped once every control was on (the owner, 2026-11-25): the sign shares the way
+  // up's touch box, the timeline sits flush under the card, the buttons row has a step more above it.
+  it("keeps the sign close under the way up, the timeline flush under the card and a step above the buttons row, on a phone upright", async () => {
+    const upright = await remoteAt(390, 844);
+    const up = boxOf(upright, ".cast-remote__heading > :first-child");
+    expect(boxOf(upright, ".cast-remote__where").top).toBeLessThanOrEqual(up.bottom - 7.5);
+    expect(boxOf(upright, ".cast-remote__timeline").top).toBeCloseTo(
+      boxOf(upright, ".cast-remote__offer-cell").bottom,
+      0,
+    );
+    const firstButton = boxOf(upright, ".cast-remote__buttons > :first-child");
+    expect(firstButton.top - boxOf(upright, ".cast-remote__pad").bottom).toBeGreaterThanOrEqual(
+      11.5,
+    );
+  });
+
   it("fits a phone upright with its browser's bars, nothing to scroll to", async () => {
     const bars = await remoteAt(390, 660);
     expectAllInside(bars, 390, 660);
