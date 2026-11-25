@@ -31570,6 +31570,13 @@ already knows, and lets the person act on it.
    for the walk: the television switched off while a film plays, the phone's remote within a
    minute.
 
+**Amended 2026-11-25: the not-answering note dims the picture, not covers it.** §3's note stood on
+the page's own ground over the whole picture (D548 §9), leaving the card blank under the words. The
+owner wants the picture seen behind it (2026-11-25): the note's ground is the dialog backdrop's
+(`--color-backdrop`), the picture dimmed under the note and Play here, back at its brightness as the
+note goes, as a receiver back or Try again clears it. The remote's layout test asserts the ground
+translucent and the picture area drawn under it.
+
 **Amended 2026-11-25: a guest receiver is heard by its session alone.** A guest receiver (a
 Chromecast's, D465 §1) is in no devices message, so §2's first test, its device not among the
 person's connected devices, held from the cast's first moment: the owner's phone was Reaching a

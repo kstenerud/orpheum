@@ -182,6 +182,13 @@ describe("the cast remote's layout (D548 §1, §8)", () => {
     expect(playHere.top).toBeGreaterThanOrEqual(
       boxOf(phone, ".cast-remote__note .status-line").bottom,
     );
+    // The picture dimmed behind the note, not covered (D550 §3, amended 2026-11-25): its ground
+    // lets some of it through, and the picture area stays drawn under it.
+    const note = phone.querySelector(".cast-remote__note");
+    expect(note === null ? "" : getComputedStyle(note).backgroundColor).toMatch(
+      /rgba\(0, 0, 0, 0\.\d+\)/,
+    );
+    expect(phone.querySelector(".cast-remote__picture-area")).not.toBeNull();
   });
 
   it("fits a phone upright with its browser's bars, nothing to scroll to", async () => {
