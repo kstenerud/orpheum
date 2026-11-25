@@ -189,6 +189,11 @@ server to pass the castee's report or its silence on. `cast-remote.tsx`, its pad
 tests now have no user outside tests; they go with item 5, their tests moved to the page that
 keeps each behaviour.
 
+**Walked (item 3, staging, 2026-11-25, the Pixel and the Chromecast):** casting, the Play page
+shows the castee's key frame and its own bar; Play, Pause and both 10 s steps reach the
+Chromecast; Stop casting brings the film back here paused at the Chromecast's place, with no
+note.
+
 ### Phase 5: the lab goes (D555 §12)
 
 Its pages, routes, words, menu entry and the server's `/lab/` endpoints.
