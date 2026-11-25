@@ -20,7 +20,8 @@ import type { CastAgain } from "./cast-remote-again.ts";
 import { RemoteSkipOffer, useFileSegments } from "./cast-segments.tsx";
 import { moveCastOn } from "./cast.ts";
 import { IconButton } from "./icon-button.tsx";
-import type { PlayerSound, PlayerSource } from "./player-controls.tsx";
+import type { PlaybackTarget } from "./playback-target.ts";
+import type { PlayerSound } from "./player-controls.tsx";
 import { CloseIcon } from "./player-icons.tsx";
 import { Pill } from "./pill.tsx";
 import { WideArt } from "./poster.tsx";
@@ -34,7 +35,7 @@ type ArtBody = components["schemas"]["ArtBody"];
 
 /**
  * The remote's offer area (D548 §2, §3, §9): the film's picture where its video would be, 16:9, the
- * key frame where the receiver stands (RemotePicture), hidden from a screen reader, which the
+ * key frame where the receiver says it stands (RemotePicture), hidden from a screen reader, which the
  * remote's sign tells where it plays; at its top-right the offer, Up next or a skip (RemoteOffers);
  * at its centre a Pill, "Reaching ‹TV›…" while the receiver is not reached, else the film's level a
  * moment after the pad moves it (film); the receiver unheard, nothing ended by the remote, the
@@ -58,7 +59,7 @@ export interface RemoteEnded {
 
 export function RemoteOffer(props: {
   readonly sent: CastSending;
-  readonly source: PlayerSource;
+  readonly source: PlaybackTarget;
   readonly upNext: UpNext | undefined;
   readonly art: ArtBody | undefined;
   /** The film's level on the receiver, while its Pill shows. */
@@ -75,7 +76,7 @@ export function RemoteOffer(props: {
     <div className="cast-remote__offer-cell">
       <div className="cast-remote__offer">
         <div className="cast-remote__picture-area" aria-hidden="true">
-          <RemotePicture fileId={sent.fileId} atMs={source.atMs} art={props.art} />
+          <RemotePicture fileId={sent.fileId} atMs={source.reportedAtMs} art={props.art} />
         </div>
         <div className="cast-remote__offers">
           <RemoteOffers sent={sent} source={source} upNext={props.upNext} />
@@ -156,7 +157,7 @@ function RemoteVolumePill(props: { readonly film: PlayerSound | undefined }): JS
  */
 function RemoteOffers(props: {
   readonly sent: CastSending;
-  readonly source: PlayerSource;
+  readonly source: PlaybackTarget;
   readonly upNext: UpNext | undefined;
 }): JSX.Element | null {
   const { sent, source, upNext } = props;
@@ -199,7 +200,8 @@ function RemoteOffers(props: {
 
 /**
  * The film's picture where its video would be, covering the offer area at its full brightness (D548
- * §2): the key frame where the receiver stands, renewed every 3 s while it moves (CastFrame, D545),
+ * §2): the key frame where the receiver says it stands, no seek chosen here counted (the rework plan,
+ * phase 3), renewed every 3 s while it moves (CastFrame, D545),
  * and until the first has loaded, or where the node makes none, the film's art (RemoteArt).
  */
 function RemotePicture(props: {
