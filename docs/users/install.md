@@ -61,8 +61,9 @@ On OpenMediaVault and on a Synology you may have no terminal. There:
 
 - **OpenMediaVault**: if **Services** has **Compose**, Docker and its compose plugin are installed.
   If it does not, the [OpenMediaVault section](#openmediavault) installs them.
-- **Synology**: **Package Center** shows whether Container Manager is installed. The
-  [Synology section](#synology) lists the models that can run it.
+- **Synology**: **Package Center** shows whether Container Manager is installed.
+  [Check your Synology first](#check-your-synology-first) says how to tell whether your model can
+  run it, and what to do when it cannot.
 
 ## Quick start
 
@@ -109,12 +110,16 @@ The full steps are in [OpenMediaVault](#openmediavault).
 
 ### Quick start: Synology
 
-**Note**: Unconfirmed. Please verify and send a report.
+**Note**: Unconfirmed. Please verify and send a report. The [full steps](#synology) explain each
+of these for someone new to a Synology's settings, and say
+[what to do if you get stuck](#if-you-get-stuck).
 
-1. Read your media folder's path and make a folder for the server
-   ([steps 1 and 2](#synology)).
-2. Read your user's uid and gid with `id` over SSH ([step 3](#synology)).
-3. **Container Manager → Project → Create**, and paste
+1. Check that your model and DSM can run Container Manager
+   ([check your Synology first](#check-your-synology-first)).
+2. Read your media folder's path and make a folder for the server
+   ([steps 1 and 2](#install-it-on-the-synology)).
+3. Read your user's uid and gid with `id` over SSH ([step 3](#install-it-on-the-synology)).
+4. **Container Manager → Project → Create**, and paste
    [`orpheum-synology.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-synology.yaml).
    Change these three lines under `# Yours` to your own:
 
@@ -124,8 +129,8 @@ The full steps are in [OpenMediaVault](#openmediavault).
    time-zone: &timezone Europe/Berlin
    ```
 
-4. Finish the wizard with **Start the project once it is created** ticked.
-5. Open the link in `orpheum-core`'s log in a browser at home ([the first admin](#the-first-admin)).
+5. Finish the wizard with **Start the project once it is created** ticked.
+6. Open the link in `orpheum-core`'s log in a browser at home ([the first admin](#the-first-admin)).
 
 The full steps are in [Synology](#synology).
 
@@ -509,52 +514,123 @@ To stop the server, press **Down**. Its data stays in `appdata/orpheum`.
 
 ### Synology
 
-These steps are for DSM 7.2 or newer, with Container Manager. The paths below are examples: a
-Synology names each folder after the volume it is on and the name you gave it, so read your own
-before you type them.
+**Note**: Unconfirmed. These steps follow Synology's own help pages and have not yet been followed
+on a Synology, so a page on yours may look a little different. Please send a report of
+how it went, whether it worked or not.
 
-**A DS218, DS218play, DS118, DS418 or RS819** (the models with a Realtek RTD1296 processor) can run
-Orpheum, but Synology does not offer Container Manager for them. A community script,
-[ContainerManager_for_all_armv8](https://github.com/007revad/ContainerManager_for_all_armv8),
-installs Synology's own Container Manager package on them. It is unofficial: neither Synology nor
-this project supports it, and this project has not tested it. It needs **DSM 7.2 or newer**: if
-**Control Panel → Info Center** shows an older DSM, update it first (**Control Panel → Update &
-Restore**). Follow the script's own page to run it, then open **Package Center**, where Container
-Manager is now installed, and go on with step 1 below. The 32-bit models, such as the DS218j and
-DS216j, cannot run Orpheum at all.
+These steps are for DSM 7.2 or newer, with Container Manager. DSM is the Synology's own system: the
+pages you see in a browser when you manage it. Container Manager is Synology's app that runs
+programs packaged as *containers*; Orpheum is three of them. You need:
 
-Such a model is slow for video, so know this before you start. Its processor can send a film
-unchanged to a device that plays it unchanged, at home, which covers most films on most devices.
-What it cannot do is re-encode a film while it plays. A device that cannot play the film's own
-format, or a link too slow for the film's own size (often the case away from home), needs a lighter
-copy made on the fly, and this processor cannot make one as fast as the film plays. Such a playback
-stops to wait, again and again. Choosing a lower quality in the player does not help, because a
-lower quality is a re-encode too.
+- a computer on the same home network as the Synology;
+- the name and password you sign in to DSM with, for a user who is an administrator, as the one you
+  set the Synology up with is;
+- about half an hour.
 
-Its system is older too (Linux 4.4), and Orpheum runs on it with one protection fewer. The
-**System** page says so for the media machine: "FFmpeg runs without part of its sandbox, which this
-machine's kernel does not offer", and that Landlock, which limits the files FFmpeg may open, needs
-Linux 5.13 or newer. DSM cannot provide it, so leave it: films play as they would with it, and the
-rest of the sandbox still holds.
+The paths below, such as `/volume1/video`, are examples: a Synology names each folder after the
+volume it is on and the name you gave it, so read your own before you type them.
+
+#### If you get stuck
+
+Stop at the step that went wrong, and write down what you clicked and what the screen showed (a
+screenshot helps). Then:
+
+- look for the words of the message in [setup-problems.md](setup-problems.md), which lists what has
+  gone wrong in other installs, and the fix;
+- if you were invited to the private beta, ask the person who invited you
+  ([private beta](#private-beta)). Outside the beta there is no support yet.
+
+Nobody helping you needs your passwords: you type them yourself, on the page that asks.
+
+#### Check your Synology first
+
+1. **Its model and DSM version.** In DSM, open **Control Panel → Info Center**. The **General** tab
+   shows the **Model name**, such as `DS218` or `DS920+`, and the **DSM version**. Write both
+   down.
+2. **If the DSM version is older than 7.2**, update DSM first (**Control Panel → Update &
+   Restore**), then come back here.
+3. **Container Manager.** Open **Package Center** and search for `Container Manager`.
+   - If it is installed already, go on to [Install it on the Synology](#install-it-on-the-synology).
+   - If Package Center offers to install it, install it, then go on to
+     [Install it on the Synology](#install-it-on-the-synology). Installing it makes a shared folder
+     named `docker`, which step 2 uses.
+   - If Package Center does not find it, Synology does not offer it for your model. The models it
+     does are listed under **Applied Models** on
+     [Synology's page for Container Manager](https://www.synology.com/en-global/dsm/packages/ContainerManager).
+     Read the next part.
+
+**A model Synology does not offer Container Manager for.** Synology's table
+[What kind of CPU does my NAS have](https://kb.synology.com/en-global/DSM/tutorial/What_kind_of_CPU_does_my_NAS_have)
+names your model's processor, and its **CPU Arch** column says whether it is 64-bit:
+
+- **A DS118, DS218, DS218play, DS418, DS418j, DS119j or RS819** (the models with a Realtek RTD1296
+  or RTD1293 processor, or a Marvell A3720) can run Orpheum, but Synology does not offer Container
+  Manager for them. A community script,
+  [ContainerManager_for_all_armv8](https://github.com/007revad/ContainerManager_for_all_armv8),
+  installs Synology's own Container Manager package on them. It is unofficial: neither Synology
+  nor this project supports it, and this project has not tested it. It needs **DSM 7.2 or newer**.
+  It runs over SSH, which [step 3](#install-it-on-the-synology) explains; follow the script's own
+  page to run it, and do what that page says to do after it: in **Package Center → Settings → Auto
+  Update**, stop Container Manager from updating itself. Then Container Manager is installed: go on
+  to [Install it on the Synology](#install-it-on-the-synology). The DS119j has 256 MB of memory
+  (Synology's table), and this project does not know whether Orpheum runs in so little.
+- **A 32-bit model**, whose **CPU Arch** is `armv7` (such as the DS218j and DS216j), cannot run
+  Orpheum at all.
+- **Any other model** that Package Center does not offer Container Manager for: ask for help
+  ([if you get stuck](#if-you-get-stuck)) before you go on.
+
+**A slow model.** The models with a Realtek RTD1296 processor (those above, and the DS220j and
+DS420j, which have the same processor) are slow for video, so know this before you start. Their
+processor can send a film unchanged to a device that plays it unchanged, at home, which covers most
+films on most devices. What it cannot do is re-encode a film while it plays. A device that cannot
+play the film's own format, or a link too slow for the film's own size (often the case away from
+home), needs a lighter copy made on the fly, and this processor cannot make one as fast as the film
+plays. Such a playback stops to wait, again and again. Choosing a lower quality in the player does
+not help, because a lower quality is a re-encode too.
+
+**One protection fewer.** Such a model's system is older too (Linux 4.4), and Orpheum runs on it
+with one protection fewer. The **System** page says so for the media machine: "FFmpeg runs without
+part of its sandbox, which this machine's kernel does not offer", and that Landlock, which limits
+the files FFmpeg may open, needs Linux 5.13 or newer. DSM cannot provide it, so leave it: films play
+as they would with it, and the rest of the sandbox still holds. Other Synology models whose DSM runs
+a Linux older than 5.13 lack Landlock too, and the System page says so in the same way: DSM 7.2 runs
+Linux 3.10 or 4.4 on most models and 5.10 on the newest
+([a table of them](https://github.com/007revad/Synology_Information_Wiki/blob/main/pages/Linux-Kernel-in-each-platform-arch.md),
+2026-11-25), so expect the note on any Synology.
+
+#### Install it on the Synology
 
 1. **Your media folder's path.** In **File Station**, right-click the shared folder that holds your
-   films and series and choose **Properties**. **Location** is its path, such as `/volume1/video`
-   or `/volume2/Media`. Write it down exactly, capitals included.
-2. **A folder for the server.** In **File Station**, make a shared folder for apps if you have none
-   (`docker` is usual). In it, make a folder for Orpheum named `orpheum` (**Create → Create
-   folder**). Read its **Location** as in step 1, such as `/volume1/docker/orpheum`. The server
-   keeps its data in a folder inside it, `data`, which it makes itself.
-3. **Your user's numbers.** The server runs as your own Synology user, so it needs that user's two
-   numbers, its uid and its gid:
-   1. Turn on SSH: **Control Panel → Terminal & SNMP**, tick **Enable SSH service**, and press
-      **Apply**.
-   2. On your computer, open a terminal (Windows: **PowerShell**; Mac: **Terminal**) and type
-      `ssh <your user>@<the Synology's address>`, such as `ssh anna@192.168.1.30`. The address is
-      the one in your browser's address bar when you use DSM, without the `:5000` after it. The user
-      must be an administrator, as the one you set the Synology up with is. The first time, it asks
+   films and series and choose **Properties**. On the **General** tab, **Location** is its path,
+   such as `/volume1/video` or `/volume2/Media`. Write it down exactly, capitals included: you type
+   it in step 4.
+2. **A folder for the server.** In **File Station**, open the `docker` shared folder, which
+   Container Manager made. (If there is none, choose **Create → Create shared folder**, which opens
+   **Control Panel → Shared Folder**, and make one named `docker`.) In it, make a folder for Orpheum
+   named `orpheum` (**Create → Create folder**). Read its **Location** as in step 1, such as
+   `/volume1/docker/orpheum`. The server keeps its data in a folder inside it, `data`, which it
+   makes itself.
+3. **Your user's numbers.** The server runs as your own Synology user, so the files it writes are
+   yours and it reads what you may read. For that it needs the user's two numbers: its *uid* (the
+   number DSM knows the user by) and its *gid* (the number of the user's main group). DSM shows them
+   only to a command typed over *SSH*, which lets your computer type commands on the Synology. You
+   need it for one command, and may turn it off after.
+   1. Turn on SSH: **Control Panel → Terminal & SNMP**, the **Terminal** tab, tick **Enable SSH
+      service**, and press **Apply**.
+   2. Find the Synology's address. It is the one in your browser's address bar when you use DSM,
+      without the `:5000` after it, such as `192.168.1.30`. If the address bar shows a name instead
+      (such as one ending in `quickconnect.to`), open **Control Panel → Info Center**, the
+      **Network** tab, which shows the IP address.
+   3. On your computer, open a terminal (Windows: **PowerShell**; Mac: **Terminal**) and type
+      `ssh <your user>@<the Synology's address>`, such as `ssh anna@192.168.1.30`, then press
+      Enter. The user must be an administrator: SSH lets in no other. The first time, it asks
       whether to trust the machine: type `yes`. Then type the password you sign in to DSM with; it
       does not show as you type.
-   3. Type `id` and press Enter. It shows something like:
+      - If it says `Connection refused`, or nothing happens for a minute, SSH is not on: check step
+        1, and that you pressed **Apply**.
+      - If it says `Permission denied`, the password was wrong, or the user is not an
+        administrator.
+   4. Type `id` and press Enter. It shows something like:
 
       ```text
       uid=1026(<your user>) gid=100(users) groups=100(users),101(administrators)
@@ -562,17 +638,23 @@ rest of the sandbox still holds.
 
       The number after `uid=` is the uid, here `1026`; the number after `gid=` is the gid, here
       `100`. On most Synologys the first user made has exactly these, 1026 and 100, but use the ones
-      yours shows.
-   4. Type `exit`. You may turn SSH off again.
+      yours shows. Write them down.
+   5. Type `exit`. You may turn SSH off again, by unticking the box of step 1.
 
    This user must be able to read the media folder: **Control Panel → Shared Folder**, select it,
-   **Edit → Permissions**, and give the user *Read only* or *Read/Write*.
-4. **The project.**
-   1. Open **Container Manager → Project → Create**.
-   2. Name it `orpheum`. For **Path**, choose the `orpheum` folder from step 2. For **Source**,
+   **Edit**, the **Permissions** tab, and give the user itself *Read only* or *Read/Write*, then
+   press **OK**.
+4. **The project.** A *compose file* is a text file that tells Container Manager which containers
+   to run and where their files are. Container Manager calls one, with its folder, a *project*.
+   1. Open [`orpheum-synology.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-synology.yaml)
+      in your browser: it downloads the file. Open the downloaded file in a text editor (Windows:
+      right-click it, **Open with**, **Notepad**; Mac: **TextEdit**), select all of it, and copy
+      it.
+   2. Open **Container Manager → Project → Create**.
+   3. Name it `orpheum`. For **Path**, choose the `orpheum` folder from step 2. For **Source**,
       choose **Create docker-compose.yml**.
-   3. Paste [the Synology compose file](#the-synology-compose-file) into the editor.
-   4. Near its top, under `# Yours`, change three lines to your own, in the editor:
+   4. Paste [the Synology compose file](#the-synology-compose-file) into the editor.
+   5. Near its top, under `# Yours`, change three lines to your own, in the editor:
 
       ```yaml
       media: &media /volume1/video
@@ -584,31 +666,55 @@ rest of the sandbox still holds.
       - between the quotes after `&user `, the uid from step 3, a colon, then the gid: `"1026:100"`;
       - after `&timezone `, your time zone, such as `Europe/London` or `America/New_York`.
 
-      Change only what follows the `&` word; leave the rest of each line as it is.
-   5. Press **Next** past the web portal page. On the last page, leave **Start the project once it
+      Change only what follows the `&` word; leave the rest of each line as it is, the space after
+      the `&` word and the quotes included. The lines that start with `#` are notes for people, and
+      change nothing. With a media folder `/volume2/Media`, a user `1027` in group `100` and the
+      time in London, the three lines read:
+
+      ```yaml
+      media: &media /volume2/Media
+      user: &user "1027:100"
+      time-zone: &timezone Europe/London
+      ```
+
+   6. Press **Next** past the web portal page. On the last page, leave **Start the project once it
       is created** ticked, and press **Done**.
 
    The first time, it downloads the image, which takes a few minutes. Then, in **Container Manager
    → Container**, `orpheum-folders` has stopped (that is right: it only prepares the data folder),
    and `orpheum-core` and `orpheum-node` are running.
-5. **Keep a copy of the whole file** somewhere of your own. When an update brings a newer compose
-   file, the server's **Update** page gives it to you, and it keeps only the lines under `# Yours`.
-6. Make the [first admin](#the-first-admin). The link to open is in the log: **Container Manager →
-   Container**, select `orpheum-core`, **Details**, then the **Log** tab. It is also in
-   `SETUP-CODE.txt` in the `data` folder (`/volume1/docker/orpheum/data`), which File Station can
-   download for you to open.
 
-To change a value later: **Project**, select `orpheum`, **Action → Stop**, then **YAML
-Configurations**. Change the line, press **Save**, then **Action → Start**.
+   If instead it stops with an error that says `bind source path does not exist`, the media folder
+   is not as you typed it ([the fix](setup-problems.md#up-says-bind-source-path-does-not-exist-and-names-a-folder)).
+   If `orpheum-core` is not running, its log says why: step 6 says where it is.
+5. **Keep a copy of the whole file** somewhere of your own: make the same three changes in the
+   downloaded file, in your text editor, and save it. When an update brings a newer compose file,
+   the server's **Update** page gives it to you, and it keeps only the lines under `# Yours`.
+6. Make the [first admin](#the-first-admin). The link to open is in the log: **Container Manager →
+   Container**, select `orpheum-core`, **Details**, then the **Log** tab. It is on a line that says
+   `to finish setting up, open this link in a browser at home`, and looks like
+   `http://192.168.1.30:8440/#code=7kqm-2xhp-9rtw`. It is also in `SETUP-CODE.txt` in the `data`
+   folder (`/volume1/docker/orpheum/data`), which File Station can download for you to open. Open
+   the link in a browser on your home network, and go on with [the first admin](#the-first-admin).
+
+   If the page does not open from your other devices and DSM's firewall is on (**Control Panel →
+   Security → Firewall**), allow port 8440 (TCP) and the HTTPS port, 8444 unless you changed it on
+   the **System** page (TCP and UDP).
+
+To change a value later: **Project**, select `orpheum`, **Action → Stop**, then its **YAML
+Configurations**. Change the line, press **Save**, then **Action → Build**, which makes the
+containers again with the new value. (**Start** alone starts the containers as they were.) If the
+project then shows as stopped, press **Action → Start**.
 
 #### Updating on a Synology
 
 Follow the server's **Update** page, in the admin's menu:
 
-1. **Container Manager → Project**, select `orpheum`, press **Stop**, then **Build**.
+1. **Container Manager → Project**, select `orpheum`, press **Stop**, then **Build**. If the
+   project then shows as stopped, press **Action → Start**.
 2. If the Update page still says the server runs the old version, Container Manager kept the image
-   it had. Under **Image**, select the `orpheum` image, press **Update**, then **Build** the project
-   again.
+   it had. Under **Image**, select the `orpheum` image, press **Action → Update**, then **Build**
+   the project again.
 3. If the update brings a newer compose file, the Update page gives it to you with your values from
    `# Yours` filled in. Keep a copy of your old file. Then **Project**, stop `orpheum`, open its
    **YAML Configurations**, paste the new file over it, press **Save**, and press **Build**.
@@ -620,13 +726,6 @@ It is the [compose file](#one-compose-file) with the values a Synology needs wri
 `# Yours`, so it needs no `.env` file, and it keeps its data in the project's own folder. Open the
 downloaded file in a text editor to copy it. The ports are under `# Yours` too; every other setting
 in the [variables table](#the-variables) keeps its default.
-
-If DSM's firewall is on (**Control Panel → Security → Firewall**), allow port 8440 (TCP) and the
-HTTPS port, 8444 unless you changed it on the **System** page (TCP and UDP). Otherwise the server's
-page does not open from your other devices.
-
-Other Synology models whose DSM runs a Linux older than 5.13 lack Landlock too, and the System page
-says so in the same way.
 
 ### If an update broke it
 
@@ -674,6 +773,23 @@ The node runs as `APPUSER_PUID`, so it needs that group to open the GPU. Adding 
 `render` and `video` in **Users > Users**, as omv-extras' Jellyfin guide does, is not enough on its
 own, because a container gets only the groups it is given. Without a GPU, films that need preparing
 are encoded in software.
+
+On a Synology:
+
+- Synology's table
+  [What kind of CPU does my NAS have](https://kb.synology.com/en-global/DSM/tutorial/What_kind_of_CPU_does_my_NAS_have)
+  names your model's processor. An Intel Celeron or Pentium of the J or N series has Quick Sync.
+  An AMD Ryzen, an Intel Atom or Xeon, and every ARM processor have no GPU the node can use, and
+  encode in software.
+- Over SSH ([Synology, step 3](#install-it-on-the-synology)), `ls /dev/dri` lists `renderD128`
+  where DSM gives containers the GPU. Where it says `No such file or directory`, DSM does not, and
+  the node encodes in software. Reports say DSM gives none on some recent models, such as the
+  DS225+ and DS425+
+  ([NAS Compares](https://nascompares.com/2025/09/24/how-to-get-hardware-transcoding-back-on-your-synology-nas/),
+  2025-09-24).
+- The Synology compose file reads no `.env` file, so write the number itself in place of
+  `${RENDER_GID}`, inside the quotes: `- "937"` for a group 937. Left as it is, Compose warns that
+  `RENDER_GID` is not set and gives the node an empty group.
 
 ## The first admin
 

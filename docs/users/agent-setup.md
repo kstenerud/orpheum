@@ -61,7 +61,17 @@ not supported yet.
      [Add the compose file](install.md#add-the-compose-file) says.
    - **A NAS**: its make, and its model. A Synology follows [Synology](install.md#synology), whose
      model matters: some models need an unofficial script first, and the 32-bit ones cannot run it
-     at all. A NAS of another make, or Portainer or CasaOS, follows
+     at all. Before any step, ask a Synology's owner for what
+     [check your Synology first](install.md#check-your-synology-first) reads:
+     - the **Model name** and **DSM version**, from **Control Panel → Info Center**, the
+       **General** tab (DSM older than 7.2 is updated first);
+     - whether **Package Center** finds **Container Manager**, and whether it is installed;
+     - whether they can sign in to DSM as an administrator and turn on SSH (**Control Panel →
+       Terminal & SNMP**), which step 3 needs, and the unofficial script too;
+     - the **Location** of the shared folder that holds their films, from File Station's
+       **Properties**.
+
+     A NAS of another make, or Portainer or CasaOS, follows
      [one compose file](install.md#one-compose-file) or [a catalogue](install.md#from-a-catalogue).
    - **Docker.** The server needs Docker Engine and its compose plugin, run as root as Docker's own
      packages install it ([the guide's opening](install.md)). With them, a machine follows
