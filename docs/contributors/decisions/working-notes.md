@@ -31631,3 +31631,39 @@ way in.
 - 3: `web/apps/web/src/loader-path-lost.test.tsx`
 - 4: `web/apps/web/src/loader-path-lost.test.tsx`
 - 5: `web/packages/sdk/src/discovery.test.ts`, `web/apps/web/src/loader-path-lost.test.tsx`, VQ400
+
+## D552 — A cast whose receiver is gone ends with the remote kept: Play here is the one way on, from where the receiver likely got to
+
+**Decided** (2026-11-25), by the project owner, after switching a Chromecast off during a cast on
+staging and finding the film playing on his phone two minutes later by itself: *"When the device
+disappears, let's make it show on the caster's side, but not auto-changeover. The user has to
+select play here if they want to continue (which brings them to a regular video playback), but the
+cast session is over."* And: *"We should set the position to wherever it lost contact with the
+device, plus however far it was likely to get."* **Amends** D446 §5 and D385 §3, whose receiver gone
+had the sender take the film over at once, and **extends** D550 §3, whose Play here was offered
+while the cast still lasted.
+
+**Status:** decided; not built (§2 awaits the owner's choice of the rule). Its code is
+`cast-remote.tsx`'s endWayOf and `cast-remote-offer.tsx`'s RemoteOffer (`gone`).
+
+1. **The remote stays as the cast ends with its receiver gone.** The server's end stands (D364 §6:
+   two minutes after the receiver's connection was lost, reason `receiverGone`), and the cast is
+   over. The remote does not take the film over: it stays, its pad, timeline and menus disabled,
+   its Reaching pill gone, and its note (D550 §3, dimming the picture) now says *"‹TV› isn't
+   answering, so casting ended"* with **Play here** alone, nothing left to try again. Play here
+   plays the film on this device, as an ordinary play (D446 §2's way, `onPlayHere`), asking the
+   server for no end: there is none left to ask. A cast with nothing on ends as D446 §2 has it,
+   the page home with no word. A television back on finds no cast: the person starts one.
+2. **Where Play here starts.** The owner's rule: where contact with the device was lost, plus
+   however far it was likely to get. *Open:* the reading of "likely to get" is the owner's choice,
+   asked 2026-11-25; until then the film starts where D549 §2 has it, where the receiver last
+   stood as the remote knew it, moved on by the clock until the server gave the receiver up.
+3. **Tests:** the remote's end tests: an end with the receiver gone leaves `onPlayHere` uncalled,
+   shows the note with no Try again and no spinner, and Play here plays the film from where the
+   receiver last stood, playing, with no end asked of the server; a cast with nothing on goes
+   home. VQ401 for the owner's phone and a switched-off receiver.
+
+**Proven by:**
+- 1: `web/apps/web/src/cast-remote-ends.test.tsx`, VQ401
+- 2: `web/apps/web/src/cast-remote-ends.test.tsx` (the standing rule)
+- 3: `web/apps/web/src/cast-remote-ends.test.tsx`

@@ -40,8 +40,9 @@ export const notAnsweringAfterMs = 15_000;
  * key frame where the receiver stands (RemotePicture), hidden from a screen reader, which the
  * remote's sign tells where it plays; at its top-right the offer, Up next or a skip (RemoteOffers);
  * at its centre a Pill, "Reaching ‹TV›…" while the receiver is not reached, else the film's level a
- * moment after the pad moves it (film); and "‹TV› isn't answering" with Try again once it has not
- * been reached for notAnsweringAfterMs.
+ * moment after the pad moves it (film); "‹TV› isn't answering" with Try again and Play here once it
+ * has not been reached for notAnsweringAfterMs; and, the cast ended with its receiver gone (gone),
+ * "‹TV› isn't answering, so casting ended" with Play here alone, nothing left to try (D552 §1).
  */
 export function RemoteOffer(props: {
   readonly sent: CastSending;
@@ -50,9 +51,11 @@ export function RemoteOffer(props: {
   readonly art: ArtBody | undefined;
   /** The film's level on the receiver, while its Pill shows. */
   readonly film: PlayerSound | undefined;
+  /** Plays the film here, the cast ended with its receiver gone (D552 §1); undefined while it lasts. */
+  readonly gone: (() => void) | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { sent, source } = props;
+  const { sent, source, gone } = props;
   const notAnswering = useNotAnswering(source.isReady);
   const playHere = useCastEnding(sent.castId, "stopped"); // the remote's Stop, which plays the film here (D549)
   const name = sent.receiverName;
@@ -66,24 +69,27 @@ export function RemoteOffer(props: {
           <RemoteOffers sent={sent} source={source} upNext={props.upNext} />
         </div>
         <span className="cast-remote__centre">
-          {source.isReady ? (
-            <RemoteVolumePill film={props.film} />
-          ) : (
+          {source.isReady ? <RemoteVolumePill film={props.film} /> : null}
+          {source.isReady || gone !== undefined ? null : (
             <Pill icon={<span className="cast-remote__spinner" />}>
               {t("cast.reaching", { name })}
             </Pill>
           )}
         </span>
-        {notAnswering.isLate ? (
+        {notAnswering.isLate || gone !== undefined ? (
           <div className="cast-remote__note">
             <StatusNote
-              told={{
-                kind: "problem",
-                text: t("cast.notAnswering", { name }),
-                onTryAgain: notAnswering.tryAgain,
-              }}
+              told={
+                gone === undefined
+                  ? {
+                      kind: "problem",
+                      text: t("cast.notAnswering", { name }),
+                      onTryAgain: notAnswering.tryAgain,
+                    }
+                  : { kind: "problem", text: t("cast.receiverGone", { name }) }
+              }
             />
-            <button type="button" disabled={playHere.isBusy} onClick={playHere.end}>
+            <button type="button" disabled={playHere.isBusy} onClick={gone ?? playHere.end}>
               {t("cast.playHere")}
             </button>
             {playHere.problem === undefined ? null : (

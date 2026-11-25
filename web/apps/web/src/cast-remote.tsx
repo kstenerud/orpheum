@@ -64,8 +64,10 @@ export type PlaysHereFrom = (atMs: number | undefined, isPaused?: boolean) => vo
  * The Play page's video area while its device casts (D384 §2, D364 §8): the page keeps its place, and
  * where its video was it shows the remote of the cast castId, "Playing on ‹device›" with its
  * controls, which work the receiver. Stop casting, in Cast's dialog or on the receiver, brings the
- * film back to the page (onPlayHere), as the receiver gone does, from where the receiver last stood,
- * playing or paused as it was, and with nothing on there sends the page home (D446 §2, §5); a cast the server no longer knows sends the page home, saying so in a pop-up
+ * film back to the page (onPlayHere) from where the receiver last stood, playing or paused as it
+ * was, and with nothing on there sends the page home (D446 §2). The receiver gone, the cast over,
+ * the remote stays with its note, and only Play here brings the film back (D552 §1); a cast the
+ * server no longer knows sends the page home, saying so in a pop-up
  * (D386 §2). Where the cast plays another film than the page's by then, the film comes back on that
  * film's Play page, in this one's place. A cast started from the browser's full screen leaves it,
  * and the remote fills the window under the top bar instead: the player's own view, a still where
@@ -155,13 +157,21 @@ function Remote(props: {
   const hosted = useHostedPanel();
   const stoodRef = useWhereItStood(hosted?.snapshot ?? snapshot);
   const playHere = usePlaysHere(sent, props.pageFileId, props.onPlayHere);
-  useTakesTheFilmOver(sent.castId, over, { stoodRef, playHere });
-  useGoesHomeAsTheCastIsLost(over);
+  const way = over === undefined ? undefined : endWayOf(over, sent.fileId);
+  useTakesTheFilmOver(sent.castId, way === "takenOver" ? over : undefined, { stoodRef, playHere });
+  useGoesHomeAsTheCastIsLost(way === "lost" ? over : undefined);
   const episodes = useEpisodesMovedTo();
   useLeavesAtTheCastsEnd(sent.fileId, props.pageFileId, episodes.of);
-  if (over !== undefined) {
+  if (over !== undefined && way !== "gone") {
     return null; // the film plays here again at once, or the page goes home
   }
+  const playHereGone =
+    over === undefined
+      ? undefined
+      : () => {
+          const from = stoodRef.current ?? over.stood;
+          playHere(from?.positionMs, from?.isPaused);
+        };
   return (
     <>
       <RemoteOf
@@ -170,6 +180,7 @@ function Remote(props: {
         casts={casts}
         hosted={hosted}
         onAround={episodes.note}
+        gone={playHereGone}
       />
       <TogetherBehindTheRemote hostedSnapshot={hosted?.snapshot} />
     </>
@@ -236,20 +247,29 @@ function useEpisodesMovedTo(): {
 
 /**
  * The ends of a cast after which the film plays here again at once, as the receiver left it (D446
- * §2): Stop casting, in Cast's dialog (D444); Stop casting here, on the receiver (takenBack, D446 §3);
- * the receiver gone, its connection lost for ReceiverGoneAfter (D446 §5, D364 §6).
+ * §2): Stop casting, in Cast's dialog (D444); Stop casting here, on the receiver (takenBack, D446 §3).
+ * The receiver gone, its connection lost for ReceiverGoneAfter (D364 §6), is not among them: the
+ * remote stays, saying so, and the film plays here on Play here alone (D552 §1, amending D446 §5).
  */
-const takenOverAt: ReadonlySet<string> = new Set(["stopped", "takenBack", "receiverGone"]);
+const takenOverAt: ReadonlySet<string> = new Set(["stopped", "takenBack"]);
 
-/** Whether a cast that ended for reason has its film played here again at once (takenOverAt). */
-function isTakenOver(reason: string): boolean {
-  return takenOverAt.has(reason);
+/**
+ * How the remote meets its cast's end: the film played here at once (takenOverAt; and a cast with
+ * nothing on, whatever its end but a loss, sends the page home the same way, D446 §2); the remote
+ * kept, its note saying the receiver is gone and casting ended, Play here the one way on (D552 §1);
+ * or the page sent home, the cast lost to the server (D386 §2) or ended with its session (D389 §1).
+ */
+function endWayOf(over: CastEnd, fileId: number): "takenOver" | "gone" | "lost" {
+  if (takenOverAt.has(over.reason) || (over.reason === "receiverGone" && fileId === 0)) {
+    return "takenOver";
+  }
+  return over.reason === "receiverGone" ? "gone" : "lost";
 }
 
 /**
- * Sends the page home, once, as its cast ends any way but takenOverAt: the server knows the cast no
- * more ("gone": not among the device's casts, or its session's credential refused), as after a
- * restart, saying so in a pop-up there (the shared notice, notice-note.tsx). The owner: "For extreme
+ * Sends the page home, once, as its cast is lost (endWayOf): the server knows the cast no more
+ * ("gone": not among the device's casts, or its session's credential refused), as after a restart,
+ * saying so in a pop-up there (the shared notice, notice-note.tsx). The owner: "For extreme
  * edge cases like this, it's usually best to just go home" (D386 §2). A cast ended with the Watch
  * Together session it took a part in (sessionEnded, D389 §1) is a normal end, and goes home with no
  * word: the session's own end tells this page of it, as it takes it home too.
@@ -257,7 +277,7 @@ function isTakenOver(reason: string): boolean {
 function useGoesHomeAsTheCastIsLost(over: CastEnd | undefined): void {
   const { t } = useTranslation();
   const { navigation } = useServices();
-  const isLost = over !== undefined && !isTakenOver(over.reason);
+  const isLost = over !== undefined;
   const isSessionsEnd = over?.reason === "sessionEnded";
   const hasGoneRef = useRef(false);
   useEffect(() => {
@@ -274,8 +294,8 @@ function useGoesHomeAsTheCastIsLost(over: CastEnd | undefined): void {
 }
 
 /**
- * Plays the film here again, once, as its cast ends by one of takenOverAt, stopped here, stopped on
- * the receiver or the receiver gone: from where the receiver last stood, playing or paused as it was,
+ * Plays the film here again, once, as its cast ends taken over (endWayOf), stopped here or stopped on
+ * the receiver: from where the receiver last stood, playing or paused as it was,
  * this device then the one playing and controlling it (D446 §2, §5); where this tab's own Stop was
  * answered, from where the server said it stood, before that; where no device was heard leading,
  * from where the cast stood as it ended, and where that is not known either, from the film's own
@@ -296,7 +316,7 @@ function useTakesTheFilmOver(
     void takeEndAnswerOf(castId); // an answer to a Stop asked before this remote was shown is not its own
   }, [castId]);
   useEffect(() => {
-    if (over === undefined || !isTakenOver(over.reason) || hasTakenRef.current) {
+    if (over === undefined || hasTakenRef.current) {
       return;
     }
     hasTakenRef.current = true;
@@ -459,6 +479,8 @@ function RemoteOf(props: {
   readonly hosted: WorkedSession | undefined;
   /** Told what plays around each film the cast plays, as it is read. */
   readonly onAround: (around: AroundFile) => void;
+  /** Plays the film here, once the cast has ended with its receiver gone (D552 §1); else undefined. */
+  readonly gone: (() => void) | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const { sent } = props;
@@ -492,6 +514,7 @@ function RemotePlaying(props: {
   readonly casts: Resource<readonly Cast[]>;
   readonly hosted: WorkedSession | undefined;
   readonly onAround: (around: AroundFile) => void;
+  readonly gone: (() => void) | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const { sent, hosted, onAround } = props;
@@ -527,6 +550,7 @@ function RemotePlaying(props: {
         upNext={around?.upNext}
         art={title.art}
         film={volume.isShown ? film : undefined}
+        gone={props.gone}
       />
       <RemoteTimeline source={source} isDisabled={isDisabled} />
       <RemotePad

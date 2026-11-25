@@ -77,6 +77,7 @@ export const enCast = {
     /** The cast remote's receiver not yet reached (D548 §9). */
     reaching: "Reaching {{name}}…",
     notAnswering: "{{name}} isn't answering",
+    receiverGone: "{{name}} isn't answering, so casting ended",
     /** Ends the cast from the remote and plays the film here, where the receiver is not heard (D550 §3). */
     playHere: "Play here",
     /** The cast remote's Up next put away on this device (D548 §3). */

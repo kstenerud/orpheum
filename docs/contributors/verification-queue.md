@@ -1,3 +1,13 @@
+- [ ] **VQ401** — A cast whose receiver goes away ends with the remote kept, not the film played
+  here by itself (D552 §1). On the phone, cast a film to the Chromecast, then switch the Chromecast
+  off and wait:
+  1. Within about a minute: Reaching, then "‹TV› isn't answering" with Try again and Play here over
+     the dimmed picture. Leave them alone.
+  2. About two minutes after the switch-off: report whether the note changes to "‹TV› isn't
+     answering, so casting ended" with Play here alone, the spinner gone, and whether the film
+     stays on the remote (nothing plays on the phone by itself).
+  3. Press Play here. Report whether the film plays on the phone as an ordinary play, and from
+     about where the television stood when it went off.
 > **ABOUTME:** Checks that only a person with the hardware can do — a film on a television, a
 > voice call across two houses. A fix that no automated test can turn red names its item here
 > in a `Verified-By: VQ<n>` trailer; until it is ticked it is owed, which revert-red lists (D378).

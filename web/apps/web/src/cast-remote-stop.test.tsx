@@ -13,7 +13,7 @@ import {
   welcome,
   type RemoteShown,
 } from "./test-cast-remote.tsx";
-import { settleUntil, type Mounted } from "./test-dom.tsx";
+import { buttonWithText, click, settleUntil, type Mounted } from "./test-dom.tsx";
 
 /** A session that holds no position yet: the receiver led nothing, and no place was said. */
 const welcomeWithNoPlace = { ...welcome, group: undefined };
@@ -56,9 +56,10 @@ describe("the cast remote's Stop, where the film resumes (D549)", () => {
     expect(onPlayHere).toHaveBeenCalledExactlyOnceWith(42_000, true);
   });
 
-  it("asks the page's film for no position, not 0, as the receiver is gone with no leader heard and nothing answered", async () => {
+  it("asks the page's film for no position, not 0, on Play here as the receiver is gone with no leader heard and nothing answered (D552 §1)", async () => {
     const { sockets, onPlayHere } = await casting({}, { welcome: welcomeWithNoPlace });
     await sockets.session.say({ type: "ended", reason: "receiverGone" });
+    await click(buttonWithText(mounted!.container, "Play here"));
     await settleUntil(() => onPlayHere.mock.calls.length > 0);
     expect(onPlayHere).toHaveBeenCalledExactlyOnceWith(undefined, false);
   });

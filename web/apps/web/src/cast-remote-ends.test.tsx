@@ -18,6 +18,7 @@ import {
 } from "./test-cast-remote.tsx";
 import {
   buttonWithText,
+  click,
   mount,
   servedBy,
   settleUntil,
@@ -79,10 +80,14 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
 
   // The owner, 2026-10-30: "We could just have it take over at the last known playback position once
   // it's sure the castee is gone."
-  it("plays the film here, playing, from where the receiver last stood once it is gone, not where the clock has moved it to since (D385 §3)", async () => {
+  // The owner, 2026-11-25, as the cast took the film over by itself two minutes after the television
+  // was switched off: "not auto-changeover. The user has to select play here if they want to
+  // continue … but the cast session is over."
+  it("stays as the cast ends with its receiver gone, saying so with Play here alone, which plays the film here, playing, from where the receiver last stood, not where the clock has moved it to since (D552 §1, D385 §3)", async () => {
     vi.useFakeTimers({ toFake: ["performance", "setInterval", "clearInterval"] });
     try {
-      const { sockets, onPlayHere } = await casting({});
+      const heard: Heard[] = [];
+      const { sockets, onPlayHere } = await casting({}, heard);
       const playing = { state: "playing", positionMs: 61_000, rate: 1, fileId: 4 };
       await sockets.session.say({ type: "group", seq: 4, group: { ...playing, event: "played" } });
       await sockets.session.say({ type: "roster", roster: receiverLeads });
@@ -97,7 +102,15 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
       });
       await sockets.live.say({ type: "sending" });
       await sockets.session.say({ type: "ended", reason: "receiverGone" });
+      expect(onPlayHere).not.toHaveBeenCalled();
+      const note = mounted!.container.querySelector(".cast-remote__note");
+      expect(note?.textContent).toContain("Fire TV isn't answering, so casting ended");
+      expect(buttonWithText(mounted!.container, "Try again")).toBeUndefined();
+      expect(mounted!.container.querySelector(".cast-remote__spinner")).toBeNull();
+      await click(buttonWithText(mounted!.container, "Play here"));
       expect(onPlayHere).toHaveBeenCalledExactlyOnceWith(66_000, false);
+      // The cast is over: Play here asks the server for no end.
+      expect(heard.filter((each) => each.methodAndPath.startsWith("POST /me/casts/"))).toEqual([]);
       expect(mounted!.container.textContent).not.toContain("was gone");
     } finally {
       vi.useRealTimers();
@@ -180,6 +193,14 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
     const { services, sockets, onPlayHere } = await casting({});
     await sockets.live.say({ type: "sending", sending: { ...sending, fileId: 0 } });
     await sockets.session.say({ type: "ended", reason: "stopped" });
+    expect(services.navigation.route()).toEqual({ screen: "home" });
+    expect(onPlayHere).not.toHaveBeenCalled();
+  });
+
+  it("goes home, playing nothing here, as a cast with nothing on ends with its receiver gone (D446 §2, D552 §1)", async () => {
+    const { services, sockets, onPlayHere } = await casting({});
+    await sockets.live.say({ type: "sending", sending: { ...sending, fileId: 0 } });
+    await sockets.session.say({ type: "ended", reason: "receiverGone" });
     expect(services.navigation.route()).toEqual({ screen: "home" });
     expect(onPlayHere).not.toHaveBeenCalled();
   });
