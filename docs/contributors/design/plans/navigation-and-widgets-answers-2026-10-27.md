@@ -5252,3 +5252,14 @@ Filed during the D553 walk (VQ403), not started (standing orders: batching).
   `togetherPart` gave none for a signed-in member of their own user's session), so the receiver
   joined the cast's own session with nothing to play. Fix with the item above, or alone: a signed-in
   member's cast from the group's film carries their membership's part as a by-link guest's does.
+- **Silk on the Fire TV reloaded its Play page by itself, twice, while it held a cast for its
+  press** (staging, 2026-11-25 14:49–14:51Z, device 140, cast 55; the owner pressed nothing on the
+  Fire TV). The page loaded at 14:49:56 on the film it had been playing, autoplay refused, played
+  muted at 14:50:28; the cast arrived at 14:50:17 and was held for OK (D468 §2); at 14:50:43 and
+  again at 14:50:53 every connection of the page ended as "the browser closed it" and a fresh load
+  of the same page followed, taking the cast again from the tab's mark, none of our reload paths
+  leaving its note. Look for Silk restoring a crashed renderer (an HEVC film decoding under a held
+  cast's second player) before anything else; and decide what the sender's remote says while the
+  receiver holds for its press, which the server does not know today (the remote said "isn't
+  answering", D554 §1 now says nothing for it): a held cast reported in the receiver's snapshot, and
+  "Waiting for OK on ‹TV›" on the remote.
