@@ -5263,3 +5263,48 @@ Filed during the D553 walk (VQ403), not started (standing orders: batching).
   receiver holds for its press, which the server does not know today (the remote said "isn't
   answering", D554 §1 now says nothing for it): a held cast reported in the receiver's snapshot, and
   "Waiting for OK on ‹TV›" on the remote.
+
+## The rework batch: playback, casting and Watch Together as one (the owner, 2026-11-25)
+
+The D548 batch was capped on 2026-11-25 with D554 built and VQ404 unwalked: the cast remote's
+ends had grown rule on rule (D550 §3, D552, D553, D554) over three overlapping code paths. The
+next batch reworks playback, casting and Watch Together together. It **starts with a design
+conversation** that settles the model below and the open points, and planning begins only once
+the owner agrees with everything (the owner, 2026-11-25). The model, in the owner's words,
+condensed:
+
+- **A device plays content itself or passes the task to another device (casting).** The cast
+  belongs to the device, not to any Watch Together session. The castee has no effect on the
+  session beyond what the caster would have as the playback device: a playback detail.
+- **Watch Together modifies the device's behaviour slightly.** When a cast ends, however it
+  ended, the caster goes to the video playback screen: paused when watching alone, playing on
+  when in a session. No message explains why; the person can see the cast device for themselves.
+  Position: the simple approach, the last position known, with no anticipating where playback
+  might have been (a rare case; the person scans; never too far ahead, the worse outcome).
+- **Portrait: the player or the cast screen, alike.** The one big difference is that one plays
+  video and the other shows key frames; the controls sit in the same places and behave alike.
+  The overlay never hides in portrait; it hides only where it would sit on the video.
+- **Landscape, fullscreen and desktop: today's fullscreen player,** with a bigger play/pause
+  button.
+- **The top bar is visible when not fullscreen.** It carries the cast and Watch Together
+  buttons, so the bottom bar shows them only when the top bar is not visible.
+- **Kinds of castee:** AirPlay probably stays local only, its functionality too limited; made
+  to fit without sharp edges, good, but not required.
+- **Tap, D-pad and mouse:** a good interface for the idiom in use comes first; layout
+  allowances for each are fine; similarity is the aim, never at the cost of the experience.
+- **The lab pages** (`lab-*.tsx`) are a hodgepodge of pieces worked on; they go, unless a part
+  has a good reason to stay.
+
+Open points for the conversation, found in the code on 2026-11-25: the server's two cast
+homes (the live registry's held cast and the Watch Together hub's session per cast with one
+membership shared by caster and castee), to become one, the castee taking the caster's seat in
+a session; the four signals that a receiver is gone (the server's silence limit, the live
+roster, the session's leader, the Cast SDK's session loss), to become one heartbeat the remote
+reflects; the caster's own connection lost, which is not the cast failing (the remote holds with
+a reconnecting sign); the receiver held for its OK press (D468 §2), which the server cannot see;
+a guest's cast carrying no film, and the session credential reaching the receiver only for by-link
+guests; the two further castee kinds (a signed-in Fire TV page, a guest Chromecast device the
+server removes at its cast's end); voice on the caster with the film's ducking on the castee, so
+sound commands flow through the cast; the gallery's remote; and the decisions to supersede by one
+design decision: D385, D446, D468, D548–D554, with the cast-remote tests of this week to be
+replaced, explained to the test-weakening gate.
