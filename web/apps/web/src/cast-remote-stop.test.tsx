@@ -75,6 +75,7 @@ describe("the cast remote's Stop, where the film resumes (D549)", () => {
     });
     await sockets.live.say({ type: "sending" });
     await sockets.session.say({ type: "ended", reason: "takenBack" });
+    await click(buttonWithText(mounted!.container, "Play here"));
     await settleUntil(() => services.navigation.route().screen === "play");
     expect(services.navigation.route()).toEqual({
       screen: "play",

@@ -5,6 +5,7 @@ import "./i18n.ts";
 
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { endCast } from "./cast.ts";
 import { CastRemote } from "./cast-remote.tsx";
 import { LiveProvider } from "./live.tsx";
 import { currentNotice, dismissNotice } from "./notice.ts";
@@ -50,15 +51,25 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
   }
 
   // The owner, staging, 2026-10-30: after a Fire TV took control back, the page offered "Play here
-  // from ‹time›", its time rising on its own whatever the TV then did.
-  it("plays the film here at once from where the receiver stood, paused as it was, as control is taken back there, offering nothing (D385 §2)", async () => {
-    const { sockets, onPlayHere } = await casting({});
+  // from ‹time›", its time rising on its own whatever the TV then did. The owner, 2026-11-25:
+  // "if the caster didn't stop the cast, it should say that the other side stopped it or is gone,
+  // and then offer to continue playback on the caster device."
+  it("stays as control is taken back on the receiver, saying it stopped casting with Play here alone, which plays the film here from where the receiver stood, paused as it was (D552 §4)", async () => {
+    const heard: Heard[] = [];
+    const { sockets, onPlayHere } = await casting({}, heard);
     await sockets.session.say({ type: "roster", roster: receiverLeads });
     await sockets.live.say({ type: "sending" });
     await sockets.session.say({ type: "ended", reason: "takenBack" });
-    expect(onPlayHere).toHaveBeenCalledExactlyOnceWith(61_000, true);
+    expect(onPlayHere).not.toHaveBeenCalled();
+    const note = mounted!.container.querySelector(".cast-remote__note");
+    expect(note?.textContent).toContain("Fire TV stopped casting");
+    expect(buttonWithText(mounted!.container, "Try again")).toBeUndefined();
     expect(mounted!.container.textContent).not.toContain("took control back");
     expect(buttonWithText(mounted!.container, "Play here from 1:01")).toBeUndefined();
+    await click(buttonWithText(mounted!.container, "Play here"));
+    expect(onPlayHere).toHaveBeenCalledExactlyOnceWith(61_000, true);
+    // The cast is over: Play here asks the server for no end.
+    expect(heard.filter((each) => each.methodAndPath.startsWith("POST /me/casts/"))).toEqual([]);
   });
 
   it("plays the film of another page on that page, in this one's place, where the cast moved on to it, paused as the receiver had it", async () => {
@@ -69,6 +80,7 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
     });
     await sockets.live.say({ type: "sending" });
     await sockets.session.say({ type: "ended", reason: "takenBack" });
+    await click(buttonWithText(mounted!.container, "Play here"));
     expect(services.navigation.route()).toEqual({
       screen: "play",
       fileId: 5,
@@ -110,7 +122,7 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
       await sockets.session.say({ type: "ended", reason: "receiverGone" });
       expect(onPlayHere).not.toHaveBeenCalled();
       const note = mounted!.container.querySelector(".cast-remote__note");
-      expect(note?.textContent).toContain("Fire TV isn't answering, so casting ended");
+      expect(note?.textContent).toContain("Fire TV unreachable");
       expect(buttonWithText(mounted!.container, "Try again")).toBeUndefined();
       expect(mounted!.container.querySelector(".cast-remote__spinner")).toBeNull();
       await click(buttonWithText(mounted!.container, "Play here"));
@@ -123,16 +135,21 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
     }
   });
 
+  /** This tab's Stop asked and its answer failed: where the film resumes is the receiver's. */
+  const failedEnd = { "POST /me/casts/9/end": [500, {}] } as const;
+
   it("opens the film here paused, where the receiver had it paused, as the cast is stopped from Cast's dialog (D446 §2)", async () => {
-    const { sockets, onPlayHere } = await casting({});
+    const { services, sockets, onPlayHere } = await casting(failedEnd);
+    await endCast(services.api, 9, "stopped").catch(() => undefined); // this tab's Stop, unanswered
     await sockets.session.say({ type: "ended", reason: "stopped" });
     expect(onPlayHere).toHaveBeenCalledWith(61_000, true);
   });
 
   it("plays the film here on, where the receiver played it, as the cast is stopped from Cast's dialog (D446 §2)", async () => {
-    const { sockets, onPlayHere } = await casting({});
+    const { services, sockets, onPlayHere } = await casting(failedEnd);
     const playing = { state: "playing", positionMs: 61_000, rate: 1, fileId: 4 };
     await sockets.session.say({ type: "group", seq: 4, group: { ...playing, event: "played" } });
+    await endCast(services.api, 9, "stopped").catch(() => undefined); // this tab's Stop, unanswered
     await sockets.session.say({ type: "ended", reason: "stopped" });
     expect(onPlayHere).toHaveBeenCalledOnce();
     expect(onPlayHere.mock.calls[0]?.[1]).toBe(false);
@@ -211,12 +228,26 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
     expect(onPlayHere).not.toHaveBeenCalled();
   });
 
-  it("goes home, saying in a pop-up there that the server no longer knows the cast, as its session is gone (D386 §2)", async () => {
+  it("stays as the server no longer knows the cast, its session gone, saying casting ended with Play here alone and no pop-up (D552 §4, amending D386 §2)", async () => {
     const { services, sockets, onPlayHere } = await casting({});
+    await sockets.session.say({ type: "ended", reason: "gone" });
+    expect(services.navigation.route().screen).not.toBe("home");
+    expect(onPlayHere).not.toHaveBeenCalled();
+    expect(buttonWithText(mounted!.container, "Play here from 1:01")).toBeUndefined();
+    expect(mounted!.container.querySelector(".cast-remote__note")?.textContent).toContain(
+      "Casting ended",
+    );
+    expect(currentNotice()).toBeUndefined();
+    await click(buttonWithText(mounted!.container, "Play here"));
+    expect(onPlayHere).toHaveBeenCalledExactlyOnceWith(61_000, true);
+  });
+
+  it("goes home, saying in a pop-up there that the server no longer knows the cast, as a cast with nothing on has its session gone (D386 §2)", async () => {
+    const { services, sockets, onPlayHere } = await casting({});
+    await sockets.live.say({ type: "sending", sending: { ...sending, fileId: 0 } });
     await sockets.session.say({ type: "ended", reason: "gone" });
     expect(services.navigation.route()).toEqual({ screen: "home" });
     expect(onPlayHere).not.toHaveBeenCalled();
-    expect(buttonWithText(mounted!.container, "Play here from 1:01")).toBeUndefined();
     const notice = currentNotice();
     expect(notice?.text).toBe("The cast ended: the server no longer knows it.");
     if (notice !== undefined) {
@@ -224,15 +255,29 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
     }
   });
 
-  it("goes home with no word as its cast ends with the Watch Together session it took a part in, a normal end (D389 §1)", async () => {
-    const { services, sockets, onPlayHere } = await casting({});
-    await sockets.session.say({ type: "ended", reason: "sessionEnded" });
-    expect(services.navigation.route()).toEqual({ screen: "home" });
+  it("stays as the cast is stopped by another tab of this device, which this tab did not ask, saying casting ended with Play here alone (D552 §4)", async () => {
+    const { sockets, onPlayHere } = await casting({});
+    await sockets.session.say({ type: "ended", reason: "stopped" });
     expect(onPlayHere).not.toHaveBeenCalled();
-    expect(currentNotice()).toBeUndefined();
+    expect(mounted!.container.querySelector(".cast-remote__note")?.textContent).toContain(
+      "Casting ended",
+    );
+    await click(buttonWithText(mounted!.container, "Play here"));
+    expect(onPlayHere).toHaveBeenCalledExactlyOnceWith(61_000, true);
   });
 
-  it("goes home, saying so, where the server lists the cast no more", async () => {
+  it("stays as its cast ends with the Watch Together session it took a part in, saying casting ended, with no pop-up (D552 §4, amending D389 §1)", async () => {
+    const { services, sockets, onPlayHere } = await casting({});
+    await sockets.session.say({ type: "ended", reason: "sessionEnded" });
+    expect(services.navigation.route().screen).not.toBe("home");
+    expect(onPlayHere).not.toHaveBeenCalled();
+    expect(currentNotice()).toBeUndefined();
+    expect(mounted!.container.querySelector(".cast-remote__note")?.textContent).toContain(
+      "Casting ended",
+    );
+  });
+
+  it("stays, saying casting ended, where the server lists the cast no more, Play here alone playing the film here from its own start (D552 §4)", async () => {
     const services = servedBy(
       {
         "GET /me/casts": [200, { casts: [] }],
@@ -254,13 +299,16 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
     );
     await sockets.live.accept();
     await sockets.live.say({ type: "sending", sending });
-    await settleUntil(() => services.navigation.route().screen === "home");
-    expect(services.navigation.route()).toEqual({ screen: "home" });
+    await settleUntil(
+      () => buttonWithText(mounted?.container ?? document.body, "Play here") !== undefined,
+    );
+    expect(services.navigation.route().screen).not.toBe("home");
     expect(onPlayHere).not.toHaveBeenCalled();
-    const notice = currentNotice();
-    expect(notice?.text).toBe("The cast ended: the server no longer knows it.");
-    if (notice !== undefined) {
-      dismissNotice(notice);
-    }
+    expect(mounted.container.querySelector(".cast-remote__note")?.textContent).toContain(
+      "Casting ended",
+    );
+    expect(currentNotice()).toBeUndefined();
+    await click(buttonWithText(mounted.container, "Play here"));
+    expect(onPlayHere).toHaveBeenCalledExactlyOnceWith(undefined, false);
   });
 });

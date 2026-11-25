@@ -473,6 +473,30 @@ func TestCast_ADeclinedOrUnansweredCastTellsItsSenderWhy(t *testing.T) {
 	}
 }
 
+// A sender whose Google Cast session was lost, its Chromecast switched off, ends its cast with its
+// receiver gone, not stopped, and its remote is told so: the remote then keeps itself, saying the
+// receiver is unreachable, and plays nothing by itself (D552 §5).
+func TestCast_ASenderEndsItsCastWithItsReceiverGone(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	tvToken := harness.signIn(t, "owner", "owner-password")
+	tv := harness.thisDevice(t, tvToken)
+	harness.dialLive(t, tvToken).awaitDevices(tv)
+	started := startedCast(t, harness.startCast(t, phoneToken, tv, 0))
+	remote := harness.dialCast(t, started.MembershipCredential, together.RolePanel)
+	remote.awaitWelcome()
+	ended := harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", started.CastID), phoneToken,
+		map[string]string{"reason": together.CastReceiverGone})
+	if ended.status != http.StatusOK {
+		t.Fatalf("the phone's end with its receiver gone = %d %s; want it accepted", ended.status, ended.body)
+	}
+	if told := remote.awaitEnded(); told != together.CastReceiverGone {
+		t.Errorf("the phone's remote was told %q, want %q", told, together.CastReceiverGone)
+	}
+}
+
 // sessionWithNothingOn signs a phone and a TV in, both pages' live sockets open, and starts casting
 // from the phone to the TV with nothing playing, the phone's page told it sends it and the TV handed
 // it; it returns the cast, the two tokens and the two live sockets.

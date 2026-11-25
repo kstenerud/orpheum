@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { myDevicesKey } from "./accounts.ts";
 import { OpenedAsContext } from "./around-file.ts";
-import { castTakenWithinMs } from "./cast.ts";
+import { castTakenWithinMs, endCast } from "./cast.ts";
 import { CastTargets, PlayOrSendOn, sendingKnownWithinMs } from "./cast-to.tsx";
 import { LiveProvider } from "./live.tsx";
 import {
@@ -641,6 +641,7 @@ describe("a film played on a device that casts (D364 §3, §4; D384 §2)", () =>
     const services = servedBy(
       {
         "POST /me/casts/9/play": [200, { castId: 9, isSender: true }],
+        "POST /me/casts/9/end": [500, {}],
         "GET /me/casts": [200, { casts: [listed] }],
         "GET /files/8/up-next": [200, {}],
         "GET /files/4/up-next": [200, {}],
@@ -736,7 +737,7 @@ describe("a film played on a device that casts (D364 §3, §4; D384 §2)", () =>
   // The owner's S23, 2026-10-30: a cast left the page cast from for a casting page of its own.
   it("becomes the cast's remote as a cast started over the page takes its film, and plays it here again from where the receiver stood as the cast is stopped", async () => {
     const heard: Heard[] = [];
-    const { sockets } = await playOn(heard, undefined);
+    const { api, sockets } = await playOn(heard, undefined);
     expect(mounted?.container.textContent).toContain("playing here from 30000");
     await sockets.live.say({
       type: "sending",
@@ -746,6 +747,8 @@ describe("a film played on a device that casts (D364 §3, §4; D384 §2)", () =>
     await shownAsRemote();
     expect(mounted?.container.textContent).not.toContain("playing here");
     expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/play")).toBe(false);
+    // This tab's own Stop, its answer failed: only that takes the film over at once (D552 §4).
+    await endCast(api, 9, "stopped").catch(() => undefined);
     await sockets.session.say({ type: "ended", reason: "stopped" });
     await sockets.live.say({ type: "sending" });
     await settleUntil(

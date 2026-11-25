@@ -290,7 +290,9 @@ async function handGrant(channel: CastChannel, ways: GrantHandOver): Promise<Gue
 /** Answers once channel's Cast session has ended. */
 async function endedOf(channel: CastChannel): Promise<void> {
   await new Promise<void>((resolve) => {
-    channel.onEnded(resolve);
+    channel.onEnded(() => {
+      resolve();
+    });
   });
 }
 
@@ -367,6 +369,8 @@ let sentCastId: number | undefined;
 /**
  * Links channel's Cast session to the cast castId made to its device: the session ended from
  * Chrome's own Cast control ends the cast, as Stop casting does (endCastRetrying, "stopped"), and
+ * one ended as its device was lost, switched off or gone from the network, ends it with its
+ * receiver gone, so the remote stays and offers Play here, playing nothing by itself (D552 §4–5);
  * the cast's end ends the session (castSentNow).
  */
 export function linkCastSession(api: Api, channel: CastChannel, castId: number): void {
@@ -374,13 +378,15 @@ export function linkCastSession(api: Api, channel: CastChannel, castId: number):
     endLinked();
   }
   linked = { channel, castId, isSent: sentCastId === castId };
-  channel.onEnded(() => {
+  channel.onEnded((isStoppedThere) => {
     if (linked?.castId !== castId) {
       return; // its cast ended first, and ended it
     }
     linked = undefined;
     // Failing twice, the core ends it itself once its receiver is gone.
-    endCastRetrying(api, castId, "stopped").catch(() => undefined);
+    endCastRetrying(api, castId, isStoppedThere ? "stopped" : "receiverGone").catch(
+      () => undefined,
+    );
   });
 }
 

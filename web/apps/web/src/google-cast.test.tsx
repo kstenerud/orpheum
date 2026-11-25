@@ -63,7 +63,10 @@ const grant = "grant-secret-7f3a";
 interface FakeCastDevice {
   readonly sent: (readonly [unknown, unknown])[];
   readonly say: (message: unknown) => void;
+  /** The person's Stop in Chrome's own Cast control: the SDK says the session ending, then ended. */
   readonly endFromChrome: () => void;
+  /** The device switched off or lost: the SDK says the session ended alone (D552 §5). */
+  readonly vanish: () => void;
   readonly endings: () => number;
   /** How many sessions the page has asked Chrome for. */
   readonly requests: () => number;
@@ -128,7 +131,7 @@ function givenCastSdk(isOlderFirst = false): FakeCastDevice {
       // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
       CastContextEventType: { SESSION_STATE_CHANGED: "sessionstatechanged" },
       // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
-      SessionState: { SESSION_ENDED: "SESSION_ENDED" },
+      SessionState: { SESSION_ENDING: "SESSION_ENDING", SESSION_ENDED: "SESSION_ENDED" },
     },
   });
   // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
@@ -141,6 +144,15 @@ function givenCastSdk(isOlderFirst = false): FakeCastDevice {
       }
     },
     endFromChrome: () => {
+      for (const listener of stateListeners) {
+        listener({ sessionState: "SESSION_ENDING" });
+      }
+      current = null;
+      for (const listener of stateListeners) {
+        listener({ sessionState: "SESSION_ENDED" });
+      }
+    },
+    vanish: () => {
       current = null;
       for (const listener of stateListeners) {
         listener({ sessionState: "SESSION_ENDED" });
@@ -377,6 +389,51 @@ describe("the Cast menu's Chromecast (D465 §3)", () => {
     await settleUntil(() => heard.some((each) => each.methodAndPath === "POST /me/casts/9/end"));
     const ended = heard.find((each) => each.methodAndPath === "POST /me/casts/9/end");
     expect(ended === undefined ? undefined : bodyField(ended, "reason")).toBe("stopped");
+  });
+
+  // The owner, staging, 2026-11-25: the Chromecast switched off, the phone's Cast session ended and
+  // the page ended the cast as the person's Stop, so the film played on the phone by itself.
+  it("ends the cast with its receiver gone, not stopped, as the Cast session ends with no Stop in Chrome's control: the device switched off or lost (D552 §5)", async () => {
+    const heard: Heard[] = [];
+    const server = fakeTogetherServer();
+    const services = underTheLoader(
+      {
+        "GET /me/devices": [200, { devices: [thisLaptop] }],
+        "POST /me/casts": [201, { castId: 9, isSender: true, membershipCredential: "sender" }],
+        "POST /me/casts/9/end": [200, { positionMs: 0, isPlaying: false }],
+      },
+      heard,
+      server,
+    );
+    givenHints(chromeHints);
+    const device = givenCastSdk();
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <CastTargets film={() => ({ fileId: 4, positionMs: 61_000 })} />
+        </LiveProvider>,
+        services,
+      ),
+    );
+    await server.accept();
+    await server.say({ type: "devices", deviceIds: [1] });
+    await settleUntil(
+      () => buttonWithText(mounted?.container ?? document.body, "Chromecast") !== undefined,
+    );
+    await click(buttonWithText(mounted.container, "Chromecast"));
+    await settleUntil(() => device.sent.length === 1);
+    await act(async () => {
+      device.say({ type: "ready", deviceId: 12 });
+      await Promise.resolve();
+    });
+    await settleUntil(() => heard.some((each) => each.methodAndPath === "POST /me/casts"));
+    await act(async () => {
+      device.vanish();
+      await Promise.resolve();
+    });
+    await settleUntil(() => heard.some((each) => each.methodAndPath === "POST /me/casts/9/end"));
+    const ended = heard.find((each) => each.methodAndPath === "POST /me/casts/9/end");
+    expect(ended === undefined ? undefined : bodyField(ended, "reason")).toBe("receiverGone");
   });
 
   it("stops a receiver older than the page, left running on the device, and launches it again for the grant (the owner, 2026-11-12)", async () => {

@@ -7,7 +7,8 @@
  * while the first is its remote, the page it cast from staying where it is (D384 §2); every film the
  * first then plays goes to the second, which waits full screen and ready between them; the receiver
  * goes home as the cast ends by the remote's Stop casting or the receiver's own Stop casting here,
- * the first then playing the film itself (D446). While it receives, a third device's Cast dialog
+ * the first then playing the film itself (D446): at once after its own Stop, after the receiver's
+ * on its Play here, its remote saying the receiver stopped casting (D552 §4). While it receives, a third device's Cast dialog
  * shows it unavailable, no device taking it over (D386 §1).
  */
 
@@ -228,7 +229,7 @@ test(
 );
 
 test(
-  "a receiver ends the cast by its own Stop casting here, over its film, going home as the sender plays the film on",
+  "a receiver ends the cast by its own Stop casting here, over its film, going home as the sender says it stopped casting and plays the film on at Play here",
   { tag: oneBrowserTag },
   async ({ browser }) => {
     await castBetweenTwo(browser, async ({ sender, receiver }) => {
@@ -241,7 +242,11 @@ test(
       await expect(castSign(sender)).not.toHaveClass(/icon-button--running/u, {
         timeout: 10_000,
       });
-      // The sender takes the film on as the receiver had it, playing (D446 §2).
+      // The sender's remote stays, saying why, and takes the film on at Play here alone, as the
+      // receiver had it, playing (D552 §4, D446 §2).
+      await expect(sender.getByText(/stopped casting/u)).toBeVisible({ timeout: 10_000 });
+      expect(await isPlaying(sender)).toBe(false);
+      await sender.getByRole("button", { name: "Play here", exact: true }).click();
       await expect.poll(async () => await isPlaying(sender), { timeout: 30_000 }).toBe(true);
       expect(sender.url()).toBe(playAddress);
     });

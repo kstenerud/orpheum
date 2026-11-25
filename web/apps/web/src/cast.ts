@@ -146,6 +146,18 @@ export async function listMyCasts(api: Api): Promise<Cast[]> {
  */
 const endAnswers = new Map<number, Promise<ReopenAt | undefined>>();
 
+/** Why this tab asked to end each cast it has asked to end, kept until its answer is taken. */
+const endsAsked = new Map<number, CastEnd>();
+
+/**
+ * Why this tab asked to end the cast castId, where it asked and its answer is not yet taken
+ * (takeEndAnswerOf); undefined where it asked nothing: the end was the receiver's, the server's or
+ * another tab's (D552 §4).
+ */
+export function endAskedOf(castId: number): CastEnd | undefined {
+  return endsAsked.get(castId);
+}
+
 /**
  * Where the server said the cast castId stood as this tab's ask to end it was answered, paused where
  * it did not play; its answer still awaited, awaiting it. Undefined where this tab asked for no end
@@ -154,6 +166,7 @@ const endAnswers = new Map<number, Promise<ReopenAt | undefined>>();
 export function takeEndAnswerOf(castId: number): Promise<ReopenAt | undefined> | undefined {
   const answer = endAnswers.get(castId);
   endAnswers.delete(castId);
+  endsAsked.delete(castId);
   return answer;
 }
 
@@ -166,6 +179,7 @@ export async function endCast(api: Api, castId: number, reason: CastEnd): Promis
       ...idempotent(newIdempotencyKey()),
     })
     .then((answer) => dataOrThrow(answer));
+  endsAsked.set(castId, reason);
   endAnswers.set(
     castId,
     asked.then(

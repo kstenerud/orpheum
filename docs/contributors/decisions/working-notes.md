@@ -31643,8 +31643,11 @@ device, plus however far it was likely to get."* **Amends** D446 §5 and D385 §
 had the sender take the film over at once, and **extends** D550 §3, whose Play here was offered
 while the cast still lasted.
 
-**Status:** decided; §1–3 built; §4–5 not built. Its code is `cast-remote.tsx`'s endWayOf and
-useWhereItStood (lostBeforeGoneMs) and `cast-remote-offer.tsx`'s RemoteOffer (`gone`).
+**Status:** decided; built (§1–3 earlier, §4–5 in the commit that built them, each clause read
+back against the code). Its code is `cast-remote-ends.ts`'s endWayOf, useEndWay and
+useRemoteEnded, `cast-remote.tsx`'s useWhereItStood (lostBeforeGoneMs) and playsFromWhereItStood,
+`cast-remote-offer.tsx`'s RemoteOffer (`ended`), `cast.ts`'s endAskedOf, `cast-sdk.ts`'s
+onSessionEnded and `google-cast.ts`'s linkCastSession.
 
 1. **The remote stays as the cast ends with its receiver gone.** The server's end stands (D364 §6:
    two minutes after the receiver's connection was lost, reason `receiverGone`), and the cast is

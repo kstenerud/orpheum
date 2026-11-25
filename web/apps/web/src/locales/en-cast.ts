@@ -67,6 +67,10 @@ export const enCast = {
     sendingOn: "Sending it to the device you cast to…",
     over: {
       lost: "The cast ended: the server no longer knows it.",
+      /** The remote's note as its receiver took the film back (D552 §4). */
+      takenBack: "{{name}} stopped casting",
+      /** The remote's note as its cast ended any other way this device did not ask (D552 §4). */
+      ended: "Casting ended",
     },
     /** The cast remote's pad (D548 §5, §6), the player's words where it has them. */
     pad: {
@@ -77,7 +81,8 @@ export const enCast = {
     /** The cast remote's receiver not yet reached (D548 §9). */
     reaching: "Reaching {{name}}…",
     notAnswering: "{{name}} isn't answering",
-    receiverGone: "{{name}} isn't answering, so casting ended",
+    /** The remote's note as its cast ended with its receiver gone (D552 §1, §4). */
+    receiverGone: "{{name}} unreachable",
     /** Ends the cast from the remote and plays the film here, where the receiver is not heard (D550 §3). */
     playHere: "Play here",
     /** The cast remote's Up next put away on this device (D548 §3). */

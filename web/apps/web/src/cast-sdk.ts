@@ -197,8 +197,11 @@ export interface CastChannel {
   readonly send: (message: Readonly<Record<string, unknown>>) => Promise<void>;
   /** Tells listener each message the receiver sends, parsed where it is JSON. */
   readonly onMessage: (listener: (message: unknown) => void) => void;
-  /** Tells listener once the session is over, however it ended: Chrome's own Cast control too. */
-  readonly onEnded: (listener: () => void) => void;
+  /**
+   * Tells listener once the session is over, however it ended, and whether the person ended it in
+   * Chrome's own Cast control (isStoppedThere) rather than losing its device (D552 §5).
+   */
+  readonly onEnded: (listener: (isStoppedThere: boolean) => void) => void;
   /** Ends the session, stopping the receiver app. */
   readonly end: () => void;
 }
@@ -231,9 +234,13 @@ export function channelOf(session: unknown, namespace: string): CastChannel {
 
 /**
  * Tells listener once session is over: the context's state changed to ended while session was its
- * current one, or no longer is.
+ * current one, or no longer is; and whether the person stopped it in Chrome's own Cast control.
+ * The SDK's ended event carries no error code (its errorCode is a start failure's alone), but the
+ * person's Stop there reaches the SDK as the receiver action STOP, which it says as SESSION_ENDING
+ * before SESSION_ENDED; a device switched off or lost ends the session with SESSION_ENDED alone
+ * (D552 §5).
  */
-function onSessionEnded(session: unknown, listener: () => void): void {
+function onSessionEnded(session: unknown, listener: (isStoppedThere: boolean) => void): void {
   const context = castContext();
   const changed = at(
     globalThis,
@@ -242,19 +249,26 @@ function onSessionEnded(session: unknown, listener: () => void): void {
     "CastContextEventType",
     "SESSION_STATE_CHANGED",
   );
+  const ending = at(globalThis, "cast", "framework", "SessionState", "SESSION_ENDING");
   const ended = at(globalThis, "cast", "framework", "SessionState", "SESSION_ENDED");
   let isTold = false;
+  let isEnding = false;
   const heard = (event: unknown): void => {
-    if (isTold || at(event, "sessionState") !== ended) {
+    const said = at(event, "sessionState");
+    if (isTold || (said !== ended && said !== ending)) {
       return;
     }
     const current = call(context, "getCurrentSession");
     if (current !== null && current !== undefined && current !== session) {
       return; // another session's end
     }
+    if (said === ending) {
+      isEnding = true;
+      return;
+    }
     isTold = true;
     call(context, "removeEventListener", changed, heard);
-    listener();
+    listener(isEnding);
   };
   call(context, "addEventListener", changed, heard);
 }

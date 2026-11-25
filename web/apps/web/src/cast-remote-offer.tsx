@@ -41,9 +41,19 @@ export const notAnsweringAfterMs = 15_000;
  * remote's sign tells where it plays; at its top-right the offer, Up next or a skip (RemoteOffers);
  * at its centre a Pill, "Reaching ‹TV›…" while the receiver is not reached, else the film's level a
  * moment after the pad moves it (film); "‹TV› isn't answering" with Try again and Play here once it
- * has not been reached for notAnsweringAfterMs; and, the cast ended with its receiver gone (gone),
- * "‹TV› isn't answering, so casting ended" with Play here alone, nothing left to try (D552 §1).
+ * has not been reached for notAnsweringAfterMs; and, the cast ended by anything but this tab's own
+ * ask (ended), its note saying why, "‹TV› stopped casting", "‹TV› unreachable" or "Casting ended",
+ * with Play here alone, nothing left to try (D552 §1, §4).
  */
+/**
+ * A cast's end this tab did not ask for, as the remote shows it (D552 §4): its note, why it ended,
+ * and Play here, which plays the film here as an ordinary play, asking the server for no end.
+ */
+export interface RemoteEnded {
+  readonly text: string;
+  readonly playHere: () => void;
+}
+
 export function RemoteOffer(props: {
   readonly sent: CastSending;
   readonly source: PlayerSource;
@@ -51,11 +61,11 @@ export function RemoteOffer(props: {
   readonly art: ArtBody | undefined;
   /** The film's level on the receiver, while its Pill shows. */
   readonly film: PlayerSound | undefined;
-  /** Plays the film here, the cast ended with its receiver gone (D552 §1); undefined while it lasts. */
-  readonly gone: (() => void) | undefined;
+  /** The cast's end this tab did not ask, said and played here from (D552 §4); undefined while it lasts. */
+  readonly ended: RemoteEnded | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { sent, source, gone } = props;
+  const { sent, source, ended } = props;
   const notAnswering = useNotAnswering(source.isReady);
   const playHere = useCastEnding(sent.castId, "stopped"); // the remote's Stop, which plays the film here (D549)
   const name = sent.receiverName;
@@ -70,26 +80,30 @@ export function RemoteOffer(props: {
         </div>
         <span className="cast-remote__centre">
           {source.isReady ? <RemoteVolumePill film={props.film} /> : null}
-          {source.isReady || gone !== undefined ? null : (
+          {source.isReady || ended !== undefined ? null : (
             <Pill icon={<span className="cast-remote__spinner" />}>
               {t("cast.reaching", { name })}
             </Pill>
           )}
         </span>
-        {notAnswering.isLate || gone !== undefined ? (
+        {notAnswering.isLate || ended !== undefined ? (
           <div className="cast-remote__note">
             <StatusNote
               told={
-                gone === undefined
+                ended === undefined
                   ? {
                       kind: "problem",
                       text: t("cast.notAnswering", { name }),
                       onTryAgain: notAnswering.tryAgain,
                     }
-                  : { kind: "problem", text: t("cast.receiverGone", { name }) }
+                  : { kind: "problem", text: ended.text }
               }
             />
-            <button type="button" disabled={playHere.isBusy} onClick={gone ?? playHere.end}>
+            <button
+              type="button"
+              disabled={playHere.isBusy}
+              onClick={ended?.playHere ?? playHere.end}
+            >
               {t("cast.playHere")}
             </button>
             {playHere.problem === undefined ? null : (
