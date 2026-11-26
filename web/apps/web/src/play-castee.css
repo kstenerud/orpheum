@@ -31,7 +31,6 @@ html:has(.castee-play) {
 /* The bar: the way up, and under it "On: ‹TV›" and when the film ends. */
 .castee-play__top {
   display: grid;
-  gap: var(--space-1);
   padding: var(--space-2) var(--space-4);
 }
 

@@ -79,14 +79,14 @@ async function onItsLadder(
 }
 
 describe("the original file, chosen over the ladder (web-client.md: playback is never a black box)", () => {
-  it("is offered under a film on its ladder, and asks how the film plays again when pressed", async () => {
-    // Held upright, where it lies under the film: elsewhere ⁝ holds it.
+  it("is offered in ⁝ alone, never under the film even held upright, and asks how the film plays again when pressed (the owner, 2026-11-26: choices only in the menus)", async () => {
     vi.stubGlobal("matchMedia", heldUpright);
     const asked: string[] = [];
     mounted = await onItsLadder(true, asked);
-    const button = [...mounted.container.querySelectorAll("button")].find(
-      (each) => each.textContent === "Play the original file",
-    );
+    expect(mounted.container.textContent).not.toContain("Play the original file");
+    const button = [
+      ...(await qualityOpen(mounted)).querySelectorAll('button, [role="button"]'),
+    ].find((each) => each.textContent === "Play the original file");
     expect(button).toBeDefined();
     await fire(button ?? null, new MouseEvent("click", { bubbles: true }));
     expect(asked).toEqual(["originalChosen"]);
@@ -102,12 +102,11 @@ describe("the original file, chosen over the ladder (web-client.md: playback is 
     }
   });
 
-  it("is offered under the film where the device's cap is at or above its file's rate (D491)", async () => {
+  it("is offered in ⁝ where the device's cap is at or above its file's rate (D491)", async () => {
     window.localStorage.setItem(dataCapsKey, JSON.stringify({ unknown: 2400 })); // the file's own
     try {
       mounted = await onItsLadder(true);
-      expect(mounted.container.textContent).toContain("Play the original file");
-      // ⁝'s Quality too, told the file's rate by the page.
+      // ⁝'s Quality, told the file's rate by the page.
       const inTheMenu = [
         ...(await qualityOpen(mounted)).querySelectorAll('button, [role="button"]'),
       ].map((each) => each.textContent);
@@ -161,10 +160,8 @@ describe("the original file, chosen over the ladder (web-client.md: playback is 
 describe("the original chosen, waiting on the ladder for a link short of it", () => {
   const waits = "Plays 480p until the link carries the original file"; // its rung (D501 §3)
 
-  it("says so under the film and in ⁝, in place of offering it again", async () => {
+  it("says so in ⁝, in place of offering it again", async () => {
     mounted = await onItsLadder(true, [], { isOriginalWaiting: true });
-    expect(mounted.container.textContent).toContain(waits);
-    expect(mounted.container.textContent).not.toContain("Play the original file");
     const inTheMenu = await qualityOpen(mounted);
     expect(inTheMenu.querySelector(".list-box__note .play__original-waits")?.textContent).toBe(
       waits,
@@ -177,15 +174,14 @@ describe("the original chosen, waiting on the ladder for a link short of it", ()
     expect(mounted.container.textContent).not.toContain(waits);
   });
 
-  it("offers the original again once the playback's try at it failed (D501 §2)", async () => {
-    // Held upright, where it lies under the film: elsewhere ⁝ holds it.
-    vi.stubGlobal("matchMedia", heldUpright);
+  it("offers the original again in ⁝ once the playback's try at it failed (D501 §2)", async () => {
     const tries = new OriginalTries();
     tries.movedUp();
     tries.movedDown(); // within its two minutes
     mounted = await onItsLadder(true, [], { isOriginalWaiting: true, tries });
-    expect(mounted.container.textContent).not.toContain(waits);
-    expect(mounted.container.textContent).toContain("Play the original file");
+    const inTheMenu = await qualityOpen(mounted);
+    expect(inTheMenu.textContent).not.toContain(waits);
+    expect(inTheMenu.textContent).toContain("Play the original file");
   });
 });
 

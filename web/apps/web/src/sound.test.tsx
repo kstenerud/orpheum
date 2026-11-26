@@ -5,13 +5,13 @@ import "./i18n.ts";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { heldUpright } from "./test-castee.tsx";
+import { choosing, opened, openedSubmenu } from "./test-player-menus.tsx";
 
 import type { PlaybackDecision } from "./watching.ts";
 import { Play, PlayView } from "./play.tsx";
 import { BoostSwitch } from "./sound.tsx";
 import {
   bodyField,
-  chooseIn,
   click,
   mount,
   playbackCauses,
@@ -62,6 +62,24 @@ function boostBox(): HTMLElement | undefined {
   return mounted === undefined ? undefined : switchNamed(mounted.container, "Dialogue boost");
 }
 
+/** Opens the page's Sound menu, which holds the boost and the film's tracks. */
+async function soundMenu(): Promise<void> {
+  if (mounted === undefined) {
+    throw new Error("nothing mounted");
+  }
+  await opened(mounted, "Sound");
+}
+
+/** Chooses the audio track named text in the Sound menu's Sound track, as a person does. */
+async function audioChosen(text: string): Promise<void> {
+  if (mounted === undefined) {
+    throw new Error("nothing mounted");
+  }
+  await opened(mounted, "Sound");
+  await openedSubmenu(mounted, "Sound track");
+  await choosing(mounted, text);
+}
+
 describe("how a device makes sound, asked of no one (D336 §4)", () => {
   it("is not asked before a device's first playback: the film plays at once", async () => {
     const heard: Heard[] = [];
@@ -100,7 +118,8 @@ describe("how a device makes sound, asked of no one (D336 §4)", () => {
 });
 
 describe("the dialogue boost over the original (D336 §3)", () => {
-  // Held upright, where these controls lie under the film: elsewhere the overlay's menus hold them.
+  // Held upright, the Sound menu in the row under the film, the one place these controls are (the
+  // owner, 2026-11-26: choices only in the menus).
   beforeEach(() => {
     vi.stubGlobal("matchMedia", heldUpright);
   });
@@ -135,6 +154,7 @@ describe("the dialogue boost over the original (D336 §3)", () => {
       Object.defineProperty(video, "paused", { value: true, configurable: true });
     }
     // The original's own sound plays, which the device mixes down: the boost is not acting.
+    await soundMenu();
     expect(isSwitchOn(boostBox())).toBe(false);
     await click(boostBox());
     expect(heard).toContainEqual({
@@ -207,6 +227,7 @@ describe("the dialogue boost over the original (D336 §3)", () => {
     );
     services.session.signIn("token", { deviceId: 5 });
     mounted = await mount(withServices(<Play fileId={2} />, services));
+    await soundMenu();
     await click(boostBox());
     const order = heard
       .map((each) => each.methodAndPath)
@@ -228,6 +249,8 @@ describe("the dialogue boost over the original (D336 §3)", () => {
         }),
       ),
     );
+    await soundMenu();
+    expect(mounted.container.textContent).toContain("Level loudness");
     expect(boostBox()).toBeUndefined();
   });
 });
@@ -260,7 +283,8 @@ describe("the dialogue boost's switch", () => {
 });
 
 describe("the dialogue boost on a film's ladder", () => {
-  // Held upright, where these controls lie under the film: elsewhere the overlay's menus hold them.
+  // Held upright, the Sound menu in the row under the film, the one place these controls are (the
+  // owner, 2026-11-26: choices only in the menus).
   beforeEach(() => {
     vi.stubGlobal("matchMedia", heldUpright);
   });
@@ -322,6 +346,7 @@ describe("the dialogue boost on a film's ladder", () => {
         services,
       ),
     );
+    await soundMenu();
     const box = switchNamed(mounted.container, "Dialogue boost");
     expect(isSwitchOn(box)).toBe(false);
     expect(mounted.container.textContent).toContain(
@@ -372,6 +397,8 @@ describe("the dialogue boost on a film's ladder", () => {
         }),
       ),
     );
+    await soundMenu();
+    expect(mounted.container.textContent).toContain("Level loudness");
     expect(mounted.container.textContent).not.toContain("Dialogue boost");
   });
 });
@@ -398,7 +425,8 @@ function standVideoAt(positionS: number): void {
 }
 
 describe("another audio track, chosen mid-film (D230 §5)", () => {
-  // Held upright, where these controls lie under the film: elsewhere the overlay's menus hold them.
+  // Held upright, the Sound menu in the row under the film, the one place these controls are (the
+  // owner, 2026-11-26: choices only in the menus).
   beforeEach(() => {
     vi.stubGlobal("matchMedia", heldUpright);
   });
@@ -424,7 +452,7 @@ describe("another audio track, chosen mid-film (D230 §5)", () => {
     );
     // Wraithcatchers, its track changed 2:46 in, started again at 0:00 (staging, 2026-10-26).
     standVideoAt(166.502);
-    await chooseIn(mounted.container, "Sound", "French");
+    await audioChosen("French");
     expect(asked).toEqual([{ cause: "audioChosen", at: { positionMs: 166_502, isPaused: false } }]);
   });
 
@@ -446,7 +474,7 @@ describe("another audio track, chosen mid-film (D230 §5)", () => {
     services.session.signIn("token", { deviceId: 5 });
     mounted = await mount(withServices(<Play fileId={2} />, services));
     standVideoAt(166.502);
-    await chooseIn(mounted.container, "Sound", "French");
+    await audioChosen("French");
     const asks = heard.filter((each) => each.methodAndPath === "POST /playback");
     expect(playbackCauses(heard)).toEqual(["playPage", "audioChosen"]);
     expect(asks.map((each) => bodyField(each, "startsAtMs"))).toEqual([undefined, 166_502]);

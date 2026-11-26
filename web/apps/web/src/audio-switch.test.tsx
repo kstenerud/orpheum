@@ -6,10 +6,11 @@ import "./i18n.ts";
 import type { SoundChoiceCause } from "@orpheum/player";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { heldUpright } from "./test-castee.tsx";
+import { choosing, opened, openedSubmenu } from "./test-player-menus.tsx";
 
 import { chooseSoundInPlace, ladderSoundLevelOf, playTrackChosen } from "./ladder-sound.ts";
 import { PlayView } from "./play.tsx";
-import { chooseIn, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import { mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { directDecision, unmeasuredSound } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
 import type { PlayingSound } from "./tracks-note.tsx";
@@ -149,7 +150,8 @@ describe("the gain of a sound switched to in place (audio-switch-and-retiming-20
 });
 
 describe("another audio track chosen in a file played as it is (the owner's answers of 2026-10-31)", () => {
-  // Held upright, where these controls lie under the film: elsewhere the overlay's menus hold them.
+  // Held upright, the Sound menu in the row under the film, the one place the tracks are (the owner,
+  // 2026-11-26: choices only in the menus).
   beforeEach(() => {
     vi.stubGlobal("matchMedia", heldUpright);
   });
@@ -182,6 +184,13 @@ describe("another audio track chosen in a file played as it is (the owner's answ
     });
   }
 
+  /** Chooses the French track in the page's Sound menu's Sound track, as a person does. */
+  async function frenchChosen(on: Mounted): Promise<void> {
+    await opened(on, "Sound");
+    await openedSubmenu(on, "Sound track");
+    await choosing(on, "French");
+  }
+
   /** The routes a direct playback's page asks for. */
   const routes = {
     "PUT /files/2/preferences": [204, undefined],
@@ -207,7 +216,7 @@ describe("another audio track chosen in a file played as it is (the owner's answ
     const video = mounted.container.querySelector("video");
     const tracks = { length: 2, 0: { enabled: true }, 1: { enabled: false } };
     Object.defineProperty(video, "audioTracks", { value: tracks, configurable: true });
-    await chooseIn(mounted.container, "Sound", "French");
+    await frenchChosen(mounted);
     expect(asked).toEqual([]);
     expect([tracks[0].enabled, tracks[1].enabled]).toEqual([false, true]);
     expect(heard).toContainEqual({
@@ -228,7 +237,7 @@ describe("another audio track chosen in a file played as it is (the owner's answ
         servedBy(routes),
       ),
     );
-    await chooseIn(mounted.container, "Sound", "French");
+    await frenchChosen(mounted);
     expect(asked).toEqual(["audioChosen"]);
   });
 });

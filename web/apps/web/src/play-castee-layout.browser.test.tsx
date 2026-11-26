@@ -1,19 +1,23 @@
 // SPDX-License-Identifier: MPL-2.0
 
-// The castee's Play page as a real browser lays it out (D555 §8): on a phone on its side and on a
-// computer, the video's overlay over the castee's key frame, the larger play in it, no bar under it.
+// The castee's Play page as a real browser lays it out: the remote's layout (D548 §1, §5, §6, §8;
+// the owner, 2026-11-26: "the remote-control looking layout (3x3 pad). That should be the layout for
+// portrait and landscape mode when casting"), drawn at a phone upright, a phone on its side and a
+// computer: one column with the pad at the bottom under the offer area, or two with the pad's column
+// at the end; the pad's buttons at their sizes; nothing past the screen; Mute pressed on the status
+// ground; no overlay and no ⤢ (the owner, 2026-11-26: "Never offer the fullscreen mode button when
+// casting").
 
 import "./tokens.css";
 import "./base.css";
 import "./i18n.ts";
 
-import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 
 import { CasteePlay } from "./play-castee.tsx";
-import { castingRemote } from "./test-castee.tsx";
-import { settleUntil, type Mounted } from "./test-dom.tsx";
+import { castingRemote, receiverSays } from "./test-castee.tsx";
+import type { Mounted } from "./test-dom.tsx";
 
 let mounted: Mounted | undefined;
 
@@ -23,11 +27,29 @@ afterEach(() => {
   window.sessionStorage.clear();
 });
 
-/** The castee's Play page on film 4 in a window width × height. */
+/** The parts of the castee's page, by their selectors. */
+const bar = ".castee-play__top";
+const offer = ".castee-play__stage";
+const timeline = ".castee-play__page > .remote-pad__timeline";
+const pad = ".castee-play__page > .remote-pad";
+const buttons = ".castee-play__page > .remote-pad__menus";
+
+/** The castee's Play page on film 4 in a window width × height, its receiver saying the film's level, muted. */
 async function casteeAt(width: number, height: number): Promise<HTMLElement> {
   await page.viewport(width, height);
   const drawn = await castingRemote({}, [], { remote: CasteePlay, onPlayHere: vi.fn() });
   mounted = drawn.mounted;
+  await receiverSays(drawn.sockets.session, {
+    delivery: "direct",
+    sound: {
+      isLevellingOn: false,
+      audioTracks: [],
+      channels: [{ channel: "film", level: 0.5, isMuted: true }],
+    },
+  });
+  await expect
+    .poll(() => drawn.mounted.container.querySelector(`${pad} [aria-label="Volume up"]`))
+    .not.toBeNull();
   return drawn.mounted.container;
 }
 
@@ -40,53 +62,129 @@ function boxOf(container: HTMLElement, part: string): DOMRect {
   return element.getBoundingClientRect();
 }
 
-/** Shows the overlay as a mouse moved over the page does (player-overlay-layout's shown). */
-async function shown(container: HTMLElement): Promise<void> {
-  for (const screenX of [5, 50]) {
-    act(() => {
-      document.body.dispatchEvent(
-        new PointerEvent("pointermove", {
-          bubbles: true,
-          pointerType: "mouse",
-          screenX,
-          screenY: 5,
-        }),
-      );
-    });
-  }
-  await expect
-    .poll(() => container.querySelector(".player-overlay")?.getAttribute("data-shown"))
-    .toBe("full");
+/** A pad button's drawn width, by its name. */
+function padSize(container: HTMLElement, name: string): number {
+  return boxOf(container, `${pad} [aria-label="${name}"]`).width;
 }
 
-/** That the overlay lies over the whole key frame, within the stage, its play 64 px, no bar. */
-async function expectOverlayOverTheKeyFrame(container: HTMLElement, width: number): Promise<void> {
-  await settleUntil(() => container.querySelector(".castee-play__stage .player-overlay") !== null);
-  expect(container.querySelector(".castee-play__bar")).toBeNull();
-  await shown(container);
-  const stage = boxOf(container, ".castee-play__stage");
-  const picture = boxOf(container, ".castee-play__picture");
-  const overlay = boxOf(container, ".castee-play__stage .player-overlay");
-  expect(stage.width).toBeGreaterThan(0);
-  expect(stage.right).toBeLessThanOrEqual(width);
-  for (const box of [picture, overlay]) {
-    expect(box.left).toBeCloseTo(stage.left, 0);
-    expect(box.top).toBeCloseTo(stage.top, 0);
-    expect(box.width).toBeCloseTo(stage.width, 0);
-    expect(box.height).toBeCloseTo(stage.height, 0);
+/** That every part sits inside the window, so none is scrolled to, and there is no overlay nor ⤢. */
+function expectAllInside(container: HTMLElement, width: number, height: number): void {
+  for (const part of [bar, offer, timeline, pad, buttons]) {
+    const box = boxOf(container, part);
+    expect(box.left, part).toBeGreaterThanOrEqual(0);
+    expect(box.right, part).toBeLessThanOrEqual(width + 0.5);
+    expect(box.bottom, part).toBeLessThanOrEqual(height + 0.5);
   }
-  const play = boxOf(container, '.castee-play__stage .player-overlay [aria-label="Play"]');
-  expect(play.width).toBe(64);
-  expect(play.top).toBeGreaterThanOrEqual(stage.top);
-  expect(play.bottom).toBeLessThanOrEqual(stage.bottom);
+  expect(container.querySelector(".player-overlay")).toBeNull();
+  expect(container.querySelector('[aria-label="Full screen"]')).toBeNull();
 }
 
-describe("the castee's Play page laid out (D555 §8)", () => {
-  it("lays the overlay over the castee's key frame on a phone on its side, no bar under it", async () => {
-    await expectOverlayOverTheKeyFrame(await casteeAt(844, 390), 844);
+/** That nothing scrolls: the menus' bottom is in the window, and the card is 9rem tall or more. */
+function expectFits(container: HTMLElement, height: number): void {
+  expect(boxOf(container, buttons).bottom).toBeLessThanOrEqual(height + 0.5);
+  expect(boxOf(container, offer).height).toBeGreaterThanOrEqual(144 - 0.5);
+}
+
+/** That the offer area is drawn 16:9. */
+function expectSixteenByNine(container: HTMLElement): void {
+  const box = boxOf(container, offer);
+  expect(box.width / box.height).toBeCloseTo(16 / 9, 1);
+}
+
+/** A pad button's ground, by its name. */
+function groundOf(container: HTMLElement, name: string): string {
+  const button = container.querySelector(`${pad} [aria-label="${name}"]`);
+  return button === null ? "" : getComputedStyle(button).backgroundColor;
+}
+
+/** That the menus' row's last button ends at the row's end, inside its edge alone: the row is end-aligned. */
+function expectMenusAtTheEnd(container: HTMLElement): void {
+  const row = container.querySelector<HTMLElement>(buttons)!;
+  const last = [...row.querySelectorAll<HTMLElement>("[role=button], button")].at(-1)!;
+  const end =
+    row.getBoundingClientRect().right - Number.parseFloat(getComputedStyle(row).paddingRight);
+  expect(Math.abs(last.getBoundingClientRect().right - end)).toBeLessThan(1.5);
+}
+
+describe("the castee's Play page laid out as the remote (the owner, 2026-11-26)", () => {
+  it("lays a phone upright out as one column, the pad at the bottom under the offer area, Play 96 px, the others 72 and 64 px, Mute pressed on the status ground", async () => {
+    const upright = await casteeAt(360, 780);
+    expectAllInside(upright, 360, 780);
+    expectFits(upright, 780);
+    expectSixteenByNine(upright);
+    const offerBox = boxOf(upright, offer);
+    const timelineBox = boxOf(upright, timeline);
+    const padBox = boxOf(upright, pad);
+    const buttonsBox = boxOf(upright, buttons);
+    expect(timelineBox.top).toBeGreaterThanOrEqual(offerBox.bottom);
+    expect(padBox.top).toBeGreaterThanOrEqual(timelineBox.bottom);
+    expect(buttonsBox.top).toBeGreaterThanOrEqual(padBox.bottom);
+    // The room left over goes above the pad: the menus end at the bottom of the screen.
+    expect(780 - buttonsBox.bottom).toBeLessThan(2);
+    expect(offerBox.left).toBeCloseTo(16, 0);
+    expect(padSize(upright, "Play")).toBeCloseTo(96, 0);
+    expect(padSize(upright, "Back 10 s")).toBeCloseTo(72, 0);
+    expect(padSize(upright, "Volume up")).toBeCloseTo(64, 0);
+    expect(groundOf(upright, "Mute")).not.toBe(groundOf(upright, "Volume up"));
+    expectMenusAtTheEnd(upright);
   });
 
-  it("lays the overlay over the castee's key frame on a computer, no bar under it", async () => {
-    await expectOverlayOverTheKeyFrame(await casteeAt(1280, 800), 1280);
+  it("lays a phone on its side out as two columns, the pad's 15rem at the end, Play 72 px and the others 56 px, all within its height", async () => {
+    const side = await casteeAt(780, 360);
+    expectAllInside(side, 780, 360);
+    expectFits(side, 360);
+    expectSixteenByNine(side);
+    const offerBox = boxOf(side, offer);
+    const padBox = boxOf(side, pad);
+    expect(padBox.left).toBeGreaterThanOrEqual(offerBox.right);
+    expect(padBox.width).toBeCloseTo(240, 0);
+    expect(boxOf(side, bar).bottom).toBeLessThanOrEqual(Math.min(offerBox.top, padBox.top) + 0.5);
+    expect(padSize(side, "Play")).toBeCloseTo(72, 0);
+    expect(padSize(side, "Back 10 s")).toBeCloseTo(56, 0);
+    expect(padSize(side, "Volume up")).toBeCloseTo(56, 0);
+  });
+
+  it("lays a computer out as two columns, the pad's 22rem at the end, Play 96 px", async () => {
+    const wide = await casteeAt(1280, 800);
+    expectAllInside(wide, 1280, 800);
+    expectFits(wide, 800);
+    expectSixteenByNine(wide);
+    const offerBox = boxOf(wide, offer);
+    const padBox = boxOf(wide, pad);
+    expect(padBox.left).toBeGreaterThanOrEqual(offerBox.right);
+    expect(padBox.width).toBeCloseTo(352, 0);
+    expect(padSize(wide, "Play")).toBeCloseTo(96, 0);
+    expectMenusAtTheEnd(wide);
+  });
+
+  it("keeps the card a third or more of the width on a short phone on its side, as a browser's bars leave it", async () => {
+    const short = await casteeAt(740, 300);
+    expectSixteenByNine(short);
+    expectFits(short, 300);
+    const offerBox = boxOf(short, offer);
+    expect(offerBox.width).toBeGreaterThanOrEqual(740 * 0.3);
+  });
+
+  // The page felt cramped once every control was on (the owner, 2026-11-25): the sign shares the way
+  // up's touch box, the timeline sits flush under the card, the buttons row has a step more above it.
+  it("keeps the sign close under the way up, the timeline flush under the card and a step above the buttons row, on a phone upright", async () => {
+    const upright = await casteeAt(390, 844);
+    const up = boxOf(upright, ".castee-play__heading > :first-child");
+    expect(boxOf(upright, ".castee-play__where").top).toBeLessThanOrEqual(up.bottom - 7.5);
+    expect(boxOf(upright, timeline).top).toBeCloseTo(
+      boxOf(upright, ".castee-play__offer-cell").bottom,
+      0,
+    );
+    const firstButton = boxOf(upright, `${buttons} [role=button]`);
+    expect(firstButton.top - boxOf(upright, pad).bottom).toBeGreaterThanOrEqual(11.5);
+  });
+
+  it("fits a phone upright with its browser's bars, nothing to scroll to", async () => {
+    const bars = await casteeAt(390, 660);
+    expectAllInside(bars, 390, 660);
+    expectFits(bars, 660);
+    expectSixteenByNine(bars);
+    expect(padSize(bars, "Play")).toBeCloseTo(72, 0);
+    expect(boxOf(bars, offer).width).toBeCloseTo(390 - 32, 0);
   });
 });

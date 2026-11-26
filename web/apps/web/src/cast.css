@@ -36,14 +36,14 @@
   }
 }
 
-/* The castee's menus at the end of its row (castee-session.tsx), as in the player. */
+/* The castee's menus at the end of its row (castee-session.tsx), as in the player. The pad's menus
+   row (remote-pad.css) holds it and gives the edges, so its buttons end where the pad's do. */
 .cast-remote__buttons {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4) var(--space-4);
 }
 
 /* The list of devices to cast to (cast-to.tsx). */
