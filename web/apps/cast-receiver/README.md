@@ -45,6 +45,16 @@ answered is gone (D555 §12).
   batch's item 3). It pairs no device and keeps no session of its own: D288's pairing, which only the
   lab's sender asked for, is gone (D555 §12). `src/device.test.ts`, `src/device-follow.test.ts`, `src/guest.test.ts`; only a
   device shows the whole: VQ286, VQ287.
+- **Has its cast's remote work its sound and subtitles, as a browser receiver's** (the owner,
+  2026-11-26: "Anything it can do, I want"): it says, in its state, the file's audio tracks its
+  ladder has a mix of, the dialogue boost where its track has a boosted mix, levelling, its sound's
+  timing, and the core's subtitle tracks with their timing; a choice the remote sends it carries out
+  as the Play page's control would, and keeps the person's as the Play page keeps it. A track switches
+  in place; levelling and the timing are Web Audio's, made only once the sound needs them; subtitles
+  show as the video's own WebVTT track. It offers no original (it asks for no container of a file's
+  own), no film channel (its volume is the Cast device's, which the sender sets through its Cast
+  session) and no file offset (D537), which asks for the film again. `src/sound-panel.test.ts`,
+  `src/picture-panel.test.ts`, `src/device-follow.test.ts`; only a device shows the whole: VQ407.
 - **Casts under a grant with nothing kept** (D465 §2): on `urn:x-cast:org.orpheum.cast`, a sender's
   launch carries a grant for one cast and its core's reach, with no session. The receiver reaches the
   core through the discovery, its first offer proven by the grant (`targetOfGuestGrant`), trades the

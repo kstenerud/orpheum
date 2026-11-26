@@ -14,21 +14,40 @@ import {
   expectedGroupPositionMs,
   failureText,
   tellsNoFilmHere,
+  workedByTheRemote,
   type Api,
+  type CarriesPictureChoices,
+  type CarriesSoundChoices,
   type components,
   type CastToReceive,
   type GroupCommand,
   type GroupView,
   type PlayableFormats,
   type TellsCastState,
+  type TellsPlaybackAlone,
   type TogetherConnection,
 } from "@orpheum/sdk";
 
+import { ReceiverPicturePanel } from "./picture-panel.ts";
 import type { Reached } from "./reach.ts";
+import { ReceiverSoundPanel, type SoundAudio } from "./sound-panel.ts";
 import { UpNextCard } from "./up-next.ts";
 
 /** What the core decides for a film the receiver plays. */
 type PlaybackDecision = components["schemas"]["StartPlaybackOutputBody"];
+
+/** A film's sound and subtitles, as its remote works them. */
+interface FilmPanels {
+  readonly sound: ReceiverSoundPanel;
+  readonly picture: ReceiverPicturePanel;
+}
+
+/** The session a cast is played in, as the receiver works it. */
+type CastSession = TogetherConnection &
+  TellsCastState &
+  TellsPlaybackAlone &
+  CarriesSoundChoices &
+  CarriesPictureChoices;
 
 /**
  * The receiver as a cast target (inventory B-10; the owner, 2026-11-07: "initial chromecast
@@ -38,8 +57,10 @@ type PlaybackDecision = components["schemas"]["StartPlaybackOutputBody"];
  * Use with, and played in the cast's session as a browser receiver plays it (D434), so the sender's
  * remote works it: it plays the film each hand of the cast names, putting it on the session it
  * leads, and follows the session's play, pause and position by the SDK's follower, as every player
- * does (followGroup, D555 §3); sound, picture and the cast's other panels wait on what the device
- * shows.
+ * does (followGroup, D555 §3). Its remote works its sound and subtitles too, as a browser
+ * receiver's (sound-panel.ts, picture-panel.ts; the owner, 2026-11-26: "Check what the chromecast is
+ * actually capable of. Anything it can do, I want."); its volume is the Cast device's own, which the
+ * sender sets through its Cast session.
  */
 
 /**
@@ -142,15 +163,19 @@ export interface CastDeviceOptions {
   readonly onConnected?: () => void;
   /** Starts a film on the video: our chunked player, a test's stand-in where one is given. */
   readonly startsFilm?: typeof playChunked | undefined;
+  /** Web Audio's parts of the sound's panel, a test's stand-ins where given. */
+  readonly audio?: SoundAudio | undefined;
 }
 
 /** The receiver as a device of its person's: its live connection, and the cast it plays. */
 export class CastDevice {
   private castId: number | undefined;
-  private together: (TogetherConnection & TellsCastState) | undefined;
+  private together: CastSession | undefined;
   private playback: ChunkedPlayback | undefined;
   /** The SDK's follower of the session's group for the film playing, or the telling of none. */
   private stopFollowing: (() => void) | undefined;
+  /** The film's sound and subtitles as its remote works them, and the stopping of its working. */
+  private panels: { readonly picture: ReceiverPicturePanel; readonly stop: () => void } | undefined;
   private playingFileId = 0;
   /** The film the cast last handed, 0 for none: the one the receiver puts on its session. */
   private handedFileId = 0;
@@ -378,6 +403,8 @@ export class CastDevice {
       const positionMs = atMs ?? decision.resumePositionMs;
       const played = decision.onLadder?.url ?? decision.url;
       note(`playing file ${String(fileId)} from ${(positionMs / 1000).toFixed(1)} s: ${played}`);
+      const panels = this.panelsFor(fileId, decision);
+      const { sound } = panels;
       this.playback = startsFilm(video, new URL(played, globalThis.location.origin).href, {
         onFailed: (failure) => {
           note(`failed: ${failure}`);
@@ -387,14 +414,32 @@ export class CastDevice {
         monotonicMs: () => performance.now(),
         authorization: `Bearer ${token}`,
         fetch: reached.fetch,
+        ...sound.startingSound(),
       });
-      this.followTheGroup(fileId, decision);
+      sound.plays(this.playback);
+      this.followTheGroup(fileId, decision, panels);
       this.upNext.plays(fileId, decision.segments ?? []);
       return positionMs;
     } catch (cause) {
       note(`could not start file ${String(fileId)}: ${failureText(cause)}`);
       return undefined;
     }
+  }
+
+  /** The film's sound and subtitles as its remote works them, from the core's decision. */
+  private panelsFor(fileId: number, decision: PlaybackDecision): FilmPanels {
+    const { api, token, reached, video, note } = this.options;
+    // An older core's decision may lack the parts the panels read: they then offer nothing.
+    const told: Partial<PlaybackDecision> = decision;
+    const ways = { api, fileId, video, note };
+    return {
+      sound: new ReceiverSoundPanel(told, ways, this.options.audio),
+      picture: new ReceiverPicturePanel(told, ways, {
+        fetch: reached.fetch,
+        authorization: `Bearer ${token}`,
+        language: navigator.language,
+      }),
+    };
   }
 
   /** The core's decision for playing fileId here, as the title itemId where one is given. */
@@ -414,12 +459,32 @@ export class CastDevice {
    * Together session, it keeps to the group. It tells the session its buffering, its loaded chunks,
    * its quality and how it is given the film.
    */
-  private followTheGroup(fileId: number, decision: PlaybackDecision): void {
+  private followTheGroup(
+    fileId: number,
+    decision: PlaybackDecision,
+    { sound, picture }: FilmPanels,
+  ): void {
     const { together } = this;
     if (together === undefined) {
+      picture.destroy();
       return;
     }
     this.stopFollowing?.();
+    const stopSound = workedByTheRemote(together.subscribeToSoundChoices, sound, {
+      cast: together,
+      led: together,
+    });
+    const stopPicture = workedByTheRemote(together.subscribeToPictureChoices, picture, {
+      cast: together,
+      led: together,
+    });
+    this.panels = {
+      picture,
+      stop: () => {
+        stopSound();
+        stopPicture();
+      },
+    };
     this.stopFollowing = followGroup(this.options.video, together, {
       fileId,
       leads: everyRight, // the person's own playing device, its remote's every move theirs
@@ -427,12 +492,17 @@ export class CastDevice {
       // Its file as it is only where the core gave it so, as the Play page says it (playsOwnFile).
       delivery:
         decision.onLadder === undefined && decision.delivery === "direct" ? "direct" : "converted",
+      readSound: sound.read,
+      readPicture: picture.read,
     });
   }
 
   private stopFilm(): void {
     this.stopFollowing?.();
     this.stopFollowing = undefined;
+    this.panels?.stop();
+    this.panels?.picture.destroy();
+    this.panels = undefined;
     if (this.together !== undefined) {
       this.stopFollowing = tellsNoFilmHere(this.together);
     }

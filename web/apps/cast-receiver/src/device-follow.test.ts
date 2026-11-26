@@ -75,8 +75,10 @@ function groupText(seq: number, fields: object): string {
  * A Chromecast that took the cast of film 7 and started it, welcomed in the cast's session as its
  * leader: its video, its cast session's socket, and what it sent there.
  */
-async function leadingFilm7(): Promise<
+async function leadingFilm7(decision: object = {}): Promise<
   WatchedVideo & {
+    /** Each sound the player was asked to switch to, by its rendition and why. */
+    readonly switched: string[];
     readonly session: Parameters<OpenTogetherSocket>[0];
     readonly sent: string[];
     /** The live connection's socket, then each session socket opened, in order. */
@@ -92,7 +94,11 @@ async function leadingFilm7(): Promise<
     fetch: (request) =>
       Promise.resolve(
         new URL(request.url).pathname.endsWith("/playback")
-          ? Response.json({ url: "https://core.example/media/7.m3u8", resumePositionMs: 0 })
+          ? Response.json({
+              url: "https://core.example/media/7.m3u8",
+              resumePositionMs: 0,
+              ...decision,
+            })
           : Response.json({}),
       ),
   });
@@ -101,6 +107,7 @@ async function leadingFilm7(): Promise<
   const sent: string[] = [];
   const started: string[] = [];
   const closed = { count: 0 };
+  const switched: string[] = [];
   const device = new CastDevice({
     api,
     token: "token",
@@ -122,7 +129,12 @@ async function leadingFilm7(): Promise<
     onRefused: () => undefined,
     startsFilm: (_video, url) => {
       started.push(url);
-      return { destroy: () => undefined } as unknown as ChunkedPlayback;
+      return {
+        destroy: () => undefined,
+        canSwitchSoundInPlace: true,
+        setAudioRendition: (index: number, cause: string) =>
+          switched.push(`${String(index)} ${cause}`),
+      } as unknown as ChunkedPlayback;
     },
   });
   const stop = device.start();
@@ -149,7 +161,7 @@ async function leadingFilm7(): Promise<
       roster: [{ id: 2, name: "Karl", devices: [{ id: 12, role: "video", isLeader: true }] }],
     }),
   );
-  return { ...watched, session, sent, sockets, closed, stop };
+  return { ...watched, switched, session, sent, sockets, closed, stop };
 }
 
 describe("a Chromecast plays its cast's film along with the session as every player does (D555 §3)", () => {
@@ -195,6 +207,56 @@ describe("a Chromecast plays its cast's film along with the session as every pla
       }),
     );
     expect(sent.filter((text) => text.includes('"chunkLoaded"'))).toHaveLength(1);
+    stop();
+  });
+
+  // The remote showed no Sound or Subtitles menu for a Chromecast, which said neither, nor heard a
+  // choice of them (the owner, 2026-11-26: "Anything it can do, I want").
+  it("carries out its remote's choice of sound and says how it sounds after, for the remote to show", async () => {
+    const sound = (audioTrackIndex: number, isOriginal: boolean) => ({
+      audioTrackIndex,
+      isOriginal,
+      isBoosted: false,
+      carriedGainDb: 0,
+      levelling: { isMeasured: false, gainDb: 0 },
+    });
+    const { session, sent, switched, stop } = await leadingFilm7({
+      audioTracks: [
+        { audioTrackIndex: 0, streamId: 2, language: "en", kind: "plain" },
+        { audioTrackIndex: 1, streamId: 3, language: "de", kind: "plain" },
+      ],
+      startingAudioStreamId: 2,
+      tracks: { sounds: [sound(0, true), sound(0, false), sound(1, false)], fileSounds: [] },
+      subtitles: [
+        {
+          assUrl: "/s/4.ass",
+          vttUrl: "/s/4.vtt",
+          language: "en",
+          streamId: 4,
+          isDefault: false,
+          isForced: false,
+          isHearingImpaired: false,
+        },
+      ],
+    });
+    sent.length = 0;
+    session.onMessage(
+      JSON.stringify({
+        v: 3,
+        type: "sound",
+        fromDeviceId: 5,
+        sound: { kind: "audioTrack", streamId: 3 },
+      }),
+    );
+    expect(switched).toEqual(["2 trackChosen"]);
+    const states = sent
+      .map(
+        (text) =>
+          JSON.parse(text) as { type: string; playback?: { sound?: object; picture?: object } },
+      )
+      .filter((message) => message.type === "state");
+    expect(states.at(-1)?.playback?.sound).toMatchObject({ audioStreamId: 3 });
+    expect(states.at(-1)?.playback?.picture).toMatchObject({ subtitles: [{ key: "s4" }] });
     stop();
   });
 

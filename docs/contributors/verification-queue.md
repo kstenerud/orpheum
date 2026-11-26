@@ -4213,3 +4213,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   5. Alone, cast a film to the Chromecast, then put the phone in airplane mode for 15 s and take it
      out again. Report whether the Chromecast plays on and the phone's Play page works it again once
      the phone is back, nothing ended.
+- [ ] **VQ407** — The Chromecast's sound, subtitles and volume from the phone's Play page (the owner,
+  2026-11-26: "Anything it can do, I want"): only a real Chromecast's Cast session, its Web Audio and
+  its own drawing of a subtitle track show them. On the phone's Chrome, cast a film with two audio
+  tracks and subtitles to the Chromecast. Then:
+  1. Press the volume button on the pad. Report whether the slider and mute move the TV's sound, and
+     whether the phone's slider follows when the TV's own remote changes the volume.
+  2. Open Sound: choose the other audio track, then Dialogue boost on, then Level loudness off and on.
+     Report whether each is heard on the TV within a few seconds, the film playing on.
+  3. In Sound timing, move the sound 500 ms later. Report whether the TV's sound moves.
+  4. Open Subtitles: choose a track. Report whether it shows on the TV, how long it took, and
+     whether moving its timing 2 s later moves it.
+  5. Stop the cast, and cast the film again. Report whether the track, the boost and the subtitles
+     you chose come back as you left them.
