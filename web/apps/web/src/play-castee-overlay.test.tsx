@@ -42,7 +42,7 @@ describe("the Play page's controls over the castee, as over the video (D555 §8)
   });
 
   it("held upright out of full screen, draws the bar under the key frame and no overlay over it", async () => {
-    heldUpright();
+    vi.stubGlobal("matchMedia", heldUpright);
     await casting();
     const page = mounted!.container;
     expect(page.querySelector(".castee-play__bar")).not.toBeNull();

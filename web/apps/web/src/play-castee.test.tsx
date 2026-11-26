@@ -59,7 +59,7 @@ describe("the Play page over the castee (D555 §5, §8)", () => {
     page().querySelector(".castee-play__centre .pill")?.textContent ?? undefined;
 
   it("draws the Play page's own bar over the castee, its sign where the film plays, and not the cast remote's page", async () => {
-    heldUpright();
+    vi.stubGlobal("matchMedia", heldUpright);
     await casting();
     expect(page().querySelector(".castee-play h2")?.textContent).toBe("On: Fire TV");
     const bar = page().querySelector<HTMLElement>(".castee-play__bar.page-controls");

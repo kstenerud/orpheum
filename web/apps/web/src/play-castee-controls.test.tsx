@@ -337,7 +337,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
   });
 
   it("sets the film's level on the castee from the Play page's bar, Mute and the volume, sending each move, and draws neither before the castee says its level (D555 §10)", async () => {
-    heldUpright();
+    vi.stubGlobal("matchMedia", heldUpright);
     const { sockets } = await casting({});
     const page = mounted!.container;
     const server = sockets.session;

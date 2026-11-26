@@ -4,7 +4,6 @@
 // page reads of it, and the page drawn over it as film 4's Play page.
 
 import type { ReactNode } from "react";
-import { vi } from "vitest";
 import { uprightQuery } from "./input-mode.ts";
 import type { CasteePlay } from "./play-castee.tsx";
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
@@ -16,16 +15,20 @@ import { liveAndSession } from "./test-together.ts";
 import type { Upward } from "./upward.ts";
 
 /**
- * Holds the device upright, a phone's: out of full screen the Play page's controls are the bar under
- * the picture, the castee's key frame (D555 §8). Undone by vi.unstubAllGlobals.
+ * matchMedia on a device held upright, a phone's: out of full screen the Play page's controls are the
+ * bar under the picture, the castee's key frame (D555 §8). A test stubs it in with
+ * `vi.stubGlobal("matchMedia", heldUpright)`, undone by vi.unstubAllGlobals.
  */
-export function heldUpright(): void {
-  vi.stubGlobal("matchMedia", (query: string) => ({
+export function heldUpright(query: string): Pick<MediaQueryList, "matches" | "media"> & {
+  addEventListener: () => void;
+  removeEventListener: () => void;
+} {
+  return {
     matches: query === uprightQuery,
     media: query,
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
-  }));
+  };
 }
 
 /** Opens the remote's menu whose opener's name starts with name, as over the film. */
