@@ -32042,8 +32042,10 @@ the owner to place: what still lies under the stage (the plan's "Next batch").
 **Amends** D556 §1 and §2 (where the pad's lines sit, and what its bar's menus hold) and D555 §8
 (a guest's page).
 
-**Status:** decided. §1–5 have code on main, yet to be read back against these clauses; §6 is not
-built: a guest's page is still its own (`together-viewer.tsx`), given §1–4 by its own changes.
+**Status:** decided. §1–5 have code on main, read back against these clauses and walked on staging on a
+phone, a Chromecast and a Fire TV (2026-11-26); §6 has none: a guest's page is still its own
+(`together-viewer.tsx`), given §1–4 by its own changes. It is first in the next batch
+([the rework plan](../design/plans/playing-casting-together-rework.md)).
 
 1. **The "Ends" line sits under the way up.** The owner: *"The "Ends" line is placed wrong. It
    should be under the backlink at the top."*
