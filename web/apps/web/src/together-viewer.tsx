@@ -26,6 +26,7 @@ import {
   useRef,
   useState,
   type JSX,
+  type ReactNode,
   type RefObject,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -33,7 +34,7 @@ import { useTranslation } from "react-i18next";
 import { secretFromHash } from "./accounts.ts";
 import { AirPlayGrantsContext, sessionAirPlayGrants } from "./airplay.ts";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
-import { IsGuestContext } from "./guest-page.ts";
+import { GuestsMenusContext, IsGuestContext } from "./guest-page.ts";
 import { pageThatPausesWhenHidden } from "./handheld.ts";
 import { JoinForm } from "./together-join.tsx";
 import { useStageFillingFromTheVideo } from "./film-fullscreen.ts";
@@ -51,7 +52,7 @@ import { ownTrackPlaying } from "./ladder-sound.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { CommandRightsContext } from "./player-controls.tsx";
 import { useStallReports } from "./play-state.ts";
-import { GuestTracks } from "./together-guest-tracks.tsx";
+import { GuestTracksProvider } from "./together-guest-tracks.tsx";
 import { useDiagnosisNotes } from "./together-diagnosis.ts";
 import { useShowsAFilm } from "./film-showing.ts";
 import { useMembership } from "./together-membership.ts";
@@ -60,7 +61,6 @@ import { useGoneFromUnder, useSessionEnd } from "./together-session-end.ts";
 import { useServices, useToken } from "./services.tsx";
 import { NoSessionHere, SessionOver, usePastedLinks } from "./together-viewer-outside.tsx";
 import { Loaded } from "./loaded.tsx";
-import { DeviceSoundOffsetControl } from "./sound-delay.tsx";
 import { TogetherDebug } from "./together-debug.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useNotesTheGroupsFilmShown } from "./playing-here.ts";
@@ -354,13 +354,15 @@ export function FollowsTheGroupHere(props: { readonly credential: string }): JSX
   });
   const kept = useKeptVideo();
   return (
-    <ViewingArea
-      kept={kept}
-      isVoiceWaiting={false}
-      credential={props.credential}
-      connection={connection}
-      snapshot={snapshot}
-    />
+    <GuestsMenusContext value={false}>
+      <ViewingArea
+        kept={kept}
+        isVoiceWaiting={false}
+        credential={props.credential}
+        connection={connection}
+        snapshot={snapshot}
+      />
+    </GuestsMenusContext>
   );
 }
 
@@ -496,7 +498,7 @@ function GroupFilm(props: {
             {value.titleName === undefined ? null : (
               <p className="together-viewer__title">{value.titleName}</p>
             )}
-            <IsGuestContext value={true}>
+            <GuestsPage>
               <GuestsCommands
                 connection={connection}
                 fileId={props.fileId}
@@ -510,7 +512,7 @@ function GroupFilm(props: {
                   composition={composition}
                 />
               </GuestsCommands>
-            </IsGuestContext>
+            </GuestsPage>
           </GuestFilmContext>
         );
       }}
@@ -535,9 +537,24 @@ function guestsComposition(
     askAbout: undefined,
     over: FollowingGroup,
     under: UnderTheGuestsFilm,
+    around: GuestsTracks,
     keptVideo,
     isOfferedToAirPlay: isOfferedToAirPlay ?? (canPlayPause || canSeek),
   };
+}
+
+/**
+ * The guest's page: its sound and subtitles the guest's own (IsGuestContext), and its menus drawn, as
+ * its own device draws them, unless a cast's receiver takes the guest's part and says it draws none
+ * (FollowsTheGroupHere, GuestsMenusContext).
+ */
+function GuestsPage(props: { readonly children: ReactNode }): JSX.Element {
+  const isDrawn = use(GuestsMenusContext) ?? true;
+  return (
+    <IsGuestContext value={true}>
+      <GuestsMenusContext value={isDrawn}>{props.children}</GuestsMenusContext>
+    </IsGuestContext>
+  );
 }
 
 /** What the guest's pieces of the player need of its page: the film, the group, the membership. */
@@ -564,9 +581,16 @@ function useGuestFilm(): GuestFilm {
   return film;
 }
 
+/** Around the guest's stage: the guest's own tracks and timing, for its menus (GuestTracksProvider). */
+function GuestsTracks(props: FilmParts & { readonly children: ReactNode }): JSX.Element {
+  const film = useGuestFilm();
+  return <GuestTracksProvider {...props} {...film} />;
+}
+
 /**
  * Under the guest's film: its stalls reported by the membership, the original's (useMovingDown), or
- * a ladder's word that its lowest cannot keep up (D247 §8); the guest's sound, subtitles and offset.
+ * a ladder's word that its lowest cannot keep up (D247 §8). The guest's sound, subtitles and timing
+ * are its menus' (GuestsTracks), none of them under the film (the owner, 2026-11-26).
  */
 function GuestStalls(props: FilmParts): JSX.Element {
   const film = useGuestFilm();
@@ -581,8 +605,6 @@ function GuestStalls(props: FilmParts): JSX.Element {
           cannotKeepUp={ladder.cannotKeepUp}
         />
       )}
-      <GuestTracks {...props} {...film} />
-      <DeviceSoundOffsetControl videoRef={props.videoRef} />
     </>
   );
 }

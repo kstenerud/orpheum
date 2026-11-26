@@ -168,22 +168,10 @@ export function SoundOffsetControl(props: {
   readonly isInAList?: boolean;
 }): JSX.Element | null {
   const { t } = useTranslation();
-  const { session } = useServices();
   const offsetMs = useDeviceSoundOffsetMs(props.initialMs);
   const fileMs = useFileSoundOffset(props.file).ms;
-  const { keep, failure } = useKeptOnDevice();
-  // Whether the sound is wanted earlier than this film can play it: it plays as its own file.
-  const [isEarlierRefused, setIsEarlierRefused] = useState(false);
+  const { setTo, isEarlierRefused, failure } = useDeviceOffsetSet(props.videoRef, fileMs);
   useSoundOffsetApplied(props.videoRef, offsetMs + fileMs);
-  const deviceId = session.deviceId();
-  const setTo = (wanted: number): void => {
-    const next = heldToLongest(wanted);
-    deviceInThisTab.set(next);
-    setIsEarlierRefused(isEarlierRefusedFor(props.videoRef, next + fileMs));
-    if (deviceId !== undefined) {
-      keep({ deviceId, ms: next });
-    }
-  };
   const isInAList = props.isInAList === true;
   useMovedByTheRemote(isInAList ? undefined : offsetMs, setTo);
   return (
@@ -283,15 +271,50 @@ export function SoundOffsetInput(props: {
 }
 
 /**
- * The sound timing starting from the offset kept with the device this tab is signed in on, and from
- * in step for a tab on none, where no playback gives one: a Watch Together viewer's under the film
- * (the owner, 2026-11-06: "Make it respect the sound offset. Put a control in watch together"), as
- * the server gives a guest's playback none.
+ * This device's sound timing where no control of it is drawn but while one may be: a Watch Together
+ * guest's, whose Sound menu (sound-menu.tsx) holds the control and comes and goes (the owner,
+ * 2026-11-26: "put in their relative submenus"). It starts from the offset kept with the device this
+ * tab is signed in on, and from in step for a tab on none, as the server gives a guest's playback
+ * none (the owner, 2026-11-06: "Make it respect the sound offset. Put a control in watch together"),
+ * and returns that start, for the menu's control. It plays the sound with the offset as the menu
+ * leaves it, and has a cast's remote move it, a guest's part played on a receiver drawing no menu.
  */
-export function DeviceSoundOffsetControl(props: {
-  readonly videoRef: RefObject<HTMLVideoElement | null>;
-}): JSX.Element | null {
-  return <SoundOffsetControl videoRef={props.videoRef} initialMs={useThisDeviceSoundOffsetMs()} />;
+export function useThisDeviceSoundTiming(videoRef: RefObject<HTMLVideoElement | null>): number {
+  const initialMs = useThisDeviceSoundOffsetMs();
+  const offsetMs = useDeviceSoundOffsetMs(initialMs);
+  const { setTo } = useDeviceOffsetSet(videoRef, 0);
+  useSoundOffsetApplied(videoRef, offsetMs);
+  useMovedByTheRemote(offsetMs, setTo);
+  return initialMs;
+}
+
+/**
+ * Sets the device's offset this tab plays with, held to the longest, and keeps it with the device
+ * as presses settle (useKeptOnDevice); says whether it is wanted earlier, with the file's fileMs,
+ * than this film can play it, and a write that failed.
+ */
+function useDeviceOffsetSet(
+  videoRef: RefObject<HTMLVideoElement | null>,
+  fileMs: number,
+): {
+  readonly setTo: (wanted: number) => void;
+  readonly isEarlierRefused: boolean;
+  readonly failure: { readonly cause: unknown } | undefined;
+} {
+  const { session } = useServices();
+  const { keep, failure } = useKeptOnDevice();
+  // Whether the sound is wanted earlier than this film can play it: it plays as its own file.
+  const [isEarlierRefused, setIsEarlierRefused] = useState(false);
+  const deviceId = session.deviceId();
+  const setTo = (wanted: number): void => {
+    const next = heldToLongest(wanted);
+    deviceInThisTab.set(next);
+    setIsEarlierRefused(isEarlierRefusedFor(videoRef, next + fileMs));
+    if (deviceId !== undefined) {
+      keep({ deviceId, ms: next });
+    }
+  };
+  return { setTo, isEarlierRefused, failure };
 }
 
 /**
@@ -306,8 +329,8 @@ function useThisDeviceSoundOffsetMs(): number {
 
 /**
  * Has a cast's remote move the timing too, as the control's own press (sound-panel.ts): the control
- * under the video says how it stands, ms, and ⁝'s copy, which comes and goes, says nothing
- * (undefined).
+ * under the video, or a guest's timing held for its menu (useThisDeviceSoundTiming), says how it
+ * stands, ms, and the Sound menu's copy, which comes and goes, says nothing (undefined).
  */
 function useMovedByTheRemote(ms: number | undefined, setTo: (ms: number) => void): void {
   useSoundPart(ms === undefined ? undefined : { kind: "soundOffset", ms }, (choice) => {

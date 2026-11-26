@@ -12,16 +12,10 @@ import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { airPlayHere } from "./airplay-here.ts";
-import {
-  buttonWithText,
-  chooseIn,
-  click,
-  fire,
-  mount,
-  settleUntil,
-  type Mounted,
-} from "./test-dom.tsx";
+import { buttonWithText, click, fire, mount, settleUntil, type Mounted } from "./test-dom.tsx";
+import { heldUpright } from "./test-castee.tsx";
 import { directDecision, unmeasuredSound } from "./test-fixtures.ts";
+import { choosing, opened, openedSubmenu } from "./test-player-menus.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
 import { TogetherViewer } from "./together-viewer.tsx";
@@ -195,6 +189,8 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
     releaseRevoke = undefined;
     // Safari's AirPlay, as the page finds it.
     vi.stubGlobal("WebKitPlaybackTargetAvailabilityEvent", Event);
+    // Held upright, the page draws its menus' row under the film, where the test finds them.
+    vi.stubGlobal("matchMedia", heldUpright);
     Object.defineProperty(HTMLMediaElement.prototype, "webkitShowPlaybackTargetPicker", {
       value(this: HTMLMediaElement) {
         pickers.push(this);
@@ -211,6 +207,16 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
     Reflect.deleteProperty(HTMLMediaElement.prototype, "webkitShowPlaybackTargetPicker");
     Reflect.deleteProperty(HTMLMediaElement.prototype, "audioTracks");
   });
+
+  /** The guest's French sound chosen in its Sound menu, where its tracks are (the owner, 2026-11-26). */
+  async function frenchChosen(): Promise<void> {
+    if (mounted === undefined) {
+      throw new Error("the guest's page is not drawn");
+    }
+    await opened(mounted, "Sound");
+    await openedSubmenu(mounted, "Sound track");
+    await choosing(mounted, "French");
+  }
 
   /** The core, answering the guest's page as it does, refusing what a guest may not call. */
   function guestsServer(): (request: Request) => Promise<Response> {
@@ -346,8 +352,8 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
 
   it("asks its grant with the audio track the guest chose on their page, which AirPlay plays (D521 §2)", async () => {
     hasTwoSounds = true;
-    const container = await joinedAsTheFilmPlays();
-    await chooseIn(container, "Sound", "French");
+    await joinedAsTheFilmPlays();
+    await frenchChosen();
     await airPlays();
     expect(grantsAsked().map((each) => each.body)).toEqual([
       { mediaToken: "film-5", audioTrackIndex: 1 },
@@ -364,8 +370,10 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
       seq: 5,
       group: { state: "playing", positionMs: 60_000, rate: 1, fileId: 5 },
     });
-    await settleUntil(() => container.querySelector(".route-chooser") !== null);
-    await chooseIn(container, "Sound", "French");
+    await settleUntil(
+      () => container.querySelector('[aria-haspopup][aria-label^="Sound"]') !== null,
+    );
+    await frenchChosen();
     const video = container.querySelector("video");
     if (video === null) {
       throw new Error("no video");

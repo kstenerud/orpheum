@@ -317,8 +317,8 @@ something (for submenus, only if there's at least one submenu item that can do s
 and watch together buttons only show once (top bar if it's visible, bottom bar otherwise). Never
 offer the fullscreen mode button when casting. If they do enable fullscreen mode through their
 browser's controls while casting, we present a similar display layout to the non-fullscreen
-one." Put back: the castee's Play page laid out as the remote was before D555 (the bar with _On:
-‹TV›_ and the end, the key frame with its offers and centre pill, the timeline with the time
+one." Put back: the castee's Play page laid out as the remote was before D555 (the bar with *On:
+‹TV›* and the end, the key frame with its offers and centre pill, the timeline with the time
 under it, the 3×3 pad, the menus' row end-aligned), one column upright and two on its side or
 wide, in and out of full screen, with no overlay and no ⤢, F doing nothing and the page leaving
 full screen as it opens (`src/remote-pad.tsx`, `src/play-castee.tsx`); D555's one Play page, its
@@ -364,9 +364,12 @@ goes above it (`src/play-castee.css`, `src/page-controls.css`). Pinned in both e
 - A file whose picture starts after its sound (an MP4 empty edit, 105 ms in file 1282) may now play
   with that much between picture and sound; measure before changing anything.
 - What still lies under the stage after D556, each needing the owner's choice of a home: the
-  Watch Together host's and guest's panel (news, voice, volume), a guest's own tracks and sound
-  timing, the castee's Watch Together controls, and the lasting alerts (where you are is no longer
-  kept, stopped by the admin, the original-format line).
+  Watch Together host's and guest's panel (news and voice), the castee's Watch Together controls,
+  and the lasting alerts (where you are is no longer kept, stopped by the admin, the
+  original-format line). The owner, 2026-11-26, gave two of them theirs: every Watch Together
+  volume is in the bar's 🔈 (VolumeMenu; over a castee, CasteesVoices), and a guest's own tracks
+  and sound timing are in its Subtitles and Sound menus (GuestTracksProvider), each shown only
+  where it can do something.
 - On Home, Down from the Home mark lands on the first Continue Watching card's more-actions button,
   not its poster; the owner's to say which is wanted.
 
@@ -523,8 +526,10 @@ browser castee does, the audio track, dialogue boost and levelling (switched in 
 for the person as the Play page keeps it) and the sound timing (for the film alone); its Subtitles
 menu, the core's tracks shown as the video's own WebVTT track at the person's timing; and quality,
 which it already followed. The pad's volume and mute set the TV's own volume through the caster's
-Cast session, and follow the TV's remote. Not offered: the
-original file (the receiver asks for no container of a file's own), the film's own channel (the
-device's volume stands for it), a file's sound offset, and a subtitle found from the remote until
-the next film (the receiver's README and its panels say why). After a page reload the pad has no volume for a cast it did not start: the Cast
-session is that page's (idiosyncrasies.md). VQ407 walks it on the device.
+Cast session, and follow the TV's remote. Not offered: the original file (the receiver asks for
+no container of a file's own), the film's own channel (the device's volume stands for it), a
+file's sound offset, and a subtitle found from the remote until the next film (the receiver's
+README and its panels say why). After a page reload the pad has no volume for a cast it did not
+start: the Cast session is that page's (idiosyncrasies.md). VQ407 walks it on the device. The
+Watch Together volumes and a guest's tracks and timing went into the bar's menus, as the
+"Next batch" item above says.

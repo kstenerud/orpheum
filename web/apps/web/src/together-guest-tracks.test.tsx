@@ -7,9 +7,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { apiPrefix } from "@orpheum/sdk";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { buttonWithText, chooseIn, click, mount, type Mounted } from "./test-dom.tsx";
+import { buttonWithText, click, mount, type Mounted } from "./test-dom.tsx";
+import { choosing, opened, openedSubmenu, places } from "./test-player-menus.tsx";
 import type { SubtitleTrack } from "./subtitles.tsx";
 import { directDecision, unmeasuredSound } from "./test-fixtures.ts";
 import { heldUpright } from "./test-castee.tsx";
@@ -148,9 +149,14 @@ const welcome = {
 describe("a Watch Together guest's sound and subtitles (D471)", () => {
   let mounted: Mounted | undefined;
   const tracks = { length: 2, 0: { enabled: true }, 1: { enabled: false } };
+  // Held upright, the page draws its menus' row under the film, where the test finds them.
+  beforeEach(() => {
+    vi.stubGlobal("matchMedia", heldUpright);
+  });
   afterEach(() => {
     mounted?.unmount();
     mounted = undefined;
+    vi.unstubAllGlobals();
     Reflect.deleteProperty(HTMLMediaElement.prototype, "audioTracks");
     window.localStorage.clear();
   });
@@ -182,8 +188,14 @@ describe("a Watch Together guest's sound and subtitles (D471)", () => {
       group: { state: "playing", positionMs: 60_000, rate: 1, fileId: 5 },
     });
     const heardBefore = server.heard.length;
-    await chooseIn(container, "Subtitles", "French");
-    await chooseIn(container, "Sound", "French");
+    // Each in its menu, none under the film (the owner, 2026-11-26).
+    expect(container.querySelector(".route-chooser")).toBeNull();
+    await opened(mounted, "Subtitles");
+    await openedSubmenu(mounted, "Subtitles");
+    await choosing(mounted, "French");
+    await opened(mounted, "Sound");
+    await openedSubmenu(mounted, "Sound track");
+    await choosing(mounted, "French");
     expect([tracks[0].enabled, tracks[1].enabled]).toEqual([false, true]);
     expect(kept.wants).toEqual([{ soundStream: "sound1-own", positionMs: 0, isPaused: true }]);
     expect(kept.asked).toContain("GET /bytes/media/sub/t/7.ass");
@@ -213,10 +225,10 @@ describe("a Watch Together guest's sound and subtitles (D471)", () => {
       seq: 2,
       group: { state: "playing", positionMs: 60_000, rate: 1, fileId: 5 },
     });
-    const fields = [...container.querySelectorAll(".route-chooser__field")].map(
-      (each) => each.textContent,
-    );
-    expect(fields).toEqual(["Subtitles"]);
+    await opened(mounted, "Subtitles");
+    expect(places(mounted).some((place) => place.startsWith("Subtitles"))).toBe(true);
+    await opened(mounted, "Sound");
+    expect(places(mounted).some((place) => place.startsWith("Sound track"))).toBe(false);
     expect(kept.refused).toEqual([]);
   });
 });

@@ -17,3 +17,14 @@ export const IsGuestContext: Context<boolean> = createContext(false);
 export function useIsGuest(): boolean {
   return useContext(IsGuestContext);
 }
+
+/**
+ * Whether a Watch Together guest's page draws the Play page's menus, which hold the guest's own
+ * tracks and sound timing (the owner, 2026-11-26: "put in their relative submenus"): true on the
+ * guest's own device (together-viewer.tsx's GroupFilm), false on a cast's receiver that takes a
+ * guest's part (FollowsTheGroupHere), whose remote holds its choices (D407 §12); undefined on every
+ * other page, whose menus its PlayUpwardContext decides.
+ */
+export const GuestsMenusContext: Context<boolean | undefined> = createContext<boolean | undefined>(
+  undefined,
+);

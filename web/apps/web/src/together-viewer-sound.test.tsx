@@ -3,7 +3,7 @@
 
 import "./i18n.ts";
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LiveProvider } from "./live.tsx";
 import { createNavigation } from "./navigation.ts";
@@ -20,6 +20,8 @@ import {
 } from "./test-dom.tsx";
 import { directDecision, television } from "./test-fixtures.ts";
 import { fakePlace, withServices } from "./test-services.tsx";
+import { heldUpright } from "./test-castee.tsx";
+import { opened } from "./test-player-menus.tsx";
 import { liveAndSession } from "./test-together.ts";
 import { GroupFilmPage } from "./together-viewer.tsx";
 
@@ -42,6 +44,12 @@ const welcome = {
 beforeEach(() => {
   window.sessionStorage.clear();
   window.localStorage.clear();
+  // Held upright, the page draws its menus' row under the film, where the test finds them.
+  vi.stubGlobal("matchMedia", heldUpright);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 /**
@@ -110,22 +118,34 @@ async function groupFilm(
   return mounted;
 }
 
+/**
+ * Opens the guest's Sound menu, where this device's timing is, none of it under the film (the owner,
+ * 2026-11-26: "put in their relative submenus").
+ */
+async function soundMenuOpened(mounted: Mounted): Promise<void> {
+  expect(mounted.container.querySelector(".play__sound-delay")).toBeNull();
+  await opened(mounted, "Sound");
+}
+
+/** What the Sound menu's This device says of the timing: how much earlier the sound plays. */
+function earlierBy(ms: number): string {
+  return `Sound plays ${String(ms)} ms earlier on this device`;
+}
+
 describe("a Watch Together viewer's sound timing (the owner, 2026-11-06)", () => {
   it("starts from the offset kept with the device the viewer is signed in on, as the server gives a guest's playback none", async () => {
     const mounted = await groupFilm(7);
-    await settleUntil(() =>
-      mounted.container.textContent.includes("Sound on this device: 200 ms earlier"),
-    );
-    expect(buttonNamed(mounted.container, "Sound 50 ms earlier")).toBeDefined();
+    await soundMenuOpened(mounted);
+    await settleUntil(() => mounted.container.textContent.includes(earlierBy(200)));
+    expect(buttonNamed(mounted.container, "This device earlier")).toBeDefined();
     mounted.unmount();
   });
 
   it("takes that offset from who the shell read as signed in, asking for no list of devices (D480 §5)", async () => {
     const heard: Heard[] = [];
     const mounted = await groupFilm(7, heard);
-    await settleUntil(() =>
-      mounted.container.textContent.includes("Sound on this device: 200 ms earlier"),
-    );
+    await soundMenuOpened(mounted);
+    await settleUntil(() => mounted.container.textContent.includes(earlierBy(200)));
     const asked = heard.map((each) => each.methodAndPath);
     expect(asked).not.toContain("GET /me/devices");
     expect(asked).not.toContain("GET /me");
@@ -135,20 +155,18 @@ describe("a Watch Together viewer's sound timing (the owner, 2026-11-06)", () =>
   it("drawn alone, takes it from GET /me's device, still asking for no list of devices", async () => {
     const heard: Heard[] = [];
     const mounted = await groupFilm(7, heard, true);
-    await settleUntil(() =>
-      mounted.container.textContent.includes("Sound on this device: 200 ms earlier"),
-    );
+    await soundMenuOpened(mounted);
+    await settleUntil(() => mounted.container.textContent.includes(earlierBy(200)));
     expect(heard.map((each) => each.methodAndPath)).not.toContain("GET /me/devices");
     mounted.unmount();
   });
 
   it("starts in step for a viewer with no device of their own, who may still move it", async () => {
     const mounted = await groupFilm(undefined);
-    await settleUntil(() =>
-      mounted.container.textContent.includes("Sound on this device: in step"),
-    );
-    await click(buttonNamed(mounted.container, "Sound 50 ms earlier"));
-    expect(mounted.container.textContent).toContain("Sound on this device: 50 ms earlier");
+    await soundMenuOpened(mounted);
+    expect(mounted.container.textContent).toContain(earlierBy(0));
+    await click(buttonNamed(mounted.container, "This device earlier"));
+    expect(mounted.container.textContent).toContain(earlierBy(50));
     mounted.unmount();
   });
 });

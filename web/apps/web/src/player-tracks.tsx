@@ -45,13 +45,20 @@ import { playsOwnFile, type PlaybackDecision } from "./watching.ts";
 export interface PlayerTracks {
   readonly subtitles: SubtitleChoice;
   readonly audio: AudioChoice;
-  readonly levelling: OwnChoiceState;
+  /** Levelling, undefined where it is no one's own choice to keep: a Watch Together guest's (D471). */
+  readonly levelling?: OwnChoiceState | undefined;
   /** The sound playing now, which levelling levels, taken up once it is measured as it plays. */
   readonly level: SoundLevel;
   /** How long measuring the sound playing will take, while it is not measured. */
   readonly measuring: FileWait | undefined;
   /** The dialogue boost, undefined where the sound playing has no boost to offer. */
   readonly boost: OwnChoiceState | undefined;
+  /**
+   * Where the page plays no film of its own, a Watch Together guest's, the device's sound offset its
+   * timing starts from, which the Sound menu's This device sets; undefined where the page's ways give
+   * the timing (PlayerMenusWays), or none.
+   */
+  readonly deviceTimingMs?: number | undefined;
 }
 
 /** The film's tracks, for what the page draws over or under it; undefined outside a film. */

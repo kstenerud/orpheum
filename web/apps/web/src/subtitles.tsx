@@ -207,7 +207,7 @@ export function useSubtitleChoice(props: SubtitleChoiceWays): SubtitleChoice {
 export function SubtitleControls(props: { readonly choice: SubtitleChoice }): JSX.Element | null {
   const { t } = useTranslation();
   const { tracks, offsetMs, shiftOffset, failure } = props.choice;
-  useChoiceWorkedByARemote(props.choice);
+  useSubtitlesWorkedByARemote(props.choice);
   if (tracks.length === 0) {
     return null;
   }
@@ -227,7 +227,7 @@ export function SubtitleControls(props: { readonly choice: SubtitleChoice }): JS
  * their timing, and choose among them and move the timing, a choice there made as one here is
  * (picture-panel.ts, D440 §5): the timing by the stepper's own shiftOffset.
  */
-function useChoiceWorkedByARemote(choice: SubtitleChoice): void {
+export function useSubtitlesWorkedByARemote(choice: SubtitleChoice): void {
   const { t, i18n } = useTranslation();
   const { tracks, chosenTrackKey, choose, offsetMs, shiftOffset } = choice;
   const options = useMemo(() => {

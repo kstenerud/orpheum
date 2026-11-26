@@ -24,6 +24,7 @@ import { isThisHandheld } from "./handheld.ts";
 import { useHeldDown } from "./held-down.ts";
 import { useCommands } from "./input-layer.tsx";
 import { useLatest } from "./latest.ts";
+import { GuestsMenusContext } from "./guest-page.ts";
 import { OverlayUp, PlayUpwardContext } from "./play-up.tsx";
 import { usePlayersControls, type PlayerStage } from "./player-commands.ts";
 import type { PlaybackTarget, PlayerSource } from "./playback-target.ts";
@@ -402,6 +403,8 @@ export function useControlsShown(
   const isVolumeSettable = useIsVolumeSettable();
   const voice = useSessionVoice();
   const rights = use(CommandRightsContext);
+  // A Watch Together guest's own page has no Up but draws the menus that hold its tracks.
+  const isGuestsMenus = use(GuestsMenusContext);
   return controlsShown({
     ...rights,
     isTelevision: isTv,
@@ -410,7 +413,7 @@ export function useControlsShown(
     hasVoicesToMix: voice !== undefined && peopleOf(voice.snapshot).length > 0,
     hasPrevious: moves?.previous !== undefined,
     hasNext: moves?.next !== undefined,
-    isReceiver: upward === undefined,
+    isReceiver: upward === undefined && isGuestsMenus !== true,
   });
 }
 

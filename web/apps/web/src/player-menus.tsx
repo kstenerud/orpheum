@@ -19,6 +19,7 @@ import { useTranslation } from "react-i18next";
 import { ForTestersContext, ForTestersShown } from "./for-testers.tsx";
 import { QualityChoices, useIsWithinCap } from "./data-cap-choices.tsx";
 import { DebugTool, useShowsDebugTools } from "./debug-tools.tsx";
+import { useIsGuest } from "./guest-page.ts";
 import { HowItPlays } from "./how-it-plays.tsx";
 import { ListNote, ListOption } from "./list-box.tsx";
 import { DialogClose, ModalDialog } from "./modal-dialog.tsx";
@@ -36,7 +37,7 @@ import {
   type SuggestedSoundOffset,
 } from "./problem-report.tsx";
 import type { FileSoundOffset } from "./sound-delay.tsx";
-import { SoundMenu } from "./sound-menu.tsx";
+import { SoundMenu, type SoundMenuTiming } from "./sound-menu.tsx";
 import { ChoicesSubmenu, KeptOpen, MoreMenuOf, SubtitlesMenuOf } from "./over-video-menu.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
 import { OffsetControl, useSubtitleChoices, type SubtitleChoice } from "./subtitles.tsx";
@@ -233,6 +234,8 @@ function TrackMenus(props: {
   readonly onTesters: (() => void) | undefined;
 }): JSX.Element {
   const { tracks, shown, toldOf, ways, onTellTheAdmin } = props;
+  // A guest's ⁝ would hold Start over alone, which is the group's to do, not one viewer's (D471).
+  const isGuest = useIsGuest();
   return (
     <>
       {shown.includes("subtitles") ? (
@@ -245,23 +248,12 @@ function TrackMenus(props: {
       {shown.includes("audio") ? (
         <SoundMenu
           tracks={tracks}
-          timing={
-            ways === undefined || onTellTheAdmin === undefined
-              ? undefined
-              : {
-                  deviceInitialMs: ways.soundOffsetMs,
-                  file:
-                    ways.fileSoundOffset === undefined
-                      ? undefined
-                      : { fileId: ways.fileId, initial: ways.fileSoundOffset },
-                  onTellTheAdmin,
-                }
-          }
+          timing={soundMenuTiming(ways, onTellTheAdmin, tracks.deviceTimingMs)}
           videoRef={props.videoRef}
           onOpenChange={toldOf("audio")}
         />
       ) : null}
-      {shown.includes("more") ? (
+      {shown.includes("more") && !isGuest ? (
         <MoreMenu
           ways={props.ways}
           videoRef={props.videoRef}
@@ -272,6 +264,36 @@ function TrackMenus(props: {
       ) : null}
     </>
   );
+}
+
+/**
+ * The Sound menu's timing: the page's, where it plays a film of its own, This device and This file
+ * from its ways; a Watch Together guest's, This device alone, from deviceTimingMs, which has no file
+ * offset to tell the admin of; none on a cast's receiver.
+ */
+function soundMenuTiming(
+  ways: PlayerMenusWays | undefined,
+  onTellTheAdmin: ((suggested: SuggestedSoundOffset) => void) | undefined,
+  deviceTimingMs: number | undefined,
+): SoundMenuTiming | undefined {
+  if (ways !== undefined && onTellTheAdmin !== undefined) {
+    return {
+      deviceInitialMs: ways.soundOffsetMs,
+      file:
+        ways.fileSoundOffset === undefined
+          ? undefined
+          : { fileId: ways.fileId, initial: ways.fileSoundOffset },
+      onTellTheAdmin,
+    };
+  }
+  return deviceTimingMs === undefined
+    ? undefined
+    : { deviceInitialMs: deviceTimingMs, file: undefined, onTellTheAdmin: noFileToTell };
+}
+
+/** Tell the admin where there is no file's offset to tell, which the Sound menu never offers. */
+function noFileToTell(): void {
+  // Tell the admin is drawn only beside a file's offset (FileSoundOffsetEntries).
 }
 
 /**

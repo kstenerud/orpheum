@@ -34,30 +34,40 @@ export interface SoundMenuTiming {
  * with Make it everyone's or Tell the admin beneath it (file-sound-offset.tsx). The two timings are
  * shown apart, never as a total; the sound plays with both (D537 §1). The timing's steppers keep it
  * open; its other choices close it. Where the page gives no timing (timing undefined, a cast's
- * receiver), it holds the tracks and switches alone.
+ * receiver), it holds the tracks and switches alone. Each is drawn only where it has a use (the
+ * owner, 2026-11-26: "visible only when it makes sense"): a Watch Together guest's has no Level
+ * loudness, a person's own choice the server keeps (D471), and its timing This device alone; a menu
+ * with nothing in it is not drawn.
  */
 export function SoundMenu(props: {
   readonly tracks: PlayerTracks;
   readonly timing: SoundMenuTiming | undefined;
   readonly videoRef: RefObject<HTMLVideoElement | null>;
   readonly onOpenChange: (isOpen: boolean) => void;
-}): JSX.Element {
+}): JSX.Element | null {
   const { t } = useTranslation();
   const { tracks, timing, videoRef } = props;
+  const { levelling, boost } = tracks;
   const trackChoices = useAudioChoices(tracks.audio);
+  if (
+    trackChoices.length < 2 &&
+    levelling === undefined &&
+    boost === undefined &&
+    timing === undefined
+  ) {
+    return null; // nothing to choose (the owner, 2026-11-23)
+  }
   return (
     <SoundMenuOf onOpenChange={props.onOpenChange}>
       <ChoicesSubmenu name={t("play.audio.menu")} choices={trackChoices} />
-      <ListEntry>
-        <LevelLoudnessEntry
-          level={tracks.level}
-          measuring={tracks.measuring}
-          state={tracks.levelling}
-        />
-      </ListEntry>
-      {tracks.boost === undefined ? null : (
+      {levelling === undefined ? null : (
         <ListEntry>
-          <BoostBox state={tracks.boost} />
+          <LevelLoudnessEntry level={tracks.level} measuring={tracks.measuring} state={levelling} />
+        </ListEntry>
+      )}
+      {boost === undefined ? null : (
+        <ListEntry>
+          <BoostBox state={boost} />
         </ListEntry>
       )}
       {timing === undefined ? null : <TimingEntries timing={timing} videoRef={videoRef} />}
