@@ -116,11 +116,31 @@ export async function shownOverTheFilm(
   page: Page,
   name: string | RegExp,
 ): Promise<ReturnType<Page["locator"]>> {
-  await page.locator("video").waitFor(); // the film's box, once the player has drawn it
-  const film = await page.locator("video").boundingBox();
-  if (film !== null) {
-    await page.mouse.move(film.x + film.width / 2, film.y + film.height / 2);
-    await page.mouse.move(film.x + film.width / 2 + 8, film.y + film.height / 2 + 8);
+  return await shownOver(page, "video", name); // the film's box, once the player has drawn it
+}
+
+/**
+ * A control of the overlay over the castee's key frame on a computer (D555 §8), by its name: hidden
+ * while the castee plays, as over the film, so the pointer moves over the key frame first.
+ */
+export async function shownOverTheCastee(
+  page: Page,
+  name: string | RegExp,
+): Promise<ReturnType<Page["locator"]>> {
+  return await shownOver(page, ".castee-play__stage", name);
+}
+
+/** The overlay's control by its name, the pointer moved over what (a selector) first, as a person's. */
+async function shownOver(
+  page: Page,
+  what: string,
+  name: string | RegExp,
+): Promise<ReturnType<Page["locator"]>> {
+  await page.locator(what).waitFor();
+  const box = await page.locator(what).boundingBox();
+  if (box !== null) {
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.move(box.x + box.width / 2 + 8, box.y + box.height / 2 + 8);
   }
   return page.locator(".player-overlay").getByRole("button", { name });
 }

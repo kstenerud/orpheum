@@ -23,6 +23,7 @@ import {
   shownOverTheFilm,
   signInTheTopBar,
   signIn,
+  shownOverTheCastee,
 } from "./pages.ts";
 import { secondFilm, warmUpFilm } from "./server.ts";
 
@@ -141,12 +142,12 @@ test(
 
       // A computer's hidden page plays on, so its receiver follows its remote hidden or not.
       await setHidden(receiver, true);
-      await sender.getByRole("button", { name: "Pause" }).click();
+      await (await shownOverTheCastee(sender, "Pause")).click();
       await expect
         .poll(async () => await isPaused(receiver), { timeout: pausedWithinMs, intervals: [50] })
         .toBe(true);
       await setHidden(receiver, false);
-      await sender.getByRole("button", { name: "Play", exact: true }).click();
+      await (await shownOverTheCastee(sender, /^Play$/u)).click();
       await expect.poll(async () => await isPaused(receiver), { timeout: 10_000 }).toBe(false);
 
       // The session goes on: the next film the sender plays plays on the receiver (D364 §3).
@@ -172,7 +173,7 @@ test(
       // comes first, from the live connection, and a cast ended as the remote said hello was
       // only "over" to it, the server knowing the session no more (check-pr, 2026-10-29).
       // How it plays is a read-only entry of the remote's ⁝ (D444).
-      await sender.locator(".castee-play").getByRole("button", { name: "Settings" }).click();
+      await (await shownOverTheCastee(sender, "Settings")).click();
       await expect(sender.getByText(/^Playing: /u)).toBeVisible({
         timeout: 10_000,
       });
