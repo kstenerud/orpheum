@@ -103,10 +103,7 @@ func plannedSubcommands() []subcommand {
 				"not start (D524 §5)",
 			implementation: commandBugreport,
 		},
-		{
-			name: "setup-code", summary: "print the one-time code that creates the first admin",
-			implementation: commandSetupCode,
-		},
+		{name: "setup-code", summary: "print the one-time code for the first admin", implementation: commandSetupCode},
 		{
 			name: "reset-admin", summary: "make one person the only admin, with a new password, " +
 				"read from standard input (D294)",
@@ -117,6 +114,7 @@ func plannedSubcommands() []subcommand {
 				"password and the key read from standard input (D334 §3)",
 			implementation: commandPair,
 		},
+		{name: "relay", summary: "run the hosted TURN relay from its config file (D558)", implementation: commandRelay},
 		{name: "openapi", summary: "print the API's OpenAPI document", implementation: commandOpenAPI},
 		{
 			name: "compose-files", summary: "write each route's published compose file under the repository " +

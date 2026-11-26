@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Command orpheum is the Orpheum media server: one binary whose subcommand chooses the role
-// (core, node) or the operation (migrate, backup, restore, doctor, bugreport, setup-code, reset-admin,
+// (core, node, relay) or the operation (migrate, backup, restore, doctor, bugreport, setup-code, reset-admin,
 // openapi, version, and dev in dev builds). The core and each node are services of their own, `orpheum core` and
 // `orpheum node`, which the runtime starts and restarts (D233 §2, D235 §4); the core starts no node.
 // `orpheum start` is the core of a deployment installed from one compose file, which writes the
@@ -135,7 +135,8 @@
 //     password read without echo.
 //     deployment.go: write-deployment and install-script; start.go: start, the first start (D447).
 //     doctor.go: doctor, the one list of what to fix. bugreport.go: bugreport, a problem report
-//     from the command line (D524 §5). dev_seed.go: orpheum dev seed, in dev
+//     from the command line (D524 §5). relay.go: relay, the hosted TURN relay from its config file
+//     and secrets file (D558). dev_seed.go: orpheum dev seed, in dev
 //     builds only.
 //   - serve.go's openAndWire and wireCore: what is opened, seeded and read for the assembly, and what
 //     is made beside it. A service of the core's, or its wiring to another, is

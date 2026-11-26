@@ -75,6 +75,10 @@ func TestDispatch_BuiltSubcommandsNeedTheirInstance(t *testing.T) {
 		if planned.name == "compose-files" {
 			want = composeFilesUsage
 		}
+		// The hosted relay has no instance: its config file is its whole setting (D558).
+		if planned.name == "relay" {
+			want = "--config is required"
+		}
 		// bugreport's form word comes first, and its usage names the instance it needs too.
 		if planned.name == "bugreport" {
 			want = "Usage: orpheum bugreport safe|unsafe --instance <directory>"

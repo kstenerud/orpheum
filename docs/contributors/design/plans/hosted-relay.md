@@ -4,8 +4,9 @@
 
 # The hosted relay's first step
 
-- **Status:** IN PROGRESS — begun 2026-11-26 on the owner's go ("Yes do the relay first"). Nothing
-  below has code yet; each part's line says when it does.
+- **Status:** IN PROGRESS — begun 2026-11-26 on the owner's go ("Yes do the relay first"). §1 (the
+  credential, `discovery/relaycred`) and §2 (the relay, `internal/relay` and `orpheum relay
+  --config <file>`) have code, built 2026-11-26; §3–5 have none yet.
 - **Depends on:** D558; the design is
   [the research's §4](../research/official-relay-2026-11-26.md#4-the-proposed-design), and this
   file is what is being built of it.
