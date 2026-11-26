@@ -495,6 +495,12 @@ describe("the Cast menu's Chromecast (D465 §3)", () => {
       end: () => {
         endings += 1;
       },
+      volume: {
+        read: () => undefined,
+        setLevel: () => undefined,
+        setMuted: () => undefined,
+        onChange: () => () => undefined,
+      },
     };
     mounted = await mount(
       withServices(

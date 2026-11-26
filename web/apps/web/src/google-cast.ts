@@ -28,6 +28,7 @@ import {
   openCastSession,
   type CastChannel,
 } from "./cast-sdk.ts";
+import { forgetCastDeviceVolume, tellCastDeviceVolume } from "./cast-device-volume.ts";
 import { tellCastSessionLinked, tellCastSessionLost } from "./cast-session-lost.ts";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { useLive } from "./live.tsx";
@@ -374,6 +375,7 @@ let sentCastId: number | undefined;
  * ends nothing: it is a hint the remote reaches for its receiver by (tellCastSessionLost) while the
  * cast's session shows no leader, a Chromecast still leading left to play on, and the remote gives
  * up a receiver unheard for its wait (D553 §5, D554 §1, §4, amending D552 §5). The cast's end ends the session (castSentNow).
+ * While linked, the session's device volume is the pad's (cast-device-volume.ts).
  */
 export function linkCastSession(api: Api, channel: CastChannel, castId: number): void {
   if (linked !== undefined && linked.castId !== castId) {
@@ -381,11 +383,13 @@ export function linkCastSession(api: Api, channel: CastChannel, castId: number):
   }
   linked = { channel, castId, isSent: sentCastId === castId };
   tellCastSessionLinked(castId);
+  tellCastDeviceVolume(castId, channel.volume);
   channel.onEnded((isStoppedThere) => {
     if (linked?.castId !== castId) {
       return; // its cast ended first, and ended it
     }
     linked = undefined;
+    forgetCastDeviceVolume(castId);
     if (!isStoppedThere) {
       tellCastSessionLost(castId);
       return;
@@ -424,8 +428,9 @@ function endLinked(): void {
   if (linked === undefined) {
     return;
   }
-  const { channel } = linked;
+  const { channel, castId } = linked;
   linked = undefined;
+  forgetCastDeviceVolume(castId);
   endQuietly(channel);
 }
 

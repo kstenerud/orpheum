@@ -2,6 +2,7 @@
 
 import { leaderOf, type PlaybackReport, type TogetherSnapshot } from "@orpheum/sdk";
 
+import { useCastDeviceVolume } from "./cast-device-volume.ts";
 import { useReceiverFilmSound } from "./cast-remote-choices.tsx";
 import type { CasteeChoices, PlaybackTarget } from "./playback-target.ts";
 import { useRemoteSource } from "./session-remote.tsx";
@@ -22,8 +23,15 @@ export interface CasteeOf {
   readonly worked: WorkedSession;
   /** The cast's session, in which the castee says how it plays and takes its choices (D434). */
   readonly cast: WorkedSession;
-  /** The film sent to the castee, which Report a problem names, and how long it lasts (0 unknown). */
-  readonly sent: { readonly fileId: number; readonly durationMs: number };
+  /**
+   * The cast, whose Google Cast device's volume is the castee's where it says no film channel, and
+   * the film sent to it, which Report a problem names, and how long it lasts (0 unknown).
+   */
+  readonly sent: {
+    readonly castId: number;
+    readonly fileId: number;
+    readonly durationMs: number;
+  };
   /** Whether the castee is heard (useReceiverHeard, D550): unheard, nothing takes a press. */
   readonly isHeard: boolean;
 }
@@ -32,7 +40,9 @@ export interface CasteeOf {
  * The castee as the playback target (PlaybackTarget, D555 §8): its film's place as the session says
  * it, moved on by the clock while it plays, a seek chosen here shown at once and sent once its moves
  * rest (useRemoteSource); play or pause sent through the session; its film's own level and mute on
- * it (useReceiverFilmSound, D548 §6), undefined while it says none; and its choices, what it says
+ * it (useReceiverFilmSound, D548 §6), or where it says none, as a Chromecast, its Google Cast
+ * device's own volume through this page's Cast session (useCastDeviceVolume), undefined where there
+ * is neither; and its choices, what it says
  * of its sound and its picture, sent to it as its own presses (CasteeChoices, D434).
  */
 export function useCasteeTarget(castee: CasteeOf): CasteeTarget {
@@ -43,7 +53,9 @@ export function useCasteeTarget(castee: CasteeOf): CasteeTarget {
     isHeard: castee.isHeard,
   });
   const playback = casteePlaybackIn(cast.snapshot);
-  const sound = useReceiverFilmSound(playback?.sound?.channels?.[0], cast.connection);
+  const filmSound = useReceiverFilmSound(playback?.sound?.channels?.[0], cast.connection);
+  const deviceSound = useCastDeviceVolume(castee.sent.castId);
+  const sound = filmSound ?? deviceSound;
   return {
     ...source,
     kind: "castee",

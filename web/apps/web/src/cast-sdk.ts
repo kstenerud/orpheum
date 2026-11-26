@@ -190,6 +190,16 @@ export async function openCastSession(appId: string): Promise<unknown> {
   return session;
 }
 
+/** A Cast device's own volume, as its session's sender sets and hears it. */
+export interface CastDeviceVolume {
+  /** The device's volume, 0 to 1, and its mute, or undefined where its session says none yet. */
+  readonly read: () => { readonly level: number; readonly isMuted: boolean } | undefined;
+  readonly setLevel: (level: number) => void;
+  readonly setMuted: (isMuted: boolean) => void;
+  /** Calls listener at each change of the device's volume or mute; returns the unsubscribing. */
+  readonly onChange: (listener: () => void) => () => void;
+}
+
 /** A session with a receiver, spoken to on one namespace. */
 export interface CastChannel {
   /** The Cast device's own name, as its owner named it. */
@@ -204,6 +214,8 @@ export interface CastChannel {
   readonly onEnded: (listener: (isStoppedThere: boolean) => void) => void;
   /** Ends the session, stopping the receiver app. */
   readonly end: () => void;
+  /** The Cast device's own volume, which any sender of its session sets (the Cast SDK's CastSession). */
+  readonly volume: CastDeviceVolume;
 }
 
 /** session, the SDK's, spoken to on namespace. */
@@ -228,6 +240,42 @@ export function channelOf(session: unknown, namespace: string): CastChannel {
     },
     end: () => {
       call(session, "endSession", true);
+    },
+    volume: deviceVolumeOf(session),
+  };
+}
+
+/**
+ * The Cast device's volume through session, the SDK's CastSession: its getVolume and isMute, set by
+ * setVolume and setMute, each change told by its VOLUME_CHANGED event. Google's design checklist has
+ * every sender let its person set it ("Sender apps must allow users to control volume"); it is the
+ * device's own, apart from anything its receiver app plays.
+ */
+function deviceVolumeOf(session: unknown): CastDeviceVolume {
+  const changed = at(globalThis, "cast", "framework", "SessionEventType", "VOLUME_CHANGED");
+  const quietly = (name: string, value: unknown): void => {
+    void Promise.resolve(call(session, name, value)).catch(() => undefined);
+  };
+  return {
+    read: () => {
+      const level: unknown = call(session, "getVolume");
+      const isMuted: unknown = call(session, "isMute");
+      return typeof level === "number" ? { level, isMuted: isMuted === true } : undefined;
+    },
+    setLevel: (level) => {
+      quietly("setVolume", Math.min(1, Math.max(0, level)));
+    },
+    setMuted: (isMuted) => {
+      quietly("setMute", isMuted);
+    },
+    onChange: (listener) => {
+      const heard = (): void => {
+        listener();
+      };
+      call(session, "addEventListener", changed, heard);
+      return () => {
+        call(session, "removeEventListener", changed, heard);
+      };
     },
   };
 }

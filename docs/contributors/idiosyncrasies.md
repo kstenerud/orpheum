@@ -275,6 +275,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A phone on a travel eSIM reaches no server: one IPv4 candidate abroad, no IPv6. | [A travel eSIM's data leaves through its operator's gateway, over IPv4 alone](#a-travel-esims-data-leaves-through-its-operators-gateway-over-ipv4-alone) |
 | A Chromecast connected over WebRTC, then its request never completed: "a request over WebRTC did not arrive in time". | [Chrome before 92 neither sends nor receives an empty message on a data channel](#chrome-before-92-neither-sends-nor-receives-an-empty-message-on-a-data-channel) |
 | A cast to a Chromecast over WebRTC failed: "the answer is not the server's own: its key or signature does not match its link". | [A Chromecast's Chrome 90 has no Ed25519 in WebCrypto, so no core's answer verifies](#a-chromecasts-chrome-90-has-no-ed25519-in-webcrypto-so-no-cores-answer-verifies) |
+| The remote's pad showed no volume for a film cast to a Chromecast, and the page reloaded, none again. | [A Chromecast's volume is the Cast device's, set by the sender's Cast session, which a reloaded page no longer holds](#a-chromecasts-volume-is-the-cast-devices-set-by-the-senders-cast-session-which-a-reloaded-page-no-longer-holds) |
 | Google's Cast console would not publish a receiver application: "You must add details about at least one sender application", the Chrome website URL saved and then gone. | [Google's Cast developer console in Chrome loses a sender's details, and publishing refuses](#googles-cast-developer-console-in-chrome-loses-a-senders-details-and-publishing-refuses) |
 
 ---
@@ -1628,6 +1629,48 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   WebCrypto has no Ed25519".
 - **Evidence:** the receiver's screen and the core's log on production, 2026-11-12; the user agent
   staging's log holds for the same Chromecast.
+
+### A Chromecast's volume is the Cast device's, set by the sender's Cast session, which a reloaded page no longer holds
+
+- **Technology:** a Google Cast receiver (third-generation Chromecast, `CrKey/1.56`, Chrome 90)
+  and the Cast Web Sender SDK in Chrome.
+- **Symptom:** a film cast to the Chromecast showed no volume on the remote's pad, though the TV's
+  own remote turned it up and down (the owner, 2026-11-26: "Check what the chromecast is actually
+  capable of. Anything it can do, I want.").
+- **Cause:** a Cast device's sound is the device's system volume, which its receiver hears
+  (`cast.framework.system.SystemVolumeChangedEvent`) but Google's design has the sender set: the Web
+  Sender's `cast.framework.CastSession` has `getVolume()`, `isMute()`, `setVolume(0..1)`,
+  `setMute()` and the `VOLUME_CHANGED` session event ("Receiver volume and mute status can be
+  controlled"), and Google's sender checklist asks every sender for it ("Users must be able to
+  control content volume via hardware buttons or software sliders, which stay in sync with the Web
+  Receiver"). The receiver page's own `<video>` volume is not the TV's, so the receiver says no film
+  channel of its own. Only a page holding the session can set it, and the web app links a session
+  only as it casts (google-cast.ts's `linkCastSession`), so a page loaded again holds none for the
+  cast it found playing, even where the SDK joins the device's session again on its own
+  (`ORIGIN_SCOPED`).
+- **What we do:** `web/apps/web/src/cast-sdk.ts`'s `CastDeviceVolume` wraps the session's volume;
+  `cast-device-volume.ts` holds the linked one, and the castee's target shows it on the pad where the
+  castee says no film channel. After a reload the pad shows no volume until the person casts again,
+  and the TV's own remote still works. Tests: `cast-sdk.test.ts`, "a Cast device's own volume,
+  through its session"; `castee-target.test.tsx`, "takes a Google Cast device's own volume where
+  the castee says no film channel". VQ407 checks it on the Chromecast.
+- **Evidence:** Google's `cast.framework.CastSession` reference and the Web Sender design checklist
+  (developers.google.com/cast/docs/reference/web_sender/cast.framework.CastSession,
+  developers.google.com/cast/docs/design_checklist/sender), read 2026-11-26.
+
+### Chromecast subtitles are drawn as the video's own WebVTT track, not by JASSUB
+
+- **Technology:** a third-generation Chromecast (Chrome 90, a 1.4 GHz ARM with little memory to
+  spare) playing a film the remote gave subtitles.
+- **Symptom:** none seen: chosen ahead of one. The Play page draws subtitles with JASSUB, libass
+  in WebAssembly on a worker's `OffscreenCanvas`, which costs a phone's CPU per frame.
+- **What we do:** the receiver's `picture-panel.ts` reads the core's WebVTT form of the track
+  (`vttUrl`, signed in: a `<track>` cannot send an Authorization header, so it is fetched and handed
+  over as a blob), moves its cues by the person's timing, and shows it as a `<track
+  kind="subtitles">`, which Chrome draws itself. ASS styling and placement are lost there. Test:
+  `picture-panel.test.ts`.
+- **Evidence:** the device's user agent in staging's log; JASSUB's own requirements (WebAssembly
+  and a worker per track).
 
 ### Chrome on Android draws a playing video black under a fully opaque canvas over it
 
