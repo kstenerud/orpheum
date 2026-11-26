@@ -42,7 +42,7 @@ import { RemoteFindSubtitles, RemoteFindSubtitlesOption } from "./cast-remote-fi
 import { RemoteFileTiming, RemoteTellTheAdmin } from "./cast-remote-sound-timing.tsx";
 import { RemoteSubtitleTiming } from "./cast-remote-subtitle-timing.tsx";
 import { useLive } from "./live.tsx";
-import { useKeptByTheSender } from "./cast-remote-keep.ts";
+import { useKeptByTheSender, type ReceiverChoices } from "./cast-remote-keep.ts";
 import { StatusNote } from "./status-note.tsx";
 import type { SuggestedSoundOffset } from "./problem-report.tsx";
 
@@ -50,9 +50,6 @@ import type { SuggestedSoundOffset } from "./problem-report.tsx";
 type RemoteDialog =
   | { readonly kind: "findSubtitles" }
   | { readonly kind: "tellTheAdmin"; readonly suggested: SuggestedSoundOffset };
-
-/** What the remote's menus send the receiver: its sound's choices and its picture's (D434). */
-export type ReceiverChoices = CarriesSoundChoices & CarriesPictureChoices;
 
 /** The remote has no overlay to hold shown while a menu is open, as the film's has. */
 export function noOverlay(): void {

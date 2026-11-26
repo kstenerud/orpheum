@@ -1,16 +1,25 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { Api, CastSending, PictureChoice, SoundChoice } from "@orpheum/sdk";
+import type {
+  Api,
+  CarriesPictureChoices,
+  CarriesSoundChoices,
+  CastSending,
+  PictureChoice,
+  SoundChoice,
+} from "@orpheum/sdk";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { keepAudioChoice } from "./audio-tracks.tsx";
-import type { ReceiverChoices } from "./cast-remote-choices.tsx";
 import { useIsGuest } from "./guest-page.ts";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { keepOwnChoice } from "./sound.tsx";
 import { keepOffset, keepSubtitleChoice } from "./subtitles.tsx";
+
+/** What the remote's menus send the receiver: its sound's choices and its picture's (D434). */
+export type ReceiverChoices = CarriesSoundChoices & CarriesPictureChoices;
 
 /** The receiver's choices as the remote sends them, and why keeping the last failed, if it did. */
 export interface KeptChoices {

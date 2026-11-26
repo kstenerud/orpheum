@@ -7,8 +7,7 @@ import type { CastSending, PictureChoice, SoundChoice } from "@orpheum/sdk";
 import { useEffect, type JSX } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { ReceiverChoices } from "./cast-remote-choices.tsx";
-import { useKeptByTheSender } from "./cast-remote-keep.ts";
+import { useKeptByTheSender, type ReceiverChoices } from "./cast-remote-keep.ts";
 import { IsGuestContext } from "./guest-page.ts";
 import { mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
