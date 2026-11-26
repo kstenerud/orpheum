@@ -4123,6 +4123,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   3. Press Play here. Report whether the film plays on the phone as an ordinary play, and from
      about where the television stood when it went off, or a little before it (D552 §2: up to
      about half a minute behind, never ahead).
+  Withdrawn 2026-11-26: the cast remote and its notes at an end are removed (D555 §5, §8); VQ406
+  walks what an end does now.
 - [ ] **VQ402** — A cast this phone did not stop ends with the remote kept, saying why, and Play here
   alone (D552 §4–5): only a real Chromecast's Cast session and a real receiver's take-back show it.
   On the phone's Chrome:
@@ -4137,6 +4139,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   4. Cast a film to the Fire TV and take control back on it (Back, or OK twice). Report whether the
      phone's remote says "Fire TV stopped casting" with Play here alone, and nothing plays on the
      phone until you press it; then press it and report whether it plays from where the TV left it.
+  Withdrawn 2026-11-26: the cast remote and its notes at an end are removed (D555 §5, §8); VQ406
+  walks what an end does now.
 - [ ] **VQ403** — A cast's end the sender did not ask for, alone and hosting Watch Together (D553):
   only a real Chromecast, a real Fire TV and a phone's real Wi-Fi show it. On the phone's Chrome:
   1. Cast a film to the Chromecast and let it play a minute, then switch the Chromecast off at the
@@ -4158,6 +4162,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   5. Cast a film to the Chromecast, then switch the phone's Wi-Fi off for 20 s (no mobile data) and
      on again. Report whether the remote says "Can't reach the server" meanwhile, whether the
      Chromecast plays on, and whether the remote comes back working once the Wi-Fi is on.
+  Withdrawn 2026-11-26: the cast remote and its notes at an end are removed (D555 §5, §8); VQ406
+  walks what an end does now.
 - [ ] **VQ404** — A receiver unheard for about 15 s is given up, Try again gone, and the host's
   notice closes on OK (D554): only a real Chromecast, a real Fire TV and a phone's real Wi-Fi show
   it. On the phone's Chrome:
@@ -4173,6 +4179,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   3. Alone, cast a film to the Chromecast, then put the phone in airplane mode for 30 s and take it
      out again. Report whether the remote says "Can't reach the server" meanwhile, then returns to
      its controls, the Chromecast playing on, and whether nothing ends.
+  Withdrawn 2026-11-26: the cast remote and its notes at an end are removed (D555 §5, §8); VQ406
+  walks what an end does now.
 
 - [ ] **VQ405** — The Play page's top bar and its controls upright and on its side (D555 §8–9): only
   a real phone's turning and a real browser's full screen show it. On the phone's Chrome, then on a
@@ -4186,3 +4194,20 @@ An item is ticked only by the person who did it, and only with what they saw.
      report whether the top bar comes back with the film in the page under it.
   4. On the computer, report whether the top bar shows above the film with the controls over it,
      and whether ⤢ and Escape go into and out of full screen the same way.
+- [ ] **VQ406** — Every end of a cast puts the film back on the phone's Play page, with no note and
+  no press asked (D555 §5–6): only a real Chromecast, a real Fire TV and a phone's real Wi-Fi show
+  it. On the phone's Chrome:
+  1. Cast a film to the Chromecast and let it play a minute, then switch the Chromecast off at the
+     wall. Report whether, within about half a minute, the film is on the phone's Play page, paused,
+     at or a little before where the television stood, with no note to press away.
+  2. Cast a film to the Fire TV and take control back on it (Back). Report whether the film is on
+     the phone at once, paused where the Fire TV stood.
+  3. Cast to the Chromecast again and end the cast from Chrome's own Cast control (Stop casting).
+     Report whether the film is on the phone at once, paused.
+  4. Host a Watch Together session on the phone and join it from a second device, then cast the
+     session's film to the Chromecast and switch the Chromecast off at the wall. Report whether the
+     phone plays the film on by itself within about half a minute, and whether the second device
+     carried on playing meanwhile.
+  5. Alone, cast a film to the Chromecast, then put the phone in airplane mode for 15 s and take it
+     out again. Report whether the Chromecast plays on and the phone's Play page works it again once
+     the phone is back, nothing ended.
