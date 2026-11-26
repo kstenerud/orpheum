@@ -102,7 +102,7 @@ describe("playing a file", () => {
       ),
     );
     expect(named).toMatch(
-      /<\/nav><h1 class="play__title">Metropolis<\/h1><div class="play" data-focus-container="" data-focus-start="">/u,
+      /<\/nav><h1 class="play__title">Metropolis<\/h1><div class="ends-place"><\/div><div class="play" data-focus-container="" data-focus-start="">/u,
     );
     const unnamed = renderToStaticMarkup(
       withServices(

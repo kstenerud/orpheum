@@ -295,7 +295,10 @@ function CasteeReaching(props: {
   );
 }
 
-/** The castee page's bar: the way up, and under it "On: ‹TV›" and when the film ends. */
+/**
+ * The castee page's bar: the way up, and directly under it when the film ends (the owner, 2026-11-26:
+ * "The "Ends" line ... should be under the backlink at the top"), "On: ‹TV›" after it on its line.
+ */
 function CasteeTop(props: {
   readonly receiverName: string;
   readonly leftMs: number | undefined;
@@ -307,10 +310,10 @@ function CasteeTop(props: {
         <OverlayUp />
       </div>
       <div className="castee-play__where">
+        <EndsAt leftMs={props.leftMs} isShown />
         <h2 id="castee-play-sign" className="castee-play__sign">
           {t("cast.on", { name: props.receiverName })}
         </h2>
-        <EndsAt leftMs={props.leftMs} isShown />
       </div>
     </div>
   );

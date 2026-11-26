@@ -106,6 +106,24 @@ function expectMenusAtTheEnd(container: HTMLElement): void {
   expect(Math.abs(last.getBoundingClientRect().right - end)).toBeLessThan(1.5);
 }
 
+/**
+ * That "Ends: ‹time›" is drawn directly under the way up, at its start (the owner, 2026-11-26: "The
+ * "Ends" line is placed wrong. It should be under the backlink at the top"), sharing the way up's
+ * touch box as the sign under it did, "On: ‹TV›" after it on its line.
+ */
+function expectEndsUnderTheWayUp(container: HTMLElement): void {
+  const up = boxOf(container, ".castee-play__heading > :first-child");
+  const ends = boxOf(container, ".castee-play__where .convenience-area__ends");
+  const sign = boxOf(container, ".castee-play__sign");
+  expect(
+    container.querySelector(".castee-play__where .convenience-area__ends")?.textContent,
+  ).toMatch(/^Ends: /u);
+  expect(Math.abs(ends.left - up.left)).toBeLessThan(1.5);
+  expect(ends.top).toBeGreaterThanOrEqual(up.bottom - 10);
+  expect(ends.top).toBeLessThanOrEqual(up.bottom + 4);
+  expect(sign.left).toBeGreaterThanOrEqual(ends.right);
+}
+
 /** That the timeline's track's middle is 16 px under frame, the slider's thumb clear of it. */
 function expectTrackAStepUnder(container: HTMLElement, frame: string): void {
   const range = boxOf(container, `${timeline} input[type="range"]`);
@@ -130,6 +148,14 @@ function expectTimeCloseUnderAtItsEnd(container: HTMLElement): void {
 }
 
 describe("the castee's Play page laid out as the remote (the owner, 2026-11-26)", () => {
+  it("draws when the film ends directly under the way up, upright, on its side and on a computer", async () => {
+    expectEndsUnderTheWayUp(await casteeAt(390, 844));
+    mounted?.unmount();
+    expectEndsUnderTheWayUp(await casteeAt(780, 360));
+    mounted?.unmount();
+    expectEndsUnderTheWayUp(await casteeAt(1280, 800));
+  });
+
   it("draws the time close under the timeline's track at its end, upright and on its side", async () => {
     expectTimeCloseUnderAtItsEnd(await casteeAt(390, 844));
     mounted?.unmount();

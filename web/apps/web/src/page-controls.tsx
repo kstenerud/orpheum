@@ -5,8 +5,10 @@ import "./play-words.ts";
 
 import type { SkippedStretch } from "@orpheum/player";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
+import { createPortal } from "react-dom";
 
-import { ConvenienceArea, leftMsOf, type OfferPiece } from "./convenience-area.tsx";
+import { ConvenienceArea, EndsAt, leftMsOf, type OfferPiece } from "./convenience-area.tsx";
+import { useEndsPlace } from "./ends-place.tsx";
 import { fillTheScreen, toggleFullScreen } from "./film-fullscreen.ts";
 import { keepThePressForTheStart } from "./start-refused.ts";
 import type { FilmParts } from "./film-player.tsx";
@@ -101,8 +103,9 @@ const noMenuHeld = (): void => undefined;
  * playback" is the remote's 3×3 pad): the timeline with the time under it; the pad, its buttons those
  * the device shows (controlsShown) and can press now, no volume's row, a phone's level its own
  * (D555 §10); the menus' row, end-aligned, its menus those the device shows and ⤢ last; then the
- * offers as ordinary buttons, Up next or Still watching, or when the film ends while nothing is on
- * offer (convenience-area.tsx), after a television's ‹, its one way up. Always shown. The video is a
+ * offers as ordinary buttons, Up next or Still watching (convenience-area.tsx), after a television's
+ * ‹, its one way up; when the film ends under the page's heading (EndsUnderTheHeading), or among the
+ * offers where the page leaves no place for it (a Watch Together guest's). Always shown. The video is a
  * stop for the arrows and Tab, where Left and Right seek and OK and Space play and pause
  * (player-commands.ts), and Down goes into the pad, to play.
  */
@@ -122,6 +125,7 @@ function ControlsBar(props: {
   const shown = useControlsShown(isTv, moves);
   usePlayersControls(barRef, videoRef);
   useDownFromTheFilm(videoRef, playRef);
+  const endsPlace = useEndsPlace();
   return (
     <div ref={barRef} className="page-controls" data-focus-container="" data-player-controls="">
       <PadTimeline source={source} hasArrowsAsCommands />
@@ -142,8 +146,11 @@ function ControlsBar(props: {
         offer={offer}
         skipped={skipped}
         isTv={isTv}
-        leftMs={leftMsOf(source)}
+        ends={endsPlace === null ? { leftMs: leftMsOf(source) } : undefined}
       />
+      {endsPlace === null
+        ? null
+        : createPortal(<EndsAt leftMs={leftMsOf(source)} isShown />, endsPlace)}
     </div>
   );
 }
@@ -157,8 +164,8 @@ function BarOffers(props: {
   readonly offer: OfferPiece | undefined;
   readonly skipped: readonly SkippedStretch[];
   readonly isTv: boolean;
-  /** How long the film has left to play, undefined while its length is not known. */
-  readonly leftMs: number | undefined;
+  /** When the film ends, drawn here where the page's heading leaves no place for it (a guest's). */
+  readonly ends: { readonly leftMs: number | undefined } | undefined;
 }): JSX.Element {
   const areaRef = useRef<HTMLDivElement>(null);
   const [hasOffer, setHasOffer] = useState(false);
@@ -173,7 +180,7 @@ function BarOffers(props: {
         hasOffer={hasOffer}
         isOverlayFull
         onOffered={setHasOffer}
-        ends={{ leftMs: props.leftMs }}
+        ends={props.ends}
         areaRef={areaRef}
       />
     </div>

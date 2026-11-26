@@ -1,0 +1,20 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* When the film ends, directly under the page's heading (ends-place.tsx; the owner, 2026-11-26):
+   the place no part of the page's layout, its line the page's, and nothing while the film's length
+   is not known. */
+.ends-place {
+  display: contents;
+}
+
+.ends-place > .convenience-area__ends {
+  display: block;
+  min-height: 0;
+  margin-block-end: var(--space-2);
+  font-size: var(--font-size-small);
+  white-space: nowrap;
+}
+
+.ends-place > .convenience-area__ends:empty {
+  display: none;
+}

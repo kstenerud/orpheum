@@ -28,7 +28,9 @@ html:has(.castee-play) {
   padding-block-end: env(safe-area-inset-bottom, 0px);
 }
 
-/* The bar: the way up, and under it "On: ‹TV›" and when the film ends. */
+/* The bar, in every layout: the way up, and directly under it when the film ends, "On: ‹TV›" after
+   it on its line (the owner, 2026-11-26: "The "Ends" line ... should be under the backlink at the
+   top"). */
 .castee-play__top {
   display: grid;
   padding: var(--space-2) var(--space-4);
@@ -46,6 +48,18 @@ html:has(.castee-play) {
   column-gap: var(--space-4);
   min-width: 0;
   margin-block-start: calc(-1 * var(--space-2));
+}
+
+.castee-play__where .convenience-area__ends {
+  display: block;
+  min-height: 0;
+  font-size: var(--font-size-small);
+  white-space: nowrap;
+}
+
+/* While the film's length is not known: nothing, "On: ‹TV›" under the way up alone. */
+.castee-play__where .convenience-area__ends:empty {
+  display: none;
 }
 
 .castee-play__sign {
@@ -185,27 +199,14 @@ html:has(.castee-play) {
   }
 }
 
-/* A phone on its side: the bar one line, the way up then where it plays; the pad's column narrower. */
+/* A phone on its side: the bar closer set; the pad's column narrower. */
 @container castee-play (orientation: landscape) and (height < 32rem) {
   .castee-play__page {
     --pad-column: 15rem;
   }
 
   .castee-play__top {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-4);
     padding-block: var(--space-1);
-  }
-
-  .castee-play__heading {
-    flex: 0 1 auto;
-    min-width: 0;
-  }
-
-  .castee-play__where {
-    flex: 1 0 auto;
-    margin: 0;
   }
 
   .castee-play .remote-pad {

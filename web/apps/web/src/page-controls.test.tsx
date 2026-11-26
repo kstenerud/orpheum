@@ -16,6 +16,7 @@ import {
   type CommandRelease,
 } from "./input-commands.ts";
 import { uprightQuery } from "./input-mode.ts";
+import { EndsUnderTheHeading } from "./ends-place.tsx";
 import { OverTheFilm, PageControls } from "./page-controls.tsx";
 import { PlayUpwardContext } from "./play-up.tsx";
 import {
@@ -99,8 +100,11 @@ function buttonNames(element: Element | null | undefined): (string | null)[] {
 
 describe("the player's controls under the film outside full screen (D369 §2, D407 §9)", () => {
   let mounted: Mounted | undefined;
+  /** Whether the page drawn has a heading leaving a place for Ends under it (a guest's has not). */
+  let hasHeading = true;
   beforeEach(heldUpright);
   afterEach(() => {
+    hasHeading = true;
     vi.unstubAllGlobals();
     mounted?.unmount();
     mounted = undefined;
@@ -118,14 +122,21 @@ describe("the player's controls under the film outside full screen (D369 §2, D4
     offered?: OfferPiece,
   ): Promise<HTMLElement> {
     const film = { videoRef, readLinkKbps: () => undefined, failure: undefined };
+    const page = (
+      <PlayUpwardContext value={upward}>
+        <div className="film-player__stage">
+          <OverTheFilm {...film} hasPressesOnTheFilm offer={offered} />
+        </div>
+        <PageControls {...film} offer={offered} />
+      </PlayUpwardContext>
+    );
     mounted = await mount(
       withServices(
-        <PlayUpwardContext value={upward}>
-          <div className="film-player__stage">
-            <OverTheFilm {...film} hasPressesOnTheFilm offer={offered} />
-          </div>
-          <PageControls {...film} offer={offered} />
-        </PlayUpwardContext>,
+        hasHeading ? (
+          <EndsUnderTheHeading heading={<h1>Film 1</h1>}>{page}</EndsUnderTheHeading>
+        ) : (
+          page
+        ),
       ),
     );
     const stage = mounted.container.querySelector<HTMLElement>(".film-player__stage");
@@ -454,20 +465,36 @@ describe("the player's controls under the film outside full screen (D369 §2, D4
     expect(offer(playButton ?? document.body, "down")).toBe(false);
   });
 
-  // The owner, 2026-11-23: "Ends" is no longer replaced by an offer; the offer goes under it.
-  it("draws an offer among its buttons, under when the film ends, and when it ends while nothing is on offer", async () => {
+  // The owner, 2026-11-23: "Ends" is no longer replaced by an offer. The owner, 2026-11-26: "The
+  // "Ends" line ... should be under the backlink at the top".
+  it("draws an offer among its buttons, and when the film ends under the page's heading, offer or none", async () => {
     const { video, videoRef } = stagedVideo(() => true);
     const stage = await drawn(video, videoRef, OfferedAtOnce);
     expect([...stage.children]).toEqual([video]);
     expect(buttonNames(bar()?.querySelector(".page-controls__offers"))).toEqual(["Up next"]);
     const area = bar()?.querySelector(".page-controls__offers .convenience-area");
     expect(area?.hasAttribute("data-has-offer")).toBe(true);
-    expect(area?.firstElementChild?.matches(".convenience-area__ends[data-shown]")).toBe(true);
-    expect(area?.children).toHaveLength(2);
+    expect(area?.querySelector(".convenience-area__ends")).toBeNull();
+    expect(area?.children).toHaveLength(1);
+    expect(
+      document.querySelector("h1 + .ends-place > .convenience-area__ends[data-shown]"),
+    ).not.toBeNull();
     mounted?.unmount();
     const other = stagedVideo(() => true);
     await drawn(other.video, other.videoRef);
-    expect(bar()?.querySelector(".page-controls__offers .convenience-area__ends")).not.toBeNull();
+    expect(bar()?.querySelector(".convenience-area__ends")).toBeNull();
+    expect(document.querySelector("h1 + .ends-place > .convenience-area__ends")).not.toBeNull();
+  });
+
+  // A Watch Together guest's page leaves no place under a heading for it: Ends stays among the offers.
+  it("draws when the film ends among the offers where the page leaves no place under its heading", async () => {
+    const { video, videoRef } = stagedVideo(() => true);
+    hasHeading = false;
+    await drawn(video, videoRef);
+    expect(
+      bar()?.querySelector(".page-controls__offers .convenience-area__ends[data-shown]"),
+    ).not.toBeNull();
+    expect(document.querySelector(".ends-place")).toBeNull();
   });
 
   it("carries a television's ‹, its one way up, among the offers", async () => {

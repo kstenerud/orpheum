@@ -375,8 +375,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   (`CasteePlay`, `src/play-castee.tsx`, D555 §8): the castee's key frame where the video would be,
   under Up next or a skip at its top-right (`src/cast-remote-offer.tsx`), laid out as the remote was
   in every layout, upright, on its side, on a computer and in the browser's full screen alike (the
-  owner, 2026-11-26; `src/remote-pad.tsx`, `src/play-castee.css`): the way up with *On: ‹Device›* and
-  when it ends, the key frame, the timeline with the time under it, the 3×3 pad (⏮ · ⏭, ⏪ ▶ ⏩,
+  owner, 2026-11-26; `src/remote-pad.tsx`, `src/play-castee.css`): the way up with directly under it
+  when the film ends and *On: ‹Device›*, the key frame, upright the timeline's track a step under it,
+  the time close under the track at its end (the owner, 2026-11-26), the 3×3 pad (⏮ · ⏭, ⏪ ▶ ⏩,
   Volume down, Mute, Volume up where the castee says a level), a button there only where it can do
   something, its cell kept so Play does not move, and the menus' row end-aligned with no ⤢: casting
   is never full screen, the page leaving it as it opens (`src/play-castee-overlay.test.tsx`,
@@ -981,8 +982,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   the subtitle, audio and more menus (`src/player-menus.tsx`, D407 §8), which hold the film's
   choices in every layout, nothing of them under the film (the owner, 2026-11-26). Held upright out
   of full screen, the controls under the film are the remote's pad (`src/page-controls.tsx`'s
-  `ControlsBar`, `src/remote-pad.tsx`): the timeline, the pad with no volume's row, and the menus'
-  row end-aligned with ⤢ last (`src/page-controls.test.tsx`); a press of play that plays or
+  `ControlsBar`, `src/remote-pad.tsx`): the timeline, its track a step under the picture, the pad
+  with no volume's row, and the menus' row end-aligned with ⤢ last (`src/page-controls.test.tsx`),
+  and when the film ends directly under the page's heading, the film's name (`src/ends-place.tsx`;
+  the owner, 2026-11-26; `src/play-layout.browser.test.tsx`); a press of play that plays or
   Down from the buttons puts focus on the video so the overlay hides (D407 §6), and + and − show the
   volume they leave a moment (D407 §10). 🔈 shows where there is mixing to do (`controlsShown`'s
   `hasVoicesToMix`): always on a computer with no touch screen, and on a television, a touch screen

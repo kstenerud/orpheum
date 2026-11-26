@@ -159,6 +159,29 @@ describe("the Play page upright and on its side (D555 §8)", () => {
     expect(controls?.querySelector('button[aria-label="Play"]')).not.toBeNull();
   });
 
+  // The owner, 2026-11-26: "The "Ends" line is placed wrong. It should be under the backlink at the
+  // top." Held upright, the page's top is its trail and the film's name: Ends directly under the name,
+  // over the picture.
+  it("draws when the film ends directly under the film's name on a phone held upright", async () => {
+    heldByAFinger();
+    const stage = await playPageAt(390, 844);
+    const video = stage.querySelector("video")!;
+    Object.defineProperty(video, "duration", { configurable: true, value: 600 });
+    act(() => {
+      video.dispatchEvent(new Event("durationchange"));
+    });
+    await expect
+      .poll(() => document.querySelector(".ends-place > .convenience-area__ends")?.textContent)
+      .toMatch(/^Ends: /u);
+    const title = boxOf(".play__title");
+    const ends = boxOf(".ends-place > .convenience-area__ends");
+    expect(ends.top).toBeGreaterThanOrEqual(title.bottom - 0.5);
+    expect(ends.top - title.bottom).toBeLessThanOrEqual(16);
+    expect(Math.abs(ends.left - title.left)).toBeLessThan(1.5);
+    expect(ends.bottom).toBeLessThanOrEqual(video.getBoundingClientRect().top);
+    expect(document.querySelector(".page-controls .convenience-area__ends")).toBeNull();
+  });
+
   // The owner, 2026-11-26: "In portrait mode, the scrub bar can be much closer to the video frame
   // since the frame itself is non-interactive."
   it("draws the timeline's track a step under the picture on a phone held upright", async () => {

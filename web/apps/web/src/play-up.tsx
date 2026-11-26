@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import { noteEpisodeReached } from "./episode-reached.ts";
+import { EndsUnderTheHeading } from "./ends-place.tsx";
 import { i18n } from "./i18n.ts";
 import { useBackTarget } from "./input-layer.tsx";
 import { BackIcon } from "./player-icons.tsx";
@@ -144,8 +145,13 @@ export function PlayTop(props: {
   return (
     <>
       {isOwn ? <PlayTrail upward={upward} plays={plays} /> : null}
-      {titleName === undefined || !isOwn ? null : <h1 className="play__title">{titleName}</h1>}
-      <PlayUpwardContext value={isOwn ? upward : undefined}>{props.children}</PlayUpwardContext>
+      <EndsUnderTheHeading
+        heading={
+          titleName === undefined || !isOwn ? null : <h1 className="play__title">{titleName}</h1>
+        }
+      >
+        <PlayUpwardContext value={isOwn ? upward : undefined}>{props.children}</PlayUpwardContext>
+      </EndsUnderTheHeading>
     </>
   );
 }
