@@ -570,3 +570,17 @@ Added by the owner, 2026-11-26, from the same walk's unfixed observations:
     showed a VPN), and whether 21:39:15 was the page's own doing or a reload. To find: how long a
     page takes to see its connections dead and make new ones, and whether the panel should wait
     for that and ask again before it says anything.
+    **Looked into, 2026-11-26 (night).** The core's log has no "connection is back" line at
+    21:39:15, and the page that connected then says it was opened, not kept: the old page never
+    came back by itself in two minutes. The sdk has no state that waits minutes: a test loses a
+    transport twice in a row and sees it keep trying (`rtc-network-loss.test.ts`). So either every
+    try failed (a VPN leaves over IPv4 alone and production's core is behind DS-Lite, so only the
+    relay could carry it, and the relay saw no allocation from the phone: the page reads its relay
+    credentials once, at load, and they last 15 minutes), or the page was hidden or frozen while
+    the phone's settings were open. Found beside it: a read is asked three times, but all three
+    can go to the old connections in the ten seconds before they count as gone, so the Cast panel
+    gives up before a new connection exists. Options for the owner, none built: (A) hand a retry
+    only to a connection newer than the failure (recommended); (B) fetch relay credentials again
+    for a try made long after the last fetch (recommended if the VPN is confirmed); (C) the panel
+    says it is reconnecting and keeps its list for a while before saying unreachable (wording and
+    wait are the owner's); (D) take a `navigator.connection` change as a sign to check.
