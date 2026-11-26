@@ -226,6 +226,19 @@ about half its height for the picture; upright, Full screen sits alone on a row 
 
 Its pages, routes, words, menu entry and the server's `/lab/` endpoints.
 
+**Built (phase 5).** The lab's pages, routes, words and menu entry (Experimental) are gone from the
+web client, and `/lab`, `/lab/sound` and every page under them are not found. The server's `/lab/`
+endpoints (the result log, the throughput body) and the client's `/lab/` files and Cast sender
+policy go with them, and so does the admin's "Offer Device tests" setting (agreed 4) with its
+`deviceTests` capability. The sound timing test stays, as agreed 4 says, but as a page of This
+device's at `/this-device/sound-timing`, linked from This device for everyone, not of Settings:
+Settings is the admin's alone, and a person times their own device's sound. The owner may still
+move it. It plays the server's clip on the Play page as any film. Of the lab's helpers, the
+page-made tone moved to `tone-wav.ts` (a start-refused test plays it). The SDK's device report and
+loopback call are left; nothing in the apps uses them now. The lab's unwalkable checks (VQ55–57,
+VQ59, VQ60, VQ242, VQ256, VQ286, VQ310) are marked withdrawn, VQ269 superseded by VQ275, and
+VQ275 walks the kept page.
+
 ### Phase 6: close
 
 Package documents and invariants, the amended decisions' status lines, the device walks
