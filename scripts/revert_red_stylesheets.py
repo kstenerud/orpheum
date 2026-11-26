@@ -170,12 +170,27 @@ def own_browser_mode_reds(tree: str, base: str, head: str, sheets: list[str], re
         red: list[str] = []
         label = f"({len(group)} stylesheets at once)"
 
+        stopped_early: list[bool] = []
+
         def work(here: str) -> None:
-            output = red_that_repeats(label, "vitest related (browser mode), the sheets together",
-                                      [*related, *(path.removeprefix("web/") for path in group)], here)
-            if output is not None:
+            command = [*related, *(path.removeprefix("web/") for path in group)]
+            done = timed(timings, label, "vitest related (browser mode), the sheets together", None,
+                         functools.partial(run_whole_group, command, here, timeout))
+            if done.returncode == 0:
+                return
+            output = done.stdout + done.stderr
+            # A red stands once its failed browser tests fail again, on their own (revert_red_repeat).
+            if repeat.did_not_repeat(timings, label, command, output, here, timeout):
+                stopped_early.append(True)
+            else:
                 red.append(output)
         if not reverted(group, work):
+            return None
+        # A run that failed on a test that then passed is no pass: it stops at its first failure, so
+        # the tests after it never ran. Four sheets' run stopped at such a test of the Play page's
+        # layout, the castee's layout's never ran, and cast.css was called green on revert though
+        # its revert alone turns that test red (check-pr, 2026-11-26). Each sheet takes its own run.
+        if stopped_early:
             return None
         if not red:
             return []

@@ -87,9 +87,12 @@ class TheSheetsTogether(unittest.TestCase):
 
     SHEETS = ["web/apps/web/src/a.css", "web/apps/web/src/b.css", "web/apps/web/src/c.css"]
 
-    def runs(self, red_with: str | None, names_a_test: bool = True) -> tuple[dict[str, str], list[tuple]]:
+    def runs(self, red_with: str | None, names_a_test: bool = True,
+             together_stops_at_a_passing_test: bool = False) -> tuple[dict[str, str], list[tuple]]:
         """What own_browser_mode_reds found, and each run it made: its vitest mode, the sheets it named
-        and the sheets reverted as it ran. A run fails while red_with is reverted."""
+        and the sheets reverted as it ran. A run fails while red_with is reverted; with
+        together_stops_at_a_passing_test, the run of every sheet fails on a test that passes run again,
+        before it reaches red_with's."""
         reverted: set[str] = set()
         ran: list[tuple] = []
         failed = FIREFOX_FAILED if names_a_test else UNIT_FAILED
@@ -102,6 +105,8 @@ class TheSheetsTogether(unittest.TestCase):
             mode = "run" if "run" in command and "related" not in command else "related"
             named = tuple(sorted(part for part in command if part.endswith(".css")))
             ran.append((mode, named, tuple(sorted(reverted))))
+            if together_stops_at_a_passing_test and len(reverted) == len(self.SHEETS):
+                return done(1, failed) if mode == "related" else done(0)
             return done(1, failed) if red_with in reverted else done(0)
         with mock.patch.object(sheets, "git_run", checkout), \
                 mock.patch.object(sheets, "restore", lambda _tree, _head, path: reverted.discard(path)), \
@@ -131,6 +136,14 @@ class TheSheetsTogether(unittest.TestCase):
         self.assertTrue(all(len(reverted) == 1 for mode, _named, reverted in ran if mode == "run"
                             and reverted != tuple(self.SHEETS)),
                         "a red stands only on a run with its sheet alone reverted")
+
+    def test_a_run_together_that_stopped_at_a_test_that_then_passed_settles_nothing(self):
+        # The run stops at its first failure: the tests after it never ran, so it is no pass, and each
+        # sheet takes its own run (check-pr called cast.css green on revert so, 2026-11-26).
+        found, ran = self.runs(red_with="web/apps/web/src/b.css", together_stops_at_a_passing_test=True)
+        self.assertEqual(list(found), ["web/apps/web/src/b.css"])
+        own = [(named, reverted) for mode, named, reverted in ran if mode == "related" and len(reverted) == 1]
+        self.assertEqual(own, [((path.removeprefix("web/"),), (path,)) for path in self.SHEETS])
 
     def test_a_red_naming_no_browser_test_sends_each_sheet_to_its_own_run(self):
         found, ran = self.runs(red_with="web/apps/web/src/c.css", names_a_test=False)
