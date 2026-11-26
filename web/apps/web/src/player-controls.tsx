@@ -256,10 +256,9 @@ export function seekStepped(source: PlayerSource, byMs: number): void {
 }
 
 /**
- * Previous or next in the sequence, which plays that video (SequenceMoves): the bar's, and a Watch
- * Together guest's beside Full screen (D471).
+ * Previous or next in the sequence, which plays that video (SequenceMoves): the bar's (D471).
  */
-export function SequenceMoveButton(props: {
+function SequenceMoveButton(props: {
   readonly isOverVideo: boolean | undefined;
   readonly isForward: boolean;
   readonly onMove: () => void;

@@ -29,7 +29,6 @@ export const enTogether = {
     invitedBy: "{{host}} invited you to watch together.",
     invitedBySomeone: "You were invited to watch together.",
     tapToContinue: "Tap to continue",
-    fullscreen: "Full screen",
     volume: "Volume",
     volumeButtons: "Use your phone's volume buttons for the film.",
     leave: "Leave",
