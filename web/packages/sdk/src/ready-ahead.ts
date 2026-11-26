@@ -102,7 +102,11 @@ export interface ReadyAhead {
 
 /**
  * What media is ready to play on now, by the rule above: margin × its next chunk's expected load,
- * or, where more, its size over heavyChunkLoadKbps.
+ * or, where more, its size over heavyChunkLoadKbps; never more than the most its player loads ahead
+ * (loadsAheadAtMostMs), which a paused player never passes: a Chromecast cast to at 8.0 s held 3.4 s
+ * ahead, its picture's room letting it load no more than 1.9 s ahead beside its next chunk, ten
+ * seconds long, and waited for 3.6 s before playing, for ever, its screen black (the owner's cast of
+ * file 1283, staging, 2026-11-26; file 1284's read on the device).
  */
 export function readyAheadOf(media: object): ReadyAhead {
   const told = nextChunkLoads.get(media)?.();
@@ -113,13 +117,10 @@ export function readyAheadOf(media: object): ReadyAhead {
   const bySizeMs =
     told.bits === undefined || !Number.isFinite(told.bits) || told.bits <= 0
       ? 0
-      : Math.min(
-          told.bits / heavyChunkLoadKbps,
-          refillAheadMs,
-          told.loadsAheadAtMostMs ?? Infinity,
-        );
+      : Math.min(told.bits / heavyChunkLoadKbps, refillAheadMs);
+  const byLoadMs = Math.max((told.loadMs * marginPercent) / 100, bySizeMs);
   return {
-    aheadMs: Math.round(Math.max((told.loadMs * marginPercent) / 100, bySizeMs)),
+    aheadMs: Math.round(Math.min(byLoadMs, told.loadsAheadAtMostMs ?? Infinity)),
     nextChunkLoadMs: Math.round(told.loadMs),
     nextChunkLoadFrom: told.from,
   };

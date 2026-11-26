@@ -203,6 +203,27 @@ describe("a player alone starts only once what it loaded outlasts its next chunk
     expect(play.plays()).toBe(1);
   });
 
+  it("waits for no more than its player loads ahead, which a paused player never passes (the owner's cast, 2026-11-26)", () => {
+    // Staging, 2026-11-26, a Chromecast cast file 1284 at 8.0 s: chunks 1 and 2 held to 11.43 s, its
+    // next chunk 10 s long, which its picture's room lets it load only 1.9 s ahead, and reckoned to
+    // take 2.4 s: it waited for 3.6 s ahead with 3.4 s loaded and nothing more to come.
+    const media = new FakeMedia();
+    media.currentTime = 7.987;
+    media.loaded = [[5.46, 11.43]];
+    media.readyState = 4;
+    tellNextChunkLoadMs(media, () => ({
+      loadMs: 2400,
+      from: "confident",
+      bits: 46_000_000,
+      loadsAheadAtMostMs: 1877,
+    }));
+    const play = countedPlay(media);
+    const gate = startGateOf(media);
+    gate.play(play.how);
+    expect(play.plays()).toBe(1);
+    expect(gate.lastWait()).toBeUndefined();
+  });
+
   it("gives its wait up when the person plays it themselves, playing nothing more", () => {
     const media = resumedMedia();
     const play = countedPlay(media);
