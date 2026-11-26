@@ -32118,7 +32118,14 @@ having an official relay server."*
    it. We'll probably need some usage data."*). The first step counts each household's relayed
    bytes and hours, so the cap and any price rest on use.
 
-**Open, the research's §6, not yet answered by the owner:** whether a household's own relay takes
-the same one-household rule (6); the 500 GB a month flag for a person's look (7); what is logged
-and for how long, a lawyer to confirm (8); the host (9); a tunnel for networks that open TLS, only
-once counts show the need (10).
+9. **A household's own relay takes the same one-household rule** as ours (the owner: "yes"): one
+   rule and one test, and no open path at home either. This narrows the household relay's
+   research §4.5.
+10. **A household passing 500 GB a month is flagged for a person's look,** not acted on (the
+    owner: "yes. we can change later if we need").
+11. **The relay keeps 7 days of a line per allocation, its addresses cut short, and orpheum.cc 13
+    months of each household's daily totals** (the owner: "yes. We can change later if we need");
+    a lawyer confirms it (legal.md §6).
+12. **The host is Hetzner first** (the owner: "We'll use Hetzner first").
+
+**Open:** a tunnel for networks that open TLS (the research's §6, question 10).
