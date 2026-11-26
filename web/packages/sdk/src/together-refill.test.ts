@@ -126,6 +126,29 @@ describe("when a player is ready again (seek-resync-2026-10-12.md)", () => {
     expect(stalled.isShort(nextChunk(1500, 1000, lowest))).toBe(false);
     expect(stalled.isShort(nextChunk(3750, 2500, { isLowestQuality: false }))).toBe(false);
   });
+
+  it("waits for whole milliseconds, never above what its player loads ahead (the owner's skip forward on a Chromecast, 2026-11-26)", () => {
+    // 3.42 s × 1000 in floating point: the core reads whole ms and closed the connection on this.
+    const loadsAheadAtMostMs = 3420.000000000016;
+    const unmeasured = loadedAhead(0);
+    tellNextChunkLoadMs(unmeasured, () => ({ loadsAheadAtMostMs }));
+    const sought = new Refill();
+    sought.heard("seeking", unmeasured);
+    expect(sought.readyOnMs(unmeasured)).toBe(3420);
+
+    const measured = loadedAhead(0);
+    tellNextChunkLoadMs(measured, () => ({
+      loadMs: 4000,
+      from: "confident",
+      filmMs: 2000,
+      isLowestQuality: true,
+      loadsAheadAtMostMs,
+    }));
+    expect(sought.readyOnMs(measured)).toBe(3420);
+    const stalled = new Refill();
+    stalled.heard("waiting", measured);
+    expect(stalled.readyOnMs(measured)).toBe(3420);
+  });
 });
 
 describe("holding its loading while its group waits (the owner's jumps, 2026-10-12)", () => {

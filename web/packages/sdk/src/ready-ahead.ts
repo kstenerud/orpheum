@@ -109,6 +109,18 @@ function bySizeMsOf(bits: number | undefined): number {
 }
 
 /** What a player is ready to play on: the film loaded ahead, and the next chunk's load it outlasts. */
+/**
+ * The most film told's player loads ahead, in whole ms, rounded down; none told, no cap. What a
+ * player waits for is told to the core, which reads whole ms and closes the connection on any
+ * other: a Chromecast whose player loads 3.42 s ahead told 3420.000000000016, and its connection
+ * was closed and made again every few seconds for as long as it refilled (the owner's skip
+ * forward, staging, 2026-11-26). Down, since a refill waiting for more than is loaded never ends.
+ */
+function wholeCapMsOf(told: ToldLoad): number {
+  const capMs = told?.loadsAheadAtMostMs;
+  return capMs === undefined || !Number.isFinite(capMs) ? Infinity : Math.floor(capMs);
+}
+
 export interface ReadyAhead {
   /** The film loaded ahead it is ready on, in ms. */
   readonly aheadMs: number;
@@ -132,12 +144,12 @@ export interface ReadyAhead {
 export function readyAheadOf(media: object): ReadyAhead {
   const told = nextChunkLoads.get(media)?.();
   if (told?.loadMs === undefined || !Number.isFinite(told.loadMs) || told.loadMs < 0) {
-    const aheadMs = Math.min(refillAheadMs, told?.loadsAheadAtMostMs ?? Infinity);
+    const aheadMs = Math.min(refillAheadMs, wholeCapMsOf(told));
     return { aheadMs, nextChunkLoadFrom: "none" };
   }
   const byLoadMs = Math.max((told.loadMs * marginPercent) / 100, bySizeMsOf(told.bits));
   return {
-    aheadMs: Math.round(Math.min(byLoadMs, told.loadsAheadAtMostMs ?? Infinity)),
+    aheadMs: Math.min(Math.round(byLoadMs), wholeCapMsOf(told)),
     nextChunkLoadMs: Math.round(told.loadMs),
     nextChunkLoadFrom: told.from,
   };
@@ -174,6 +186,6 @@ export function refillAfterStallOf(media: object): ReadyAhead {
   const runMs = Math.round(runAfterStallMs * (1 - linkShare));
   return {
     ...seek,
-    aheadMs: Math.min(Math.max(seek.aheadMs, runMs), told.loadsAheadAtMostMs ?? Infinity),
+    aheadMs: Math.min(Math.max(seek.aheadMs, runMs), wholeCapMsOf(told)),
   };
 }
