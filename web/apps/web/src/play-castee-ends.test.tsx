@@ -187,6 +187,25 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
     expect(services.navigation.route()).toEqual({ screen: "title", itemId: 3 });
   });
 
+  it("has its address follow the cast to the episode it moves on to, in its page's place, so the page loaded again sends the old one nowhere (the lead's walk, 2026-11-26)", async () => {
+    const heard: Heard[] = [];
+    const { services, sockets } = await casting(
+      { "GET /files/4/up-next": [200, catNext], "GET /files/5/up-next": [200, {}], ...catReads },
+      heard,
+      { upward: filmsPage },
+    );
+    services.navigation.go({ screen: "title", itemId: 40 });
+    services.navigation.go({ screen: "play", fileId: 4 });
+    await settleUntil(() => heard.some((each) => each.methodAndPath === "GET /files/4/up-next"));
+    await sockets.live.say({
+      type: "sending",
+      sending: { ...sending, fileId: 5, itemName: "Cat" },
+    });
+    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 5, itemId: 3 });
+    services.navigation.back();
+    expect(services.navigation.route()).toEqual({ screen: "title", itemId: 40 });
+  });
+
   it("stays on its page as a cast that has played nothing from its start is said again", async () => {
     const { services, sockets } = await casting({}, [], {
       upward: filmsPage,

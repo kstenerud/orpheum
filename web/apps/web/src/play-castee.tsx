@@ -16,6 +16,7 @@ import {
   isServerLostIn,
   RemoteButtons,
   useCastSession,
+  useAddressFollowsTheCast,
   useEpisodesMovedTo,
   useHeldCast,
   useHostedPanel,
@@ -83,7 +84,8 @@ export function CasteePlay(props: {
 /**
  * The page over the cast sent while it lasts; as it ends, nothing, the film played here again or the
  * page gone home where nothing was on (usePlaysHere). The film ended on the castee with nothing next,
- * the page goes above it, the cast going on (useLeavesAtTheCastsEnd).
+ * the page goes above it, the cast going on (useLeavesAtTheCastsEnd); the cast moved on to
+ * another episode, the page's address follows it (useAddressFollowsTheCast).
  */
 function CasteePlayOf(props: {
   readonly sent: CastSending;
@@ -102,6 +104,7 @@ function CasteePlayOf(props: {
   useSwapsBackAtTheEnd(sent.castId, over, { stoodRef, isInASession: useIsInASession(), playHere });
   const episodes = useEpisodesMovedTo();
   useLeavesAtTheCastsEnd(sent.fileId, pageFileId, episodes.of);
+  useAddressFollowsTheCast(sent.fileId, pageFileId, episodes.of);
   if (over !== undefined) {
     return null;
   }

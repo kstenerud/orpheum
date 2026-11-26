@@ -133,6 +133,34 @@ export function useLeavesAtTheCastsEnd(
 }
 
 /**
+ * Has the remote's Play page's address follow its cast from the page's film, pageFileId, to the one
+ * it moves on to, fileId, by Next, Previous or Up next, in its page's place, as a local play's does
+ * (useSequenceMoves), as the episode episodeOf knows it for where it does. A page left at the film
+ * the cast had moved on from sent that film on again when loaded again: a phone's page loaded again
+ * after its Next put the episode before back on the television (the lead's walk, staging,
+ * 2026-11-26). Only a move from the page's own film is followed: a page opened over a cast of
+ * another film sends its own on, and the cast's word of the old one is no move.
+ */
+export function useAddressFollowsTheCast(
+  fileId: number,
+  pageFileId: number,
+  episodeOf: (fileId: number) => number | undefined,
+): void {
+  const { navigation } = useServices();
+  const episodeOfRef = useLatest(episodeOf);
+  const playedRef = useRef(fileId);
+  useEffect(() => {
+    const played = playedRef.current;
+    playedRef.current = fileId;
+    if (played !== pageFileId || fileId === pageFileId || fileId === 0) {
+      return;
+    }
+    const itemId = episodeOfRef.current(fileId);
+    navigation.replace({ screen: "play", fileId, ...(itemId === undefined ? {} : { itemId }) });
+  }, [fileId, pageFileId, episodeOfRef, navigation]);
+}
+
+/**
  * The episodes the remote has read the cast's moves to and back to, by their files: what plays after
  * and before each film the cast plays names its episode (useAroundFile), noted as it is read.
  */
