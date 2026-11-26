@@ -32035,3 +32035,41 @@ the owner to place: what still lies under the stage (the plan's "Next batch").
 - 1: `web/apps/web/src/play-castee-layout.browser.test.tsx`, `web/apps/web/src/together-guest-tracks.test.tsx`
 - 2: `web/apps/web/src/play-layout.browser.test.tsx`, `web/apps/web/src/player-menus.test.tsx`
 - 3, 4: `web/apps/web/src/arrival.browser.test.tsx`
+
+## D557 — The pad's placements, a session's volumes and tracks in the bar's menus, a Chromecast given every control it can work, and one base display for a guest
+
+**Decided** (2026-11-26), by the project owner, on walking D556 on a phone and a Chromecast.
+**Amends** D556 §1 and §2 (where the pad's lines sit, and what its bar's menus hold) and D555 §8
+(a guest's page).
+
+**Status:** decided. §1–5 have code on main, yet to be read back against these clauses; §6 is not
+built: a guest's page is still its own (`together-viewer.tsx`), given §1–4 by its own changes.
+
+1. **The "Ends" line sits under the way up.** The owner: *"The "Ends" line is placed wrong. It
+   should be under the backlink at the top."*
+2. **The time sits close under the scrub bar, at its end.** The owner: *"The playback position
+   and total time display should be directly under the scrub bar on the right-hand side, right up
+   close so that there's just enough clearance for the position gadget to not overlap. It can be
+   this close because the text display is non-interactive."*
+3. **Upright, the scrub bar sits close under the picture.** The owner: *"In portrait mode, the
+   scrub bar can be much closer to the video frame since the frame itself is non-interactive."*
+4. **A session's volumes, tracks and timings are in the bar's menus.** The owner: *"I want the
+   volume controls for watch together to be merged into the volume button in the bottom bar. The
+   tracks and sound timing and such should also be put in their relative submenus, visible only
+   when it makes sense."* Nothing of them is left under the stage. A session's six buttons hold
+   one line of the pad on a phone.
+5. **A Chromecast's remote works whatever the device can do.** The owner: *"Check what the
+   chromecast is actually capable of. Anything it can do, I want."* What it was found able to do,
+   and what it was given, is in
+   [the rework plan](../design/plans/playing-casting-together-rework.md).
+6. **A guest's page is the Play page's base display, with only the parts a guest has.** The
+   owner, on a guest's "Ends" line needing its own fix: *"Why is the watch together guest's
+   display different enough that it requires its own ends line fix? Shouldn't these be the same
+   base display, with only the available parts shown?"*
+
+**Proof:**
+
+- 1: `web/apps/web/src/play-castee-ends.test.tsx`, `web/apps/web/src/together-viewer.test.tsx`
+- 2, 3: `web/apps/web/src/play-castee-layout.browser.test.tsx`
+- 4: `web/apps/web/src/together-voice.test.tsx`, `web/apps/web/src/together-guest-tracks.test.tsx`, `web/apps/web/src/play-layout.browser.test.tsx`
+- 5: `web/apps/web/src/target-menus.test.tsx`, `web/apps/cast-receiver/src/sound-panel.test.ts`, `web/apps/web/src/cast-sdk.test.ts`

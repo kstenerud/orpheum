@@ -561,7 +561,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D553](working-notes.md#d553--a-casts-end-the-sender-did-not-ask-for-alone-say-why-and-offer-play-here-hosting-watch-together-play-here-with-the-reason-the-session-an-obligation) A cast's end the sender did not ask for: alone, say why and offer Play here; hosting Watch Together, play here with the reason, the session an obligation — *revisited by D554*
 - [D554](working-notes.md#d554--a-receiver-that-stops-answering-is-given-up-as-the-remote-would-offer-try-again-and-the-hosts-notice-closes) A receiver that stops answering is given up as the remote would offer Try again, and the host's notice closes
 - [D555](working-notes.md#d555--playing-casting-and-watch-together-are-one-model-a-members-playing-device-and-its-remote-one-play-page-one-end-for-every-cast) Playing, casting and Watch Together are one model: a member's playing device and its remote, one Play page, one end for every cast — *revisited by D556*
-- [D556](working-notes.md#d556--the-play-page-keeps-the-remotes-pad-for-casting-and-for-a-film-held-upright-and-the-overlay-elsewhere) The Play page keeps the remote's pad for casting and for a film held upright, and the overlay elsewhere
+- [D556](working-notes.md#d556--the-play-page-keeps-the-remotes-pad-for-casting-and-for-a-film-held-upright-and-the-overlay-elsewhere) The Play page keeps the remote's pad for casting and for a film held upright, and the overlay elsewhere — *revisited by D557*
+- [D557](working-notes.md#d557--the-pads-placements-a-sessions-volumes-and-tracks-in-the-bars-menus-a-chromecast-given-every-control-it-can-work-and-one-base-display-for-a-guest) The pad's placements, a session's volumes and tracks in the bar's menus, a Chromecast given every control it can work, and one base display for a guest
 
 ## Archived
 
