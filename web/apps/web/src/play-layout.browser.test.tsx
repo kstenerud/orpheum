@@ -12,6 +12,7 @@ import "./tokens.css";
 import "./base.css";
 import "./i18n.ts";
 
+import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 
@@ -200,5 +201,124 @@ describe("the film's choices, the menus' in every layout (the owner, 2026-11-26)
     const end =
       menus.getBoundingClientRect().right - Number.parseFloat(getComputedStyle(menus).paddingRight);
     expect(Math.abs(last.getBoundingClientRect().right - end)).toBeLessThan(1.5);
+  });
+});
+
+/** How many signs named name the page shows, wherever they are: the top bar's and the overlay's alike. */
+function signsShown(name: string): number {
+  return [...document.querySelectorAll(`[aria-label="${name}"]`)].filter(
+    (sign) =>
+      sign.checkVisibility({ visibilityProperty: true }) && sign.getBoundingClientRect().width > 0,
+  ).length;
+}
+
+/** Shows the overlay where there is one, as a mouse moved over the page does. */
+function overlayShown(): void {
+  for (const screenX of [5, 50]) {
+    act(() => {
+      document.body.dispatchEvent(
+        new PointerEvent("pointermove", {
+          bubbles: true,
+          pointerType: "mouse",
+          screenX,
+          screenY: 5,
+        }),
+      );
+    });
+  }
+}
+
+/** That Cast's sign and Watch Together's show once each, the overlay shown where there is one. */
+async function expectEachSignOnce(): Promise<void> {
+  overlayShown();
+  await expect.poll(() => signsShown("Cast to a device")).toBe(1);
+  await expect.poll(() => signsShown("Watch Together")).toBe(1);
+}
+
+// The owner, 2026-11-26: "Cast and watch together buttons only show once (top bar if it's visible,
+// bottom bar otherwise)."
+describe("Cast's and Watch Together's signs, once each (the owner, 2026-11-26)", () => {
+  it("are the top bar's on a computer, not the overlay's", async () => {
+    const stage = await playPageAt(1280, 800);
+    await expectEachSignOnce();
+    expect(stage.querySelector(".player-overlay__cast")).toBeNull();
+  });
+
+  it("are the top bar's on a phone on its side, not the overlay's", async () => {
+    heldByAFinger();
+    const stage = await playPageAt(844, 390);
+    await expectEachSignOnce();
+    expect(stage.querySelector(".player-overlay__cast")).toBeNull();
+  });
+
+  it("are the top bar's on a phone held upright, not the pad's", async () => {
+    heldByAFinger();
+    await playPageAt(390, 844);
+    await expectEachSignOnce();
+    expect(document.querySelector(".remote-pad__menus [aria-label='Cast to a device']")).toBeNull();
+  });
+
+  it("are the overlay's bottom row's in full screen, which hides the top bar", async () => {
+    grantsFullScreen();
+    const stage = await playPageAt(1280, 800);
+    toggleFullScreen(stage, document);
+    await expect.poll(() => isTopBarShown()).toBe(false);
+    await expectEachSignOnce();
+    expect(
+      stage.querySelector(".player-overlay__buttons [aria-label='Cast to a device']"),
+    ).not.toBeNull();
+  });
+
+  it("are the overlay's bottom row's on a phone held upright once full screen", async () => {
+    heldByAFinger();
+    grantsFullScreen();
+    const stage = await playPageAt(390, 844);
+    toggleFullScreen(stage, document);
+    await expect.poll(() => stage.querySelector(".player-overlay")).not.toBeNull();
+    await expectEachSignOnce();
+    expect(
+      stage.querySelector(".player-overlay__buttons [aria-label='Watch Together']"),
+    ).not.toBeNull();
+  });
+});
+
+/** That the overlay's bottom row ends with its last button, and no button of its end group sits at the row's start. */
+function expectRowAtTheEnd(stage: HTMLElement): void {
+  const row = stage.querySelector<HTMLElement>(".player-overlay__buttons")!;
+  const trailing = row.querySelector<HTMLElement>(".player-controls__trailing")!;
+  const rowBox = row.getBoundingClientRect();
+  const end = rowBox.right - Number.parseFloat(getComputedStyle(row).paddingRight);
+  const start = rowBox.left + Number.parseFloat(getComputedStyle(row).paddingLeft);
+  const buttons = [...trailing.querySelectorAll<HTMLElement>("[role=button], button")];
+  expect(Math.abs(buttons.at(-1)!.getBoundingClientRect().right - end)).toBeLessThan(1.5);
+  for (const button of buttons) {
+    expect(button.getBoundingClientRect().left - start, button.ariaLabel ?? "").toBeGreaterThan(
+      1.5,
+    );
+  }
+}
+
+// The owner, 2026-11-26: "For the bottom button row, always right-aligned".
+describe("the overlay's bottom row, at its end in every layout (the owner, 2026-11-26)", () => {
+  for (const [width, height] of [
+    [1280, 800],
+    [440, 800],
+  ] as const) {
+    it(`ends with its last button on a computer ${String(width)} wide, none wrapped to the start`, async () => {
+      grantsFullScreen();
+      const stage = await playPageAt(width, height);
+      toggleFullScreen(stage, document);
+      await expect.poll(() => stage.querySelector(".player-overlay__buttons")).not.toBeNull();
+      overlayShown();
+      expectRowAtTheEnd(stage);
+    });
+  }
+
+  it("ends with its last button on a phone on its side, none wrapped to the start", async () => {
+    heldByAFinger();
+    const stage = await playPageAt(844, 390);
+    overlayShown();
+    await expect.poll(() => stage.querySelector(".player-overlay__buttons")).not.toBeNull();
+    expectRowAtTheEnd(stage);
   });
 });
