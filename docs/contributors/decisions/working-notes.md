@@ -32075,3 +32075,50 @@ phone, a Chromecast and a Fire TV (2026-11-26); §6 has none: a guest's page is 
 - 2, 3: `web/apps/web/src/play-castee-layout.browser.test.tsx`
 - 4: `web/apps/web/src/together-voice.test.tsx`, `web/apps/web/src/together-guest-tracks.test.tsx`, `web/apps/web/src/play-layout.browser.test.tsx`
 - 5: `web/apps/web/src/target-menus.test.tsx`, `web/apps/cast-receiver/src/sound-panel.test.ts`, `web/apps/web/src/cast-sdk.test.ts`
+
+## D558 — The paid discovery relays the connections that fail, capped at 3 Mb/s a household; a household's own relay, registered with it, is uncapped and used first
+
+**Decided** (2026-11-26), by the project owner, two friends in the closed beta having been unable
+to reach their homes from a work and a school network. **Amends** D273 §2 (the paid tier relays
+no traffic), D314 §4 (the beta has no public relay), D438's preface, §1, §2 and §4 (a household's
+relay is deferred; no traffic is relayed by us; its cap) and D448 §10 (a relay run by us is an
+idea only). It keeps D71, D72, D214 §1 and D438 §3, and carries out D274 §2. The design it adopts
+is [the official relay's research](../design/research/official-relay-2026-11-26.md) §4, where
+the clauses below say no more.
+
+**Status:** decided. Nothing has code.
+
+The owner: *"I've now got 2 friends who are hitting the issue where they can't get through to
+their home networks from work or school networks, so I don't think we can get away with not
+having an official relay server."*
+
+1. **A paid orpheum.cc account includes a relay, capped per household, not per client.** The cap
+   is **3 Mb/s** (the owner: "yes", to 3 over the 2 first suggested): one viewer plays 540p, two
+   at once 432p each. The relay holds the cap itself; the core shapes playback to it, and the
+   player says the film is relayed and capped (D72: never throttled silently).
+2. **A household may run its own relay**, with a standalone Orpheum and its own discovery, or
+   registered as its household's relay with orpheum.cc. Registered, it is uncapped by us and
+   handed to clients before ours; ours stays as the capped fallback when theirs is down (the
+   owner: "yes").
+3. **It is easy to set up.** The owner: *"I don't want tons of steps and carrying keys across
+   systems."* A household's relay pairs with its core by a printed code (D438 §3); registering it
+   with orpheum.cc takes no step beyond that.
+4. **It relays only between a household's core and that household's authorised clients.** The
+   owner: *"so that this doesn't become a generic traffic relay for hackers and such."*
+   Credentials are short-lived, made per session by the discovery, and the relay passes traffic
+   only between allocations of one household.
+5. **It is the last resort.** A direct path is tried first and gone back to when one opens.
+6. **It neither records nor cares what it carries.** It carries what it cannot read, and keeps
+   only what the cap and the bill need.
+7. **The first step is built now, before billing exists:** one hosted relay for the closed beta's
+   households, on a list kept by hand, free for the beta (the owner: "yes"). A beta's list is a
+   trial, not the free tier D72 refuses.
+8. **Selling more megabits is left open** (the owner: *"I'm undecided. We can leave the
+   possibility open. The idea is to be better than Plex, but I don't want to break the bank doing
+   it. We'll probably need some usage data."*). The first step counts each household's relayed
+   bytes and hours, so the cap and any price rest on use.
+
+**Open, the research's §6, not yet answered by the owner:** whether a household's own relay takes
+the same one-household rule (6); the 500 GB a month flag for a person's look (7); what is logged
+and for how long, a lawyer to confirm (8); the host (9); a tunnel for networks that open TLS, only
+once counts show the need (10).
