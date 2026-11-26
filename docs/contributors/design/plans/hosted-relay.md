@@ -63,8 +63,8 @@ served after, as the embedded relay's is.
    address. The figures are the research's estimates.
 5. **What it records** (D558 §11): for each allocation that ends, a line with its household, its
    role, its transport (udp, tcp, tls), its source address shortened (an IPv4 to its /24, an IPv6
-   to its /48), its seconds and its bytes each way; and a daily total a household. Nothing of
-   what is relayed.
+   to its /48), its seconds, its bytes each way and the highest rate it reached toward its client
+   over any ten seconds; and a daily total a household. Nothing of what is relayed.
 6. **Configuration:** a file naming the public address, the name, the listeners, the relayed
    ports' range, the certificate's files and the secrets' file.
 
@@ -73,7 +73,8 @@ discovery, the reports to it, the 443 demultiplexer.
 
 ## 3. The discovery (orpheum-connect)
 
-1. Its configuration names the relay (its name, the secret's file, the rate, 3000) and the
+1. Its configuration names the relay (its name, the secret's file, and the rate, which the early
+   beta sets far above any film's so the figures show what people use, D558 §14) and the
    households admitted: a hand-kept list of accounts (D558 §7).
 2. A core of a listed household gets the core's credential in its status; a device finding that
    core gets the client's in `found`, after the core's own relay if it has one.

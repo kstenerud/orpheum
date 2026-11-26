@@ -32134,3 +32134,9 @@ having an official relay server."*
     company or a school issues; a person's own device on its Wi-Fi is refused UDP and odd ports,
     which a relay on TLS port 443 passes. The first step records why each connection fails, and
     the tunnel is decided from that.
+14. **The rate is the discovery's setting, and the early beta runs without the cap** (the owner,
+    2026-11-26: "make the bandwidth limit configurable, and leave it off (or just really high)
+    during the early beta so that we can get decent stats of how much people use at point and over
+    time"). The discovery names each household's rate in its credential, so a change needs no new
+    relay; the beta's is set far above any film's. The relay records each allocation's highest
+    rate beside its bytes and seconds, and §1's 3 Mb/s is applied once those figures are read.
