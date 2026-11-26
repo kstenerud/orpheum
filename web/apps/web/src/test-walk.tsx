@@ -19,7 +19,6 @@ import { focusRegion } from "./focus-navigation.ts";
 // The screens the client loads as they are first shown (later-screens.tsx), loaded with the walk as
 // they were before they were split: a walk's time is its own, not the dev server's first build of a
 // screen, which under load took the player's walk past the 15 s a test has (2026-10-25).
-import "./cast-remote.tsx";
 import "./play.tsx";
 import "./series.tsx";
 import "./settings.tsx";

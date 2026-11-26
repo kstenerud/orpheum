@@ -14,7 +14,7 @@ import {
  * A Chromecast's Up next (D471, the cells' table: a Google Cast device without a remote): near the
  * film's end it shows the next episode and that it is chosen on the phone or computer casting, with
  * nothing to press, as the device takes nothing. It shows by the rule the caster's remote shows its
- * own Up next by (the web client's cast-remote.tsx), isNearItsEnd, from the credits where the film
+ * own Up next by (the web client's castee-up-next.tsx), isNearItsEnd, from the credits where the film
  * has a credits segment, as the player does locally (D546), the film's position being the
  * session's, which the receiver leads, and only where the next episode can be read now; so the two
  * show and go together, from the one session, with no message of their own.

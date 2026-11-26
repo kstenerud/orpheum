@@ -13,8 +13,8 @@ import {
   receiverLeads,
   welcome,
   type RemoteShown,
-} from "./test-cast-remote.tsx";
-import { heldUpright } from "./test-castee.tsx";
+  heldUpright,
+} from "./test-castee.tsx";
 import { buttonNamed, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
 import { forgetMembership, keepMembership } from "./together-storage.ts";
 

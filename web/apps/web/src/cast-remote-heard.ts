@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * Whether the cast remote hears its receiver (D550 §2, D553 §5, D554 §4), apart from the remote's
- * page (cast-remote.tsx): what its Reaching state and its giving the receiver up key on.
+ * Whether the cast remote hears its receiver (D550 §2, D553 §5, D554 §4), read by the Play page
+ * over the castee (play-castee.tsx): what its Reaching state and its giving the receiver up key on.
  */
 
 import { leaderOf, type CastSending, type TogetherSnapshot } from "@orpheum/sdk";

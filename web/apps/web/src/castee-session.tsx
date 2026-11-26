@@ -4,7 +4,7 @@
  * The cast this device sends as the Play page works it, apart from what draws it: the cast held
  * through its end, its session joined and how it ended, where its castee last stood, the session
  * this tab hosts, what the cast plays and its moves (D555 §5, §8). The Play page over the castee
- * (play-castee.tsx) and the cast's remote (cast-remote.tsx) read it.
+ * (play-castee.tsx) reads it.
  */
 
 import {

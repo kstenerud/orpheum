@@ -104,7 +104,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   reads at each try, on the core's own origin (`transport-choice.ts`) and under a loader
   (`OrpheumLoader.setNeededHidden`, since its minor 7; an older client leaves the loader reading
   whether a film plays alone). Otherwise the SDK paces its tries while hidden. `src/hidden-need.test.tsx`,
-  `src/cast-remote.test.tsx`, `src/transport-choice.test.tsx`, `src/kept-path.test.ts`,
+  `src/play-castee-controls.test.tsx`, `src/transport-choice.test.tsx`, `src/kept-path.test.ts`,
   `src/discovery-gate-hidden.test.tsx`.
 - **A security fix the server's version lacks is a banner above every page, an admin's alone**
   (security-updates.md Part B; `src/security-update-note.tsx`): what it fixes, the command that
@@ -345,13 +345,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   the receiver, whose own choice carries it out as its press would, drawn or not (`src/player-tracks.tsx`), kept for the person, the
   remote showing what the receiver says after (`src/sound-panel.ts`; a Fire TV's controls are hidden
   while controlled, so its sound could be changed only after taking control back, the owner, VQ116's
-  run); and the film's level and mute on the receiver, on the pad's Volume down, Mute and Volume
-  up, a tenth a press and repeating held, apart from the TV's own volume, for the session and not
-  saved (D440 §2, §5, D548 §6; `useFilmChannelWorkedByTheRemote`, `src/cast-remote-pad.test.tsx`,
-  `src/cast-remote.test.tsx`, `src/cast-receiver-sound.test.tsx`, VQ278); and what it shows, its subtitles, Off and each track named as its own menu names it, and
+  run); and the film's level and mute on the receiver, on the Play page's bar's Mute and volume
+  over the castee (D555 §10), apart from the TV's own volume, for the session and not
+  saved (D440 §2, §5, D548 §6; `useFilmChannelWorkedByTheRemote`,
+  `src/play-castee-controls.test.tsx`, `src/cast-receiver-sound.test.tsx`, VQ278); and what it shows, its subtitles, Off and each track named as its own menu names it, and
   the original, a debug tool as on the player, each choice carried out by the receiver's own control
   as its press (`src/picture-panel.ts`, `src/cast-receiver-picture.test.tsx`,
-  `src/cast-remote-choices.test.tsx`; D440 §5). The remote's bar leads with ⏮ where an episode plays
+  `src/play-castee-choices.test.tsx`; D440 §5). The castee's bar leads with ⏮ where an episode plays
   before the film, handed to the receiver as Up next is (D440 §5; VQ279–281). It fills the window and
   shows a television's player controls, which a mouse's move, a click or a tap opens as well as a
   remote's keys, a mouse's click on its video pausing or playing it as on an ordinary page, and a
@@ -371,19 +371,16 @@ The web client: the browser and phone interface, served embedded by the core. MP
   or one not taken, goes home too. `src/cast-uncontrolled.test.tsx`, `src/cast-receiver.test.tsx`,
   `src/cast-ready.test.tsx`, `src/cast-to.test.tsx`; on a device, VQ189 and VQ190.
   **The page cast from stays where it is** (D384 §2): a Play page whose film goes to the receiver,
-  sent on or taken by a cast started over it, shows in its video's place the cast's remote
-  (`src/cast-remote.tsx`), which holds no player and has its own layout (D548, amending D444): one
-  column at most 28rem wide, the bar, a 16:9 offer area with the receiver's picture at full
-  brightness under Up next or a skip at its top-right and a Pill at its centre, the timeline with
-  the time under it, the pad (`src/cast-remote-pad.tsx`: ⏮ ⏭, −10 s, Play and +10 s, the film's
-  level, its keys the player's) and the menus at the bottom (`TargetMenus` over the castee,
-  `src/cast-remote-choices.tsx`'s `RemoteMenus`); two columns, the pad's at the end, on a phone on its side or a page 60rem wide
-  (`src/cast-remote-layout.browser.test.tsx`). While the receiver is not reached it says *Reaching
-  ‹Device›…*, the pad and the menus taking no press (D548 §9); a receiver unheard for 15 s
-  (`src/cast-remote-heard.ts`'s `useReceiverHeard`, the remote's own connection to the server up)
-  is given up, the remote ending its cast with its receiver gone, met as the server's end of it
-  (D554 §1–2); one heard with no place yet, held for its press (D468 §2), is not; and the Cast
-  sender SDK's session loss counts only while the cast's session shows no leader (D554 §4). With a film playing, the sign *‹film› · Playing on ‹Device›*, Up next only at
+  sent on or taken by a cast started over it, is the same Play page with the castee as its target
+  (`CasteePlay`, `src/play-castee.tsx`, D555 §8): the castee's key frame where the video would be,
+  under Up next or a skip at its top-right (`src/cast-remote-offer.tsx`), the Play page's bar under
+  it upright and its overlay over it otherwise, `TargetMenus` over the castee
+  (`src/cast-remote-choices.tsx`'s `RemoteMenus`). While the receiver is not heard it says *Reaching
+  ‹Device›…*, the controls and the menus taking no press (D548 §9;
+  `src/cast-remote-heard.ts`'s `useReceiverHeard`), and ends nothing itself: the server ends a
+  cast whose castee is silent (D555 §3); one heard with no place yet, held for its press (D468 §2),
+  is not given up; and the Cast sender SDK's session loss counts only while the cast's session
+  shows no leader (D554 §4). With a film playing, the sign *‹film› · Playing on ‹Device›*, Up next only at
   the episode's end, with a ✕ that puts it away on this device (D548 §3), the signs over the film (Watch Together's, and Cast's, whose dialog holds Stop
   casting, the one way to bring the film back, D388: the page has no Stop of its own); the timeline
   and the bar (`useRemoteSource`, `src/session-remote.tsx`), working the session the tab hosts while
@@ -392,20 +389,17 @@ The web client: the browser and phone interface, served embedded by the core. MP
   player's own ⁝ shows of this device's playback too). Watch Together's dialog is the session's
   panel tuned to the role (the guest's Leave; the host's people, grants and End,
   `TogetherBehindTheRemote`), the voice the page's and so unbroken as the page turns to the remote;
-  a cast started from full screen leaves it (`useLeavesFullScreen`); with none, the sign *Ready on
-  ‹Device›*. Stopped from Cast's dialog, its control taken
-  back on the receiver, or the receiver gone (D364 §6), the film plays on the same page again, asked
-  for with cause castOver and that start: stopped, from where the server says the receiver stood,
-  playing; taken back or gone, from where the receiver last stood while it led the session the remote
-  works (the hosted one while Watch Together is on, the device then the member's player again),
-  playing or paused as it was (D385 §2, §3; the route's `paused` for a cast moved on to another film);
-  a cast the server no longer knows (not among the device's casts, or its session's credential
-  refused, as after a restart) sends the page home, the shared notice's pop-up saying so there
-  (`homeTold`, `src/notice.ts`; D386 §2), as it does the receiver; *Play here from* is gone; a film's warm-up is let go of while the page
+  full screen stays with a film on the castee, its key frame filling the screen (D555 §9); with
+  none, the sign *Ready on ‹Device›*, which leaves full screen (`useLeavesFullScreen`, D440 §5). Every end of the cast swaps the target back
+  to the video here, once and with no note (D555 §5): at where this tab's own Stop's answer says the
+  receiver stood, else where the castee last stood, else the session's place as it ended; paused for
+  a person alone, playing for a Watch Together host or signed-in guest; a cast moved on to another
+  film opens that film's page; nothing on the castee, the page goes home. *Play here from* is gone; a film's warm-up is let go of while the page
   is a remote. `src/cast-to.test.tsx`,
   `src/cast-start.test.tsx`, `src/cast-receiving.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-receiver-sound.test.tsx`,
   `src/cast-ready.test.tsx`,
-  `src/cast-receiving-mark.test.ts`, `src/cast-remote.test.tsx`, `src/player-overlay.test.tsx`,
+  `src/cast-receiving-mark.test.ts`, `src/play-castee-controls.test.tsx`,
+  `src/play-castee-ends.test.tsx`, `src/play-castee-stop.test.tsx`, `src/player-overlay.test.tsx`,
   `src/watching.test.ts`, `src/together-viewer-cast.test.tsx`, `src/together-on-the-remote.test.tsx`;
   on devices, VQ282, VQ64–VQ66, VQ68, VQ71, VQ76,
   VQ77, VQ90, VQ99, VQ101 and VQ103.
@@ -634,7 +628,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   tray's counts, and what a write answered (`handAnswer`).
   `src/use-resource.test.ts`, `src/remembered.test.ts`, `src/account.test.tsx`,
   `src/library-pages.test.tsx`, `src/roles-section.test.tsx`, `src/status-tray.test.tsx`,
-  `src/cast-remote.test.tsx`, `src/watch-together.test.tsx`.
+  `src/play-castee-controls.test.tsx`, `src/watch-together.test.tsx`.
 - **Back is the history; Up goes to the page's parent and never adds to it** (D367): no page shows a
   Back of its own on a computer or a phone, the browser's, the gesture's and the remote's being the
   history's; a television's player overlay keeps one, beside its Up (TV Bro keeps its remote's Back
@@ -1006,7 +1000,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   a key makes, is never held (`overlayHeldForMs` and `useOverlayHeld` in `src/player-taps.ts`; the
   owner, 2026-11-15, option a of three, widened to every control, VQ347;
   `src/player-overlay-held.test.tsx`, `src/player-overlay-held.browser.test.tsx`). `src/player-overlay.test.tsx`, `src/page-controls.test.tsx`,
-  `src/seek-ahead.test.ts`, `src/timeline.test.tsx`, `src/cast-remote.test.tsx`,
+  `src/seek-ahead.test.ts`, `src/timeline.test.tsx`, `src/play-castee-controls.test.tsx`,
   `src/player-commands.test.tsx`, `src/player-overlay.test.tsx`, `src/input-player.browser.test.tsx`,
   `src/input-commands.test.tsx`, `src/input-layer.test.tsx`,
   `src/focus-memory.test.ts`, `src/focus-engine.test.ts`, `src/input-buttons.test.ts`,
@@ -1148,9 +1142,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   leading and its track at its end, the knob changing side as well as colour; a click, a tap, Space,
   Enter and a remote's OK toggle it, one focus stop. A setting and no choice, it keeps a pop-up
   holding it open (`keepsOpenAttribute`). ⁝'s Level loudness and Dialogue boost
-  (`OwnChoiceBox`, `src/sound.tsx`) and a cast remote's (`src/cast-remote-choices.tsx`) are
-  switches. `src/switch.test.tsx`, `src/choices.browser.test.tsx`, and "shows the receiver's sound
-  in ⁝" in `src/cast-remote.test.tsx`.
+  (`OwnChoiceBox`, `src/sound.tsx`) and the castee's (`src/cast-remote-choices.tsx`) are
+  switches. `src/switch.test.tsx`, `src/choices.browser.test.tsx`, `src/play-castee-choices.test.tsx`.
 - **A yes or no a form confirms is a checkbox, and one choice of a few is radio rows** (D538,
   interface rules 7 and 14): `Checkbox` and `RadioRows` (`src/checkbox.tsx`), native inputs
   redrawn, a 20-pixel box with a 2-pixel edge in `--color-control-edge`, each row its label and a
@@ -1160,21 +1153,21 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **The player is drawn from one set of widgets** (D369 §1): a button that is an icon alone is an
   `IconButton` (`src/icon-button.tsx`), one size, 2.75rem, the status tray's too; a film's timeline
   is a `Timeline` (`src/timeline.tsx`), in milliseconds, touched anywhere, drawn over a playback
-  target by `TargetTimeline` (`src/target-timeline.tsx`) in the bar, the overlay and the cast
-  remote alike; and the controls over a film or for one elsewhere are one bar, `PlayerControls`
-  (`src/player-controls.tsx`), the TV overlay, a computer's and a phone's controls and the cast
-  remote alike. `src/icon-button.test.tsx`, `src/timeline.test.tsx`,
-  `src/player-controls.test.tsx`, `src/cast-remote.test.tsx`.
+  target by `TargetTimeline` (`src/target-timeline.tsx`) in the bar and the overlay, over the
+  video and the castee alike; and the controls over a film or for one elsewhere are one bar, `PlayerControls`
+  (`src/player-controls.tsx`), the TV overlay, a computer's and a phone's controls, over the
+  video and the castee alike. `src/icon-button.test.tsx`, `src/timeline.test.tsx`,
+  `src/player-controls.test.tsx`, `src/play-castee-controls.test.tsx`.
 - **The controls command a playback target** (D555 §8, §10): a `PlaybackTarget`
   (`src/playback-target.ts`), the video here (`useVideoTarget`) or the castee through the session
   (`useCasteeTarget`, `src/castee-target.ts`), its place, play or pause, seeks, sound and the
   choices its menus make, which one entry point draws, `TargetMenus` (`src/target-menus.tsx`), on
-  the Play page's bar and overlay and the cast remote alike, a choice the target has no use for not
+  the Play page's bar and overlay, over the video and the castee alike, a choice the target has no use for not
   drawn (a castee's has no 🔈); and one Up next, `TargetUpNext` (`src/up-next.tsx`), which over the
   video here counts down and Back puts away, and over a castee counts nothing and its ✕ puts away
   (`src/castee-up-next.tsx`). A castee's key frames are asked for at its `reportedAtMs`, where it last
-  said it stands, never where a seek chosen on the remote aims. `src/castee-target.test.tsx`,
-  `src/cast-remote-frame.test.tsx`, `src/target-menus.test.tsx`, `src/target-up-next.test.tsx`.
+  said it stands, never where a seek chosen on the Play page aims. `src/castee-target.test.tsx`,
+  `src/play-castee-frame.test.tsx`, `src/target-menus.test.tsx`, `src/target-up-next.test.tsx`.
 - **A failure about what was typed marks the fields it is about** (plans 11-22 batch, item 6):
   `aria-invalid="true"` and described by the line that says why, from one hook, `useFormFields`
   (`src/field.tsx`), fed the fields a refusal names by `failedFields` (`src/problem.ts`: its

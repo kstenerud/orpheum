@@ -67,30 +67,12 @@ export const enCast = {
     sendingOn: "Sending it to the device you cast to…",
     over: {
       lost: "The cast ended: the server no longer knows it.",
-      /** The remote's note as its receiver took the film back (D552 §4, D553 §2). */
-      takenBack: "{{name}} took control",
-      /** The remote's note as its cast ended any other way this device did not ask (D552 §4). */
-      ended: "Casting ended",
-      /** Casts the ended cast's film to its receiver anew, once it is back (D553 §2). */
-      castAgain: "Cast again",
-      /** The notice as a host's receiver is gone and the film plays here by itself (D553 §3). */
-      goesOn: "{{name}} unreachable. Playing here so your session goes on",
     },
-    /** The cast remote's pad (D548 §5, §6), the player's words where it has them. */
-    pad: {
-      volumeDown: "Volume down",
-      volumeUp: "Volume up",
-      soundOff: "Sound off",
-    },
-    /** The cast remote's receiver not yet reached (D548 §9). */
+    /** The castee not yet reached (D548 §9), on its Play page. */
     reaching: "Reaching {{name}}…",
-    /** The cast remote's own connection to the server lost, reconnecting (D553 §4). */
+    /** The castee's Play page's own connection to the server lost, reconnecting (D553 §4). */
     serverLost: "Can't reach the server",
-    /** The remote's note as its cast ended with its receiver gone (D552 §1, §4). */
-    receiverGone: "{{name}} unreachable",
-    /** Plays the film here from the remote: its cast ended, or ending it stopped (D550 §3, D553 §2). */
-    playHere: "Play here",
-    /** The cast remote's Up next put away on this device (D548 §3). */
+    /** The castee's Up next put away on this device (D548 §3). */
     dismissUpNext: "Dismiss",
   },
   remote: {

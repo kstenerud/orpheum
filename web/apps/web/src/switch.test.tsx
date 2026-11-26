@@ -58,7 +58,7 @@ describe("a switch, a setting applied the moment it is pressed (D538, interface 
   });
 
   it("is marked to keep a pop-up holding it open, a setting and no choice (popover.tsx)", async () => {
-    // ⁝'s and a cast remote's switches stay open for the next press (cast-remote.test.tsx).
+    // ⁝'s and a cast remote's switches stay open for the next press (play-castee-choices.test.tsx).
     mounted = await mount(<Tested isOnAtStart={false} heard={[]} />);
     const found = switchNamed(mounted.container, "Level loudness");
     expect(found?.hasAttribute(keepsOpenAttribute)).toBe(true);

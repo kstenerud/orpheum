@@ -247,8 +247,8 @@ function StepButton(props: {
 }
 
 /**
- * Seeks source byMs from where it stands, kept within the film: the bar's ⟲ and ⟳, and the cast
- * remote's pad's jumps (cast-remote-pad.tsx).
+ * Seeks source byMs from where it stands, kept within the film: the bar's ⟲ and ⟳, over the video
+ * and over the castee (play-castee.tsx).
  */
 export function seekStepped(source: PlayerSource, byMs: number): void {
   const mostMs = source.durationMs > 0 ? source.durationMs : Number.POSITIVE_INFINITY;

@@ -53,7 +53,7 @@ export function ConvenienceArea(props: {
 
 /**
  * When the film ends if it plays on from now, leftMs from its end; nothing while its length is not
- * known. The overlay's, and the cast's remote's top row (cast-remote.tsx).
+ * known. The overlay's, over the video and over the castee (play-castee.tsx).
  */
 export function EndsAt(props: {
   readonly leftMs: number | undefined;
