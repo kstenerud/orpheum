@@ -16,7 +16,6 @@ import {
 } from "react";
 
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
-import { isPausedAsAsked } from "./film-waits.tsx";
 import { ConvenienceArea, EndsAt, leftMsOf, type OfferPiece } from "./convenience-area.tsx";
 import { useIsVolumeSettable } from "./film-volume-slider.tsx";
 import type { FilmParts } from "./film-player.tsx";
@@ -26,7 +25,7 @@ import { useHeldDown } from "./held-down.ts";
 import { useCommands } from "./input-layer.tsx";
 import { useLatest } from "./latest.ts";
 import { OverlayUp, PlayUpwardContext } from "./play-up.tsx";
-import { answerPlayerCommand, seekBy, usePlayersControls } from "./player-commands.ts";
+import { usePlayersControls } from "./player-commands.ts";
 import type { PlaybackTarget, PlayerSource } from "./playback-target.ts";
 import {
   CommandRightsContext,
@@ -52,6 +51,7 @@ import { OverThePicture, useVolumeShown, type PictureSigns } from "./over-the-pi
 import { useOverlayMeasured } from "./overlay-measure.ts";
 import { SideTapsContext, type SideTaps } from "./phone-side-taps.tsx";
 import { useStartRefused } from "./start-refused-shown.tsx";
+import { focusThePicture, useStageNow, type OverlayStage } from "./overlay-stage.ts";
 import { StopCastingHere } from "./stop-casting-here.tsx";
 import { useIsFullScreen } from "./full-screen-button.tsx";
 import { TargetMenus } from "./target-menus.tsx";
@@ -83,6 +83,49 @@ export function PlayerOverlay(
   },
 ): JSX.Element {
   const { offer, moves, ...film } = props;
+  return (
+    <OverlayOver
+      videoRef={film.videoRef}
+      pictureRef={film.videoRef}
+      rows={(over) => (
+        <OverlayRows
+          source={over.source}
+          isTv={over.isTv}
+          refs={over.refs}
+          convenience={{ film, offer, ...over.convenience }}
+          moves={moves}
+          onMenuOpenChange={over.onMenuOpenChange}
+        />
+      )}
+    />
+  );
+}
+
+/** What an overlay gives the rows it draws (OverlayOver): its target, its parts, its offer's state. */
+export interface OverlayGiven {
+  readonly source: PlaybackTarget;
+  readonly isTv: boolean;
+  readonly refs: Pick<OverlayRefs, "playRef" | "scrubRef" | "buttonsRef" | "videoRef">;
+  readonly convenience: Omit<ComponentProps<typeof ConvenienceArea>, "ends" | "film" | "offer">;
+  readonly onMenuOpenChange: (isOpen: boolean) => void;
+}
+
+/**
+ * The overlay over a stage, whatever it shows (D555 §8: the Play page is one page whatever the
+ * target): its showing, hiding and presses, over the rows it is given (rows). Over the video here
+ * (PlayerOverlay) videoRef holds it, its picture (pictureRef) the video too; over another target
+ * (target, a castee's), videoRef holds none, its presses go to the target, and focus leaving what
+ * hides goes to its picture.
+ */
+export function OverlayOver(props: {
+  /** The video it lies over, whose events and keys it hears; holding none over another target. */
+  readonly videoRef: RefObject<HTMLVideoElement | null>;
+  /** What focus goes to as the overlay hides: the video, or another target's picture. */
+  readonly pictureRef: RefObject<HTMLElement | null>;
+  /** The target it commands in place of the video's; undefined over the video. */
+  readonly target?: PlaybackTarget | undefined;
+  readonly rows: (over: OverlayGiven) => ReactNode;
+}): JSX.Element {
   const overlayRef = useRef<HTMLDivElement>(null);
   const playRef = useRef<HTMLButtonElement>(null);
   const scrubRef = useRef<HTMLInputElement>(null);
@@ -96,15 +139,14 @@ export function PlayerOverlay(
     playRef,
     scrubRef,
     buttonsRef,
-    videoRef: film.videoRef,
+    videoRef: props.videoRef,
+    pictureRef: props.pictureRef,
     convenienceRef,
   };
-  const overlay = useOverlay(refs, { hasOffer, isMenuOpen });
+  const overlay = useOverlay(refs, { hasOffer, isMenuOpen, target: props.target });
   const { state, source, isTv } = overlay;
   const isPhone = useOverlayMeasured(overlayRef, state.shown);
   const convenience = {
-    film,
-    offer,
     hasOffer,
     isOverlayFull: state.shown === "full",
     onOffered: setHasOffer,
@@ -123,14 +165,7 @@ export function PlayerOverlay(
         data-player-controls=""
       >
         <SideTapsContext value={isPhone && isTouchPointer() ? overlay.sideTaps : undefined}>
-          <OverlayRows
-            source={source}
-            isTv={isTv}
-            refs={refs}
-            convenience={convenience}
-            moves={moves}
-            onMenuOpenChange={setIsMenuOpen}
-          />
+          {props.rows({ source, isTv, refs, convenience, onMenuOpenChange: setIsMenuOpen })}
         </SideTapsContext>
         <OverlayShield isShown={isRowsShown(state.shown)} />
       </div>
@@ -155,6 +190,7 @@ function useOverlay(
   told: {
     readonly hasOffer: boolean;
     readonly isMenuOpen: boolean;
+    readonly target: PlaybackTarget | undefined;
   },
 ): {
   readonly state: OverlayState;
@@ -163,11 +199,13 @@ function useOverlay(
   readonly signs: PictureSigns;
   readonly sideTaps: SideTaps;
 } {
-  const { hasOffer, isMenuOpen } = told;
+  const { hasOffer, isMenuOpen, target } = told;
   const isTv = isOnTelevision();
   const [state, setState] = useState<OverlayState>(() => openedWith(isTv));
   const isCovered = state.shown === "hidden" || state.shown === "convenience";
-  const source = useVideoTarget(refs.videoRef, isCovered);
+  const videoTarget = useVideoTarget(refs.videoRef, isCovered);
+  const source = target ?? videoTarget;
+  const stageNow = useStageNow(refs, target);
   const notePress = useOverlayHiding({
     state,
     setState,
@@ -191,7 +229,7 @@ function useOverlay(
   );
   const volume = useVolumeShown();
   const presses = { state, setState, isTv, hasOffer, isMenuOpen, onVolumeShown: volume.show };
-  useOverlayPresses({ ...presses, notePress, ...refs });
+  useOverlayPresses({ ...presses, notePress, stageNow, ...refs });
   usePlayersControls(refs.overlayRef, refs.videoRef);
   const isStartRefused = useStartRefused(refs, () => {
     setState({ shown: "full", shownBy: isTv ? "remote" : "pointer" });
@@ -210,8 +248,8 @@ function openedWith(isTv: boolean): OverlayState {
 }
 
 /**
- * What the overlay's parts hold: itself, play, the scrub bar, the buttons' row, the video and the
- * convenience area.
+ * What the overlay's parts hold: itself, play, the scrub bar, the buttons' row, the video (none over
+ * another target), its picture and the convenience area.
  */
 interface OverlayRefs {
   readonly overlayRef: RefObject<HTMLDivElement | null>;
@@ -219,6 +257,8 @@ interface OverlayRefs {
   readonly scrubRef: RefObject<HTMLInputElement | null>;
   readonly buttonsRef: RefObject<HTMLDivElement | null>;
   readonly videoRef: RefObject<HTMLVideoElement | null>;
+  /** What focus goes to as the overlay hides: the video, or another target's picture. */
+  readonly pictureRef: RefObject<HTMLElement | null>;
   readonly convenienceRef: RefObject<HTMLDivElement | null>;
 }
 
@@ -407,9 +447,11 @@ function useOverlayPresses({
   playRef,
   scrubRef,
   buttonsRef,
-  videoRef,
   convenienceRef,
-}: OverlayRefs & {
+  stageNow,
+}: Omit<OverlayRefs, "videoRef" | "pictureRef"> & {
+  /** The stage its presses work on as each comes (useStageNow). */
+  readonly stageNow: () => OverlayStage | undefined;
   readonly state: OverlayState;
   readonly setState: (state: OverlayState) => void;
   readonly notePress: () => void;
@@ -420,17 +462,17 @@ function useOverlayPresses({
 }): void {
   // Nothing is focused onto the overlay as the film opens: it opens hidden (openedWith).
   const askFocusToScrub = useFocusOnceDrawn(scrubRef, false);
-  usePlayingLeavesPlay(playRef, videoRef, isTv);
+  usePlayingLeavesPlay(playRef, stageNow, isTv);
   useMenuLeftAtFullScreenFocusesScrub(isMenuOpen, askFocusToScrub);
   useCommands(
     "document",
     (detail, event) => {
-      const video = videoRef.current;
-      if (video === null) {
+      const stage = stageNow();
+      if (stage === undefined) {
         return;
       }
       const parts = overlayParts({ overlayRef, scrubRef, buttonsRef, convenienceRef }, hasOffer);
-      const context = { ...pressContext(parts, video, isTv), isMenuOpen };
+      const context = { ...pressContext(parts, stage, isTv), isMenuOpen };
       const answer = overlayAnswer(state, detail.command, context);
       setState(answer.state);
       notePress();
@@ -438,15 +480,15 @@ function useOverlayPresses({
         offerOf(parts.convenience)?.click();
       }
       if (answer.seekByMs !== undefined) {
-        seekBy(video, answer.seekByMs < 0 ? -1 : 1, detail); // its seek names the arrow pressed
+        stage.seekBy(answer.seekByMs, detail); // its seek names the arrow pressed
       }
       if (answer.isPlayPause === true) {
-        answerPlayerCommand(video, "playPause");
+        stage.playPause();
       }
       if (answer.isVolumeShown === true) {
         onVolumeShown();
       }
-      moveFocus(answer.focus, video, askFocusToScrub);
+      moveFocus(answer.focus, stage.picture, askFocusToScrub);
       if (answer.isTaken) {
         event.preventDefault();
       }
@@ -457,11 +499,11 @@ function useOverlayPresses({
 
 /**
  * Moves focus where a press's answer asks: to the scrub bar once drawn; to it at once, the press then
- * moving it on as if it had been there (D411); or to the video.
+ * moving it on as if it had been there (D411); or to the picture.
  */
 function moveFocus(
   focus: OverlayAnswer["focus"],
-  video: HTMLVideoElement,
+  picture: HTMLElement,
   askFocusToScrub: (isAtOnce?: boolean) => void,
 ): void {
   if (focus === "scrub") {
@@ -471,7 +513,7 @@ function moveFocus(
   } else if (focus === "video") {
     // Down from the buttons (Q14), once the press is through.
     queueMicrotask(() => {
-      focusTheVideo(video);
+      focusThePicture(picture);
     });
   }
 }
@@ -501,25 +543,26 @@ function useMenuLeftAtFullScreenFocusesScrub(
 
 /**
  * On a computer, a press of play that plays the film, OK's, Space's (player-commands.ts leaves Space
- * on a button to the button) or a mouse's, moves focus to the video, so the overlay that focus in it
+ * on a button to the button) or a mouse's, moves focus to the picture, so the overlay that focus in it
  * held hides on its time (D407 §6, Q14). Heard as play's click comes to it, before its own answer
  * plays the film, so whether the film was paused reads true; focus moves once the click is through.
  */
 function usePlayingLeavesPlay(
   playRef: RefObject<HTMLButtonElement | null>,
-  videoRef: RefObject<HTMLVideoElement | null>,
+  stageNow: () => OverlayStage | undefined,
   isTv: boolean,
 ): void {
+  const stageNowRef = useLatest(stageNow);
   useEffect(() => {
     const play = playRef.current;
     if (isTv || play === null) {
       return undefined;
     }
     const pressed = (): void => {
-      const video = videoRef.current;
-      if (video !== null && isPausedAsAsked(video)) {
+      const stage = stageNowRef.current();
+      if (stage?.isPaused === true) {
         queueMicrotask(() => {
-          focusTheVideo(video);
+          focusThePicture(stage.picture);
         });
       }
     };
@@ -527,7 +570,7 @@ function usePlayingLeavesPlay(
     return () => {
       play.removeEventListener("click", pressed, true);
     };
-  }, [playRef, videoRef, isTv]);
+  }, [playRef, stageNowRef, isTv]);
 }
 
 /**
@@ -555,10 +598,10 @@ function overlayParts(
 }
 
 /** What the overlay knows as a press comes: where focus is, and whether the film is paused. */
-function pressContext(parts: OverlayParts, video: HTMLVideoElement, isTv: boolean): PressContext {
+function pressContext(parts: OverlayParts, stage: OverlayStage, isTv: boolean): PressContext {
   const focused = document.activeElement;
   return {
-    isPaused: isPausedAsAsked(video),
+    isPaused: stage.isPaused,
     isTelevision: isTv,
     isOnScrub: focused !== null && focused === parts.scrub,
     isOnButtons: parts.buttons?.contains(focused) === true,
@@ -571,14 +614,6 @@ function pressContext(parts: OverlayParts, video: HTMLVideoElement, isTv: boolea
 /** The offer's own press in the convenience area: its first button, Up next's play or Continue. */
 function offerOf(convenience: HTMLElement | null): HTMLButtonElement | null {
   return convenience?.querySelector("button") ?? null;
-}
-
-/** Moves focus to the video, which takes it from a script alone where it is no stop of its own. */
-function focusTheVideo(video: HTMLVideoElement): void {
-  if (!video.hasAttribute("tabindex")) {
-    video.setAttribute("tabindex", "-1");
-  }
-  video.focus();
 }
 
 /**
@@ -632,8 +667,9 @@ function useOverlayHiding({
   isScrubHeld,
   overlayRef,
   videoRef,
+  pictureRef,
   convenienceRef,
-}: Pick<OverlayRefs, "overlayRef" | "videoRef" | "convenienceRef"> & {
+}: Pick<OverlayRefs, "overlayRef" | "videoRef" | "pictureRef" | "convenienceRef"> & {
   readonly state: OverlayState;
   readonly setState: (state: OverlayState) => void;
   readonly isPaused: boolean;
@@ -672,7 +708,7 @@ function useOverlayHiding({
       clearInterval(timer);
     };
   }, [afterMs, state, setState]);
-  useFocusLeavesWhatHides(state, { overlayRef, videoRef, convenienceRef });
+  useFocusLeavesWhatHides(state, { overlayRef, pictureRef, convenienceRef });
   return () => {
     lastPressAtRef.current = performance.now();
   };
@@ -686,23 +722,23 @@ function useOverlayHiding({
  */
 function useFocusLeavesWhatHides(
   state: OverlayState,
-  refs: Pick<OverlayRefs, "overlayRef" | "videoRef" | "convenienceRef">,
+  refs: Pick<OverlayRefs, "overlayRef" | "pictureRef" | "convenienceRef">,
 ): void {
-  const { overlayRef, videoRef, convenienceRef } = refs;
+  const { overlayRef, pictureRef, convenienceRef } = refs;
   useLayoutEffect(() => {
-    const video = videoRef.current;
+    const picture = pictureRef.current;
     const focused = document.activeElement;
     const isOnOffer = convenienceRef.current?.contains(focused) === true;
-    if (state.shown === "full" || video === null || isOnOffer) {
+    if (state.shown === "full" || picture === null || isOnOffer) {
       return;
     }
     if (focused === document.body || overlayRef.current?.contains(focused) === true) {
       const offer = offerOf(convenienceRef.current);
       if (offer === null) {
-        focusTheVideo(video);
+        focusThePicture(picture);
       } else {
         offer.focus();
       }
     }
-  }, [state.shown, overlayRef, videoRef, convenienceRef]);
+  }, [state.shown, overlayRef, pictureRef, convenienceRef]);
 }
