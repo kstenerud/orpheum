@@ -57,12 +57,13 @@ html:has(.castee-play) {
   white-space: nowrap;
 }
 
-/* The offer area (D548 §2): the key frame 16:9, as large as its cell lets it. */
+/* The offer area (D548 §2): the key frame 16:9, as large as its cell lets it; upright at the cell's
+   foot, so the timeline is close under it (the owner, 2026-11-26). */
 .castee-play__offer-cell {
   display: grid;
   min-block-size: 0;
   min-inline-size: 0;
-  place-items: center;
+  place-items: end center;
   align-self: stretch;
   container-type: size;
 }
@@ -110,8 +111,11 @@ html:has(.castee-play) {
   pointer-events: none;
 }
 
+/* Upright, the track a step under the key frame, its slider's room for a finger over the frame's
+   foot, which takes no press (the owner, 2026-11-26: "In portrait mode, the scrub bar can be much
+   closer to the video frame since the frame itself is non-interactive"). */
 .castee-play__page > .remote-pad__timeline {
-  margin: 0 var(--space-4);
+  margin: calc(var(--space-4) - var(--size-control) / 2) var(--space-4) 0;
 }
 
 .castee-play [aria-disabled="true"] {
@@ -141,11 +145,12 @@ html:has(.castee-play) {
 
   .castee-play__offer-cell {
     grid-area: offer;
+    place-items: center;
   }
 
   .castee-play__page > .remote-pad__timeline {
     grid-area: timeline;
-    margin-block-end: var(--space-2);
+    margin-block: 0 var(--space-2);
   }
 
   .castee-play__page > .remote-pad {

@@ -159,6 +159,17 @@ describe("the Play page upright and on its side (D555 §8)", () => {
     expect(controls?.querySelector('button[aria-label="Play"]')).not.toBeNull();
   });
 
+  // The owner, 2026-11-26: "In portrait mode, the scrub bar can be much closer to the video frame
+  // since the frame itself is non-interactive."
+  it("draws the timeline's track a step under the picture on a phone held upright", async () => {
+    heldByAFinger();
+    const stage = await playPageAt(390, 844);
+    const video = stage.querySelector("video")!.getBoundingClientRect();
+    const range = boxOf('.page-controls input[type="range"]');
+    const middle = range.top + range.height / 2;
+    expect(Math.abs(middle - video.bottom - 16)).toBeLessThan(1.5);
+  });
+
   // The owner, 2026-11-26: "The playback position and total time display should be directly under
   // the scrub bar on the right-hand side, right up close so that there's just enough clearance for
   // the position gadget to not overlap."

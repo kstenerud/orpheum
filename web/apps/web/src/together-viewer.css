@@ -85,3 +85,9 @@
   margin: 0;
   font-weight: var(--font-weight-strong);
 }
+
+/* The controls under the film held upright close under it, the page's room between its parts not
+   between them (page-controls.css; the owner, 2026-11-26). */
+.together-viewer__viewing .film-player__stage + .page-controls {
+  margin-block-start: calc(-1 * var(--space-2));
+}

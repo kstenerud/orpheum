@@ -106,6 +106,13 @@ function expectMenusAtTheEnd(container: HTMLElement): void {
   expect(Math.abs(last.getBoundingClientRect().right - end)).toBeLessThan(1.5);
 }
 
+/** That the timeline's track's middle is 16 px under frame, the slider's thumb clear of it. */
+function expectTrackAStepUnder(container: HTMLElement, frame: string): void {
+  const range = boxOf(container, `${timeline} input[type="range"]`);
+  const middle = range.top + range.height / 2;
+  expect(Math.abs(middle - boxOf(container, frame).bottom - 16)).toBeLessThan(1.5);
+}
+
 /**
  * That the time sits close under the timeline's track at its end (the owner, 2026-11-26: "directly
  * under the scrub bar on the right-hand side, right up close so that there's just enough clearance
@@ -138,7 +145,8 @@ describe("the castee's Play page laid out as the remote (the owner, 2026-11-26)"
     const timelineBox = boxOf(upright, timeline);
     const padBox = boxOf(upright, pad);
     const buttonsBox = boxOf(upright, buttons);
-    expect(timelineBox.top).toBeGreaterThanOrEqual(offerBox.bottom);
+    // The slider's room for a finger reaches over the card's foot, its track under it (the owner, 2026-11-26).
+    expect(timelineBox.top + timelineBox.height / 2).toBeGreaterThanOrEqual(offerBox.bottom);
     expect(padBox.top).toBeGreaterThanOrEqual(timelineBox.bottom);
     expect(buttonsBox.top).toBeGreaterThanOrEqual(padBox.bottom);
     // The room left over goes above the pad: the menus end at the bottom of the screen.
@@ -188,17 +196,20 @@ describe("the castee's Play page laid out as the remote (the owner, 2026-11-26)"
   });
 
   // The page felt cramped once every control was on (the owner, 2026-11-25): the sign shares the way
-  // up's touch box, the timeline sits flush under the card, the buttons row has a step more above it.
-  it("keeps the sign close under the way up, the timeline flush under the card and a step above the buttons row, on a phone upright", async () => {
+  // up's touch box, the timeline sits close under the card, the buttons row has a step more above it.
+  // The owner, 2026-11-26: "In portrait mode, the scrub bar can be much closer to the video frame
+  // since the frame itself is non-interactive": the track's middle 16 px under the key frame.
+  it("keeps the sign close under the way up, the timeline's track a step under the card and a step above the buttons row, on a phone upright", async () => {
     const upright = await casteeAt(390, 844);
     const up = boxOf(upright, ".castee-play__heading > :first-child");
     expect(boxOf(upright, ".castee-play__where").top).toBeLessThanOrEqual(up.bottom - 7.5);
-    expect(boxOf(upright, timeline).top).toBeCloseTo(
-      boxOf(upright, ".castee-play__offer-cell").bottom,
-      0,
-    );
+    expectTrackAStepUnder(upright, offer);
     const firstButton = boxOf(upright, `${buttons} [role=button]`);
     expect(firstButton.top - boxOf(upright, pad).bottom).toBeGreaterThanOrEqual(11.5);
+  });
+
+  it("draws the timeline's track a step under the card on a phone upright with its browser's bars too", async () => {
+    expectTrackAStepUnder(await casteeAt(390, 660), offer);
   });
 
   it("fits a phone upright with its browser's bars, nothing to scroll to", async () => {
