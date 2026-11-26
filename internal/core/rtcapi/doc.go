@@ -65,6 +65,8 @@
 //   - With the STUN servers it is given (UseICEServers: the core's own, never its discovery's, the
 //     Plex-chain review's L3), an answer carries the public address the core's NAT gives it.
 //     TestUseICEServers_TheAnswerCarriesThePublicAddressSTUNFound.
+//   - A relay among those servers is asked for an address only for an offer that carries a relayed
+//     candidate (D559 §2). TestAnswer_AsksARelayOnlyForAnOfferThatCarriesARelayedCandidate.
 //   - Each connection's path (direct, punched or relayed, by family; hairpinned; or failed) is counted
 //     and logged, told by the core's end of its selected pair (D274 §3); the log names both ends by
 //     type and address. TestAnswer_CountsThePathEachConnectionTook, TestPathOf_IsToldByTheCoresEndOfThePair,

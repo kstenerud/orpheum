@@ -128,10 +128,14 @@ the log says whether a device took the relay needlessly (the owner, 2026-11-26):
 2. **One browser takes many allocations.** That walk's one browser took 33 client allocations and
    the core 11 over a sign-in and half a minute of a film: four a connection for each of its three
    or four connections at once, though one pair carries each. The relayed ports are 40 (Hetzner's
-   firewall), and a household's limit is 16, which that one browser reached. Open, the owner's: a
-   wider port range and household limit, or a client that asks the relay only once a connection
-   without it has failed.
+   firewall), and a household's limit is 16, which that one browser reached. Decided as D559: a
+   device asks a relay only once a connection has not formed without one, the core only for an
+   offer that carries a relayed candidate, and the ports and limits grow once the owner has
+   widened the firewall. Production's discovery names the relay after that.
 3. **A core has no relay credential for up to five minutes after the discovery restarts**: it
    takes one with its heartbeat alone. Open.
 4. **The relay says nothing of an allocation it refuses.** A line for each refusal, with which
    limit, would have named finding 1 at once. It now does (§5 item 2).
+5. **A relay that does not answer holds the core's answer** to an offer with a relayed candidate
+   until the core has a reflexive candidate, or for five seconds and then fails it where it has no
+   STUN server (seen in D559 §2's test, 2026-11-26). Before D559 §2 that was every offer. Open.

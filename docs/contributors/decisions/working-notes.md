@@ -32140,3 +32140,32 @@ having an official relay server."*
     time"). The discovery names each household's rate in its credential, so a change needs no new
     relay; the beta's is set far above any film's. The relay records each allocation's highest
     rate beside its bytes and seconds, and §1's 3 Mb/s is applied once those figures are read.
+
+## D559 — A connection asks a relay only once it has not connected without it, the core only for an offer that carries a relayed candidate, and the relay's ports and limits grow
+
+**Decided** (2026-11-26), by the project owner ("Yes go ahead"), on the lead's proposal after the
+hosted relay's staging walk
+([plans/hosted-relay.md](../design/plans/hosted-relay.md#what-the-staging-walk-found-2026-11-26)):
+one browser took 33 of the relay's allocations and the core 11, of 40 relayed ports, for
+connections of which one pair each carried anything. **Amends** D558 §7's first step, which had
+both ends ask the relay on every connection. It keeps D558's other clauses. Production's
+discovery names the relay only once this stands (the owner: "Let's wait until it's settled. I can
+test the relay when we're on good footing for it").
+
+**Status:** decided. §2 has code; §1 and §3 have none.
+
+1. **A device's connection first tries without a relay.** When it has not connected 3
+   seconds after the core's answer, a second attempt that also asks the relays starts beside it,
+   and the first of the two to connect is the connection; the other is closed. The page remembers,
+   for its life, that its network needed a relay, and its later connections ask the relays at
+   once. A household's own relay waits with the hosted one: the discovery's answer does not say
+   which is which, and neither is needed where a connection forms without. A household whose devices connect without a relay takes none of its ports; the first
+   connection on a network that needs one takes about 3 seconds longer. The 3 seconds is the
+   lead's figure, connections without the relay on staging and in production taking under one.
+2. **The core asks the relay for an address only for an offer that carries a relayed candidate.**
+   The relay passes a household's datagrams between its two ends' relayed addresses alone (D558
+   §4), so for any other offer the core's address there carries nothing.
+3. **The relayed ports widen and the limits rise after them.** The owner widens Hetzner's firewall
+   for the relay's UDP range to 49160–51159 (2,000 ports); the household's limit then goes from 16
+   allocations to 64 and a client credential's from 8 to 16. Until the firewall is changed the
+   range and the limits stay.

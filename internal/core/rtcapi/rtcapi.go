@@ -435,7 +435,7 @@ func (server *Server) Answer(ctx context.Context, offer Description) (Descriptio
 func (server *Server) answerWith(
 	ctx context.Context, api *webrtc.API, offerSDP string, onProvenAtHome func(ProvenAtHome),
 ) (Description, error) {
-	connection, err := server.open(api, onProvenAtHome)
+	connection, err := server.open(api, onProvenAtHome, offersRelayed(offerSDP))
 	if err != nil {
 		return Description{}, err
 	}
@@ -449,18 +449,17 @@ func (server *Server) answerWith(
 
 // open makes a peer connection with api, unless the core holds its most connections. One that has not
 // connected within its bound is closed, and so is one past its network's share once it connects. Once
-// it connects, onProvenAtHome, unless nil, is told when it proved itself from home (D356 §1).
-func (server *Server) open(api *webrtc.API, onProvenAtHome func(ProvenAtHome)) (*webrtc.PeerConnection, error) {
+// it connects, onProvenAtHome, unless nil, is told when it proved itself from home (D356 §1). It asks
+// a relay for an address only when mayRelay (D559 §2).
+func (server *Server) open(
+	api *webrtc.API, onProvenAtHome func(ProvenAtHome), mayRelay bool,
+) (*webrtc.PeerConnection, error) {
 	server.mutex.Lock()
 	defer server.mutex.Unlock()
 	if len(server.connections) >= server.bounds.connections {
 		return nil, ErrTooManyConnections
 	}
-	configuration := webrtc.Configuration{}
-	if source := server.iceServers.Load(); source != nil {
-		configuration.ICEServers = (*source)()
-	}
-	connection, err := api.NewPeerConnection(configuration)
+	connection, err := api.NewPeerConnection(webrtc.Configuration{ICEServers: server.serversFor(mayRelay)})
 	if err != nil {
 		return nil, fmt.Errorf("make a peer connection: %w", err)
 	}
