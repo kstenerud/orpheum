@@ -251,8 +251,9 @@ staying in the panel under the shell's bar; AirPlay is offered as before.
 the host plays, the guest's page has its top bar, Leave, Talk and "Waiting for the host to start
 a film"; with the host playing, the guest's film plays in step under the overlay, without menus or
 a way up; the guest's Pause, Forward 10 s and Play each move the host's film to the same second; at
-a phone's size upright the controls are under the picture. Not walked: on the Pixel itself; a
-guest whose link allows neither play nor seek.
+a phone's size upright the controls are under the picture. A guest whose link allows nothing has
+no play and no steps, its timeline disabled, and its Space and Right arrow move nothing; Volume,
+Talk and Full screen stay. Not walked: on the Pixel itself.
 
 **Walked (phase 5, staging, 2026-11-26):** `/lab` and `/lab/sound` say there is nothing at the
 address; This device links the sound timing test, and its page offers the clip.
