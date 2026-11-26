@@ -49,6 +49,22 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A96 — Called the Chromecast's skip forward fixed after walking it on one file (2026-11-26)
+
+- **What happened:** the lead fixed a refill that never ended on a Chromecast by capping what a
+  player waits for at what it loads ahead, walked a skip forward on one file, and told the owner it
+  was fixed. The cap was hls.js's buffer length in seconds times 1000, unrounded; on the owner's
+  file it was 3420.000000000016, the core reads the field as whole milliseconds, and it closed the
+  receiver's connection on every state message. The owner: *"the phone shows 'reaching tv' and
+  disables all buttons … every few seconds it shows 'reaching tv' again. It's basically unusable
+  in its current form."* On the walked file the buffer length was a whole number of seconds, so
+  the walk could not fail. The belief came from one walk standing for every file.
+- **Caught by:** the owner, casting another file on staging.
+- **Gate:** the test "waits for whole milliseconds, never above what its player loads ahead" in
+  `together-refill.test.ts` pins this field. None for the kind: nothing checks that every number a
+  device sends in a field the core reads as an integer is whole, and the core closes the connection
+  on one that is not, which the device then repeats. Proposed to the owner.
+
 ### A95 — Read "the casting mode we had" as the overlay, and briefed an agent to build it (2026-11-26)
 
 - **What happened:** the owner asked for the layout "to follow what we already had for fullscreen
