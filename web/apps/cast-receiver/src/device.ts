@@ -403,7 +403,7 @@ export class CastDevice {
       const positionMs = atMs ?? decision.resumePositionMs;
       const played = decision.onLadder?.url ?? decision.url;
       note(`playing file ${String(fileId)} from ${(positionMs / 1000).toFixed(1)} s: ${played}`);
-      const panels = this.panelsFor(fileId, decision);
+      const panels = this.panelsFor(decision);
       const { sound } = panels;
       this.playback = startsFilm(video, new URL(played, globalThis.location.origin).href, {
         onFailed: (failure) => {
@@ -427,11 +427,11 @@ export class CastDevice {
   }
 
   /** The film's sound and subtitles as its remote works them, from the core's decision. */
-  private panelsFor(fileId: number, decision: PlaybackDecision): FilmPanels {
-    const { api, token, reached, video, note } = this.options;
+  private panelsFor(decision: PlaybackDecision): FilmPanels {
+    const { token, reached, video, note } = this.options;
     // An older core's decision may lack the parts the panels read: they then offer nothing.
     const told: Partial<PlaybackDecision> = decision;
-    const ways = { api, fileId, video, note };
+    const ways = { video, note };
     return {
       sound: new ReceiverSoundPanel(told, ways, this.options.audio),
       picture: new ReceiverPicturePanel(told, ways, {

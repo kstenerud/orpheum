@@ -42,6 +42,8 @@ import { RemoteFindSubtitles, RemoteFindSubtitlesOption } from "./cast-remote-fi
 import { RemoteFileTiming, RemoteTellTheAdmin } from "./cast-remote-sound-timing.tsx";
 import { RemoteSubtitleTiming } from "./cast-remote-subtitle-timing.tsx";
 import { useLive } from "./live.tsx";
+import { useKeptByTheSender } from "./cast-remote-keep.ts";
+import { StatusNote } from "./status-note.tsx";
 import type { SuggestedSoundOffset } from "./problem-report.tsx";
 
 /** The dialog a remote's menu opened, if one did: Find subtitles, or Tell the admin's report. */
@@ -78,10 +80,13 @@ export function RemoteMenus(props: {
   /** The film and session ⁝'s Report a problem takes the receiver's playback from (D524 §2). */
   readonly report?: RemoteReport | undefined;
 }): JSX.Element {
-  const { playback, connection } = props;
+  const { playback } = props;
   const reporting = useReportFromTheRemote(props.report, playback);
   const [dialog, setDialog] = useState<RemoteDialog | undefined>(undefined);
-  const fileId = useLive().sending?.fileId ?? 0;
+  const { sending } = useLive();
+  const fileId = sending?.fileId ?? 0;
+  // Each choice the person keeps, kept here where the receiver cannot keep it (cast-remote-keep.ts).
+  const { connection, problem } = useKeptByTheSender(props.connection, sending);
   const closed = (): void => {
     setDialog(undefined);
   };
@@ -98,6 +103,7 @@ export function RemoteMenus(props: {
         />
       )}
       <ReceiverMore playback={playback} connection={connection} report={reporting.entry} />
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
       {connection === undefined || dialog === undefined ? null : (
         <RemoteMenuDialog
           dialog={dialog}

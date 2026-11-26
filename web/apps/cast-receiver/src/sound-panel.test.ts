@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 // @vitest-environment happy-dom
 
-import { createApi, type PlaybackSound } from "@orpheum/sdk";
-import { describe, expect, it } from "vitest";
+import type { PlaybackSound } from "@orpheum/sdk";
+import { describe, expect, it, vi } from "vitest";
 
 import { ReceiverSoundPanel, type SoundDecision, type SwitchesSound } from "./sound-panel.ts";
 
@@ -57,18 +57,9 @@ function panelOn(decision: SoundDecision) {
   const switched: string[] = [];
   const gains: number[] = [];
   const offsets: number[] = [];
-  const kept: string[] = [];
-  const api = createApi({
-    origin: "https://core.example",
-    getToken: () => "token",
-    fetch: async (request) => {
-      kept.push(`${request.method} ${new URL(request.url).pathname} ${await request.text()}`);
-      return Response.json({});
-    },
-  });
   const panel = new ReceiverSoundPanel(
     decision,
-    { api, fileId: 7, video: document.createElement("video"), note: () => undefined },
+    { video: document.createElement("video"), note: () => undefined },
     {
       gainOf: () => ({ setDb: (db) => gains.push(db) }),
       offsetOf: () => ({ setMs: (ms) => offsets.push(ms) }),
@@ -81,7 +72,7 @@ function panelOn(decision: SoundDecision) {
       onHeard?.();
     },
   };
-  return { panel, playback, switched, gains, offsets, kept };
+  return { panel, playback, switched, gains, offsets };
 }
 
 describe("a Chromecast's sound, as its cast's remote works it", () => {
@@ -109,8 +100,9 @@ describe("a Chromecast's sound, as its cast's remote works it", () => {
     expect(plain.panel.startingSound()).toEqual({});
   });
 
-  it("switches track and boost in place, kept for the person, and offers no boost a track lacks", async () => {
-    const { panel, playback, switched, kept } = panelOn(
+  it("switches track and boost in place, offers no boost a track lacks, and keeps nothing itself", async () => {
+    const fetched = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+    const { panel, playback, switched } = panelOn(
       twoTracks({ isDialogueBoostOn: false, isLevellingOn: false }),
     );
     panel.plays(playback);
@@ -119,12 +111,13 @@ describe("a Chromecast's sound, as its cast's remote works it", () => {
     expect(switched).toEqual(["2 boostOn", "3 trackChosen"]);
     expect(panel.read()?.audioStreamId).toBe(3);
     expect(panel.read()?.isBoostOn).toBeUndefined();
-    await expect
-      .poll(() => kept)
-      .toEqual([
-        'PUT /api/v1/me/preferences {"isDialogueBoostOn":true}',
-        'PUT /api/v1/files/7/preferences {"audioChoice":{"streamId":3}}',
-      ]);
+    panel.choose({ kind: "levelling", isOn: true });
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    // A guest receiver, refused the person's routes (D465 §2): its sender keeps the choices.
+    expect(fetched).not.toHaveBeenCalled();
+    fetched.mockRestore();
   });
 
   it("levels the sound by a gain after the volume, less what its mix carries, made only once needed", () => {

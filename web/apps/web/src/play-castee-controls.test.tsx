@@ -282,6 +282,44 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(isSwitchOn(labelled("Level loudness"))).toBe(false);
   });
 
+  // A Chromecast, a guest receiver, is refused the person's routes (D465 §2): its sender keeps what
+  // the person chooses on its remote, so the next cast starts with it (VQ407 step 5).
+  it("keeps for the person each sound and subtitle choice sent to a guest receiver, as the Play page keeps it", async () => {
+    const heard: Heard[] = [];
+    const { sockets } = await casting(
+      { "PUT /me/preferences": [204, {}], "PUT /files/4/preferences": [204, {}] },
+      heard,
+      { sent: { ...sending, isGuestReceiver: true } },
+    );
+    const page = mounted!.container;
+    const server = sockets.session;
+    await receiverSays(server, {
+      delivery: "converted",
+      sound: {
+        isBoostOn: false,
+        isLevellingOn: true,
+        audioStreamId: 1,
+        audioTracks: [
+          { streamId: 1, language: "en", kind: "plain" },
+          { streamId: 2, language: "de", kind: "plain" },
+        ],
+      },
+    });
+    await openedMenu(page, "Sound");
+    await click(switchNamed(page, "Dialogue boost"));
+    await click(switchNamed(page, "Level loudness"));
+
+    const kept = (): unknown[] =>
+      heard
+        .filter((each) => each.methodAndPath.startsWith("PUT "))
+        .map((each) => [each.methodAndPath, each.body]);
+    await settleUntil(() => kept().length === 2);
+    expect(kept()).toEqual([
+      ["PUT /me/preferences", { isDialogueBoostOn: true }],
+      ["PUT /me/preferences", { isLevellingOn: false }],
+    ]);
+  });
+
   it("shows the receiver's sound timing as That device under the Sound menu's Sound timing, not in ⁝, and moves it a step from there for a TV that plays its sound late (the owner, 2026-11-06)", async () => {
     // "Put a control in ... cast so that I can adjust the sound timing".
     const { sockets } = await casting({});

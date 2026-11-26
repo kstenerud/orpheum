@@ -8,15 +8,12 @@ import {
   type SoundChoiceCause,
   type SoundOffset,
 } from "@orpheum/player";
-import {
-  dataOrThrow,
-  failureText,
-  type Api,
-  type components,
-  type PlaybackSound,
-  type RemotesPanel,
-  type SoundChoice,
-  type SoundTrack,
+import type {
+  components,
+  PlaybackSound,
+  RemotesPanel,
+  SoundChoice,
+  SoundTrack,
 } from "@orpheum/sdk";
 
 /** What the core decides for a film the receiver plays, as far as its sound goes; an older core's may lack parts. */
@@ -52,10 +49,12 @@ function startingTrackOf(decision: SoundDecision): number {
 /** The part of a playback the panel switches the sound of. */
 export type SwitchesSound = Pick<ChunkedPlayback, "setAudioRendition" | "canSwitchSoundInPlace">;
 
-/** What a receiver's panel works with: the film's file, the core, the video and the log. */
+/**
+ * What a receiver's panel works with: the video and the log. No way to the core's
+ * routes of the person: a Chromecast is a guest receiver, refused them (D465 §2), and the sender
+ * keeps each choice its remote sends (the web app's cast-remote-keep.ts).
+ */
 export interface PanelWays {
-  readonly api: Api;
-  readonly fileId: number;
   readonly video: HTMLVideoElement;
   readonly note: (line: string) => void;
 }
@@ -75,7 +74,7 @@ export interface SoundAudio {
  * (D222, D336); levelling (D226 §4), by a gain after the volume only once the sound needs one, so a
  * film played as the core levelled it goes through no Web Audio; and how far the device moves its
  * sound from its picture, for this film alone, as the receiver keeps nothing (its README). Each
- * choice of the person's is kept for them as the Play page keeps it. Its film's channel is not said:
+ * choice of the person's is kept for them by the sender, as the Play page keeps it, this guest receiver refused the person's routes (D465 §2). Its film's channel is not said:
  * its volume is the Cast device's own, set through the sender's Cast session (the web app's
  * cast-device-volume.ts). Nor the file's own offset (D537), which asks for the film again.
  */
@@ -147,11 +146,7 @@ export class ReceiverSoundPanel implements RemotesPanel<SoundChoice> {
         this.chooseTrack(choice.streamId);
         return;
       case "boost":
-        if (
-          this.switchTo(this.audioTrackIndex, choice.isOn, choice.isOn ? "boostOn" : "boostOff")
-        ) {
-          this.keep({ isDialogueBoostOn: choice.isOn });
-        }
+        this.switchTo(this.audioTrackIndex, choice.isOn, choice.isOn ? "boostOn" : "boostOff");
         return;
       case "levelling":
         this.chooseLevelling(choice.isOn);
@@ -169,7 +164,6 @@ export class ReceiverSoundPanel implements RemotesPanel<SoundChoice> {
   private chooseLevelling(isOn: boolean): void {
     this.isLevellingOn = isOn;
     this.level();
-    this.keep({ isLevellingOn: isOn });
     this.told();
   }
 
@@ -186,17 +180,15 @@ export class ReceiverSoundPanel implements RemotesPanel<SoundChoice> {
       return;
     }
     const isBoosted = this.isBoosted && this.renditionOf(track.audioTrackIndex, true) !== undefined;
-    if (this.switchTo(track.audioTrackIndex, isBoosted, "trackChosen")) {
-      this.keepTrack(streamId);
-    }
+    this.switchTo(track.audioTrackIndex, isBoosted, "trackChosen");
   }
 
-  /** Plays the track's mix in place, levelled once it is heard; whether the ladder has it. */
-  private switchTo(audioTrackIndex: number, isBoosted: boolean, cause: SoundChoiceCause): boolean {
+  /** Plays the track's mix in place, levelled once it is heard, where the ladder has it. */
+  private switchTo(audioTrackIndex: number, isBoosted: boolean, cause: SoundChoiceCause): void {
     const index = this.renditionOf(audioTrackIndex, isBoosted);
     const { playback } = this;
     if (index === undefined || playback?.canSwitchSoundInPlace !== true) {
-      return false;
+      return;
     }
     this.audioTrackIndex = audioTrackIndex;
     this.isBoosted = isBoosted;
@@ -204,7 +196,6 @@ export class ReceiverSoundPanel implements RemotesPanel<SoundChoice> {
       this.level();
     });
     this.told();
-    return true;
   }
 
   /** The ladder's rendition of the track's mix, by its place in the master playlist. */
@@ -248,28 +239,5 @@ export class ReceiverSoundPanel implements RemotesPanel<SoundChoice> {
     for (const listener of this.listeners) {
       listener();
     }
-  }
-
-  /** Keeps one of the person's own choices, as the Play page's switch does. */
-  private keep(body: { isLevellingOn: boolean } | { isDialogueBoostOn: boolean }): void {
-    void this.ways.api
-      .PUT("/me/preferences", { body })
-      .then(dataOrThrow)
-      .catch((cause: unknown) => {
-        this.ways.note(`could not keep the sound's choice: ${failureText(cause)}`);
-      });
-  }
-
-  /** Keeps the person's audio track in the file, as the Play page's choice does (D230). */
-  private keepTrack(streamId: number): void {
-    void this.ways.api
-      .PUT("/files/{id}/preferences", {
-        params: { path: { id: this.ways.fileId } },
-        body: { audioChoice: { streamId } },
-      })
-      .then(dataOrThrow)
-      .catch((cause: unknown) => {
-        this.ways.note(`could not keep the audio track: ${failureText(cause)}`);
-      });
   }
 }

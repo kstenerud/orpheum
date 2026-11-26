@@ -49,11 +49,14 @@ answered is gone (D555 §12).
   2026-11-26: "Anything it can do, I want"): it says, in its state, the file's audio tracks its
   ladder has a mix of, the dialogue boost where its track has a boosted mix, levelling, its sound's
   timing, and the core's subtitle tracks with their timing; a choice the remote sends it carries out
-  as the Play page's control would, and keeps the person's as the Play page keeps it. A track switches
+  as the Play page's control would, and keeps none itself: a guest receiver is refused the person's
+  routes (D465 §2), so its sender keeps each of the person's choices it sends (the web app's
+  `src/cast-remote-keep.ts`), as the Play page keeps it, and a later cast starts with them. A track switches
   in place; levelling and the timing are Web Audio's, made only once the sound needs them; subtitles
   show as the video's own WebVTT track. It offers no original (it asks for no container of a file's
   own), no film channel (its volume is the Cast device's, which the sender sets through its Cast
   session) and no file offset (D537), which asks for the film again. `src/sound-panel.test.ts`,
+  the web app's `src/cast-remote-keep.test.tsx`,
   `src/picture-panel.test.ts`, `src/device-follow.test.ts`; only a device shows the whole: VQ407.
 - **Casts under a grant with nothing kept** (D465 §2): on `urn:x-cast:org.orpheum.cast`, a sender's
   launch carries a grant for one cast and its core's reach, with no session. The receiver reaches the

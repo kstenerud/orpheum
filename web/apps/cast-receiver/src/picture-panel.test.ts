@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 // @vitest-environment happy-dom
 
-import { createApi } from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ReceiverPicturePanel, shiftedVtt, type PictureDecision } from "./picture-panel.ts";
@@ -27,28 +26,19 @@ function twoSubtitles(preferences: object): PictureDecision {
   } as unknown as PictureDecision;
 }
 
-/** A panel on a video, with what it read and kept, and the text of each track it drew. */
+/** A panel on a video, with what it read, and the text of each track it drew. */
 function panelOn(decision: PictureDecision) {
   const read: string[] = [];
-  const kept: string[] = [];
   const drawn: Promise<string>[] = [];
   vi.spyOn(URL, "createObjectURL").mockImplementation((blob) => {
     drawn.push((blob as Blob).text());
     return `blob:${String(drawn.length)}`;
   });
   vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
-  const api = createApi({
-    origin: "https://core.example",
-    getToken: () => "token",
-    fetch: async (request) => {
-      kept.push(`${new URL(request.url).pathname} ${await request.text()}`);
-      return Response.json({});
-    },
-  });
   const video = document.createElement("video");
   const panel = new ReceiverPicturePanel(
     decision,
-    { api, fileId: 7, video, note: () => undefined },
+    { video, note: () => undefined },
     {
       fetch: (request) => {
         read.push(`${new URL(request.url).pathname} ${request.headers.get("Authorization") ?? ""}`);
@@ -58,7 +48,7 @@ function panelOn(decision: PictureDecision) {
       language: "en",
     },
   );
-  return { panel, video, read, kept, drawn };
+  return { panel, video, read, drawn };
 }
 
 describe("a Chromecast's subtitles, as its cast's remote works them", () => {
@@ -89,8 +79,9 @@ describe("a Chromecast's subtitles, as its cast's remote works them", () => {
     expect(await drawn[0]).toContain("00:00:01.500 --> 00:00:03.000");
   });
 
-  it("shows, retimes and takes off a track as the remote chooses, kept for the person", async () => {
-    const { panel, video, drawn, kept } = panelOn(twoSubtitles({}));
+  it("shows, retimes and takes off a track as the remote chooses, keeping nothing itself", async () => {
+    const fetched = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+    const { panel, video, drawn } = panelOn(twoSubtitles({}));
     expect(video.querySelector("track")).toBeNull();
     panel.choose({ kind: "subtitles", key: "s4" });
     await vi.waitFor(() => {
@@ -101,13 +92,11 @@ describe("a Chromecast's subtitles, as its cast's remote works them", () => {
     expect(await drawn[1]).toContain("00:00:00.000 --> 00:00:01.000");
     panel.choose({ kind: "subtitles", key: undefined });
     expect(video.querySelector("track")).toBeNull();
-    await expect
-      .poll(() => kept)
-      .toEqual([
-        '/api/v1/files/7/preferences {"subtitleChoice":{"streamId":4}}',
-        '/api/v1/files/7/preferences {"subtitleOffsetMs":-1500}',
-        '/api/v1/files/7/preferences {"subtitleChoice":{"isOff":true}}',
-      ]);
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    // A guest receiver, refused the person's routes (D465 §2): its sender keeps the choices.
+    expect(fetched).not.toHaveBeenCalled();
   });
 
   it("says nothing to choose for a film with no tracks, as from an older core", () => {

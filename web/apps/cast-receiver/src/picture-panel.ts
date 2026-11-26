@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import {
-  dataOrThrow,
   failureText,
   type components,
   type FetchRequest,
@@ -92,8 +91,8 @@ export function shiftedVtt(text: string, ms: number): string {
 /**
  * The Chromecast's subtitles as its cast's remote works them (D434, D555 §3), as a browser receiver's
  * Subtitles menu is worked (the web app's picture-panel.ts): the tracks the core offers, the person's
- * choice of the file to start with, and their timing, each choice kept for the person as the Play
- * page keeps it. A track shows as the video's own WebVTT track, which the Cast device draws itself:
+ * choice of the file to start with, and their timing, each choice kept for the person by the sender
+ * (the web app's cast-remote-keep.ts), as this guest receiver is refused the person's routes. A track shows as the video's own WebVTT track, which the Cast device draws itself:
  * JASSUB's ASS layer, the Play page's, is more than a 3rd-generation Chromecast should draw over a
  * film. The original is never offered: the receiver asks for no container of a file's own
  * (receiverFormats). A subtitle found on the remote shows with the next film the receiver is handed.
@@ -150,12 +149,10 @@ export class ReceiverPicturePanel implements RemotesPanel<PictureChoice> {
       this.key = choice.key;
       this.text = undefined;
       this.show();
-      this.keep({ subtitleChoice: keptChoiceOf(choice.key) });
       this.told();
     } else if (choice.kind === "subtitleOffset") {
       this.offsetMs = choice.ms;
       this.draw();
-      this.keep({ subtitleOffsetMs: choice.ms });
       this.told();
     }
   };
@@ -231,30 +228,4 @@ export class ReceiverPicturePanel implements RemotesPanel<PictureChoice> {
       listener();
     }
   }
-
-  /** Keeps the person's subtitles or their timing in the file, as the Play page does. */
-  private keep(
-    body:
-      | { subtitleChoice: components["schemas"]["SubtitleChoiceBody"] }
-      | { subtitleOffsetMs: number },
-  ): void {
-    void this.ways.api
-      .PUT("/files/{id}/preferences", { params: { path: { id: this.ways.fileId } }, body })
-      .then(dataOrThrow)
-      .catch((cause: unknown) => {
-        this.ways.note(`could not keep the subtitles' choice: ${failureText(cause)}`);
-      });
-  }
-}
-
-/** A subtitle choice as the core keeps it: a track by its key, or off. */
-function keptChoiceOf(key: string | undefined): components["schemas"]["SubtitleChoiceBody"] {
-  const id = key === undefined ? 0 : Number(key.slice(1));
-  if (key?.startsWith("s") === true) {
-    return { streamId: id };
-  }
-  if (key?.startsWith("f") === true) {
-    return { fetchedSubtitleId: id };
-  }
-  return { isOff: true };
 }

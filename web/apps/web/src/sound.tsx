@@ -19,7 +19,7 @@ import { Switch } from "./switch.tsx";
 type OwnChoice = keyof components["schemas"]["SetMyPreferencesInputBody"];
 
 /** Keeps one of the person's own choices: the dialogue boost (D83, D222), levelling (D226). */
-async function keepOwnChoice(api: Api, choice: OwnChoice, isOn: boolean): Promise<void> {
+export async function keepOwnChoice(api: Api, choice: OwnChoice, isOn: boolean): Promise<void> {
   throwIfRefused(await api.PUT("/me/preferences", { body: { [choice]: isOn } }));
 }
 

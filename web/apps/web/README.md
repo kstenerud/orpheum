@@ -382,7 +382,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   something, its cell kept so Play does not move, and the menus' row end-aligned with no ⤢: casting
   is never full screen, the page leaving it as it opens (`src/play-castee-overlay.test.tsx`,
   `src/play-castee-layout.browser.test.tsx`), `TargetMenus` over the castee
-  (`src/cast-remote-choices.tsx`'s `RemoteMenus`). While the receiver is not heard it says *Reaching
+  (`src/cast-remote-choices.tsx`'s `RemoteMenus`), which keeps for the person each of their choices
+  it sends a guest receiver, refused the person's routes (D465 §2), as the Play page keeps it, and
+  none it sends a castee signed in as the person, which keeps its own: one keeper for each choice
+  (`src/cast-remote-keep.ts`; `src/cast-remote-keep.test.tsx`, `src/play-castee-controls.test.tsx`).
+  While the receiver is not heard it says *Reaching
   ‹Device›…*, the controls, the menus and the keys taking no press (D548 §9;
   `src/cast-remote-heard.ts`'s `useReceiverHeard`), and ends nothing itself: the server ends a
   cast whose castee is silent (D555 §3); one heard with no place yet, held for its press (D468 §2),
