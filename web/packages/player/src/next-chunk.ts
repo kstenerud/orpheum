@@ -88,7 +88,8 @@ export interface NextChunkLink {
  * names, its controller's next-chunk bound (Choosing.nextChunkLink); with its bits, which a heavy
  * chunk is waited for by too (heavyChunkLoadKbps), the film it plays, whether
  * it is of the lowest quality hls.js may load, and the most it loads ahead, which a refill after a
- * stall reads (refillAfterStallOf, D414 §2). Returns the end of it.
+ * stall reads (refillAfterStallOf, D414 §2); with no link to reckon over, or no next chunk, the most
+ * it loads ahead alone, which no wait may pass (readyAheadOf). Returns the end of it.
  */
 export function tellNextChunkLoad(
   { listing, room }: { readonly listing: ChunkListing; readonly room: PictureRoom },
@@ -99,16 +100,17 @@ export function tellNextChunkLoad(
     const over = nextChunkLink();
     const next = nextChunkLoadOf(listing, room);
     const { maxBufferLength, maxMaxBufferLength } = listing.config;
+    const loadsAheadAtMostMs = Math.min(maxBufferLength, maxMaxBufferLength) * 1000;
     // A kilobit a second is a bit a millisecond.
     return over === undefined || next === undefined || over.kbps <= 0
-      ? undefined
+      ? { loadsAheadAtMostMs }
       : {
           loadMs: over.firstByteMs + next.bits / over.kbps,
           from: over.from,
           filmMs: next.filmMs,
           bits: next.bits,
           isLowestQuality: listing.loadLevel <= listing.minAutoLevel,
-          loadsAheadAtMostMs: Math.min(maxBufferLength, maxMaxBufferLength) * 1000,
+          loadsAheadAtMostMs,
         };
   });
 }

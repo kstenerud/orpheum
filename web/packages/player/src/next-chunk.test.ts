@@ -192,6 +192,21 @@ describe("how long the next chunk is expected to take to load (the owner, 2026-1
     stop();
   });
 
+  it("says the most it loads ahead even so, and the player waits for no more (a Chromecast's seek, 2026-11-26)", () => {
+    const video = resumedVideo();
+    const narrow = {
+      ...listing(7_700_000),
+      config: { maxBufferLength: 1.918, maxMaxBufferLength: 1.918 },
+    };
+    const stop = tellNextChunkLoad(
+      { listing: narrow, room: resumedRoom() },
+      video,
+      () => undefined,
+    );
+    expect(readyAheadOf(video)).toEqual({ aheadMs: 1918, nextChunkLoadFrom: "none" });
+    stop();
+  });
+
   it("waits on the Fire TV's shape while the link it is reckoned over is under the chunk's need", () => {
     // Staging, 2026-10-28, device 60, file 5766: 1.07 s loaded past the resume point, its next
     // chunk 173 10.4 s at 1.782 Mb/s, 18.5 Mb; at the 7.9 Mb/s the controller's bound reads from a

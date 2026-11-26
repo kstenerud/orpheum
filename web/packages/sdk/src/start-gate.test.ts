@@ -195,6 +195,21 @@ describe("a player alone starts only once what it loaded outlasts its next chunk
     expect(gate.lastWait()).toEqual({ waitedForAheadMs: refillAheadMs, nextChunkLoadFrom: "none" });
   });
 
+  it("waits for no more than its player loads ahead where it cannot say its next chunk's load (the owner's skip forward, 2026-11-26)", () => {
+    // Staging, 2026-11-26, a Chromecast that had measured no link sought 10 s on to 30.7 s of file
+    // 1285: 4.2 s loaded ahead, its picture's room letting it load 1.9 s ahead, and it waited for 10 s.
+    const media = new FakeMedia();
+    media.currentTime = 30.726;
+    media.loaded = [[0.04, 34.91]];
+    media.readyState = 4;
+    tellNextChunkLoadMs(media, () => ({ loadsAheadAtMostMs: 1918 }));
+    const play = countedPlay(media);
+    const gate = startGateOf(media);
+    gate.play(play.how);
+    expect(play.plays()).toBe(1);
+    expect(gate.lastWait()).toBeUndefined();
+  });
+
   it("plays at once where the browser loads no more while it is paused", () => {
     const media = resumedMedia();
     media.networkState = 1; // NETWORK_IDLE: preload stopped at the metadata

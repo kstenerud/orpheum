@@ -71,23 +71,41 @@ export function setReadyAheadPercent(percent: number): void {
  */
 export const heavyChunkLoadKbps = 20_000;
 
+/**
+ * A player's word where it cannot say how long its next chunk takes, having measured no link and
+ * remembering none: the most film it loads ahead alone, which the wait for refillAheadMs never
+ * passes.
+ */
+export interface NoNextChunkLoad {
+  readonly loadMs?: undefined;
+  readonly loadsAheadAtMostMs: number;
+}
+
+/** What a player tells of its next chunk's load. */
+type ToldLoad = NextChunkLoad | NoNextChunkLoad | undefined;
+
 /** Each element's word on how long its next chunk is expected to take to load, from its player. */
-const nextChunkLoads = new WeakMap<object, () => NextChunkLoad | undefined>();
+const nextChunkLoads = new WeakMap<object, () => ToldLoad>();
 
 /**
  * Has media's player tell, by read, how long its next chunk is expected to take to load and what
  * that rests on, or undefined where it cannot say yet. Returns the end of it.
  */
-export function tellNextChunkLoadMs(
-  media: object,
-  read: () => NextChunkLoad | undefined,
-): () => void {
+export function tellNextChunkLoadMs(media: object, read: () => ToldLoad): () => void {
   nextChunkLoads.set(media, read);
   return () => {
     if (nextChunkLoads.get(media) === read) {
       nextChunkLoads.delete(media);
     }
   };
+}
+
+/** The film loaded ahead a chunk of bits is waited for by its size (heavyChunkLoadKbps), in ms; 0 unsaid. */
+function bySizeMsOf(bits: number | undefined): number {
+  // A kilobit a second is a bit a millisecond.
+  return bits === undefined || !Number.isFinite(bits) || bits <= 0
+    ? 0
+    : Math.min(bits / heavyChunkLoadKbps, refillAheadMs);
 }
 
 /** What a player is ready to play on: the film loaded ahead, and the next chunk's load it outlasts. */
@@ -106,19 +124,18 @@ export interface ReadyAhead {
  * (loadsAheadAtMostMs), which a paused player never passes: a Chromecast cast to at 8.0 s held 3.4 s
  * ahead, its picture's room letting it load no more than 1.9 s ahead beside its next chunk, ten
  * seconds long, and waited for 3.6 s before playing, for ever, its screen black (the owner's cast of
- * file 1283, staging, 2026-11-26; file 1284's read on the device).
+ * file 1283, staging, 2026-11-26; file 1284's read on the device). The wait for refillAheadMs, of
+ * a player that cannot say its next chunk's load, is held to that most too: the same Chromecast,
+ * having measured no link, sought 10 s on to 30.7 s with 4.2 s loaded ahead, waited for 10 s and
+ * stood there paused (the owner's skip forward, the same day; file 1285's read on the device).
  */
 export function readyAheadOf(media: object): ReadyAhead {
   const told = nextChunkLoads.get(media)?.();
-  if (told === undefined || !Number.isFinite(told.loadMs) || told.loadMs < 0) {
-    return { aheadMs: refillAheadMs, nextChunkLoadFrom: "none" };
+  if (told?.loadMs === undefined || !Number.isFinite(told.loadMs) || told.loadMs < 0) {
+    const aheadMs = Math.min(refillAheadMs, told?.loadsAheadAtMostMs ?? Infinity);
+    return { aheadMs, nextChunkLoadFrom: "none" };
   }
-  // A kilobit a second is a bit a millisecond.
-  const bySizeMs =
-    told.bits === undefined || !Number.isFinite(told.bits) || told.bits <= 0
-      ? 0
-      : Math.min(told.bits / heavyChunkLoadKbps, refillAheadMs);
-  const byLoadMs = Math.max((told.loadMs * marginPercent) / 100, bySizeMs);
+  const byLoadMs = Math.max((told.loadMs * marginPercent) / 100, bySizeMsOf(told.bits));
   return {
     aheadMs: Math.round(Math.min(byLoadMs, told.loadsAheadAtMostMs ?? Infinity)),
     nextChunkLoadMs: Math.round(told.loadMs),
@@ -146,7 +163,8 @@ export function refillAfterStallOf(media: object): ReadyAhead {
   const told = nextChunkLoads.get(media)?.();
   if (
     seek.nextChunkLoadFrom === "none" ||
-    told?.filmMs === undefined ||
+    told?.loadMs === undefined ||
+    told.filmMs === undefined ||
     told.isLowestQuality !== true ||
     told.loadMs <= told.filmMs
   ) {
