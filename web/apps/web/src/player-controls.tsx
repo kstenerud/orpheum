@@ -5,7 +5,16 @@ import "./play-words.ts";
 
 import { heardVolumeOf, setHeardVolume } from "@orpheum/player";
 import { startGateWaitChangedEvent } from "@orpheum/sdk";
-import { useEffect, useState, type JSX, type ReactNode, type RefObject } from "react";
+import {
+  createContext,
+  use,
+  useEffect,
+  useState,
+  type Context,
+  type JSX,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 import { FullScreenButton } from "./full-screen-button.tsx";
@@ -341,6 +350,23 @@ interface Standing {
 }
 
 /**
+ * What the controls over the video here may command: play and pause, and seeks. Every page's video
+ * takes both, but a Watch Together guest's, whose link's rights say which they have (D271 §4): their
+ * Play page draws only the controls those give (D555 §8, §10), its group undoing any other change
+ * (followGroup).
+ */
+export interface CommandRights {
+  readonly canPlayPause: boolean;
+  readonly canSeek: boolean;
+}
+
+/** The rights of the controls over the video here (CommandRights): every one, but a guest's. */
+export const CommandRightsContext: Context<CommandRights> = createContext<CommandRights>({
+  canPlayPause: true,
+  canSeek: true,
+});
+
+/**
  * The video in videoRef as the playback target here (PlaybackTarget, D555 §8): where it stands, read
  * at its own events, and at each timeupdate only while the bar shows (isHidden false), or where a
  * seek chosen on it sends it (seekAheadOf); play or pause and seeks made on it at once; its sound;
@@ -352,21 +378,24 @@ export function useVideoTarget(
 ): PlaybackTarget {
   const stand = useStanding(videoRef, isHidden);
   const sound = useVideoSound(videoRef);
+  const rights = use(CommandRightsContext);
   return {
     ...stand,
     kind: "here",
     choices: { kind: "here", videoRef },
     isReady: true,
+    canSeek: rights.canSeek,
+    canPlayPause: rights.canPlayPause,
     sound,
     playOrPause: () => {
       const video = videoRef.current;
-      if (video !== null) {
+      if (video !== null && rights.canPlayPause) {
         answerPlayerCommand(video, "playPause");
       }
     },
     seekTo: (atMs) => {
       const video = videoRef.current;
-      if (video !== null) {
+      if (video !== null && rights.canSeek) {
         seekAheadOf(video).aim(atMs, 0, askedByOf("timeline", "bar"));
       }
     },

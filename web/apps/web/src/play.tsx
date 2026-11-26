@@ -33,11 +33,7 @@ import type { ReopenAt } from "./reopen.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { usePlayState } from "./play-state.ts";
 import { usePlayerCommands } from "./player-commands.ts";
-import {
-  fillTheScreen,
-  keepFillingTheWindow,
-  keepFillingWhileFullScreen,
-} from "./film-fullscreen.ts";
+import { fillTheScreen, useStageFillingAsTheDeviceHasIt } from "./film-fullscreen.ts";
 import { keepThePressForTheStart } from "./start-refused.ts";
 import { useVideoPressedForPlay } from "./video-pressed-for-play.ts";
 import { isBrowserFullscreen, isOnTelevision, thisBrowserWindow } from "./input-mode.ts";
@@ -303,23 +299,8 @@ function UnderThePlayer(props: { readonly onBare: (() => void) | undefined }): J
  */
 function useStageAsTheDeviceHasIt(video: HTMLVideoElement | null, isOwn: boolean): void {
   useFullscreenAsTheBrowserIs(video);
-  useWholeWindow(isOwn ? video : null, isOnTelevision());
+  useStageFillingAsTheDeviceHasIt(isOwn ? video : null, isOnTelevision());
   useFullScreenLeftAsBack(isOwn && isOnTelevision());
-}
-
-/**
- * Has the stage fill the window only while the page is full screen, the top bar showing out of it
- * (D555 §9); a television's always (D418 §1): a Fire TV's Back leaves full screen unasked (D407 §7)
- * and must leave the film filling the window, hiding the controls, else leaving the film.
- */
-function useWholeWindow(video: HTMLVideoElement | null, isTelevision: boolean): void {
-  useEffect(() => {
-    const stage = video?.closest(".film-player__stage");
-    if (!(stage instanceof HTMLElement)) {
-      return undefined;
-    }
-    return isTelevision ? keepFillingTheWindow(stage) : keepFillingWhileFullScreen(stage, document);
-  }, [video, isTelevision]);
 }
 
 /**

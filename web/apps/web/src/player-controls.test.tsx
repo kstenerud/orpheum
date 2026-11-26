@@ -7,7 +7,12 @@ import { act, createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { PlayerSource } from "./playback-target.ts";
-import { PlayerControls, useVideoTarget, type SequenceMoves } from "./player-controls.tsx";
+import {
+  CommandRightsContext,
+  PlayerControls,
+  useVideoTarget,
+  type SequenceMoves,
+} from "./player-controls.tsx";
 import { buttonNamed, click, mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -107,6 +112,34 @@ describe("the player's bar (D369 §1)", () => {
       video.dispatchEvent(new Event("play"));
     });
     expect(names(mounted.container)).toEqual(["Pause"]);
+  });
+
+  it("neither plays nor seeks a video its rights do not let it command, and says so (D271 §4, D555 §10)", async () => {
+    const video = document.createElement("video");
+    const play = vi.spyOn(video, "play").mockResolvedValue();
+    const videoRef = createRef<HTMLVideoElement>();
+    Reflect.set(videoRef, "current", video);
+    let seen: PlayerSource | undefined;
+    function Target(): null {
+      seen = useVideoTarget(videoRef);
+      return null;
+    }
+    mounted = await mount(
+      withServices(
+        <CommandRightsContext value={{ canPlayPause: false, canSeek: false }}>
+          <Target />
+        </CommandRightsContext>,
+      ),
+    );
+    video.currentTime = 5;
+    act(() => {
+      seen?.playOrPause();
+      seen?.seekTo(60_000);
+    });
+    expect(play).not.toHaveBeenCalled();
+    expect(video.currentTime).toBe(5);
+    expect(seen?.canPlayPause).toBe(false);
+    expect(seen?.canSeek).toBe(false);
   });
 
   // "The center buttons should always behave in placement as if all 5 were always available" (the

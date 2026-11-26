@@ -306,29 +306,31 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
         },
       });
       const video = mounted.container.querySelector("video");
-      const fullscreen = buttonWithText(mounted.container, "Full screen");
+      const fullscreen = buttonNamed(mounted.container, "Full screen");
+      const play = buttonNamed(mounted.container, "Play");
       shown.push(
-        `controls: ${String(video?.controls)}, full screen: ${String(fullscreen !== undefined)}`,
+        `controls: ${String(video?.controls)}, play: ${String(play !== undefined)}, full screen: ${String(fullscreen !== undefined)}`,
       );
       const stage = video?.closest(".film-player__stage");
       if (video !== null && stage instanceof HTMLElement && fullscreen !== undefined) {
-        // The stage goes full screen, Full screen and Tap for sound over the film with it, never
-        // the video alone (the owner, Firefox on Android, 2026-11-07).
+        // The page goes full screen, as the Play page's does, the stage filling it with Tap for
+        // sound over the film, never the video alone (the owner, Firefox on Android, 2026-11-07).
         const askedOfVideo = vi.fn(() => Promise.resolve());
-        const askedOfStage = vi.fn(() => Promise.resolve());
+        const askedOfPage = vi.fn(() => Promise.resolve());
         video.requestFullscreen = askedOfVideo;
-        stage.requestFullscreen = askedOfStage;
+        document.documentElement.requestFullscreen = askedOfPage;
         await click(fullscreen);
-        expect(askedOfStage).toHaveBeenCalled();
+        expect(askedOfPage).toHaveBeenCalled();
         expect(askedOfVideo).not.toHaveBeenCalled();
+        Reflect.deleteProperty(document.documentElement, "requestFullscreen");
       }
       mounted.unmount();
     }
-    // Watching only, the player's own controls would offer what the group undoes; full screen is
-    // every viewer's, outside the video's own controls.
+    // The Play page's controls, never the browser's (D555 §8), with only what the link allows:
+    // watching only, play would offer what the group undoes; full screen is every viewer's.
     expect(shown).toEqual([
-      "controls: false, full screen: true",
-      "controls: true, full screen: true",
+      "controls: false, play: false, full screen: true",
+      "controls: false, play: true, full screen: true",
     ]);
   });
 
@@ -482,10 +484,10 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
         seq: 2,
         group: { state: "playing", positionMs: 60_000, rate: 1, fileId: 5 },
       });
-      const corner = mounted.container.querySelector<HTMLElement>(".together-viewer__corner");
-      const names = [...(corner?.querySelectorAll("button") ?? [])].map(
-        (each) => each.getAttribute("aria-label") ?? each.textContent,
-      );
+      // The Play page's own controls draw them, over the film or under it (D555 §8).
+      const names = [...mounted.container.querySelectorAll("button")]
+        .map((each) => each.getAttribute("aria-label") ?? each.textContent)
+        .filter((name) => ["Previous episode", "Next episode", "Full screen"].includes(name));
       for (const name of ["Previous episode", "Next episode"]) {
         const move = buttonNamed(mounted.container, name);
         if (move !== undefined) {

@@ -18,6 +18,25 @@
   padding: 0;
 }
 
+/*
+ * A guest by link's top bar (D555 §9): the product's mark and the session's name, then Cast and
+ * Leave at its inline end, wrapping under them on a narrow phone.
+ */
+.together-viewer__bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.together-viewer__bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  margin-inline-start: auto;
+}
+
 .together-viewer__logo {
   height: 1.625rem;
   width: auto;
@@ -49,39 +68,6 @@
 /* Its first page under the shell's banner: as tall as the window leaves it, not the whole window. */
 .together-viewer__continue--in-shell {
   min-height: 60dvh;
-}
-
-/*
- * At the film's corner: every viewer's full screen, the stage's, with ⏮ and ⏭ before it for a guest
- * whose link lets them put on the episode after or before (D471).
- */
-.together-viewer__corner {
-  position: absolute;
-  inset-block-end: var(--space-2);
-  inset-inline-end: var(--space-2);
-  z-index: var(--layer-overlay);
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-}
-
-/* A guest's Up next (OfferCard), in the film's top-right corner, as the overlay draws a player's. */
-.together-viewer__offer {
-  position: absolute;
-  inset-block-start: var(--space-5);
-  inset-inline-end: var(--space-5);
-  z-index: var(--layer-video-offer);
-  display: flex;
-  justify-content: end;
-  max-width: calc(100% - 2 * var(--space-5));
-}
-
-.together-viewer__offer .offer-card {
-  max-width: min(26rem, 100%);
-}
-
-.together-viewer__fullscreen {
-  opacity: 0.85;
 }
 
 .together-viewer__volume {

@@ -24,6 +24,12 @@ export interface PlayerSource {
   readonly playOrPause: () => void;
   /** Seeks to atMs: at once, or, a remote's, once its moves rest (seek-ahead.ts). */
   readonly seekTo: (atMs: number) => void;
+  /**
+   * Whether its seeks and its play or pause are taken: false only for a Watch Together guest whose
+   * link does not give them (CommandRightsContext); undefined, they are.
+   */
+  readonly canSeek?: boolean | undefined;
+  readonly canPlayPause?: boolean | undefined;
   /** The film's sound here, for a video on this page; none for a film another device plays. */
   readonly sound?: PlayerSound | undefined;
 }

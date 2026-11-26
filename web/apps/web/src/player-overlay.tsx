@@ -29,6 +29,7 @@ import { OverlayUp, PlayUpwardContext } from "./play-up.tsx";
 import { answerPlayerCommand, seekBy, usePlayersControls } from "./player-commands.ts";
 import type { PlaybackTarget, PlayerSource } from "./playback-target.ts";
 import {
+  CommandRightsContext,
   PlayerControls,
   useVideoTarget,
   type PlayerControl,
@@ -360,7 +361,9 @@ export function useControlsShown(
   const upward = use(PlayUpwardContext);
   const isVolumeSettable = useIsVolumeSettable();
   const voice = useSessionVoice();
+  const rights = use(CommandRightsContext);
   return controlsShown({
+    ...rights,
     isTelevision: isTv,
     isTouch: isThisHandheld(),
     isVolumeSettable,

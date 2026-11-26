@@ -369,6 +369,12 @@ export interface ControlsContext {
   readonly hasNext: boolean;
   /** Whether the page is a cast's receiver, which has no way up. */
   readonly isReceiver: boolean;
+  /**
+   * Whether play and pause, and the steps, have a use: false for a Watch Together guest whose link
+   * does not give them (D555 §10, CommandRights); undefined, they do.
+   */
+  readonly canPlayPause?: boolean | undefined;
+  readonly canSeek?: boolean | undefined;
 }
 
 /**
@@ -384,9 +390,9 @@ export function controlsShown(context: ControlsContext): readonly OverlayControl
   const shows: Record<OverlayControl, boolean> = {
     up: !context.isReceiver,
     previous: context.hasPrevious,
-    seekBack: true,
-    play: true,
-    seekForward: true,
+    seekBack: context.canSeek !== false,
+    play: context.canPlayPause !== false,
+    seekForward: context.canSeek !== false,
     next: context.hasNext,
     sound:
       (!context.isTelevision && !context.isTouch && context.isVolumeSettable) ||

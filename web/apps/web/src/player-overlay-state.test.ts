@@ -408,6 +408,21 @@ describe("which controls show (D407 §2)", () => {
     expect(shown).not.toContain("audio");
     expect(shown).not.toContain("more");
   });
+
+  it("shows play only where it may play and pause, and the steps only where it may seek (D555 §10)", () => {
+    const watching = controlsShown({ ...computer, canPlayPause: false, canSeek: false });
+    expect(watching).not.toContain("play");
+    expect(watching).not.toContain("seekBack");
+    expect(watching).not.toContain("seekForward");
+    expect(watching).toContain("fullScreen");
+    const pausing = controlsShown({ ...computer, canPlayPause: true, canSeek: false });
+    expect(pausing).toContain("play");
+    expect(pausing).not.toContain("seekBack");
+    const seeking = controlsShown({ ...computer, canPlayPause: false, canSeek: true });
+    expect(seeking).not.toContain("play");
+    expect(seeking).toContain("seekBack");
+    expect(seeking).toContain("seekForward");
+  });
 });
 
 // The owner, 2026-11-04: "For the tap thing: agreed" (D415).

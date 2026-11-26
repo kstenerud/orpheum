@@ -15,6 +15,7 @@ import { useCommands } from "./input-layer.tsx";
 import { OverlayUp } from "./play-up.tsx";
 import { answerPlayerCommand, usePlayersControls } from "./player-commands.ts";
 import { TargetMenus } from "./target-menus.tsx";
+import { isSeekable } from "./target-timeline.tsx";
 import { PlayerControls, useVideoTarget, type SequenceMoves } from "./player-controls.tsx";
 import { barControlsOf, PlayerOverlay, useControlsShown } from "./player-overlay.tsx";
 import { isAMousesClick, TouchClock, touchClockEvents } from "./player-taps.ts";
@@ -129,7 +130,7 @@ function ControlsBar(props: {
         label={t("playerControls.where")}
         atMs={source.atMs}
         durationMs={source.durationMs}
-        isDisabled={!source.isReady}
+        isDisabled={!isSeekable(source)}
         hasArrowsAsCommands
         onSeek={source.seekTo}
       />

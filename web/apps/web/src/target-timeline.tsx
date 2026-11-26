@@ -34,7 +34,7 @@ export function TargetTimeline(props: {
         label={t("playerControls.where")}
         atMs={target.atMs}
         durationMs={target.durationMs}
-        isDisabled={props.isDisabled ?? !target.isReady}
+        isDisabled={props.isDisabled ?? !isSeekable(target)}
         hasArrowsAsCommands={props.hasArrowsAsCommands}
         onSeek={target.seekTo}
         hasTimes={!isApart}
@@ -49,4 +49,9 @@ export function TargetTimeline(props: {
       ) : null}
     </>
   );
+}
+
+/** Whether a target's timeline takes a seek: it is ready, and its seeks are taken (canSeek). */
+export function isSeekable(target: PlayerSource): boolean {
+  return target.isReady && target.canSeek !== false;
 }

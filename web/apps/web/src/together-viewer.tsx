@@ -32,20 +32,26 @@ import { useTranslation } from "react-i18next";
 
 import { secretFromHash } from "./accounts.ts";
 import { AirPlayGrantsContext, sessionAirPlayGrants } from "./airplay.ts";
-import logo from "./assets/orpheum-logo.svg";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { IsGuestContext } from "./guest-page.ts";
 import { pageThatPausesWhenHidden } from "./handheld.ts";
 import { JoinForm } from "./together-join.tsx";
-import { toggleFullScreen, useFullScreenOnTheStage } from "./film-fullscreen.ts";
-import { EmptyStage, FilmPlayer, type FilmParts, type MovedDown } from "./film-player.tsx";
+import { useStageFillingFromTheVideo } from "./film-fullscreen.ts";
+import { isOnTelevision } from "./input-mode.ts";
+import { OverTheFilm, PageControls } from "./page-controls.tsx";
+import {
+  EmptyStage,
+  FilmPlayer,
+  type FilmComposition,
+  type FilmParts,
+  type MovedDown,
+} from "./film-player.tsx";
 import type { PlaybackDecision } from "./watching.ts";
 import { ownTrackPlaying } from "./ladder-sound.ts";
 import type { LadderOffer } from "./moving-down.ts";
-import { SequenceMoveButton, type SequenceMoves } from "./player-controls.tsx";
+import { CommandRightsContext } from "./player-controls.tsx";
 import { useStallReports } from "./play-state.ts";
 import { GuestTracks } from "./together-guest-tracks.tsx";
-import { productName } from "./product-name.ts";
 import { useDiagnosisNotes } from "./together-diagnosis.ts";
 import { useShowsAFilm } from "./film-showing.ts";
 import { useMembership } from "./together-membership.ts";
@@ -58,15 +64,12 @@ import { DeviceSoundOffsetControl } from "./sound-delay.tsx";
 import { TogetherDebug } from "./together-debug.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useNotesTheGroupsFilmShown } from "./playing-here.ts";
-import { requestTogetherAround, useGroupFilmDecision } from "./together-playback.ts";
+import { useGroupFilmDecision } from "./together-playback.ts";
 import { creditsStartOf } from "./segments.tsx";
-import { UpNextOffer } from "./up-next.tsx";
-import { LeaveButton } from "./together-leave.tsx";
 import { AsksWhatPlays, type GroupPlays } from "./together-what-plays.tsx";
 import {
   hasBeenPressed,
   TapToContinue,
-  useIsInShell,
   useKeptVideo,
   useViewerVoiceDevices,
   ViewerPage,
@@ -78,7 +81,14 @@ import {
   useCastingTheGroupsFilm,
   useIsCastingTheGroupsFilm,
 } from "./together-on-the-remote.tsx";
-import { GuestsCastEntry, useGuestsCast, type GuestsCast } from "./together-guest-cast.tsx";
+import { useGuestsCast, type GuestsCast } from "./together-guest-cast.tsx";
+import {
+  GuestsCommands,
+  GuestsEntries,
+  GuestsUpNext,
+  GuestTopBar,
+  useGuestsMoves,
+} from "./together-guest-controls.tsx";
 import { OnlyOnThePanelsPage } from "./together-panel-place.tsx";
 import { SessionVoiceContext, useVoice, VoiceControls } from "./together-voice.tsx";
 import {
@@ -88,7 +98,6 @@ import {
   type Membership,
 } from "./together-storage.ts";
 import { monotonicMs, useTogether, useToldCannotKeepUp, useToldStanding } from "./use-together.ts";
-import { useResource } from "./use-resource.ts";
 import { ViewersVolumeSlider } from "./film-volume-slider.tsx";
 
 /**
@@ -256,11 +265,9 @@ function ViewerSession(props: {
   /** Told each film the group plays, on a page that follows it to that film's Play page. */
   readonly onGroupFilm?: ((fileId: number) => void) | undefined;
 }): JSX.Element {
-  const { t } = useTranslation();
-  const isInShell = useIsInShell();
   const [volume, setVolume] = useState(1);
   const { connection, snapshot } = useTogether({ credential: props.membership.credential });
-  const { onOver, kept } = props;
+  const { onOver, kept, membership } = props;
   const isConnected = snapshot?.status === "connected";
   // Everyone in the session is heard from the start, once the page's own device is welcomed and the
   // page has had its tap; Talk only opens the microphone (D281 §1).
@@ -271,8 +278,11 @@ function ViewerSession(props: {
   useOverWhenEnded(snapshot, onOver);
   useFollowsTheGroupsFilm(snapshot, props.onGroupFilm);
   useToldStanding(isConnected ? connection : undefined, standingOf(kept));
-  const guestCast = useGuestsCast(props.membership, props.canCastAsTheMembership === true);
+  // A guest by link, signed in to nothing, casts as the membership and has a top bar of its own.
+  const isByLink = props.canCastAsTheMembership === true;
+  const guestCast = useGuestsCast(props.membership, isByLink);
   const isCasting = useIsCastingTheGroupsFilm(snapshot, guestCast.castingTo !== undefined);
+  const entries = { isByLink, cast: guestCast, snapshot, membership, onLeft: onOver };
   if (!kept.hasHadATap) {
     // As a page of its own: nothing of the session plays or shows under it (the owner, 2026-10-13).
     return (
@@ -287,9 +297,7 @@ function ViewerSession(props: {
   return (
     <SessionVoiceContext value={voice}>
       <ViewerPage className="together-viewer" inShellClassName="together-viewer--in-shell">
-        {/* In the shell, its banner shows the logo. */}
-        {isInShell ? null : <img className="together-viewer__logo" src={logo} alt={productName} />}
-        <h1 className="together-viewer__heading">{t("together.viewerHeading")}</h1>
+        <GuestTopBar {...entries} />
         <ViewingArea
           {...{ kept, connection, snapshot, volume, guestCast }}
           isVoiceWaiting={voice.tap.isWaiting}
@@ -299,13 +307,12 @@ function ViewerSession(props: {
         <TogetherPanel isHomeHidden={isCasting}>
           <TogetherNews snapshot={snapshot} />
           <TogetherDebug snapshot={snapshot} />
-          <GuestsCastEntry cast={guestCast} snapshot={snapshot} />
+          <GuestsEntries place="panel" {...entries} />
           {/* The voices' tap is asked for over the stage, with the film's (ViewingArea). */}
           <VoiceControls {...voice} tap={{ ...voice.tap, isWaiting: false }} />
           <OnlyOnThePanelsPage>
             <ViewersVolumeSlider volume={volume} onChange={setVolume} />
           </OnlyOnThePanelsPage>
-          <LeaveButton membership={props.membership} onLeft={onOver} />
         </TogetherPanel>
       </ViewerPage>
     </SessionVoiceContext>
@@ -448,8 +455,8 @@ interface Following {
 
 /**
  * The group's film, asked for afresh each time it changes, playing as the server decided, in the one
- * player every page composes: following the group, with the player's own controls where the guest's
- * rights give them (D271 §4), Tap for sound and Full screen over it, its stalls told by the
+ * player every page composes: following the group, with the Play page's controls as far as the
+ * guest's rights give them (D271 §4, D555 §8), Tap for sound over it, its stalls told by the
  * membership, its sound and subtitles the guest's own (D471, IsGuestContext). A guest may not ask
  * why the host's file cannot be read: the player's own words are told.
  */
@@ -471,7 +478,7 @@ function GroupFilm(props: {
   const [ladderStartMs] = useState(() => connection.snapshot().group?.positionMs ?? 0);
   // The lower quality the viewer's player moved to once it was ready (D253), per playback.
   const [moved, setMoved] = useState<MovedDown | undefined>(undefined);
-  const { canPlayPause, canSeek } = connection.snapshot().rights;
+  const composition = guestsComposition(props.keptVideo, connection, props.isOfferedToAirPlay);
   return (
     <Loaded
       resource={decision}
@@ -496,26 +503,47 @@ function GroupFilm(props: {
               <p className="together-viewer__title">{value.titleName}</p>
             )}
             <IsGuestContext value={true}>
-              <FilmPlayer
-                decision={value}
-                moved={moved}
-                ladderStartMs={ladderStartMs}
-                composition={{
-                  hasControls: canPlayPause || canSeek,
-                  isAutoPlay: false,
-                  askAbout: undefined,
-                  over: FollowingGroup,
-                  under: GuestStalls,
-                  keptVideo: props.keptVideo,
-                  isOfferedToAirPlay: props.isOfferedToAirPlay,
-                }}
-              />
+              <GuestsCommands
+                connection={connection}
+                fileId={props.fileId}
+                headers={headers}
+                creditsStartMs={creditsStartOf(value.segments ?? [])}
+              >
+                <FilmPlayer
+                  decision={value}
+                  moved={moved}
+                  ladderStartMs={ladderStartMs}
+                  composition={composition}
+                />
+              </GuestsCommands>
             </IsGuestContext>
           </GuestFilmContext>
         );
       }}
     />
   );
+}
+
+/**
+ * The guest's player, composed as the Play page's (D555 §8): its own controls, never the browser's
+ * (D369 §2), following the group. AirPlay is offered where the guest's rights give any control, as
+ * a player's with controls is (D473), or whatever they give where isOfferedToAirPlay (D519 §1).
+ */
+function guestsComposition(
+  keptVideo: HTMLVideoElement,
+  connection: TogetherConnection,
+  isOfferedToAirPlay: boolean | undefined,
+): FilmComposition {
+  const { canPlayPause, canSeek } = connection.snapshot().rights;
+  return {
+    hasControls: false,
+    isAutoPlay: false,
+    askAbout: undefined,
+    over: FollowingGroup,
+    under: UnderTheGuestsFilm,
+    keptVideo,
+    isOfferedToAirPlay: isOfferedToAirPlay ?? (canPlayPause || canSeek),
+  };
 }
 
 /** What the guest's pieces of the player need of its page: the film, the group, the membership. */
@@ -566,68 +594,47 @@ function GuestStalls(props: FilmParts): JSX.Element {
 }
 
 /**
- * Over the guest's film: the video following the group, Tap for sound and Full screen, which stays
- * the stage's, and where their link lets them put on the episode after or before, ⏮ and ⏭ beside
- * Full screen and Up next (D471 §2, §3).
+ * Over the guest's film: the video following the group, Tap for sound, and the Play page's own
+ * overlay (OverTheFilm, D555 §8) on its side, full screen and on a computer, drawing only the
+ * controls the guest's link gives (CommandRightsContext, D555 §10): play and pause, the steps and
+ * the timeline's seeks where it may, ⏮ and ⏭ and Up next where it may put on the episode before or
+ * after (D471 §2, §3), full screen and the sound always. Upright, the same controls lie under the
+ * picture (UnderTheGuestsFilm). The stage fills the window only in full screen, under the guest's
+ * top bar out of it (D555 §9).
  */
 function FollowingGroup(props: FilmParts): JSX.Element {
   const { fileId, following, isVoiceWaiting } = useGuestFilm();
   const muted = useFollowing(props.videoRef, fileId, following);
-  useFullScreenOnTheStage(props.videoRef);
-  // A link's rights never change, and are known by the time a film is on.
-  const { canNext } = following.connection.snapshot().rights;
-  const buttons = { ...muted, isVoiceWaiting, videoRef: props.videoRef };
-  return canNext ? <MovesTheGroup {...buttons} /> : <FilmButtons {...buttons} />;
+  const isTv = isOnTelevision();
+  useStageFillingFromTheVideo(props.videoRef, isTv);
+  const { canPlayPause } = use(CommandRightsContext);
+  const moves = useGuestsMoves();
+  return (
+    <>
+      {muted.isMuted || isVoiceWaiting ? (
+        <SoundOnPill isForVoices={isVoiceWaiting} onPress={muted.turnSoundOn} />
+      ) : null}
+      <OverTheFilm
+        {...props}
+        offer={GuestsUpNext}
+        moves={moves}
+        shouldOpenFullScreen={isTv}
+        hasPressesOnTheFilm={!isTv && canPlayPause}
+      />
+    </>
+  );
 }
 
 /**
- * For a guest whose link lets them put on the episode after or before the group's film (D471 §2):
- * read once from GET /together/up-next, ⏮ and ⏭ beside Full screen, each where there is one, as the
- * host's own bar draws them (D407 §2), and the episode after offered near the film's end as the
- * host's own player offers it, from the film's credits where a segment says where they start (D139);
- * each puts it on for everyone. The offer does not count down: only the host's player does (D471,
- * the owner's answers).
+ * Under the guest's film: the Play page's bar on a device held upright out of full screen
+ * (PageControls, D555 §8), with what the guest's link gives; then its stalls and its own tracks.
  */
-function MovesTheGroup(props: FilmButtonsParts): JSX.Element {
-  const { fileId, following, headers, decision } = useGuestFilm();
-  const { api } = useServices();
-  const [read] = useResource(`together-up-next/${String(fileId)}`, () =>
-    requestTogetherAround(api, headers),
-  );
-  const around = read.state === "loaded" ? read.value : undefined;
-  const hasPrevious = around?.previous !== undefined;
-  const upNext = around?.upNext;
-  const { connection } = following;
-  const moves = useMemo(
-    (): SequenceMoves => ({
-      previous: hasPrevious
-        ? () => {
-            connection.command({ command: "previous" });
-          }
-        : undefined,
-      next:
-        upNext === undefined
-          ? undefined
-          : () => {
-              connection.command({ command: "next" });
-            },
-    }),
-    [connection, hasPrevious, upNext],
-  );
+function UnderTheGuestsFilm(props: FilmParts): JSX.Element {
+  const moves = useGuestsMoves();
   return (
     <>
-      <FilmButtons {...props} moves={moves} />
-      {upNext === undefined || moves.next === undefined ? null : (
-        <div className="together-viewer__offer">
-          <UpNextOffer
-            upNext={upNext}
-            isAutoplayOn={false}
-            creditsStartMs={creditsStartOf(decision.segments ?? [])}
-            videoRef={props.videoRef}
-            onPlay={moves.next}
-          />
-        </div>
-      )}
+      <PageControls {...props} offer={GuestsUpNext} moves={moves} />
+      <GuestStalls {...props} />
     </>
   );
 }
@@ -751,48 +758,4 @@ function useFollowing(
     };
   }, [isMuted, turnSoundOn]);
   return { isMuted, turnSoundOn };
-}
-
-/** What the buttons over a guest's film are given: the film's sound and its video. */
-interface FilmButtonsParts extends MutedFilm {
-  readonly isVoiceWaiting: boolean;
-  readonly videoRef: RefObject<HTMLVideoElement | null>;
-}
-
-/**
- * Over a film the browser would only play muted, or while the voices wait for a tap, the tap that
- * turns the sound back on, small, at the film's top (the voices' is the page's, playWaitingAtTaps);
- * and at its corner Full screen, which every viewer has: the stage's, which holds these over the
- * film, never the video's, which would show the film alone (the owner, Firefox on Android,
- * 2026-11-07); with ⏮ and ⏭ before it, each where moves gives it (D471).
- */
-function FilmButtons(
-  props: FilmButtonsParts & { readonly moves?: SequenceMoves | undefined },
-): JSX.Element {
-  const { t } = useTranslation();
-  const { moves } = props;
-  return (
-    <>
-      {props.isMuted || props.isVoiceWaiting ? (
-        <SoundOnPill isForVoices={props.isVoiceWaiting} onPress={props.turnSoundOn} />
-      ) : null}
-      <div className="together-viewer__corner">
-        {moves?.previous === undefined ? null : (
-          <SequenceMoveButton isOverVideo isForward={false} onMove={moves.previous} />
-        )}
-        {moves?.next === undefined ? null : (
-          <SequenceMoveButton isOverVideo isForward onMove={moves.next} />
-        )}
-        <button
-          type="button"
-          className="together-viewer__fullscreen"
-          onClick={() => {
-            toggleFullScreen(props.videoRef.current?.closest(".film-player__stage"), document);
-          }}
-        >
-          {t("together.fullscreen")}
-        </button>
-      </div>
-    </>
-  );
 }

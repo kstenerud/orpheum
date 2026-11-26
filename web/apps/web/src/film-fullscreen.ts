@@ -206,17 +206,6 @@ export function keepFullScreenOnTheStage(video: HTMLVideoElement, page: Document
   };
 }
 
-/**
- * Keeps full screen on the stage, the film's pieces over it, where the browser's own controls put the
- * video itself full screen (keepFullScreenOnTheStage).
- */
-export function useFullScreenOnTheStage(videoRef: RefObject<HTMLVideoElement | null>): void {
-  useEffect(() => {
-    const video = videoRef.current;
-    return video === null ? undefined : keepFullScreenOnTheStage(video, document);
-  }, [videoRef]);
-}
-
 /** The pages that asked for themselves full screen, until the browser answers (askPageFullScreen). */
 const pagesAskedFullScreen = new WeakSet<Document>();
 
@@ -285,3 +274,39 @@ export function isFullScreenLeaveAsked(page: Document): boolean {
  * milliseconds: a full-screen change takes a fraction of a second. A justified constant.
  */
 export const fullscreenAnswerWithinMs = 1000;
+
+/**
+ * Has the stage fill the window only while the page is full screen, the top bar showing out of it
+ * (D555 §9); a television's always (D418 §1): a Fire TV's Back leaves full screen unasked (D407 §7)
+ * and must leave the film filling the window, hiding the controls, else leaving the film.
+ * The Play page's, whoever plays: a person alone, a host, a guest (D555 §8).
+ */
+export function useStageFillingAsTheDeviceHasIt(
+  video: HTMLVideoElement | null,
+  isTelevision: boolean,
+): void {
+  useEffect(() => fillStageAsTheDeviceHasIt(video, isTelevision), [video, isTelevision]);
+}
+
+/** useStageFillingAsTheDeviceHasIt for a piece over the film, given the video's ref. */
+export function useStageFillingFromTheVideo(
+  videoRef: RefObject<HTMLVideoElement | null>,
+  isTelevision: boolean,
+): void {
+  useEffect(
+    () => fillStageAsTheDeviceHasIt(videoRef.current, isTelevision),
+    [videoRef, isTelevision],
+  );
+}
+
+/** Starts the video's stage filling as the device has it; answers how to stop. */
+function fillStageAsTheDeviceHasIt(
+  video: HTMLVideoElement | null,
+  isTelevision: boolean,
+): (() => void) | undefined {
+  const stage = video?.closest(".film-player__stage");
+  if (!(stage instanceof HTMLElement)) {
+    return undefined;
+  }
+  return isTelevision ? keepFillingTheWindow(stage) : keepFillingWhileFullScreen(stage, document);
+}
