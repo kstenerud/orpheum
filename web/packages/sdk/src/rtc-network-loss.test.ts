@@ -322,6 +322,54 @@ describe("a transport whose network went", () => {
     expect(signals).toHaveLength(2);
   });
 
+  it("lost twice in a row, its second connection gone 23 s after it came, keeps trying through two minutes of hanging tries and is back within one try's bound of the network (the owner's phone, production, 2026-11-26)", async () => {
+    // Mobile data to Wi-Fi: the core heard the new connections 11 s after the old; 23 s later it
+    // heard them no more (a VPN coming on, it may be), and no connection came for two minutes.
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let network: "works" | "hangs" = "works";
+    const triedAtMs: number[] = [];
+    const opened: LostPeer[] = [];
+    const first = new LostPeer();
+    const transport = transportOn(first, (signal) => {
+      triedAtMs.push(Date.now());
+      if (network === "hangs") {
+        // Its offer's post, or its ICE, never answers on a network that takes nothing through.
+        return new Promise<PeerLike>((_resolve, reject) => {
+          signal.addEventListener("abort", () => {
+            reject(new Error("the try was given up"));
+          });
+        });
+      }
+      const peer = new LostPeer();
+      opened.push(peer);
+      return Promise.resolve(peer);
+    });
+    await vi.advanceTimersByTimeAsync(10 * 60_000); // a film page open long before
+    first.goes("it stayed disconnected for 5000 ms");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(transport.size).toBe(1); // the second network's connection, at once
+    await vi.advanceTimersByTimeAsync(23_000); // past settledAfterMs: settled
+    network = "hangs";
+    const lostAgainAtMs = Date.now();
+    opened[0]?.goes("it stayed disconnected for 5000 ms");
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(transport.size).toBe(0);
+    const tries = triedAtMs.filter((atMs) => atMs >= lostAgainAtMs);
+    expect(tries[0]).toBe(lostAgainAtMs); // at once, for one that had lived
+    const gaps = tries.slice(1).map((atMs, index) => atMs - (tries[index] ?? 0));
+    // Never a wait of minutes: a try's bound and the longest wait between tries at most.
+    expect(Math.max(...gaps)).toBeLessThanOrEqual(openTryMostMs + replaceMostMs);
+    expect(tries.length).toBeGreaterThanOrEqual(
+      Math.floor(120_000 / (openTryMostMs + replaceMostMs)),
+    );
+    network = "works";
+    const backAtMs = Date.now();
+    await vi.advanceTimersByTimeAsync(openTryMostMs + replaceMostMs);
+    expect(transport.size).toBe(1);
+    expect((triedAtMs.at(-1) ?? 0) - backAtMs).toBeLessThanOrEqual(openTryMostMs + replaceMostMs);
+    transport.close();
+  });
+
   it("tries at once when the browser comes back online, giving up a try under way, and says how long it had none", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const first = new LostPeer();
