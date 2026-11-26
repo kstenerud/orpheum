@@ -284,6 +284,12 @@ func (stage *stage) awaitLine(t *testing.T, event string) map[string]any {
 	}
 }
 
+// endedIdle is whether an ended line says the relay ended its allocation as idle.
+func endedIdle(line map[string]any) bool {
+	idle, isBool := line["idle"].(bool)
+	return isBool && idle
+}
+
 // exchange sends a datagram each way between two ends and checks each arrives from the other.
 func exchange(t *testing.T, one, other end) {
 	t.Helper()
@@ -406,6 +412,45 @@ func TestRelay_GrantsAPermissionForAnyAddressAndCarriesNothingThere(t *testing.T
 		t.Errorf("from an address the client holds a permission for: dropped as %s", reason)
 	}
 	exchange(t, client, core)
+}
+
+// A browser does not release its allocations as its page goes, and holds spares no connection
+// uses; each counted against its household for pion's ten minutes (production, 2026-11-26, D561).
+func TestRelay_EndsAnAllocationItsOwnerSendsNothingThroughForAMinute(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	used := stage.mustAllocate(t, "udp", relaycred.RoleClient, "household-1", 100_000)
+	stage.mustAllocate(t, "udp", relaycred.RoleClient, "household-1", 100_000)
+	core := stage.mustAllocate(t, "udp", relaycred.RoleCore, "household-1", 100_000)
+	for range 5 {
+		stage.clock.Advance(idleSweepEvery)
+		exchange(t, used, core)
+	}
+	if count := stage.relay.server.AllocationCount(); count != 3 {
+		t.Fatalf("%d allocations live before any was idle a minute, want 3", count)
+	}
+	// The keeper arms its next look in its own time, so the clock steps until one has found it.
+	var ended map[string]any
+	for waited := patiently(t); ended == nil; {
+		stage.clock.Advance(idleSweepEvery)
+		exchange(t, used, core)
+		select {
+		case line := <-stage.lines:
+			if line[slogx.EventKey] == "relayAllocationEnded" {
+				ended = line
+			}
+		case <-waited.Done():
+			t.Fatal("the unused allocation never ended")
+		default:
+		}
+	}
+	if !endedIdle(ended) || ended["role"] != string(relaycred.RoleClient) || ended["bytesFromClient"] != 0.0 {
+		t.Errorf("the allocation ended: %v, want the client's unused one, as idle", ended)
+	}
+	exchange(t, used, core)
+	if count := stage.relay.server.AllocationCount(); count != 2 {
+		t.Errorf("%d allocations live after the unused one's minute, want the two in use", count)
+	}
 }
 
 func TestRelay_AdmitsACredentialUnderAnyOfItsSecretsAndRefusesAnyOther(t *testing.T) {
@@ -553,14 +598,14 @@ func TestRelay_RecordsAnEndedAllocationWithItsSourceShortenedAndItsTenSecondPeak
 	burst(1)
 	send(t, client, core, []byte("12345"))
 	receive(t, core)
-	stage.clock.Advance(time.Minute)
+	stage.clock.Advance(40 * time.Second)
 	if err := client.relayed.Close(); err != nil {
 		t.Fatal(err)
 	}
 	line := stage.awaitLine(t, "relayAllocationEnded")
 	want := map[string]any{
 		"household": "household-1", "role": "client", "transport": "udp", "source": "127.0.0.0/24",
-		"seconds": 75.0, "bytesToClient": 11000.0, "bytesFromClient": 5.0, "peakKbpsToClient": 8.0, "dropped": 0.0,
+		"seconds": 55.0, "bytesToClient": 11000.0, "bytesFromClient": 5.0, "peakKbpsToClient": 8.0, "dropped": 0.0,
 	}
 	for key, value := range want {
 		if line[key] != value {
@@ -572,13 +617,23 @@ func TestRelay_RecordsAnEndedAllocationWithItsSourceShortenedAndItsTenSecondPeak
 	}
 
 	// At midnight the household's day is logged, with the day's peak toward its clients.
-	if !stage.clock.AwaitArmed(t.Context(), 1) {
+	if !stage.clock.AwaitArmed(t.Context(), 2) {
+		t.Fatal("the day's timer and the idle keeper's are not armed")
+	}
+	// The hours until then end the core's allocation as idle; another is live as the day turns.
+	stage.clock.Set(time.Date(2026, 11, 26, 23, 59, 50, 0, time.UTC))
+	ended := stage.awaitLine(t, "relayAllocationEnded")
+	if !endedIdle(ended) || ended["role"] != "core" {
+		t.Errorf("after hours of nothing sent, the allocation ended: %v, want the core's, as idle", ended)
+	}
+	stage.mustAllocate(t, "udp", relaycred.RoleCore, "household-1", 100_000)
+	if !stage.clock.AwaitArmed(t.Context(), 2) {
 		t.Fatal("the day's timer is not armed")
 	}
 	stage.clock.Set(time.Date(2026, 11, 27, 0, 0, 0, 0, time.UTC))
 	day := stage.awaitLine(t, "relayHouseholdDay")
 	for key, value := range map[string]any{
-		"household": "household-1", "day": "2026-11-26", "allocationsEnded": 1.0, "allocationsLive": 1.0,
+		"household": "household-1", "day": "2026-11-26", "allocationsEnded": 2.0, "allocationsLive": 1.0,
 		"bytesToClients": 11000.0, "bytesFromClients": 5.0, "peakKbpsToClients": 8.0,
 	} {
 		if day[key] != value {

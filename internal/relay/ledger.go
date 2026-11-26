@@ -30,6 +30,15 @@ const (
 	allocationsPerSource           = 128
 )
 
+// An allocation whose owner has sent nothing through it for allocationIdleFor is ended, looked for
+// every idleSweepEvery (D561). A connection's chosen pair carries its consent checks every few
+// seconds, so this ends only the allocations no connection uses: a browser's spares, and those of a
+// page that has gone, which a browser does not release and which pion would keep for ten minutes.
+const (
+	allocationIdleFor = time.Minute
+	idleSweepEvery    = 10 * time.Second
+)
+
 // Transports an allocation is made over, as its ended line names them.
 const (
 	transportUDP = "udp"
@@ -54,6 +63,10 @@ type allocation struct {
 	transport  string
 	port       int
 	started    time.Time
+	// lastSent is when its owner last sent a datagram through it, or made it; idle is whether the
+	// relay ended it for sending none since.
+	lastSent time.Time
+	idle     bool
 	// toClient and fromClient are the bytes relayed to this allocation's TURN client and from it.
 	toClient, fromClient int64
 	dropped              int64
@@ -91,13 +104,15 @@ type ledger struct {
 	// perCredential and perSource count the live allocations of each client username and source IP.
 	perCredential map[string]int
 	perSource     map[netip.Addr]int
+	// sockets are the relayed sockets by port, which closing ends an allocation.
+	sockets map[int]net.PacketConn
 }
 
 func newLedger(ctx context.Context, public, bound net.IP, parts Parts, tlsPort int) *ledger {
 	return &ledger{
 		ctx: ctx, public: public, bound: bound, parts: parts, tlsPort: tlsPort,
 		byPort: map[int]*allocation{}, byKey: map[allocationKey]*allocation{}, households: map[string]*household{},
-		perCredential: map[string]int{}, perSource: map[netip.Addr]int{},
+		perCredential: map[string]int{}, perSource: map[netip.Addr]int{}, sockets: map[int]net.PacketConn{},
 	}
 }
 
@@ -192,7 +207,7 @@ func (ledger *ledger) created(source, destination net.Addr, username string, rel
 	now := ledger.parts.Clock.Now()
 	live := &allocation{
 		credential: credential, username: username, source: source, transport: ledger.transportOf(destination),
-		port: address.Port, started: now,
+		port: address.Port, started: now, lastSent: now,
 	}
 	rate := float64(credential.Kbps) * 1000 / 8
 	ledger.mutex.Lock()
@@ -224,6 +239,7 @@ func (ledger *ledger) deleted(source, destination net.Addr) {
 	}
 	delete(ledger.byKey, key)
 	delete(ledger.byPort, ended.port)
+	delete(ledger.sockets, ended.port)
 	if held := ledger.households[ended.credential.Household]; held != nil {
 		held.live--
 		held.ended++
@@ -246,6 +262,7 @@ func (ledger *ledger) deleted(source, destination net.Addr) {
 		slog.Int64("seconds", int64(now.Sub(ended.started).Seconds())),
 		slog.Int64("bytesToClient", ended.toClient), slog.Int64("bytesFromClient", ended.fromClient),
 		slog.Int64("peakKbpsToClient", ended.window.peakKbps()), slog.Int64("dropped", ended.dropped),
+		slog.Bool("idle", ended.idle),
 	}
 	ledger.mutex.Unlock()
 	ledger.parts.Logger.InfoContext(ledger.ctx, "a relayed allocation ended", line...)
@@ -278,6 +295,10 @@ func (ledger *ledger) route(port int, address net.Addr, size int) (net.Addr, boo
 		}
 	}()
 	from := ledger.byPort[port]
+	now := ledger.parts.Clock.Now()
+	if from != nil {
+		from.lastSent = now
+	}
 	target := ledger.otherEnd(from, address, ledger.public)
 	if target == nil {
 		if from != nil {
@@ -287,7 +308,6 @@ func (ledger *ledger) route(port int, address net.Addr, size int) (net.Addr, boo
 		reason = dropNotTheOtherEnd
 		return nil, false
 	}
-	now := ledger.parts.Clock.Now()
 	held := ledger.households[from.credential.Household]
 	if target.credential.Role == relaycred.RoleClient && !held.bucket.TakeIfHeld(float64(size), now) {
 		from.dropped++
@@ -340,6 +360,49 @@ func (ledger *ledger) drop(reason string) {
 	ledger.dropped.Add(1)
 	if ledger.parts.afterDrop != nil {
 		ledger.parts.afterDrop(reason)
+	}
+}
+
+// keep ends the idle allocations and logs each household's day, until ctx ends.
+func (ledger *ledger) keep(ctx context.Context) {
+	idleStopped := make(chan struct{})
+	go func() {
+		defer close(idleStopped)
+		ledger.keepIdle(ctx)
+	}()
+	ledger.keepDays(ctx)
+	<-idleStopped
+}
+
+// keepIdle ends, every idleSweepEvery until ctx ends, each allocation idle for allocationIdleFor.
+func (ledger *ledger) keepIdle(ctx context.Context) {
+	for {
+		timer := ledger.parts.Clock.NewTimer(idleSweepEvery)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C():
+			ledger.endIdle()
+		}
+	}
+}
+
+// endIdle closes the relayed socket of each allocation idle for allocationIdleFor: pion ends an
+// allocation whose socket reads no more, and deleted then records it.
+func (ledger *ledger) endIdle() {
+	now := ledger.parts.Clock.Now()
+	ledger.mutex.Lock()
+	var idle []net.PacketConn
+	for port, live := range ledger.byPort {
+		if socket := ledger.sockets[port]; socket != nil && now.Sub(live.lastSent) >= allocationIdleFor {
+			live.idle = true
+			idle = append(idle, socket)
+		}
+	}
+	ledger.mutex.Unlock()
+	for _, socket := range idle {
+		_ = socket.Close() //nolint:errcheck // an idle allocation's end has no one to tell
 	}
 }
 
@@ -459,7 +522,11 @@ func (relays *closedRelays) AllocatePacketConn(network string, requestedPort int
 	if err != nil {
 		return nil, nil, err
 	}
-	return &closedConn{PacketConn: conn, port: portOf(conn.LocalAddr()), ledger: relays.ledger}, relayed, nil
+	closed := &closedConn{PacketConn: conn, port: portOf(conn.LocalAddr()), ledger: relays.ledger}
+	relays.ledger.mutex.Lock()
+	relays.ledger.sockets[closed.port] = closed
+	relays.ledger.mutex.Unlock()
+	return closed, relayed, nil
 }
 
 // closedConn is a relayed socket whose datagrams go to and come from its household's other end
@@ -468,6 +535,16 @@ type closedConn struct {
 	net.PacketConn
 	port   int
 	ledger *ledger
+	// closing closes the socket once: the relay closes an idle allocation's, and pion then closes
+	// it again as it ends the allocation.
+	closing  sync.Once
+	closeErr error
+}
+
+// Close closes the socket, once.
+func (conn *closedConn) Close() error {
+	conn.closing.Do(func() { conn.closeErr = conn.PacketConn.Close() })
+	return conn.closeErr
 }
 
 // WriteTo sends a datagram where route lets it go, and drops it otherwise, as a network would.

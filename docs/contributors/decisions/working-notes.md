@@ -32201,3 +32201,31 @@ failed, drops every relayed candidate, and never asks for the one address that w
 refusal, and adding the code means signing its answer again outside it; the second lock was not
 worth that.
 
+## D561 — The relay ends an allocation its owner sends nothing through for a minute, and a connection asks a relay's UDP address before its TLS one
+
+**Decided** (2026-11-26), by the project owner ("Yes go ahead"), on the lead's proposal after the
+owner's phone was refused allocations on production ("I'd rather we find the root cause instead of
+trying quick fixes"). It adds to D558 §4 and D559 §1, and amends neither.
+
+**Status:** decided. §1 has code and runs on the edge VPS; §2 is being built; §3 waits for both.
+
+**What the relay's lines showed.** The phone, with three local addresses, made six allocations a
+connection: one for each address and each of the relay's two URLs. The page grew to four
+connections, 24 allocations against a credential's limit of 16, and the fourth connection was
+refused four. The film went through a UDP allocation; the TLS ones carried nothing. And when the
+page went, the TLS allocations ended with their streams, but eight UDP ones stayed for the ten
+minutes the relay's library gives an allocation, counted against the household's 64 all that
+while: a few reloads would have filled the household.
+
+1. **The relay ends an allocation whose owner has sent nothing through it for a minute.** A
+   connection's chosen pair carries its consent checks every few seconds, so what ends is what no
+   connection uses: a browser's spares, and the allocations of a page that has gone, which a
+   browser does not release. The library has no shorter lifetime to give, so the relay closes the
+   allocation's relayed socket. The ended line says `idle`.
+2. **A connection asks a relay's UDP address before its TLS one.** After the attempt without a
+   relay (D559 §1) comes one with the relays' UDP URLs alone, and one with every URL only when
+   that has not connected three seconds after it started, or failed. A page remembers which its
+   network needed. A network that blocks UDP waits three seconds more, once a page.
+3. **A credential's limit is then set from what a connection can take**, not from one device's
+   count. The figure waits for §1 and §2 to be measured on staging.
+

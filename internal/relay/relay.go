@@ -132,7 +132,7 @@ func Start(ctx context.Context, config Config, parts Parts) (*Relay, error) {
 	}
 	go func() {
 		defer close(relay.daysStopped)
-		ledger.keepDays(daysCtx)
+		ledger.keep(daysCtx)
 	}()
 	parts.Logger.InfoContext(ctx, "the relay is serving", slog.String(slogx.EventKey, "relayStarted"),
 		slog.String("name", config.Name), slog.String("listen", relay.address.String()),

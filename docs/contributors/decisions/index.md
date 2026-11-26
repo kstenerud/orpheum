@@ -566,6 +566,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D558](working-notes.md#d558--the-paid-discovery-relays-the-connections-that-fail-capped-at-3-mbs-a-household-a-households-own-relay-registered-with-it-is-uncapped-and-used-first) The paid discovery relays the connections that fail, capped at 3 Mb/s a household; a household's own relay, registered with it, is uncapped and used first — *revisited by D559, D560*
 - [D559](working-notes.md#d559--a-connection-asks-a-relay-only-once-it-has-not-connected-without-it-the-core-only-for-an-offer-that-carries-a-relayed-candidate-and-the-relays-ports-and-limits-grow) A connection asks a relay only once it has not connected without it, the core only for an offer that carries a relayed candidate, and the relay's ports and limits grow
 - [D560](working-notes.md#d560--the-hosted-relay-grants-every-permission-and-its-relayed-sockets-alone-keep-it-closed) The hosted relay grants every permission, and its relayed sockets alone keep it closed
+- [D561](working-notes.md#d561--the-relay-ends-an-allocation-its-owner-sends-nothing-through-for-a-minute-and-a-connection-asks-a-relays-udp-address-before-its-tls-one) The relay ends an allocation its owner sends nothing through for a minute, and a connection asks a relay's UDP address before its TLS one
 
 ## Archived
 

@@ -18,6 +18,9 @@
 //   - A permission is granted for any address, and opens nothing: a browser asks one for each of
 //     the core's candidates, and Firefox drops its relayed candidates when one is refused (D560).
 //     Enforced by TestRelay_GrantsAPermissionForAnyAddressAndCarriesNothingThere.
+//   - An allocation whose owner has sent nothing through it for a minute is ended, so a page that
+//     has gone and a browser's spares do not count against their household for pion's ten minutes
+//     (D561 §1). Enforced by TestRelay_EndsAnAllocationItsOwnerSendsNothingThroughForAMinute.
 //   - An allocation is made only on a credential whole, unexpired and under one of the relay's
 //     secrets; its username changed in any part fails. Enforced by
 //     TestRelay_AdmitsACredentialUnderAnyOfItsSecretsAndRefusesAnyOther.

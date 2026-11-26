@@ -61,6 +61,7 @@ served after, as the embedded relay's is.
    - an allocation is admitted on a credential that is whole, unexpired and under a known secret;
    - a permission is granted for any address and opens nothing (D560: Firefox drops its relayed
      candidates when one is refused);
+   - an allocation whose owner sends nothing through it for a minute is ended (D561 §1);
    - a datagram leaves a relayed socket only for the relayed address of a live allocation of the
      same household and the other role; anything else is dropped and counted.
 3. **The household's rate** (D558 §1): one token bucket per household at the credential's `kbps`,
@@ -148,3 +149,11 @@ the log says whether a device took the relay needlessly (the owner, 2026-11-26):
    code, and Firefox then drops every relayed candidate. Decided as D560: every permission is
    granted, the relayed sockets alone keep the relay closed. The staging proof had been walked in
    Chromium alone.
+7. **One phone took 24 allocations and left eight behind for ten minutes** (production, the owner's
+   retest): six a connection (three local addresses, two URLs), four connections, the fourth
+   refused four past the credential's 16; the film went through UDP and the TLS allocations
+   carried nothing; the UDP ones outlived the page by the library's ten minutes. Decided as D561:
+   the relay ends an allocation idle a minute, and a connection asks the UDP address first.
+8. **Each connection makes one UDP and one TLS allocation that end within their first second**,
+   carrying nothing (Firefox, the phone and the desktop). Not explained. Open.
+
