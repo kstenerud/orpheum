@@ -240,6 +240,16 @@ device lab reported until it went, D555 §12) and a WebRTC call of a page with i
   of `connectTimeoutMs`, and the second sent as it is, never a third (the owner's phone on a bus's
   Wi-Fi offered only mDNS host candidates, which the core drops, 2026-11-26).
   `src/rtc-connect.test.ts`.
+- **A WebRTC connection asks a relay only once it has not connected without one** (D559 §1): where
+  its ICE servers name a TURN server, it is tried first with every TURN URL taken out
+  (`withoutRelayServers`), and a second attempt with them all starts beside it once it has not
+  connected `relayAfterMs` (3 s) after the core's answer, or at once when it fails after the
+  answer; the first of the two the core holds is the connection and the other is closed. A direct
+  attempt whose offer reached no core, or that the core turned away, fails as before, with no relayed
+  one; where both fail, the relayed one's failure is the one told. Once a relayed attempt won, the
+  page's later connections ask the relays at once (`forgetRelayNeeded` resets that for tests). The
+  hosted relay has few ports, and every connection allocated at every TURN server though nearly all
+  connect directly. `src/rtc-connect-relay.test.ts`.
 - **A WebRTC transport connects again within a bound once the network is back, in every browser**:
   a connection is gone when its connection's or its ICE's state is `failed` or `closed`, its
   signalling `closed`, or either state `disconnected` for `disconnectedGraceMs`, judged at each of

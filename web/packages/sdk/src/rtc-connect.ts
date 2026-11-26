@@ -8,6 +8,15 @@
 
 import { reportFailure } from "./problem.ts";
 import { channelOf, type ChannelLike } from "./rtc-request.ts";
+import {
+  errorsText,
+  gatheringErrorsOf,
+  gatheringText,
+  hasRelayServer,
+  isPastThisDevice,
+  withoutRelayServers,
+} from "./rtc-candidates.ts";
+import { connectingStepsOf, slowConnection } from "./rtc-connect-timing.ts";
 import { candidatePairsOf } from "./rtc-pairs.ts";
 import { peerOf } from "./rtc-peer.ts";
 import {
@@ -39,98 +48,6 @@ export const gatherAfterReflexiveMs = 300;
  * and a client behind a NAT no punch gets through reaches the core only by it.
  */
 export const gatherForRelayMs = 1_000;
-
-/**
- * A connection that takes longer than this to connect is reported to the core's log, with where its
- * time went: a sign-in that waited half a minute on its connections said so nowhere (staging,
- * 2026-10-23).
- */
-export const slowConnectMs = 3_000;
-
-/** How long each step of making a connection took, in milliseconds. */
-export interface ConnectTimings {
-  readonly gathering: number;
-  readonly answer: number;
-  readonly connecting: number;
-  /** How connecting's time went, as far as the browser lets the page see it (D484 §1). */
-  readonly steps?: ConnectingSteps | undefined;
-}
-
-/**
- * How a connection's connecting, from the core's answer to its verdict, went, in milliseconds, as far
- * as the browser lets the page see it (D484 §1): a connection that took 6.5 s said only that 5.4 s of
- * it went connecting, which could have been ICE's pacing, DTLS's retransmits or the verdict's wait
- * (the slow-link war game, 2026-11-14).
- */
-export interface ConnectingSteps {
-  /**
-   * ICE's checks, until a pair answered (its ICE connection state connected or completed); undefined
-   * where the browser said so only with the connection's state, its time then in secure.
-   */
-  readonly ice: number | undefined;
-  /** The secure connection (DTLS) over that pair, until the connection's state was connected. */
-  readonly secure: number;
-  /** SCTP's association and the negotiation channel's own opening, until that channel opened. */
-  readonly channel: number;
-  /** The core's verdict on the negotiation channel (verdictOf), until it said the connection held. */
-  readonly verdict: number;
-}
-
-/**
- * When, on one clock, each step of connecting ended: the core's answer came, ICE had a pair (none
- * where the browser did not say), the connection was connected, its negotiation channel opened (none
- * where it was not seen), and the core held it.
- */
-export interface ConnectingMarks {
-  readonly answeredAt: number;
-  readonly iceAt: number | undefined;
-  readonly connectedAt: number;
-  readonly channelAt: number | undefined;
-  readonly heldAt: number;
-}
-
-/**
- * How long each step of connecting took, from when each ended: a step whose end was not seen, or
- * was heard out of order (a channel's open told before the connection's state), takes none, its time
- * in the step after it.
- */
-export function connectingStepsOf(marks: ConnectingMarks): ConnectingSteps {
-  const { answeredAt, connectedAt, heldAt } = marks;
-  const iceAt =
-    marks.iceAt === undefined
-      ? undefined
-      : Math.min(Math.max(marks.iceAt, answeredAt), connectedAt);
-  const secureFrom = iceAt ?? answeredAt;
-  const channelAt = Math.min(Math.max(marks.channelAt ?? connectedAt, connectedAt), heldAt);
-  return {
-    ice: iceAt === undefined ? undefined : iceAt - answeredAt,
-    secure: Math.max(0, connectedAt - secureFrom),
-    channel: channelAt - Math.min(connectedAt, channelAt),
-    verdict: Math.max(0, heldAt - channelAt),
-  };
-}
-
-/** What to report of a connection that took over slowConnectMs, or undefined for one that did not. */
-export function slowConnection(timings: ConnectTimings): string | undefined {
-  const total = timings.gathering + timings.answer + timings.connecting;
-  if (total <= slowConnectMs) {
-    return undefined;
-  }
-  const ms = (value: number): string => `${String(Math.round(value))} ms`;
-  const { steps } = timings;
-  const how =
-    steps === undefined
-      ? ""
-      : ` (${
-          steps.ice === undefined
-            ? `ICE and DTLS ${ms(steps.secure)}`
-            : `ICE ${ms(steps.ice)}, DTLS ${ms(steps.secure)}`
-        }, SCTP and the channel ${ms(steps.channel)}, the core's verdict ${ms(steps.verdict)})`;
-  return (
-    `a WebRTC connection took ${ms(total)}: gathering its candidates ${ms(timings.gathering)}, ` +
-    `the core's answer ${ms(timings.answer)}, connecting ${ms(timings.connecting)}${how}`
-  );
-}
 
 /**
  * How long, once its negotiation channel is open, a connection waits for the core's verdict: the
@@ -363,16 +280,179 @@ async function offerGathered(rtcConfig: RTCConfiguration, waitMostMs: number): P
 }
 
 /**
+ * How long after the core's answer a connection that asked no relay may go unconnected before a
+ * second, which asks the relays too, is made beside it (D559 §1): nearly every connection connects
+ * without a relay, and the hosted relay has few ports, so each connection asking every TURN server
+ * for each of its interfaces at once held allocations it never used.
+ */
+export const relayAfterMs = 3_000;
+
+/**
+ * Whether a connection of this page has connected only through the attempt that asked the relays:
+ * the page's network needs a relay, and its later connections ask them at once (D559 §1). Kept for
+ * the page's life.
+ */
+let isRelayNeededHere = false;
+
+/** Forgets that this page's network needed a relay, as a test starting afresh does. */
+export function forgetRelayNeeded(): void {
+  isRelayNeededHere = false;
+}
+
+/**
  * One peer connection, connected through signaller; given up, its peer closed, once signal aborts.
- * An offer whose gathering found nothing past this device is made once more, on a new peer
- * connection, within what is left of connectTimeoutMs, and the second sent whatever it holds: a phone
- * on a bus's Wi-Fi offered only its mDNS host candidates, which the core drops, and could not connect
- * (the owner's Firefox on Android, 2026-11-26).
+ * Where rtcConfig names a TURN server, it is tried first without one, and with them too only once
+ * that has not connected relayAfterMs after the core's answer, or failed after it; the first of the
+ * two to connect is taken and the other closed. A page whose network needed a relay asks them at
+ * once (D559 §1). The discovery's answer does not say which relay is a household's own, so it waits
+ * with the hosted one.
  */
 async function connectOne(
   signaller: Signaller,
   rtcConfig: RTCConfiguration,
   signal: AbortSignal,
+): Promise<PeerLike> {
+  if (!hasRelayServer(rtcConfig)) {
+    return await connectAttempt(signaller, rtcConfig, { signal });
+  }
+  if (isRelayNeededHere) {
+    noteStep("WebRTC: this page's network needed the relay; asking it at once");
+    return await connectAttempt(signaller, rtcConfig, { signal });
+  }
+  return await connectDirectFirst(signaller, rtcConfig, signal);
+}
+
+/** Why an attempt was given up: the other attempt of its connection connected first (D559 §1). */
+const lostToTheOtherAttempt = "the other attempt connected first";
+
+/**
+ * Connects as connectOne does where rtcConfig names a TURN server and the page has not needed one:
+ * the attempt without the relays, and the one with them once that is late or failed after the
+ * core's answer (D559 §1). A direct attempt that failed before the core answered (its offer reached
+ * no core) or that the core turned away is the connection's failure, as a relay mends neither; where
+ * both fail, the relayed attempt's failure is the one told, as it tried every way.
+ */
+async function connectDirectFirst(
+  signaller: Signaller,
+  rtcConfig: RTCConfiguration,
+  signal: AbortSignal,
+): Promise<PeerLike> {
+  const direct = new AbortController();
+  const relayed = new AbortController();
+  const passOnAbort = (): void => {
+    direct.abort(signal.reason);
+    relayed.abort(signal.reason);
+  };
+  signal.addEventListener("abort", passOnAbort, { once: true });
+  const relay = relayDecision(signal);
+  const directTry = connectAttempt(signaller, withoutRelayServers(rtcConfig), {
+    signal: direct.signal,
+    onAnswered: relay.startLateTimer,
+  });
+  directTry.then(
+    () => {
+      relay.decide(false);
+    },
+    (failure: unknown) => {
+      relay.decide(relay.isAnswered() && !isTurnedAway(failure), "failed without the relay");
+    },
+  );
+  // Unasked, the relayed attempt fails as the direct one does, and never connects.
+  const relayedTry = relay.isAsked.then(async (isAsked) =>
+    isAsked
+      ? await connectAttempt(signaller, rtcConfig, { signal: relayed.signal })
+      : await directTry.then(async () => await new Promise<never>(() => undefined)),
+  );
+  try {
+    const { peer, isRelayed } = await Promise.any([
+      directTry.then((each) => ({ peer: each, isRelayed: false })),
+      relayedTry.then((each) => ({ peer: each, isRelayed: true })),
+    ]);
+    (isRelayed ? direct : relayed).abort(lostToTheOtherAttempt);
+    (isRelayed ? directTry : relayedTry).then(
+      (loser) => {
+        loser.close();
+      },
+      () => undefined,
+    );
+    if (isRelayed) {
+      isRelayNeededHere = true;
+      noteStep("WebRTC: connected through the attempt that asked the relay");
+    } else if (relay.wasAsked()) {
+      noteStep("WebRTC: connected through the attempt without the relay");
+    }
+    return peer;
+  } catch (problem: unknown) {
+    const failures = problem instanceof AggregateError ? Array.from<unknown>(problem.errors) : [];
+    throw failures[1] ?? problem;
+  } finally {
+    relay.decide(false);
+    signal.removeEventListener("abort", passOnAbort);
+  }
+}
+
+/**
+ * Whether a connection's attempt with the relays is made, decided once (D559 §1): yes once its direct
+ * attempt has not connected relayAfterMs after the core's answer, or failed after it; no once that
+ * attempt is settled otherwise, or the connection is given up.
+ */
+function relayDecision(signal: AbortSignal): {
+  readonly isAsked: Promise<boolean>;
+  readonly startLateTimer: () => void;
+  readonly isAnswered: () => boolean;
+  readonly wasAsked: () => boolean;
+  readonly decide: (shouldAsk: boolean, why?: string) => void;
+} {
+  let tell: (isAsked: boolean) => void = () => undefined;
+  const isAsked = new Promise<boolean>((resolve) => {
+    tell = resolve;
+  });
+  let willAsk: boolean | undefined;
+  let isAnswered = false;
+  let lateTimer: ReturnType<typeof setTimeout> | undefined;
+  const decide = (shouldAsk: boolean, why = ""): void => {
+    clearTimeout(lateTimer);
+    if (willAsk !== undefined) {
+      return;
+    }
+    willAsk = shouldAsk && !signal.aborted;
+    if (willAsk) {
+      noteStep(`WebRTC: ${why}; trying with the relay too`);
+    }
+    tell(willAsk);
+  };
+  return {
+    isAsked,
+    startLateTimer: () => {
+      isAnswered = true;
+      lateTimer = setTimeout(() => {
+        decide(true, `not connected ${String(relayAfterMs / 1000)} s after the answer`);
+      }, relayAfterMs);
+    },
+    isAnswered: () => isAnswered,
+    wasAsked: () => willAsk === true,
+    decide,
+  };
+}
+
+/** What an attempt at a connection is given: its abort, and what it tells as the core answers. */
+interface AttemptHooks {
+  readonly signal: AbortSignal;
+  readonly onAnswered?: () => void;
+}
+
+/**
+ * One attempt at a peer connection on rtcConfig, connected through signaller; given up, its peer
+ * closed, once signal aborts; onAnswered told as the core's answer comes. An offer whose gathering
+ * found nothing past this device is made once more, on a new peer connection, within what is left of
+ * connectTimeoutMs, and the second sent whatever it holds: a phone on a bus's Wi-Fi offered only its
+ * mDNS host candidates, which the core drops, and could not connect (the owner's Firefox on Android,
+ * 2026-11-26).
+ */
+async function connectAttempt(
+  signaller: Signaller,
+  rtcConfig: RTCConfiguration,
+  { signal, onAnswered }: AttemptHooks,
 ): Promise<PeerLike> {
   let peer: RTCPeerConnection | undefined;
   const giveUp = (): void => {
@@ -392,37 +472,23 @@ async function connectOne(
       offered = await offerGathered(rtcConfig, leftMs);
       peer = offered.peer;
     }
-    const { verdict, iceAt, channelAt, sdp } = offered;
+    const { verdict, sdp } = offered;
     const gatheredAt = performance.now();
     noteStep(`WebRTC: offer sent with ${gatheringText(sdp, offered.errors)}`);
     const answer = await signaller({ type: "offer", sdp }, signal);
     const answeredAt = performance.now();
     noteStep("WebRTC: the core answered");
+    onAnswered?.();
     await peer.setRemoteDescription(answer);
     await connected(peer);
     const connectedAt = performance.now();
     noteStep("WebRTC: connected");
     await withinConnectTimeout(verdict);
-    const heldAt = performance.now();
     noteStep("WebRTC: the core held the connection");
-    const slow = slowConnection({
-      gathering: gatheredAt - startedAt,
-      answer: answeredAt - gatheredAt,
-      connecting: heldAt - answeredAt,
-      steps: connectingStepsOf({
-        answeredAt,
-        iceAt: iceAt(),
-        connectedAt,
-        channelAt: channelAt(),
-        heldAt,
-      }),
-    });
-    if (slow !== undefined) {
-      reportFailure(new Error(slow));
-    }
+    reportIfSlow(offered, { startedAt, gatheredAt, answeredAt, connectedAt });
     return peerOf(peer);
   } catch (error: unknown) {
-    noteStep(`WebRTC: failed: ${error instanceof Error ? error.message : String(error)}`);
+    noteFailure(error, signal);
     peer?.close();
     throw error;
   } finally {
@@ -430,89 +496,40 @@ async function connectOne(
   }
 }
 
-/** One candidate an offer holds, by its kinds alone: never its address. */
-interface CandidateKind {
-  readonly type: string;
-  /** "mDNS" for a name ending .local, which the core drops; "IPv4" or "IPv6" for an address. */
-  readonly family: "mDNS" | "IPv4" | "IPv6";
+/** When, on performance.now's clock, an attempt began and each of its steps before the verdict ended. */
+interface AttemptMarks {
+  readonly startedAt: number;
+  readonly gatheredAt: number;
+  readonly answeredAt: number;
+  readonly connectedAt: number;
 }
 
-/** The kinds of each candidate an offer's SDP holds (its a=candidate lines). */
-function candidateKindsOf(sdp: string): CandidateKind[] {
-  const kinds: CandidateKind[] = [];
-  for (const line of sdp.split(/\r?\n/)) {
-    // a=candidate:<foundation> <component> <transport> <priority> <address> <port> typ <type> ...
-    const fields = /^a=candidate:\S+ \S+ \S+ \S+ (\S+) \S+ typ (\S+)/.exec(line.trim());
-    if (fields === null) {
-      continue;
-    }
-    const [, address = "", type = "unknown"] = fields;
-    kinds.push({ type, family: familyOf(address) });
-  }
-  return kinds;
-}
-
-/** The family of a candidate's address: an mDNS name (ending .local), IPv6 or IPv4. */
-function familyOf(address: string): CandidateKind["family"] {
-  if (/\.local\.?$/i.test(address)) {
-    return "mDNS";
-  }
-  return address.includes(":") ? "IPv6" : "IPv4";
-}
-
-/**
- * Whether an offer's SDP holds a candidate the core can reach this device by: a server-reflexive or
- * relayed one, or a host one with an address, not an mDNS name (the core drops those, rtcapi's
- * checkRelayedOffer).
- */
-export function isPastThisDevice(sdp: string): boolean {
-  return candidateKindsOf(sdp).some(({ type, family }) => type !== "host" || family !== "mDNS");
-}
-
-/**
- * What an offer's SDP holds, by kind and family, never an address or a name, with the errors its
- * gathering met: "2 host (mDNS), 1 srflx IPv4", or "2 host (mDNS), no candidate past this device;
- * gathering errors: turn 486".
- */
-export function gatheringText(sdp: string, errors: readonly string[] = []): string {
-  const counts = new Map<string, number>();
-  for (const { type, family } of candidateKindsOf(sdp)) {
-    const kind = family === "mDNS" ? `${type} (mDNS)` : `${type} ${family}`;
-    counts.set(kind, (counts.get(kind) ?? 0) + 1);
-  }
-  const held = Array.from(counts, ([kind, count]) => `${String(count)} ${kind}`);
-  if (!isPastThisDevice(sdp)) {
-    held.push("no candidate past this device");
-  }
-  const text = held.join(", ");
-  return errors.length === 0 ? text : `${text}; ${errorsText(errors)}`;
-}
-
-/** Gathering's errors in words: "gathering errors: turn 486, stun 701". */
-function errorsText(errors: readonly string[]): string {
-  return `gathering errors: ${errors.join(", ")}`;
-}
-
-/** What gatheringErrorsOf needs of a peer connection: the browser's, or a test's. */
-export interface ErringPeer {
-  addEventListener(
-    type: "icecandidateerror",
-    listener: (event: RTCPeerConnectionIceErrorEvent) => void,
-  ): void;
-}
-
-/**
- * The errors peer's gathering meets, each told once as its server's scheme and its code ("turn 486",
- * a TURN server's refusal; "stun 701", a STUN server not reached), never the server's address or its
- * credentials, nor this device's address: why a kind of candidate is missing.
- */
-export function gatheringErrorsOf(peer: ErringPeer): () => readonly string[] {
-  const errors = new Set<string>();
-  peer.addEventListener("icecandidateerror", (event) => {
-    const scheme = /^(stuns?|turns?):/i.exec(event.url)?.[1]?.toLowerCase() ?? "unknown";
-    errors.add(`${scheme} ${String(event.errorCode)}`);
+/** Reports a connection the core has just held, when it took over slowConnectMs, with where its time went. */
+function reportIfSlow(offered: Offered, marks: AttemptMarks): void {
+  const { startedAt, gatheredAt, answeredAt, connectedAt } = marks;
+  const heldAt = performance.now();
+  const slow = slowConnection({
+    gathering: gatheredAt - startedAt,
+    answer: answeredAt - gatheredAt,
+    connecting: heldAt - answeredAt,
+    steps: connectingStepsOf({
+      answeredAt,
+      iceAt: offered.iceAt(),
+      connectedAt,
+      channelAt: offered.channelAt(),
+      heldAt,
+    }),
   });
-  return () => Array.from(errors);
+  if (slow !== undefined) {
+    reportFailure(new Error(slow));
+  }
+}
+
+/** Notes an attempt's failure as a step, unless it was closed as the other connected (D559 §1). */
+function noteFailure(error: unknown, signal: AbortSignal): void {
+  if (signal.reason !== lostToTheOtherAttempt) {
+    noteStep(`WebRTC: failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 /** What whenIceThrough needs of a peer connection: the browser's, or a test's. */
@@ -549,13 +566,6 @@ async function withinConnectTimeout(settling: Promise<void>): Promise<void> {
   } finally {
     clearTimeout(timer);
   }
-}
-
-/** Whether a configuration names a TURN server, through which a relayed candidate will come. */
-export function hasRelayServer(rtcConfig: RTCConfiguration): boolean {
-  return (rtcConfig.iceServers ?? []).some((server) =>
-    (Array.isArray(server.urls) ? server.urls : [server.urls]).some((url) => /^turns?:/i.test(url)),
-  );
 }
 
 /** What gathered needs of a peer connection: the browser's, or a test's. */

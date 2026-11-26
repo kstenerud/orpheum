@@ -4,24 +4,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   connected,
-  connectingStepsOf,
   connectRtc,
   connectTimeoutMs,
   gatherAfterReflexiveMs,
   gatherForRelayMs,
   gathered,
-  gatheringErrorsOf,
-  gatheringText,
   growthOn,
-  hasRelayServer,
-  isPastThisDevice,
   isSecureUnfinished,
   isTurnedAway,
   offerWith,
   onWayBack,
   RtcUnconnected,
-  slowConnection,
-  slowConnectMs,
   TurnedAway,
   verdictOf,
   verdictWaitMs,
@@ -29,6 +22,13 @@ import {
   type ConnectingPeer,
   type GatheringPeer,
 } from "./rtc-connect.ts";
+import {
+  gatheringErrorsOf,
+  gatheringText,
+  hasRelayServer,
+  isPastThisDevice,
+} from "./rtc-candidates.ts";
+import { connectingStepsOf, slowConnection, slowConnectMs } from "./rtc-connect-timing.ts";
 import type { ChannelLike, ChannelListener } from "./rtc-request.ts";
 import { forgetSteps, stepsSoFar } from "./steps.ts";
 

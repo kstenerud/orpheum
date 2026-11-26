@@ -32152,7 +32152,7 @@ both ends ask the relay on every connection. It keeps D558's other clauses. Prod
 discovery names the relay only once this stands (the owner: "Let's wait until it's settled. I can
 test the relay when we're on good footing for it").
 
-**Status:** decided. §2 and §3 have code; §1 has none.
+**Status:** decided. Each clause has code; production's discovery does not name the relay yet.
 
 1. **A device's connection first tries without a relay.** When it has not connected 3
    seconds after the core's answer, a second attempt that also asks the relays starts beside it,

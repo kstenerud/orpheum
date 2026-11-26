@@ -8,7 +8,8 @@
   credential, `discovery/relaycred`), §2 (the relay, `internal/relay` and `orpheum relay
   --config <file>`) and §3 (orpheum-connect's `internal/hostedrelay`) have code, and §4 runs on the
   edge VPS as `relay.orpheum.cc`, for staging's realm alone; production's discovery does not name
-  it yet. §5's items 1 to 3 have code. What the staging walk found is at the end.
+  it yet. §5's items 1 to 3 have code, and so has D559, which changed who asks the relay and when.
+  What the staging walk found is at the end.
 - **Depends on:** D558; the design is
   [the research's §4](../research/official-relay-2026-11-26.md#4-the-proposed-design), and this
   file is what is being built of it.

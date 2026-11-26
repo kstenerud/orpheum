@@ -4240,6 +4240,10 @@ An item is ticked only by the person who did it, and only with what they saw.
      household: its transport, its seconds and its bytes.
   3. Repeat on a network known to block UDP, where one is at hand (an office's or a hotel's
      Wi-Fi). Report whether it plays; the relay's line should say `tls`.
+  4. Where a step above played, open the page's problem report or tell the lead the time: the
+     first connection on such a network asks the relay only 3 seconds after trying without it
+     (D559 §1), so report whether the first page after sign-in took noticeably longer than the
+     pages after it.
 - [ ] **VQ409** — A phone on a network whose first gathering finds nothing past the device gathers
   once more, and its problem report says what it gathered: only such a network shows it (a bus's
   Wi-Fi over several mobile uplinks, the owner's Firefox on Android, 2026-11-26).
