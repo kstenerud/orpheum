@@ -276,7 +276,10 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     const title = mounted.container.querySelector(".together-viewer__title");
     expect(title?.textContent).toBe("Metropolis");
     expect(title?.closest(".film-player__stage")).toBeNull();
-    expect(title?.nextElementSibling?.querySelector("video")).not.toBeNull();
+    // Directly under it the place for when the film ends, as the Play page's, then the picture.
+    const endsPlace = title?.nextElementSibling;
+    expect(endsPlace?.className).toBe("ends-place");
+    expect(endsPlace?.nextElementSibling?.querySelector("video")).not.toBeNull();
     mounted.unmount();
   });
 

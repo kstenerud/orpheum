@@ -39,6 +39,7 @@ import { pageThatPausesWhenHidden } from "./handheld.ts";
 import { JoinForm } from "./together-join.tsx";
 import { useStageFillingFromTheVideo } from "./film-fullscreen.ts";
 import { isOnTelevision } from "./input-mode.ts";
+import { EndsUnderTheHeading } from "./ends-place.tsx";
 import { OverTheFilm, PageControls } from "./page-controls.tsx";
 import {
   EmptyStage,
@@ -452,7 +453,8 @@ interface Following {
 /**
  * The group's film, asked for afresh each time it changes, playing as the server decided, in the one
  * player every page composes: following the group, with the Play page's controls as far as the
- * guest's rights give them (D271 §4, D555 §8), Tap for sound over it, its stalls told by the
+ * guest's rights give them (D271 §4, D555 §8), when it ends under its name as the Play page's is
+ * (EndsUnderTheHeading; the owner, 2026-11-26), Tap for sound over it, its stalls told by the
  * membership, its sound and subtitles the guest's own (D471, IsGuestContext). A guest may not ask
  * why the host's file cannot be read: the player's own words are told.
  */
@@ -495,10 +497,7 @@ function GroupFilm(props: {
               onLowerQuality,
             }}
           >
-            {value.titleName === undefined ? null : (
-              <p className="together-viewer__title">{value.titleName}</p>
-            )}
-            <GuestsPage>
+            <GuestsPage titleName={value.titleName}>
               <GuestsCommands
                 connection={connection}
                 fileId={props.fileId}
@@ -544,16 +543,26 @@ function guestsComposition(
 }
 
 /**
- * The guest's page: its sound and subtitles the guest's own (IsGuestContext), and its menus drawn, as
- * its own device draws them, unless a cast's receiver takes the guest's part and says it draws none
- * (FollowsTheGroupHere, GuestsMenusContext).
+ * The guest's page: the film's name over its player, when it ends directly under the name as the
+ * Play page's is (EndsUnderTheHeading); its sound and subtitles the guest's own (IsGuestContext), and
+ * its menus drawn, as its own device draws them, unless a cast's receiver takes the guest's part and
+ * says it draws none (FollowsTheGroupHere, GuestsMenusContext).
  */
-function GuestsPage(props: { readonly children: ReactNode }): JSX.Element {
+function GuestsPage(props: {
+  readonly titleName: string | undefined;
+  readonly children: ReactNode;
+}): JSX.Element {
   const isDrawn = use(GuestsMenusContext) ?? true;
+  const name =
+    props.titleName === undefined ? null : (
+      <p className="together-viewer__title">{props.titleName}</p>
+    );
   return (
-    <IsGuestContext value={true}>
-      <GuestsMenusContext value={isDrawn}>{props.children}</GuestsMenusContext>
-    </IsGuestContext>
+    <EndsUnderTheHeading heading={name}>
+      <IsGuestContext value={true}>
+        <GuestsMenusContext value={isDrawn}>{props.children}</GuestsMenusContext>
+      </IsGuestContext>
+    </EndsUnderTheHeading>
   );
 }
 
