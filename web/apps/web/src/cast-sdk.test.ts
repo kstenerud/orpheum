@@ -65,6 +65,13 @@ describe("a Cast session asked for", () => {
   });
 });
 
+/** Waits until the session has answered what was set through it, refused or not. */
+async function answered(): Promise<void> {
+  for (let turn = 0; turn < 5; turn += 1) {
+    await Promise.resolve();
+  }
+}
+
 describe("a Cast device's own volume, through its session", () => {
   it("is read, set and heard as the SDK's CastSession says it, kept between 0 and 1", async () => {
     Reflect.set(globalThis, "cast", {
@@ -101,7 +108,7 @@ describe("a Cast device's own volume, through its session", () => {
     expect(volume.read()).toEqual({ level: 0.3, isMuted: true });
     volume.setLevel(1.4);
     volume.setMuted(false);
-    await Promise.resolve();
+    await answered();
     expect(asked).toEqual(["volume 1", "mute false"]);
     let heard = 0;
     const unhear = volume.onChange(() => {
@@ -109,7 +116,14 @@ describe("a Cast device's own volume, through its session", () => {
     });
     listeners.get("volumechanged")?.();
     expect(heard).toBe(1);
+    // A mute set through it is told as the session answers, the SDK telling no change of its own.
+    volume.setMuted(true);
+    await answered();
+    expect(heard).toBe(2);
     unhear();
     expect(listeners.size).toBe(0);
+    volume.setMuted(false);
+    await answered();
+    expect(heard).toBe(2);
   });
 });

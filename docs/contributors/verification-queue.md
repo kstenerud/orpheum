@@ -4217,8 +4217,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   2026-11-26: "Anything it can do, I want"): only a real Chromecast's Cast session, its Web Audio and
   its own drawing of a subtitle track show them. On the phone's Chrome, cast a film with two audio
   tracks and subtitles to the Chromecast. Then:
-  1. Press the volume button on the pad. Report whether the slider and mute move the TV's sound, and
-     whether the phone's slider follows when the TV's own remote changes the volume.
+  1. Press the volume button on the pad. Report whether the slider and mute move the TV's sound,
+     whether Mute shows pressed and a second press brings the sound back, and whether the phone's
+     slider follows when the TV's own remote changes the volume.
   2. Open Sound: choose the other audio track, then Dialogue boost on, then Level loudness off and on.
      Report whether each is heard on the TV within a few seconds, the film playing on.
   3. In Sound timing, move the sound 500 ms later. Report whether the TV's sound moves.

@@ -276,6 +276,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A Chromecast connected over WebRTC, then its request never completed: "a request over WebRTC did not arrive in time". | [Chrome before 92 neither sends nor receives an empty message on a data channel](#chrome-before-92-neither-sends-nor-receives-an-empty-message-on-a-data-channel) |
 | A cast to a Chromecast over WebRTC failed: "the answer is not the server's own: its key or signature does not match its link". | [A Chromecast's Chrome 90 has no Ed25519 in WebCrypto, so no core's answer verifies](#a-chromecasts-chrome-90-has-no-ed25519-in-webcrypto-so-no-cores-answer-verifies) |
 | The remote's pad showed no volume for a film cast to a Chromecast, and the page reloaded, none again. | [A Chromecast's volume is the Cast device's, set by the sender's Cast session, which a reloaded page no longer holds](#a-chromecasts-volume-is-the-cast-devices-set-by-the-senders-cast-session-which-a-reloaded-page-no-longer-holds) |
+| The pad's Mute muted a Chromecast and never showed pressed; pressed again, it muted again. | [The Cast Web Sender tells no VOLUME_CHANGED for a mute set through its own session](#the-cast-web-sender-tells-no-volume_changed-for-a-mute-set-through-its-own-session) |
 | Google's Cast console would not publish a receiver application: "You must add details about at least one sender application", the Chrome website URL saved and then gone. | [Google's Cast developer console in Chrome loses a sender's details, and publishing refuses](#googles-cast-developer-console-in-chrome-loses-a-senders-details-and-publishing-refuses) |
 
 ---
@@ -1629,6 +1630,25 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   WebCrypto has no Ed25519".
 - **Evidence:** the receiver's screen and the core's log on production, 2026-11-12; the user agent
   staging's log holds for the same Chromecast.
+
+### The Cast Web Sender tells no VOLUME_CHANGED for a mute set through its own session
+
+- **Technology:** the Cast Web Sender SDK in Chrome on Android, with a third-generation Chromecast
+  (`CrKey/1.56`).
+- **Symptom:** the pad's Mute muted the Chromecast, but the button never showed pressed, and a second
+  press did not unmute (the lead's walk, staging, 2026-11-26).
+- **Cause:** `CastSession.setMute(true)` mutes the device and `isMute()` then says so, but the
+  session raises no `VOLUME_CHANGED` for it. Listening on the phone: two volume steps each raised
+  one event, three mutes none, and the next volume step raised two, the first still carrying the
+  mute. The page read the volume only as that event came, so it held "not muted" and each press
+  asked for mute again.
+- **What we do:** `cast-sdk.ts`'s `deviceVolumeOf` tells its hearers once the session has answered
+  each `setVolume` and `setMute` of its own, and they read it afresh. Test: `cast-sdk.test.ts`, "a
+  Cast device's own volume, through its session". VQ407 step 1.
+- **Sources:** Google's
+  [CastSession reference](https://developers.google.com/cast/docs/reference/web_sender/cast.framework.CastSession)
+  says only that `VOLUME_CHANGED` is the event for volume changes. No report of the missing event
+  was searched for; the measurement above is the evidence.
 
 ### A Chromecast's volume is the Cast device's, set by the sender's Cast session, which a reloaded page no longer holds
 

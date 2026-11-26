@@ -247,14 +247,25 @@ export function channelOf(session: unknown, namespace: string): CastChannel {
 
 /**
  * The Cast device's volume through session, the SDK's CastSession: its getVolume and isMute, set by
- * setVolume and setMute, each change told by its VOLUME_CHANGED event. Google's design checklist has
+ * setVolume and setMute, each change told by its VOLUME_CHANGED event and each set of its own as
+ * the session answers it. Google's design checklist has
  * every sender let its person set it ("Sender apps must allow users to control volume"); it is the
  * device's own, apart from anything its receiver app plays.
  */
 function deviceVolumeOf(session: unknown): CastDeviceVolume {
   const changed = at(globalThis, "cast", "framework", "SessionEventType", "VOLUME_CHANGED");
+  // The SDK tells no VOLUME_CHANGED for a mute set through it (a Chromecast, 2026-11-26: the pad's
+  // Mute never showed pressed, and a second press muted again), so each set tells its hearers once
+  // the session has answered, and they read it afresh.
+  const hearers = new Set<() => void>();
   const quietly = (name: string, value: unknown): void => {
-    void Promise.resolve(call(session, name, value)).catch(() => undefined);
+    void Promise.resolve(call(session, name, value))
+      .catch(() => undefined)
+      .then(() => {
+        for (const hearer of hearers) {
+          hearer();
+        }
+      });
   };
   return {
     read: () => {
@@ -272,8 +283,10 @@ function deviceVolumeOf(session: unknown): CastDeviceVolume {
       const heard = (): void => {
         listener();
       };
+      hearers.add(heard);
       call(session, "addEventListener", changed, heard);
       return () => {
+        hearers.delete(heard);
         call(session, "removeEventListener", changed, heard);
       };
     },
