@@ -222,6 +222,20 @@ full screen fills the screen, the signs in its bar, and leaving it brings the to
 the owner: on its side and not full screen, the top bar, the trail and the title leave the phone
 about half its height for the picture; upright, Full screen sits alone on a row of its own.
 
+**Built (item 4):** the guest's film (`together-viewer.tsx`) mounts the Play page's own
+controls: `OverTheFilm` on its side and in full screen, `PageControls` under the picture upright,
+the stage filling as the Play page's does. What the guest's link allows reaches them through
+`CommandRightsContext` (`player-controls.tsx`): without play and pause no play shows and a press
+does nothing; without seek no steps show and the timeline is disabled (D555 §10). A guest by link's
+own top bar (`GuestTopBar`, `together-guest-controls.tsx`) carries the mark, the session's name,
+Cast and Leave; in full screen Cast and Leave move to the session's panel (D555 §9). The old
+corner (⏮ ⏭ and Full screen) is gone. Where the design was silent: the session's name is the
+"Watching together" heading; the guest's overlay has no way up and no menus, its subtitles, audio
+and offset staying under the picture; a signed-in guest gets the same controls, its Cast and Leave
+staying in the panel under the shell's bar; AirPlay is offered as before.
+
+**Left (item 4):** to walk on a phone and a computer as a guest by link.
+
 ### Phase 5: the lab goes (D555 §12)
 
 Its pages, routes, words, menu entry and the server's `/lab/` endpoints.
