@@ -290,9 +290,6 @@ itself, in step with the guest, with no dialog.
 - A Fire TV sent Home keeps its cast: Silk plays on unseen behind the launcher and the caster's page
   goes on saying "On: Silk on Fire TV". Whether a receiver whose page is hidden should end its cast
   (or pause and say so) is the owner's to decide.
-- On the Pixel on its side the invite dialog's "Make a link" lay under the dialog's head when
-  scrolled to by the walk's driver, which could not click it. Not looked at by hand: whether a
-  finger can scroll it clear is unknown.
 
 ### Phase 5: the lab goes (D555 §12)
 
