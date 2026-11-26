@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package turn
+package turnserver
 
 import (
 	"context"
@@ -10,11 +10,17 @@ import (
 	"github.com/pion/logging"
 )
 
-// slogFactory gives pion's TURN server loggers that write its warnings and errors to the server's
+// slogFactory gives pion's TURN server loggers that write its warnings and errors to the process's
 // log; its trace, debug and info are a protocol's chatter, and are dropped.
 type slogFactory struct {
 	ctx    context.Context //nolint:containedctx // the relay's life, which pion's callbacks do not carry
 	logger *slog.Logger
+}
+
+// Loggers is pion's logger factory for a TURN server, writing its warnings and errors to logger,
+// under ctx, the server's life.
+func Loggers(ctx context.Context, logger *slog.Logger) logging.LoggerFactory {
+	return slogFactory{ctx: ctx, logger: logger}
 }
 
 // NewLogger is a logger for one of pion's scopes, which its lines name.

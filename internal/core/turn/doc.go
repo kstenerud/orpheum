@@ -52,5 +52,6 @@
 //     after the STUN servers, which it hands even with no relay (D406;
 //     TestICEServersFor_HandTheSTUNServersWithOrWithoutARelay).
 //   - relay.go: the relay's listener and what it admits.
-//   - log.go: pion's logs, into the server's.
+//   - internal/platform/turnserver: the listeners on one port and pion's logs, which the hosted
+//     relay shares.
 package turn
