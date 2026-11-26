@@ -629,6 +629,71 @@ func TestMake_AnEncodeOfAFilmWithAGapAfterItsFirstPictureIsCutAtItsBounds(t *tes
 	}
 }
 
+// filmWithItsPictureAfterItsSound is film whose picture starts 125 ms after its sound, which starts
+// at zero: the MP4 muxer delays it by an empty edit, as file 1282's is by 105 ms (staging,
+// 2026-11-26). FFmpeg shows its first picture at 0.125 s; its index, a keyframe at 0.
+func filmWithItsPictureAfterItsSound(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "a film whose picture starts after its sound (2020).mp4")
+	testutil.GenerateMedia(t, path,
+		"-itsoffset", "0.125", "-f", "lavfi", "-i", "testsrc2=size=160x120:rate=24:duration=12",
+		"-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=12",
+		"-c:v", "libx264", "-preset", "fast", "-bf", "2", "-g", "48", "-keyint_min", "48", "-sc_threshold", "0",
+		"-c:a", "aac", "-ac", "2")
+	return path
+}
+
+// An encode from the film's start of a film whose picture starts after the file does is cut at its
+// chunks' bounds, each chunk beginning on the picture the copied picture's does: FFmpeg forced its
+// keyframes at the times asked on its own clock, from the file's start, and the segment muxer cut
+// from its first packet, the picture's start, 125 ms later, so each cut fell past its keyframe and
+// was missed, and the run's chunk 0 was never made (encode's startAtZero; file 1282; idiosyncrasies.md).
+func TestMake_AnEncodeOfAFilmWhosePictureStartsAfterItsSoundIsCutAtItsBounds(t *testing.T) {
+	t.Parallel()
+	runner, err := execx.NewRunner(testutil.FFmpegDirectory(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := filmWithItsPictureAfterItsSound(t)
+	contents, err := os.ReadFile(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	indexed, err := container.KeyframesMs(bytes.NewReader(contents), int64(len(contents)), 0)
+	if err != nil || len(indexed) != 6 || indexed[0] != 0 {
+		t.Fatalf("the index's keyframes are %v, %v; want six, the first at 0", indexed, err)
+	}
+	grid := slices.Clone(indexed[:4])
+	directory := t.TempDir()
+	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
+		clocktest.NewFake(time.Date(2026, 11, 26, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	storeDir := "1/chunks-q400k360p/0123456789abcdef"
+	command := nodeproto.MakeChunks{
+		VideoStreamIndex: 0, VideoCodec: "h264", StoreDir: storeDir, FirstChunk: 0, BoundsMs: grid,
+		Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 400, Height: 360},
+	}
+	if last, makeErr := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); makeErr != nil || last != 2 {
+		t.Fatalf("the run from the film's start made through %d, %v; want its three chunks", last, makeErr)
+	}
+	shown := sourceTimes(t, runner, source, "v:0", false)
+	storePath := filepath.Join(directory, storeDir)
+	if stored := packetTimes(t, runner, storePath, 3); len(stored) != len(shown)/2 {
+		t.Errorf("the chunks hold %d pictures; want the film's %d of its first six seconds", len(stored), len(shown)/2)
+	}
+	offset := float64(chunks.TimelineOffsetMs) / 1000
+	keyframes := sourceTimes(t, runner, joined(t, storePath, 3), "0", true)
+	for index, keyframe := range keyframes {
+		if index >= 3 || math.Abs(keyframe-offset-float64(grid[index])/1000) > 0.001 {
+			t.Fatalf("the chunks' keyframes are at %v; want one at each chunk's start, %v ms after %.3f s",
+				keyframes, grid[:3], offset)
+		}
+	}
+	if len(keyframes) != 3 {
+		t.Errorf("the chunks' keyframes are at %v; want three", keyframes)
+	}
+}
+
 // An encode of a film whose first picture is followed by a gap shows its chunk 0's first picture at
 // its decode time, at the film's start: x264's B-frames decoded it 0.47 s before it was shown, and
 // hls.js, placing the stream by that decode time, began the film with a hole no paused start steps

@@ -223,8 +223,9 @@ func copiedSoundTimes() []string {
 	return []string{"-bsf:a", `setts=ts=if(eq(N\,0)\,-1\,TS)`, "-avoid_negative_ts", "disabled"}
 }
 
-// keyframeTimes are where an encode puts its keyframes, relative to the run's start: at each of
-// its chunks' starts, so its chunks cut where the copied picture's do, and, for a run that reads past
+// keyframeTimes are where an encode puts its keyframes, relative to the run's start, at its first
+// picture, where the encode's times start and the muxer counts its cuts from: at each of its chunks'
+// starts, so its chunks cut where the copied picture's do, and, for a run that reads past
 // its end (readEndMs), at its end too, so what it reads past is cut off into a raw file of its own.
 func keyframeTimes(command nodeproto.MakeChunks) string {
 	start := runStartMs(command)

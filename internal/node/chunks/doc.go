@@ -134,6 +134,13 @@
 //     third of a second after its first was cut past its bound and never made (idiosyncrasies.md).
 //     Enforced by TestArguments_EncodeAQualityCutAtItsKeyframesOwnTimes; with the pinned FFmpeg, by
 //     TestMake_AnEncodeOfAFilmWithAGapAfterItsFirstPictureIsCutAtItsBounds (integration tier).
+//   - Every encode of a quality counts its times from its first picture, where its forced keyframes
+//     and the muxer's cuts both count from: FFmpeg forces a keyframe at each time on its own clock,
+//     from the file's start, and the muxer cuts from its first packet, so a run from the film's start
+//     of a film whose picture starts after its sound had each keyframe forced that much before its cut,
+//     which missed it, and never made its chunk 0 (file 1282; idiosyncrasies.md). Enforced by
+//     TestQualityArguments_OnVAAPIScaleThenUploadWithTheChunksKeyframes; with the pinned FFmpeg, by
+//     TestMake_AnEncodeOfAFilmWhosePictureStartsAfterItsSoundIsCutAtItsBounds (integration tier).
 //   - Every encode of a quality decodes its run's first picture at its shown time when the encoder
 //     put it more than 0.1 s before, past hls.js's maxBufferHole: hls.js places a stream by its first
 //     decode time, and a film whose first picture is followed by a gap, decoded as long before it was

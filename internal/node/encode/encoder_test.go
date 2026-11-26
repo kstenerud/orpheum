@@ -99,8 +99,9 @@ func TestQualityArguments_OnVAAPIScaleThenUploadWithTheChunksKeyframes(t *testin
 	t.Parallel()
 	vaapi := encode.EncoderVAAPI.QualityArguments(1500, 480, "0,1.5,4")
 	x264 := encode.EncoderX264.QualityArguments(1500, 480, "0,1.5,4")
-	if got := after(vaapi, "-vf"); got != "scale=-2:480,format=nv12,hwupload" {
-		t.Errorf("a VAAPI quality's filter is %q, want the scale and then the upload", got)
+	if got := after(vaapi, "-vf"); got != "setpts=PTS-STARTPTS,scale=-2:480,format=nv12,hwupload" {
+		t.Errorf("a VAAPI quality's filter is %q, want its times from its first picture, the scale, then the upload",
+			got)
 	}
 	if after(vaapi, "-init_hw_device") != "vaapi=va" || after(vaapi, "-c:v") != "h264_vaapi" {
 		t.Errorf("a VAAPI quality: %q; want its device and h264_vaapi", vaapi)

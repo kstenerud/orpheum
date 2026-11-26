@@ -29,8 +29,9 @@
 //     TestMeasureSpeed_ATrialCutShortGivesTheSpeedItReachedAndOneThatSaidNoneFails.
 //
 //   - A quality is 8-bit H.264 with keyframes where its chunks start and nowhere else, IDR pictures
-//     on every encoder. Enforced by TestQualityArguments_OnVAAPIScaleThenUploadWithTheChunksKeyframes
-//     and TestQualityArguments_ForcedKeyframesAreIDRsOnQuickSyncAndNVENC.
+//     on every encoder, its times counted from its first picture (startAtZero). Enforced by
+//     TestQualityArguments_OnVAAPIScaleThenUploadWithTheChunksKeyframes and
+//     TestQualityArguments_ForcedKeyframesAreIDRsOnQuickSyncAndNVENC.
 //
 //   - A track with a centre has a standard and a boosted stereo mix, one without its one mix, each
 //     carrying the track's levelling gain (D217 §3, D226 §4). Enforced by

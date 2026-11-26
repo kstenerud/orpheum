@@ -3455,6 +3455,33 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   **[source]** `libavformat/segment.c` of the pinned build, `seg_write_packet`. **[web]** a search
   found only that `-segment_times` count from the start of the file (2026-10-27).
 
+### Forced keyframes count from the file's start, the segment muxer's cuts from its first packet
+
+- **Symptom:** file 1282's every encoded run from the film's start failed: "raw 00000.mp4 holds 0
+  to 12993 ms of the run, not its chunk 0's 0 to 5714 ms (the run read from 0 ms, its first cut at
+  5.664 s)", and the core gave its quality up (staging, h264_vaapi, 2026-11-26). Runs sought into
+  the film were cut where they should be.
+- **Cause:** the file's picture starts 105 ms after its sound, delayed by an MP4 empty edit; FFmpeg
+  shows its first picture at 0.105 s. `-force_key_frames` with a list compares each time to the
+  frame's own time on FFmpeg's clock (`forced_kf_apply` in `fftools/ffmpeg_enc.c`; only the `expr:`
+  form's `t` counts from the first frame), so the keyframe for chunk 1's bound, 5.714 s, was forced
+  on the picture at 5.736 s. The segment muxer adds its first packet's time to every cut
+  (`reference_stream_first_pts`, the entry above), so it cut at 5.664 + 0.105 = 5.769 s, past that
+  keyframe, and the next forced one, at 12.993 s, ended file 0. Any picture starting after the file
+  by more than the 50 ms cut lead, less a frame, misses every cut of a run from the film's start.
+- **What we do:** an encode starts its times at its first picture (`setpts=PTS-STARTPTS` before
+  the scale, `startAtZero` in `internal/node/encode/encoder.go`), so its forced keyframes and the
+  muxer's cuts count from the same picture, as a copied picture's do. A run sought into the film
+  starts within a frame of zero already and moves that little. QualityRecipe 2.
+- **Evidence:** **[measured]** the pinned FFmpeg 8.1.3, x264 at 1080p, on file 1282 read in place:
+  without the filter the list read 0 to 12.993; with it 0 to 5.713, 5.714 to 12.972, 12.971 to
+  20.980, 20.979 to 28.070, each file starting on a keyframe. The debug log said "Forced keyframe at
+  time 5.631000", relative to the first picture. `TestMake_AnEncodeOfAFilmWhosePictureStartsAfterItsSoundIsCutAtItsBounds`
+  (integration tier) fails without the filter with the same message. **[source]**
+  `fftools/ffmpeg_enc.c` and `libavformat/segment.c` of the pinned build. **[web]** a search found
+  only the advice to force keyframes at the segments' times, nothing on a picture starting late
+  (2026-11-26).
+
 ### An MP4 whose first keyframe is before its start, discarded, has its grid start at the next, and a sound copied sought there reads from the film's start
 
 - **Symptom:** file 5667 (staging, 2026-10-28) would not play: its own sound copied

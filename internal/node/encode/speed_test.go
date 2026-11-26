@@ -36,7 +36,7 @@ func TestMeasureSpeed_IsFFmpegsLastSpeedEncodingTheLowestQuality(t *testing.T) {
 	if err != nil || percent != 62 {
 		t.Errorf("a trial last saying 0.62x measured %d%%, %v; want 62%%", percent, err)
 	}
-	if got := after(slow.run.Arguments, "-vf"); got != "scale=-2:360" {
+	if got := after(slow.run.Arguments, "-vf"); got != "setpts=PTS-STARTPTS,scale=-2:360" {
 		t.Errorf("the trial scales with %q; want the lowest quality's height, 360", got)
 	}
 	if got := after(slow.run.Arguments, "-b:v"); got != "400k" {

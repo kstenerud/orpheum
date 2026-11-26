@@ -18,8 +18,12 @@ import (
 // D536). A version is added here with each raise of its recipe, and never changed after.
 var argumentsByRecipe = map[nodeproto.ChunkStreamKind]map[int]string{
 	// 1 is each recipe as it was when recipes were first counted (D536).
-	nodeproto.StreamPicture:     {1: "24105f918eb0face5621f7a11e395f10cfdc6ec96f3505cc4c6d30dd53b98c42"},
-	nodeproto.StreamQuality:     {1: "3dae99adffc429ad6e1b43218dcebdba9872491d21de6284ce4b663e505e9a72"},
+	nodeproto.StreamPicture: {1: "24105f918eb0face5621f7a11e395f10cfdc6ec96f3505cc4c6d30dd53b98c42"},
+	nodeproto.StreamQuality: {
+		1: "3dae99adffc429ad6e1b43218dcebdba9872491d21de6284ce4b663e505e9a72",
+		// 2 starts an encode's times at its first picture (encode's startAtZero; file 1282).
+		2: "c0b8e05bfa25c9376524041e42639df2b9f0469c3823a24244aeab822438d273",
+	},
 	nodeproto.StreamSound:       {1: "169f1b599b8d85925f4efdeab2496fc4123af216b1e3e99f5785b94e6aee5615"},
 	nodeproto.StreamSoundCopied: {1: "19ac78897a3cc6de988e058419c40f131722ee1acf5973b4b1a69548bb2feac4"},
 }

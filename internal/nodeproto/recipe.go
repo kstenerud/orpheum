@@ -20,8 +20,9 @@ const (
 	// PictureRecipe is the copied picture's.
 	PictureRecipe = 1
 	// QualityRecipe is an encoded quality's, on every encoder, counted from the core's encodeRecipe
-	// "sourceTimeBase" (D392 §3).
-	QualityRecipe = 1
+	// "sourceTimeBase" (D392 §3). 2 starts an encode's times at its first picture, so its keyframes
+	// fall where the segment muxer cuts on a film whose picture starts after its sound (file 1282).
+	QualityRecipe = 2
 	// SoundRecipe is a sound's, a track's mix encoded as stereo AAC, its gaps filled (D533 §1).
 	SoundRecipe = 1
 	// SoundCopiedRecipe is a track's sound copied as it is (D368 §1).

@@ -37,6 +37,17 @@ func vaapiDevice() []string {
 	return []string{"-init_hw_device", "vaapi=va", "-filter_hw_device", "va"}
 }
 
+// startAtZero is the filter that starts an encode's times at its first picture, as a copied
+// picture's start at its first keyframe, so its forced keyframes and the segment muxer's cuts count
+// from the same picture. FFmpeg forces a keyframe at the first picture shown at or after each time
+// of -force_key_frames on its own clock, from the file's start, while the segment muxer counts its
+// cuts from its first packet (idiosyncrasies.md): a picture starting after the file does, as an
+// MP4's empty edit delays one for a sound starting before it, had every keyframe forced that much
+// earlier than its cut, which missed it, so an encode from the film's start never made chunk 0
+// (file 1282's picture 105 ms after its sound, staging, 2026-11-26). A run sought into the film
+// starts within a picture of zero, and is moved that little.
+const startAtZero = "setpts=PTS-STARTPTS"
+
 // vaapiUpload converts a picture to NV12 and uploads it to the card, which h264_vaapi encodes from.
 const vaapiUpload = "format=nv12,hwupload"
 
@@ -45,11 +56,11 @@ func (encoder Encoder) UsesGPU() bool { return encoder != EncoderX264 }
 
 // QualityArguments are the encoder's video arguments for a chunk's quality (D247 §6): 8-bit H.264
 // at kbps, its peak at most 1.5 times that, scaled to height with the source's shape, and keyframes
-// at keyframesAt, a list of seconds, and nowhere else, so its chunks cut where the copied
-// picture's do (slow-links.md §10).
+// at keyframesAt, a list of seconds from its first picture, and nowhere else, so its chunks cut where
+// the copied picture's do (slow-links.md §10). Its times start at its first picture (startAtZero).
 func (encoder Encoder) QualityArguments(kbps, height int, keyframesAt string) []string {
 	rate := func(kbps int) string { return strconv.Itoa(kbps) + "k" }
-	scale := "scale=-2:" + strconv.Itoa(height)
+	scale := startAtZero + ",scale=-2:" + strconv.Itoa(height)
 	rates := []string{
 		"-profile:v", "high", "-b:v", rate(kbps), "-maxrate", rate(kbps * 3 / 2), "-bufsize", rate(2 * kbps),
 		"-g", "100000", "-force_key_frames", keyframesAt,

@@ -188,6 +188,9 @@ var wireShapeByVersion = map[int]string{
 	// 72 adds the byte socket's frame route, PathBytesFrame, a key frame for a cast's remote (D545):
 	// a node of 71 would answer it 404. No message changed, so the shape is 71's.
 	72: "865577522c6815aca752daa26d6ad72bd865ea3d9ae9825fa65fd76ec55de6ce",
+	// 73 raises QualityRecipe to 2, an encode's times starting at its first picture (file 1282): a
+	// node of 72 would make a quality's chunks the old way under the new recipe's key.
+	73: "e45a1cba4d5da27272e5a401139db2165f8153e3840f06f67ab97ff34b3bfd20",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
@@ -253,6 +256,15 @@ func fieldsOf(typ reflect.Type, seen map[reflect.Type]bool) []string {
 var routesByVersion = map[int][]string{
 	// 72 adds the byte socket's frame route, a key frame for a cast's remote (D545).
 	72: {
+		"PathBytesChunks /bytes/v1/chunks/", "PathBytesFile /bytes/v1/file", "PathBytesFolders /bytes/v1/folders",
+		"PathBytesFrame /bytes/v1/frame", "PathBytesProbe /bytes/v1/probe",
+		"PathBytesRecentLog /bytes/v1/recent-log", "PathBytesResult /bytes/v1/result/",
+		"PathChanged /node/v1/changed", "PathCommands /node/v1/commands", "PathHello /node/v1/hello",
+		"PathLocked /node/v1/locked", "PathProgress /node/v1/progress", "PathResult /node/v1/result",
+		"PathStatus /node/v1/status",
+	},
+	// 73 raises QualityRecipe; the routes are 72's.
+	73: {
 		"PathBytesChunks /bytes/v1/chunks/", "PathBytesFile /bytes/v1/file", "PathBytesFolders /bytes/v1/folders",
 		"PathBytesFrame /bytes/v1/frame", "PathBytesProbe /bytes/v1/probe",
 		"PathBytesRecentLog /bytes/v1/recent-log", "PathBytesResult /bytes/v1/result/",

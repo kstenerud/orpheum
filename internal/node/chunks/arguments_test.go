@@ -181,8 +181,9 @@ func TestArguments_EncodeAQualityWithKeyframesAtItsChunksStarts(t *testing.T) {
 		t.Errorf("the keyframes are at %s, want 0.000,10.010,13.764", keyframes)
 	}
 	rate, peak, scale := valueOf(arguments, "-b:v"), valueOf(arguments, "-maxrate"), valueOf(arguments, "-vf")
-	if rate != "1200k" || peak != "1800k" || scale != "scale=-2:480" {
-		t.Errorf("the quality is %s, peaking at %s, %s; want 1200k, 1800k, scale=-2:480", rate, peak, scale)
+	if rate != "1200k" || peak != "1800k" || scale != "setpts=PTS-STARTPTS,scale=-2:480" {
+		t.Errorf("the quality is %s, peaking at %s, %s; want 1200k, 1800k, setpts=PTS-STARTPTS,scale=-2:480",
+			rate, peak, scale)
 	}
 	if valueOf(arguments, "-sc_threshold") != "0" || valueOf(arguments, "-g") != "100000" {
 		t.Error("x264 may put keyframes of its own at scene changes or a GOP's end")
