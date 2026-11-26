@@ -184,10 +184,8 @@ Play page.
 **Left (item 3):** the reconnecting sign shows while the castee is not heard
 (`useReceiverHeard`: its device gone from the connected devices, or its leading lost), not at
 5 s of silence: the caster is not told the castee's 5 s reports, so a true 5 s sign needs the
-server to pass the castee's report or its silence on. `cast-remote.tsx`, its pad, its notes
-(`cast-remote-ends.ts`, `cast-remote-again.ts`, the notes in `cast-remote-offer.tsx`) and their
-tests now have no user outside tests; they go with item 5, their tests moved to the page that
-keeps each behaviour.
+server to pass the castee's report or its silence on. The cast remote, its pad and its notes went
+with item 5.
 
 **Walked (item 3, staging, 2026-11-25, the Pixel and the Chromecast):** casting, the Play page
 shows the castee's key frame and its own bar; Play, Pause and both 10 s steps reach the
@@ -246,6 +244,17 @@ corner (⏮ ⏭ and Full screen) is gone. Where the design was silent: the sessi
 "Watching together" heading; the guest's overlay has no way up and no menus, its subtitles, audio
 and offset staying under the picture; a signed-in guest gets the same controls, its Cast and Leave
 staying in the panel under the shell's bar; AirPlay is offered as before.
+
+**Built (item 5):** the cast remote is gone: its page (`cast-remote.tsx`), its pad, its end notes
+(`cast-remote-ends.ts`, the notes in `cast-remote-offer.tsx`), Cast again (`cast-remote-again.ts`),
+their rules in `cast.css`, their words and their tests. Each test of a behaviour D555 keeps runs on
+the Play page over the castee (the `play-castee-*` tests); the remote's layout, its pad, the end's
+notes, Play here and Cast again went untested, as D555 §5 and §8 end them. What the castee's page
+still uses keeps its `cast-remote-` name: the offers and the picture, the menus, the heard receiver
+and the report. The guest's player, tracks and Cast stay, the guest's page and its top bar mounting
+them (D555 §2); the old corner's last word and export went. Left: the pad's keys (Space, Left and
+Right, + and -, M) went with the pad, and the Play page's keys work the video alone, so over the
+castee no key plays, seeks or sets the level.
 
 **Walked (item 4, staging, 2026-11-26, headless Chromium as host and as guest by link):** before
 the host plays, the guest's page has its top bar, Leave, Talk and "Waiting for the host to start

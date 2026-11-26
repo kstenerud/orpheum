@@ -23450,17 +23450,17 @@ These points replace §1's top-bar "Cast", §7's tray icon and §11 where they d
 16. **No mini player and no picture-in-picture** without a very compelling reason.
 
 **Proven by:**
-- 1, 12: TestCast_IsASessionOnlyItsReceiverAccepts (started with nothing playing), cast-to.test.tsx ("lists the person's other devices open now, and starts a session with the one chosen, moving the film playing here", "starts a session with nothing playing where no film was playing here"), status-tray.test.tsx ("has Cast's sign on a film's Play page take the film to the casting page"), cast-remote.test.tsx ("lists the devices to cast to when this device casts nothing"), title.test.tsx ("offers no cast of its own"), web/e2e/cast.spec.ts
+- 1, 12: TestCast_IsASessionOnlyItsReceiverAccepts (started with nothing playing), cast-to.test.tsx ("lists the person's other devices open now, and starts a session with the one chosen, moving the film playing here", "starts a session with nothing playing where no film was playing here"), status-tray.test.tsx ("has Cast's sign on a film's Play page take the film to the casting page"), play-castee-controls.test.tsx ("lists the devices to cast to when this device casts nothing"), title.test.tsx ("offers no cast of its own"), web/e2e/cast.spec.ts (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
 - 2: TestRegistry_ACastIsASessionTheSenderIsToldOf, TestCast_IsASessionOnlyItsReceiverAccepts, cast-asked.test.tsx ("asks whether to use this device for playback", "asks for the page full screen in Use's own press, tells the server"), cast-to.test.tsx ("asks once whether to be used for playback", "goes full screen and ready between videos, then plays the next with no question"); VQ90
 - 3: TestRegistry_EachFilmPlayedInACastIsHandedToItsReceiver, TestCast_IsASessionInWhichEachFilmPlayedGoesToTheReceiver, cast-to.test.tsx ("goes on to the receiver, from where it was to start"), watching.test.ts ("lets go of the warm-up, preload and playback, of a film sent on to a cast's receiver"), web/e2e/cast.spec.ts (a second film, no question); VQ90
-- 4: cast-remote.test.tsx ("plays here instead, from where the receiver stood, the receiver waiting ready"), cast-to.test.tsx ("plays here where ... the remote said to play here"), router.test.ts, web/e2e/cast.spec.ts
+- 4: play-castee-controls.test.tsx ("plays here instead, from where the receiver stood, the receiver waiting ready"), cast-to.test.tsx ("plays here where ... the remote said to play here"), router.test.ts, web/e2e/cast.spec.ts (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
 - 5: TestCast_ReadyPlaysNothingSoTheNextIsPutOnAfresh, cast-ready.test.tsx, cast-receiver.test.tsx ("waits ready for the next video at the film's end", "waits ready for the next video where it cannot move on", "keeps control where full screen ended as the page took its element away"), film-fullscreen.test.ts ("asks nothing of the stage while the page asked for itself full screen"), web/e2e/cast.spec.ts; VQ90
-- 6: TestRegistry_ACastIsASessionTheSenderIsToldOf (a page of the sender opened later told first), TestRegistry_ACastEndsOnceItsReceiverIsGoneForTwoMinutes, TestEndGoneCasts_EndsEachGoneReceiversSessionAtATick, TestRegistry_ASenderCastingElsewhereLeavesTheReceiverItControlled, live-connection.test.ts ("keeps the cast this device sends as it is told"), cast-remote.test.tsx ("says the receiver was gone for two minutes"); VQ90 (sleep, reload)
+- 6: TestRegistry_ACastIsASessionTheSenderIsToldOf (a page of the sender opened later told first), TestRegistry_ACastEndsOnceItsReceiverIsGoneForTwoMinutes, TestEndGoneCasts_EndsEachGoneReceiversSessionAtATick, TestRegistry_ASenderCastingElsewhereLeavesTheReceiverItControlled, live-connection.test.ts ("keeps the cast this device sends as it is told"), play-castee-controls.test.tsx ("says the receiver was gone for two minutes"); VQ90 (sleep, reload) (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
 - 7, 12, 13: status-tray.test.tsx, app.test.tsx ("turns Watch Together's sign blue"), app-shell.test.tsx, ui-gallery.test.tsx; VQ90 (the colours, the pulse)
-- 8: cast-remote.test.tsx ("holds no player", "says the receiver is ready with nothing playing", "follows what plays on the receiver"), web/e2e/cast.spec.ts (the remote found again from Films by the sign)
-- 9: cast-receiver.test.tsx ("plays on here, the remote told, when its control is taken back here"), cast-ready.test.tsx ("takes control back at Back, ending the session and going to its home page"), cast-remote.test.tsx ("says control was taken back"), web/e2e/cast.spec.ts
-- 10: cast-receiver.test.tsx ("goes back to the page it was on before the cast when the remote stops casting"), cast-ready.test.tsx ("goes back to the page it was on before the session"), cast-remote.test.tsx ("stops casting at Stop, offering to play here"), web/e2e/cast.spec.ts
-- 11, 13: TestRegistry_AReceiverIsHandedTheSessionItsPersonHosts, TestCast_AHostsReceiverHasACredentialForTheirSession, TestCast_AHostsReceiverIsHandedTheirWatchTogetherSession, cast-receiver.test.tsx ("leads its person's Watch Together session as their player"), cast-remote.test.tsx ("leaves the controls to Watch Together's page"), watch-together.test.tsx ("holds Stop casting too while this device casts"), status-tray.test.tsx ("leads to Watch Together's page while that is on too"); VQ90
+- 8: play-castee-controls.test.tsx ("holds no player", "says the receiver is ready with nothing playing", "follows what plays on the receiver"), web/e2e/cast.spec.ts (the remote found again from Films by the sign) (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
+- 9: cast-receiver.test.tsx ("plays on here, the remote told, when its control is taken back here"), cast-ready.test.tsx ("takes control back at Back, ending the session and going to its home page"), play-castee-controls.test.tsx ("says control was taken back"), web/e2e/cast.spec.ts (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
+- 10: cast-receiver.test.tsx ("goes back to the page it was on before the cast when the remote stops casting"), cast-ready.test.tsx ("goes back to the page it was on before the session"), play-castee-controls.test.tsx ("stops casting at Stop, offering to play here"), web/e2e/cast.spec.ts (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
+- 11, 13: TestRegistry_AReceiverIsHandedTheSessionItsPersonHosts, TestCast_AHostsReceiverHasACredentialForTheirSession, TestCast_AHostsReceiverIsHandedTheirWatchTogetherSession, cast-receiver.test.tsx ("leads its person's Watch Together session as their player"), play-castee-controls.test.tsx ("leaves the controls to Watch Together's page"), watch-together.test.tsx ("holds Stop casting too while this device casts"), status-tray.test.tsx ("leads to Watch Together's page while that is on too"); VQ90 (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
 - 14: status-tray.test.tsx ("turns Watch Together's sign blue for the host ..., and for a signed-in guest")
 - 15: watch-together.test.tsx ("leaves it playing on leaving", "holds the group's controls as a remote, the way back to the film, and Stop for everyone"), TestTogether_TheHostsDetailsNameWhatPlays, web/e2e/together.spec.ts ("the film plays on for the group as the host leaves it for the session's page"); VQ90
 - 16: nothing built: no mini player, no picture-in-picture.
@@ -23902,7 +23902,7 @@ square (app-shell.browser.test.tsx measures the phone's, player-widgets.browser.
 from a tablet up).
 
 **Proven by:**
-- 1: web/apps/web/src/colour-tokens.test.ts, icon-button.test.tsx, timeline.test.tsx, player-controls.test.tsx, cast-remote.test.tsx, tv-controls.test.tsx, player-widgets.browser.test.tsx, ui-gallery.test.tsx; VQ85
+- 1: web/apps/web/src/colour-tokens.test.ts, icon-button.test.tsx, timeline.test.tsx, player-controls.test.tsx, play-castee-controls.test.tsx, tv-controls.test.tsx, player-widgets.browser.test.tsx, ui-gallery.test.tsx; VQ85 (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
 - 2: web/apps/web/src/page-controls.test.tsx, input-player.browser.test.tsx (the walk reaching every control, Space on the video and the bar), player-commands.test.tsx; VQ85
 - 3: web/apps/web/src/player-widgets.browser.test.tsx ("is a submit button's size and shape, in the accent")
 - 4: web/apps/web/src/player-widgets.test.ts
@@ -24085,7 +24085,7 @@ Resolved in the build, where the decision left it open (say if any should go oth
 - 1: TestHub_TheGroupIsWhereItsLeaderIsAndAFollowersStallChangesNothing, TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays, TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut, web/packages/sdk/src/together-leader.test.ts ("is never nudged, skipped or sought", "plays the film it put on as soon as the group stands for it"), web/apps/web/src/cast-receiver.test.tsx ("plays as the device plays a film alone while its roster says it leads"); VQ101
 - 2: TestHub_AJoiningViewerHoldsNoOneUp, TestHub_ADroppedPlayerStopsNoOne, TestHub_AGroupWithNoLeaderPlaysAtOnceFromWhereItStands, TestHub_LogsEachFollowersCatchUpAndHowFarBehindItsLeader, web/packages/sdk/src/together-leader.test.ts ("is nudged to the leader's place", "is held where the group stands for its leader, plays at once as the leader plays", "after a seek, holds where the leader went", "after a stall, jumps ahead to catch up to the leader"); VQ102
 - 3: TestHub_TheHostsPlayerLeadsAndAnotherTakesTheLeadAsItLeaves, TestHub_NoPanelLeadsAndAGuestsLeadsWhileNoneOfTheHostsCan (a guest leading revisited by D372)
-- 4: TestHub_TheRosterSaysHowEachPlayerPlaysTheFilm, TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut, TestCast_AHostsReceiverHasACredentialForTheirSession, TestCast_AGuestsReceiverTakesTheirPartAsAFollower, TestRegistry_AGuestsReceiverIsHandedTheirPartToFollow, web/packages/sdk/src/together-leader.test.ts ("carries out another device's pause, play and seek once each", "tells its session how it plays the film"), web/apps/web/src/cast-remote.test.tsx ("shows how the receiver plays the film", "leaves a guest's cast with nothing of its own to their session's page"), web/apps/web/src/cast-ready.test.tsx ("follows its person's Watch Together session as just another follower"), web/apps/web/src/together-viewer-cast.test.tsx ("leaves the film to the device it casts to"); VQ101, VQ103
+- 4: TestHub_TheRosterSaysHowEachPlayerPlaysTheFilm, TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut, TestCast_AHostsReceiverHasACredentialForTheirSession, TestCast_AGuestsReceiverTakesTheirPartAsAFollower, TestRegistry_AGuestsReceiverIsHandedTheirPartToFollow, web/packages/sdk/src/together-leader.test.ts ("carries out another device's pause, play and seek once each", "tells its session how it plays the film"), web/apps/web/src/play-castee-controls.test.tsx ("shows how the receiver plays the film", "leaves a guest's cast with nothing of its own to their session's page"), web/apps/web/src/cast-ready.test.tsx ("follows its person's Watch Together session as just another follower"), web/apps/web/src/together-viewer-cast.test.tsx ("leaves the film to the device it casts to"); VQ101, VQ103 (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
 - 5: web/apps/web/src/cast-receiver.test.tsx ("plays as the device plays a film alone while its roster says it leads"), TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut; VQ101
 - 6: TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays (no lead, the guest loading), TestHub_AGroupWithNoLeaderPlaysAtOnceFromWhereItStands, web/packages/sdk/src/together-leader.test.ts ("plays the film it put on as soon as the group stands for it", "is held where the group stands for its leader, plays at once as the leader plays"); VQ102
 
@@ -24749,7 +24749,7 @@ own Back takes control back.
 
 **Proven by:**
 - 1: web/apps/web/src/cast-to.test.tsx ("goes to its home page in the page's place as a cast ends there, through the cast handed again with another film (D384 §1)", "goes home as casting ends, and Back from there never plays the cast's film (D384 §1, D383 §1)"), web/apps/web/src/cast-receiver.test.tsx ("goes home when the remote stops casting (D384 §1)", "goes home, its receiving over, when its cast ended unseen with no one controlling it (D384 §1)"), web/apps/web/src/cast-ready.test.tsx, web/apps/web/src/cast-uncontrolled.test.tsx, web/apps/web/src/cast-receiving-mark.test.ts, web/e2e/cast.spec.ts; on a device, VQ190
-- 2: web/apps/web/src/cast-to.test.tsx ("a film played on a device that casts"), web/apps/web/src/cast-remote.test.tsx, web/apps/web/src/cast-dialog.test.tsx, web/apps/web/src/status-tray.test.tsx, web/apps/web/src/watch-together.test.tsx, web/apps/web/src/together-guest-play.test.tsx, web/apps/web/src/together-viewer-shell.test.tsx, web/apps/web/src/together-viewer-cast.test.tsx, web/apps/web/src/input-pages.browser.test.tsx, web/e2e/cast.spec.ts, web/e2e/together.spec.ts; on devices, VQ190
+- 2: web/apps/web/src/cast-to.test.tsx ("a film played on a device that casts"), web/apps/web/src/play-castee-controls.test.tsx, web/apps/web/src/cast-dialog.test.tsx, web/apps/web/src/status-tray.test.tsx, web/apps/web/src/watch-together.test.tsx, web/apps/web/src/together-guest-play.test.tsx, web/apps/web/src/together-viewer-shell.test.tsx, web/apps/web/src/together-viewer-cast.test.tsx, web/apps/web/src/input-pages.browser.test.tsx, web/e2e/cast.spec.ts, web/e2e/together.spec.ts; on devices, VQ190 (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
 - Also: web/apps/web/src/cast-receiver-steps.test.tsx ("keeps control through the step the Use question's close makes, and leaves at the Back after"), web/apps/web/src/navigation.test.ts ("the person's own steps through the history"); on a device, VQ190
 - 3: internal/core/api/casts_test.go (TestCast_ADeviceInTheCastersWatchTogetherSessionIsSaidSo), web/apps/web/src/cast-to.test.tsx ("lists no device in the Watch Together session its person is in (D384 §3)")
 
@@ -24851,8 +24851,8 @@ and nothing reopens it.
 
 **Proven by:**
 - 1: web/apps/web/src/cast-receiver.test.tsx ("ends the cast as its control is taken back here, and goes home once it has ended, the film as it stood until then (D385 §1)", "leaves Back to leave controlled mode, the sound still off", "takes control back at once when a Fire TV's Back or Escape leaves full screen, telling the log"), web/apps/web/src/cast-to.test.tsx ("goes home, forgetting it received, as its control is taken back here (D385 §1, amending D338 §6)"), web/e2e/cast.spec.ts; on a device, VQ190
-- 2: web/apps/web/src/cast-remote.test.tsx ("plays the film here at once from where the receiver stood, paused as it was, as control is taken back there, offering nothing (D385 §2)", "plays the film of another page on that page, in this one's place, where the cast moved on to it, paused as the receiver had it", "waits paused there where the receiver had the film paused as its sender took it over, and plays at once where it played (D385 §2)"), web/apps/web/src/router.test.ts, web/e2e/cast.spec.ts; on a device, VQ190
-- 3: web/apps/web/src/cast-remote.test.tsx ("plays the film here, playing, from where the receiver last stood once it is gone, not where the clock has moved it to since (D385 §3)"), cmd/orpheum/casts_gone_test.go, internal/core/live/registry_test.go (the core's end, unchanged); on a device, VQ190
+- 2: web/apps/web/src/play-castee-controls.test.tsx ("plays the film here at once from where the receiver stood, paused as it was, as control is taken back there, offering nothing (D385 §2)", "plays the film of another page on that page, in this one's place, where the cast moved on to it, paused as the receiver had it", "waits paused there where the receiver had the film paused as its sender took it over, and plays at once where it played (D385 §2)"), web/apps/web/src/router.test.ts, web/e2e/cast.spec.ts; on a device, VQ190 (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
+- 3: web/apps/web/src/play-castee-controls.test.tsx ("plays the film here, playing, from where the receiver last stood once it is gone, not where the clock has moved it to since (D385 §3)"), cmd/orpheum/casts_gone_test.go, internal/core/live/registry_test.go (the core's end, unchanged); on a device, VQ190 (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
 - Also: web/apps/web/src/status-tray.test.tsx ("closes Watch Together's dialog as the session is ended from it, nothing opening it again, the page where it was (D385's Also)"), web/e2e/together-pages.ts (every Watch Together browser test that ends its session); on a device, VQ190
 
 **Status:** Decided 2026-10-30; §1–§3 and the Also built (2026-10-30) in the web client, the core
@@ -24898,7 +24898,7 @@ and D385's two remaining "Play here from" ends.
 
 **Proven by:**
 - 1: internal/core/live/registry_test.go (TestRegistry_ADeviceReceivingACastIsNoOnesTargetUntilItEnds, TestRegistry_ASenderCastingElsewhereLeavesTheReceiverItControlled), internal/core/api/casts_test.go (TestCast_ADeviceReceivingIsNoOnesTargetUntilItTakesControlBack), web/packages/sdk/src/live-connection.test.ts ("keeps the devices receiving a cast as it is told, which no device may cast to (D386 §1)"), web/apps/web/src/cast-to.test.tsx ("shows a device receiving a cast unavailable, and a cast to one raced is refused with its name (D386 §1)"), web/e2e/cast.spec.ts; on devices, VQ142
-- 2: web/apps/web/src/cast-remote.test.tsx ("goes home, saying in a pop-up there that the server no longer knows the cast, as its session is gone (D386 §2)", "goes home, saying so, where the server lists the cast no more"), web/apps/web/src/cast-receiver.test.tsx ("goes home, saying in a pop-up there that the server no longer knows its cast (D386 §2)")
+- 2: web/apps/web/src/play-castee-controls.test.tsx ("goes home, saying in a pop-up there that the server no longer knows the cast, as its session is gone (D386 §2)", "goes home, saying so, where the server lists the cast no more"), web/apps/web/src/cast-receiver.test.tsx ("goes home, saying in a pop-up there that the server no longer knows its cast (D386 §2)") (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
 
 **Status:** Decided 2026-10-30; built (2026-10-30) in the core and the web client. §1 in
 `internal/core/live/registry.go`: `Cast` refuses a cast to a device that holds one, its own
@@ -24959,7 +24959,7 @@ a cast nothing (`playInCast` with no film) stays, the receiver's own path to its
 film ends. Device check: VQ192.
 
 **Proven by:**
-- 1: web/apps/web/src/cast-remote.test.tsx ("offers Stop casting alone to bring the film back, never playing here while the cast goes on (D388)", "stops casting at Stop, the film playing here again at once from where the receiver stood (D384 §2)", "says the receiver is ready with nothing playing, offering Stop casting alone (D364 §8)"), web/e2e/cast.spec.ts; on a device, VQ192
+- 1: web/apps/web/src/play-castee-controls.test.tsx ("offers Stop casting alone to bring the film back, never playing here while the cast goes on (D388)", "stops casting at Stop, the film playing here again at once from where the receiver stood (D384 §2)", "says the receiver is ready with nothing playing, offering Stop casting alone (D364 §8)"), web/e2e/cast.spec.ts; on a device, VQ192 (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
 
 ## D389 — A Watch Together session's end ends its members' casts: each receiver goes home
 
@@ -24997,7 +24997,7 @@ leaves or is removed ends no cast, the session going on. Device check: VQ193 (3)
 the registry's `partIn`, `EndPartIn` and the assembly's `endCastsOfSession` are gone.
 
 **Proven by:**
-- 1: internal/core/api/casts_follow_test.go (TestCast_AGuestsCastOfTheHostsFilmEndsWithTheSession, the end kept where the film was the caster's only through the session, D555 §7), internal/core/together/cast_test.go (TestHub_EveryWayASessionEndsIsToldWithThePartsCastsEndWith), web/apps/web/src/cast-receiver.test.tsx ("goes home with no word as its cast ends with the Watch Together session it took a part in (D389 §1)"), web/apps/web/src/cast-remote.test.tsx ("goes home with no word as its cast ends with the Watch Together session it took a part in, a normal end (D389 §1)"), web/apps/web/src/together-voice.test.tsx ("the host's page as the session it hosts ends (D389 §1)"), web/apps/web/src/watch-together-player.test.tsx ("goes home, told, as the session ends while its film plays here, the film played on alone no more (D389 §1)"), web/apps/web/src/status-tray.test.tsx ("closes Watch Together's dialog as the session is ended from it, nothing opening it again, and goes home with no word (D385's Also, D389 §1)"), web/packages/sdk/src/together-voice.test.ts; on devices, VQ193
+- 1: internal/core/api/casts_follow_test.go (TestCast_AGuestsCastOfTheHostsFilmEndsWithTheSession, the end kept where the film was the caster's only through the session, D555 §7), internal/core/together/cast_test.go (TestHub_EveryWayASessionEndsIsToldWithThePartsCastsEndWith), web/apps/web/src/cast-receiver.test.tsx ("goes home with no word as its cast ends with the Watch Together session it took a part in (D389 §1)"), web/apps/web/src/play-castee-controls.test.tsx ("goes home with no word as its cast ends with the Watch Together session it took a part in, a normal end (D389 §1)"), web/apps/web/src/together-voice.test.tsx ("the host's page as the session it hosts ends (D389 §1)"), web/apps/web/src/watch-together-player.test.tsx ("goes home, told, as the session ends while its film plays here, the film played on alone no more (D389 §1)"), web/apps/web/src/status-tray.test.tsx ("closes Watch Together's dialog as the session is ended from it, nothing opening it again, and goes home with no word (D385's Also, D389 §1)"), web/packages/sdk/src/together-voice.test.ts; on devices, VQ193 (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
 
 ## D390 — The service's addresses: the app and account on orpheum.cc, the API unmoved, staging on orpheum.dev, the website on orpheum.mov
 
@@ -31085,7 +31085,7 @@ Data use choice, Play the original file last in it for a person showing debug to
 
 **Proven by:**
 - 6: `web/apps/web/src/player-widgets.browser.test.tsx`: the focused scrub bar shows the ring every control has and stays at full opacity as a key's focus leaves it; VQ380
-- 7: `web/apps/web/src/player-overlay-signs.test.tsx`, `web/apps/web/src/cast-remote.test.tsx`, `web/apps/web/src/icon-button.test.tsx`: Cast's and Watch Together's signs follow the menus in the buttons row, before full screen, and leave the top row; VQ380
+- 7: `web/apps/web/src/player-overlay-signs.test.tsx`, `web/apps/web/src/play-castee-controls.test.tsx`, `web/apps/web/src/icon-button.test.tsx`: Cast's and Watch Together's signs follow the menus in the buttons row, before full screen, and leave the top row; VQ380 (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
 - 8: `web/apps/web/src/sound-menu.test.tsx`, `web/apps/web/src/player-menus.test.tsx`: every sound setting in the Sound menu, ⁝ ordered as the spec does with none; VQ379
 - 10: `web/apps/web/src/player-menus.test.tsx`: Quality lists Automatic, then the rungs in GB per hour, the original last and only while debug tools show, played for one playback; `web/apps/web/src/player-menus-input.browser.test.tsx`; VQ379
 - 11: `web/apps/web/src/navigation.test.ts`, `web/apps/web/src/app.test.tsx`: Network opens at `/remote-access` and replaces it with `/network`; Settings' pages (pages-spec-3): `web/apps/web/src/settings.test.tsx`, `web/apps/web/src/settings-unread.test.tsx`, `web/apps/web/src/settings-pages.browser.test.tsx`: the index leads to each page and back up its trail, a search to a setting's row with focus there, a Stepper and a field save as they change and never as the page closes, by mouse, touch, keyboard and remote at 360, 1280 and 1920 px; VQ381
@@ -31739,12 +31739,12 @@ onSessionEnded and `google-cast.ts`'s linkCastSession.
    VQ402 for the owner's phone, a Chromecast switched off and a Fire TV's take-back.
 
 **Proven by:**
-- 1: `web/apps/web/src/cast-remote-ends.test.tsx`, VQ401
-- 2: `web/apps/web/src/cast-remote-ends.test.tsx`, VQ401
-- 3: `web/apps/web/src/cast-remote-ends.test.tsx`
-- 4: `web/apps/web/src/cast-remote-ends.test.tsx`, `web/apps/web/src/cast-remote-stop.test.tsx`, VQ402
+- 1: `web/apps/web/src/play-castee-ends.test.tsx`, VQ401 (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
+- 2: `web/apps/web/src/play-castee-ends.test.tsx`, VQ401 (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
+- 3: `web/apps/web/src/play-castee-ends.test.tsx` (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
+- 4: `web/apps/web/src/play-castee-ends.test.tsx`, `web/apps/web/src/play-castee-stop.test.tsx`, VQ402 (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
 - 5: `web/apps/web/src/google-cast.test.tsx`, `internal/core/api/casts_end_test.go`, VQ402
-- 6: `web/apps/web/src/cast-remote-ends.test.tsx`, `web/apps/web/src/google-cast.test.tsx`
+- 6: `web/apps/web/src/play-castee-ends.test.tsx`, `web/apps/web/src/google-cast.test.tsx` (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
 
 ## D553 — A cast's end the sender did not ask for: alone, say why and offer Play here; hosting Watch Together, play here with the reason, the session an obligation
 
@@ -31815,13 +31815,13 @@ accepted `receiverGone` is unchanged.
 
 **Proven by:**
 
-- 1: `web/apps/web/src/cast-remote-ends.test.tsx`, `web/apps/web/src/cast-remote-stop.test.tsx`
-- 2: `web/apps/web/src/cast-remote-ends.test.tsx`, `web/apps/web/src/cast-remote-again.test.tsx`,
+- 1: `web/apps/web/src/play-castee-ends.test.tsx`, `web/apps/web/src/play-castee-stop.test.tsx` (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
+- 2: `web/apps/web/src/play-castee-ends.test.tsx`, `web/apps/web/src/play-castee-ends.test.tsx`, (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
   VQ403
-- 3: `web/apps/web/src/cast-remote-ends.test.tsx` (hosting and not), the leader's hand-over in
+- 3: `web/apps/web/src/play-castee-ends.test.tsx` (hosting and not), the leader's hand-over in (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
   `internal/core/together/new_leader_test.go` and `leader_test.go`, VQ403
-- 4: `web/apps/web/src/cast-remote-reaching.test.tsx`, VQ403
-- 5: `web/apps/web/src/google-cast.test.tsx`, `web/apps/web/src/cast-remote-ends.test.tsx`, VQ403
+- 4: `web/apps/web/src/play-castee-reaching.test.tsx`, VQ403 (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
+- 5: `web/apps/web/src/google-cast.test.tsx`, `web/apps/web/src/play-castee-ends.test.tsx`, VQ403 (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
 
 ## D554 — A receiver that stops answering is given up as the remote would offer Try again, and the host's notice closes
 
@@ -31872,10 +31872,10 @@ send, is unchanged.
    (2026-11-25, 14:55Z), and §1 would then have ended a cast that played.
 **Proven by:**
 
-- 1: `web/apps/web/src/cast-remote-ends.test.tsx`, VQ404
-- 2: `web/apps/web/src/cast-remote-reaching.test.tsx`
-- 3: `web/apps/web/src/cast-remote-ends.test.tsx`, VQ404
-- 4: `web/apps/web/src/cast-remote-reaching.test.tsx`, VQ404
+- 1: `web/apps/web/src/play-castee-ends.test.tsx`, VQ404 (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
+- 2: `web/apps/web/src/play-castee-reaching.test.tsx` (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
+- 3: `web/apps/web/src/play-castee-ends.test.tsx`, VQ404 (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
+- 4: `web/apps/web/src/play-castee-reaching.test.tsx`, VQ404 (the cast remote's tests moved to the Play page over the castee or ended by D555 §5, §8)
 
 ## D555 — Playing, casting and Watch Together are one model: a member's playing device and its remote, one Play page, one end for every cast
 
