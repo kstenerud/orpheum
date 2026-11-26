@@ -347,6 +347,32 @@ describe("Space in the player, as YouTube's (the owner, 2026-10-27)", () => {
     mounted.unmount();
   });
 
+  // A castee's picture is in no film's stage, and casting is never full screen (the owner,
+  // 2026-11-26): F there is left to the page, as any key the player does not answer.
+  it("leaves F to the page over a picture in no film's stage, as a castee's", async () => {
+    const castee = document.createElement("div");
+    const video = videoAt(30);
+    castee.append(video);
+    document.body.append(castee);
+    const requestFullscreen = vi.fn(() => Promise.resolve());
+    Object.defineProperty(castee, "requestFullscreen", {
+      configurable: true,
+      value: requestFullscreen,
+    });
+    const mounted = await mount(withServices(<PlayerOf video={video} />));
+    try {
+      focusOn(video);
+      const down = new KeyboardEvent("keydown", { key: "f", bubbles: true, cancelable: true });
+      act(() => {
+        video.dispatchEvent(down);
+      });
+      expect(down.defaultPrevented).toBe(false);
+      expect(requestFullscreen).not.toHaveBeenCalled();
+    } finally {
+      mounted.unmount();
+    }
+  });
+
   // Chrome keeps focus on its own control a click pressed, inside the video, and presses it at
   // Space before the page hears the key: the full-screen button left full screen.
   it("takes focus back to the video after a press on it or its own controls", async () => {
