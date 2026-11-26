@@ -548,3 +548,15 @@ Watch Together volumes and a guest's tracks and timing went into the bar's menus
    next batch"). A guest's Next moves the host's own cast along; a guest's TV follows the session,
    but that guest's remote may still show the film it was handed.
 3. **Mute is not kept between films** (the owner: "No, mute doesn't stick"): as built, nothing to do.
+
+Added by the owner, 2026-11-26, from the same walk's unfixed observations:
+
+4. **A guest's page hung at "Checking your invitation…" until a reload**, three times on the walk;
+   not investigated.
+5. **A TV's cast that started late put its own film back on over the group's**, once, before the
+   batch's fixes; not checked since.
+6. **Stopping a Chromecast's cast left the phone's film paused.**
+7. **A sleeping Fire TV shows as a silent cast waiting for OK.**
+8. **The Invite dialog's "Make a link" button sits under a phone's keyboard.**
+9. **The Fire TV's own volume across films is walked on the device**: kept per device by the
+   batch, and not yet walked there.
