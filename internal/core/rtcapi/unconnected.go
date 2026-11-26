@@ -21,7 +21,7 @@ func candidatesOf(report webrtc.StatsReport) (local, remote, pairs []string) {
 		if !isCandidate {
 			continue
 		}
-		text := fmt.Sprintf("%s %s:%d", candidate.CandidateType, candidate.IP, candidate.Port)
+		text := candidateText(candidate)
 		named[candidate.ID] = text
 		if candidate.Type == webrtc.StatsTypeLocalCandidate {
 			local = append(local, text)
@@ -31,15 +31,26 @@ func candidatesOf(report webrtc.StatsReport) (local, remote, pairs []string) {
 	}
 	for _, stats := range report {
 		if pair, isPair := stats.(webrtc.ICECandidatePairStats); isPair {
-			pairs = append(pairs, fmt.Sprintf("%s -> %s %s sent %d received %d",
-				named[pair.LocalCandidateID], named[pair.RemoteCandidateID], pair.State,
-				pair.PacketsSent, pair.PacketsReceived))
+			pairs = append(pairs, pairText(pair, named))
 		}
 	}
 	slices.Sort(local)
 	slices.Sort(remote)
 	slices.Sort(pairs)
 	return local, remote, pairs
+}
+
+// candidateText names a candidate by its type and address, "srflx 203.0.113.9:40001".
+func candidateText(candidate webrtc.ICECandidateStats) string {
+	return fmt.Sprintf("%s %s:%d", candidate.CandidateType, candidate.IP, candidate.Port)
+}
+
+// pairText names a pair by its two candidates, each as named holds it by its ID, its state and its
+// traffic.
+func pairText(pair webrtc.ICECandidatePairStats, named map[string]string) string {
+	return fmt.Sprintf("%s -> %s %s sent %d received %d",
+		named[pair.LocalCandidateID], named[pair.RemoteCandidateID], pair.State,
+		pair.PacketsSent, pair.PacketsReceived)
 }
 
 // joined is texts as one log value.

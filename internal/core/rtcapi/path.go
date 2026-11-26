@@ -92,8 +92,14 @@ func isSameAddress(one, other string) bool {
 // its offer: a sign-in that waited on its connections said nothing of where the wait was (staging,
 // 2026-10-23). It names both ends of the selected pair, pair nil for a connection that failed: the
 // core's end by type and address says a hairpin at once, where the path and the client's address
-// alone took a day's digging (local-path-2026-10-27.md §4).
-func (server *Server) recordPath(path Path, pair *webrtc.ICECandidatePair, took time.Duration) {
+// alone took a day's digging (local-path-2026-10-27.md §4). From report, the connection's stats, nil
+// for none, it says what kinds of candidates the client offered, and of a relayed connection why it
+// did not go without the relay and how each pair without one stood: a train's Wi-Fi that no punch got
+// through, and a device that took the relay though a direct pair worked, read alike before
+// (production, 2026-11-26; D558 §13).
+func (server *Server) recordPath(
+	path Path, pair *webrtc.ICECandidatePair, took time.Duration, report webrtc.StatsReport,
+) {
 	now := server.clock.Now()
 	server.mutex.Lock()
 	server.paths[path]++
@@ -104,6 +110,13 @@ func (server *Server) recordPath(path Path, pair *webrtc.ICECandidatePair, took 
 	attributes := []any{
 		pathField, string(path), "remote", endOf(pair, false), "remoteType", typeOf(pair, false),
 		"local", endOf(pair, true), "localType", typeOf(pair, true), "connectMs", took.Milliseconds(),
+	}
+	if report != nil {
+		found := triedOf(report)
+		attributes = append(attributes, "offered", found.offered)
+		if path == PathRelayed {
+			attributes = append(attributes, "relayedWhy", string(found.why), "directPairs", joined(found.direct))
+		}
 	}
 	if path == PathHairpinnedIPv4 {
 		server.logger.Warn("webrtc: a client's connection went out to the NAT both ends share and back (D354)",

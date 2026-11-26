@@ -272,8 +272,8 @@ func (server *Server) paceTo(connection *webrtc.PeerConnection, pair *webrtc.ICE
 // noteConnected notes that connection connected over pair, took after it opened: for its end line,
 // its path, and the pacer.
 func (server *Server) noteConnected(connection *webrtc.PeerConnection, pair *webrtc.ICECandidatePair,
-	held *heldConnection, took time.Duration,
+	held *heldConnection, took time.Duration, report webrtc.StatsReport,
 ) {
-	held.end.connected(server.recordSelectedPath(pair, took), server.clock.Now())
+	held.end.connected(server.recordSelectedPath(pair, took, report), server.clock.Now())
 	server.paceTo(connection, pair, held)
 }

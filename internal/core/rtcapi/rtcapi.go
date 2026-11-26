@@ -484,14 +484,15 @@ func (server *Server) open(api *webrtc.API, onProvenAtHome func(ProvenAtHome)) (
 	connection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
 		if state == webrtc.PeerConnectionStateConnected && isConnected.CompareAndSwap(false, true) {
 			unconnected.Stop()
-			server.keepOwnIPv6Networks(own, connection.GetStats())
+			report := connection.GetStats()
+			server.keepOwnIPv6Networks(own, report)
 			pair := selectedPair(connection)
-			server.noteConnected(connection, pair, held, server.clock.Now().Sub(openedAt))
+			server.noteConnected(connection, pair, held, server.clock.Now().Sub(openedAt), report)
 			server.tellIfProvenAtHome(pair, own.held(), onProvenAtHome)
 			server.holdWithinItsSourcesShare(connection, verdict)
 		}
 		if state == webrtc.PeerConnectionStateFailed && !isConnected.Load() {
-			server.recordPath(PathFailed, nil, server.clock.Now().Sub(openedAt))
+			server.recordPath(PathFailed, nil, server.clock.Now().Sub(openedAt), connection.GetStats())
 		}
 		if state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed {
 			server.logEnded(connection, held, endOfState(state))
@@ -537,12 +538,14 @@ func (server *Server) keepOwnIPv6Networks(own *heldNetworks, report webrtc.Stats
 
 // recordSelectedPath records, and returns, the path a connection that just connected took, by its
 // selected pair, took after its offer.
-func (server *Server) recordSelectedPath(pair *webrtc.ICECandidatePair, took time.Duration) Path {
+func (server *Server) recordSelectedPath(
+	pair *webrtc.ICECandidatePair, took time.Duration, report webrtc.StatsReport,
+) Path {
 	path := PathFailed
 	if pair != nil {
 		path = pathOf(pair.Local, pair.Remote)
 	}
-	server.recordPath(path, pair, took)
+	server.recordPath(path, pair, took, report)
 	return path
 }
 

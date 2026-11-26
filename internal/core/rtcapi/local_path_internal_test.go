@@ -47,7 +47,7 @@ func TestRecordPath_NamesBothEndsOfThePairByTypeAndAddress(t *testing.T) {
 	log := &testutil.Log{}
 	server := watchedServer(t, log, clocktest.NewFake(time.Unix(1_800_000_000, 0)))
 	server.recordPath(PathPunchedIPv4, pairOf(webrtc.ICECandidateTypeSrflx, "203.0.113.9:40001",
-		webrtc.ICECandidateTypePrflx, "198.51.100.4:5000"), 600*time.Millisecond)
+		webrtc.ICECandidateTypePrflx, "198.51.100.4:5000"), 600*time.Millisecond, nil)
 	log.AwaitEvent(t, "clientConnected", "path=punchedIpv4", "remote=198.51.100.4:5000",
 		"remoteType=prflx", "local=203.0.113.9:40001", "localType=srflx", "connectMs=600")
 }
@@ -64,7 +64,7 @@ func TestHairpinWarning_StandsUntilADirectConnectionFromTheHouse(t *testing.T) {
 	}
 	hairpin := pairOf(webrtc.ICECandidateTypeSrflx, "11.22.33.144:40001",
 		webrtc.ICECandidateTypeSrflx, "11.22.33.144:51234")
-	server.recordPath(pathOf(hairpin.Local, hairpin.Remote), hairpin, time.Second)
+	server.recordPath(pathOf(hairpin.Local, hairpin.Remote), hairpin, time.Second, nil)
 	line := log.AwaitLine(t, "path=hairpinnedIpv4", "localType=srflx", "local=11.22.33.144:40001")
 	if !strings.Contains(line, "level=WARN") {
 		t.Errorf("the hairpin's line is %q; want a warning", line)
@@ -77,14 +77,14 @@ func TestHairpinWarning_StandsUntilADirectConnectionFromTheHouse(t *testing.T) {
 	}
 	// Another household's direct connection from away, or a punched one, clears nothing.
 	server.recordPath(PathDirectIPv4, pairOf(webrtc.ICECandidateTypeHost, "192.168.1.199:8443",
-		webrtc.ICECandidateTypeSrflx, "198.51.100.4:5000"), time.Second)
+		webrtc.ICECandidateTypeSrflx, "198.51.100.4:5000"), time.Second, nil)
 	server.recordPath(PathPunchedIPv4, pairOf(webrtc.ICECandidateTypeSrflx, "11.22.33.144:40001",
-		webrtc.ICECandidateTypeSrflx, "198.51.100.4:5000"), time.Second)
+		webrtc.ICECandidateTypeSrflx, "198.51.100.4:5000"), time.Second, nil)
 	if _, isStanding = server.HairpinWarning(); !isStanding {
 		t.Fatal("a connection from away cleared the warning")
 	}
 	server.recordPath(PathDirectIPv4, pairOf(webrtc.ICECandidateTypeHost, "192.168.1.199:8443",
-		webrtc.ICECandidateTypePrflx, "192.168.1.30:5000"), time.Second)
+		webrtc.ICECandidateTypePrflx, "192.168.1.30:5000"), time.Second, nil)
 	if warning, isStanding = server.HairpinWarning(); isStanding {
 		t.Errorf("the warning stands after a direct connection from the house: %+v", warning)
 	}
@@ -98,9 +98,9 @@ func TestHairpinWarning_LapsesAWeekAfterTheLastHairpin(t *testing.T) {
 	server := watchedServer(t, &testutil.Log{}, fake)
 	hairpin := pairOf(webrtc.ICECandidateTypeSrflx, "11.22.33.144:40001",
 		webrtc.ICECandidateTypePrflx, "11.22.33.144:51234")
-	server.recordPath(pathOf(hairpin.Local, hairpin.Remote), hairpin, time.Second)
+	server.recordPath(pathOf(hairpin.Local, hairpin.Remote), hairpin, time.Second, nil)
 	fake.Advance(HairpinWarningLasts / 2)
-	server.recordPath(pathOf(hairpin.Local, hairpin.Remote), hairpin, time.Second)
+	server.recordPath(pathOf(hairpin.Local, hairpin.Remote), hairpin, time.Second, nil)
 	fake.Advance(HairpinWarningLasts)
 	if warning, isStanding := server.HairpinWarning(); !isStanding || warning.Count != 2 {
 		t.Fatalf("the warning a week after the second of two hairpins is %+v, standing %t; want it "+
