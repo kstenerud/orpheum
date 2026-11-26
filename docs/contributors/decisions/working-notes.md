@@ -32126,6 +32126,11 @@ having an official relay server."*
 11. **The relay keeps 7 days of a line per allocation, its addresses cut short, and orpheum.cc 13
     months of each household's daily totals** (the owner: "yes. We can change later if we need");
     a lawyer confirms it (legal.md §6).
-12. **The host is Hetzner first** (the owner: "We'll use Hetzner first").
-
-**Open:** a tunnel for networks that open TLS (the research's §6, question 10).
+12. **The host is Hetzner first** (the owner: "We'll use Hetzner first"). The first relay runs on
+    the edge VPS, whose forwards to the owner's NAS are retired (the owner: "I'm not relaying at
+    all, so we can just repurpose it").
+13. **A tunnel for networks that open TLS waits for the counts** (the owner: "Go with your
+    recommendation"). Such a network opens TLS only on a device that trusts its inspector, one a
+    company or a school issues; a person's own device on its Wi-Fi is refused UDP and odd ports,
+    which a relay on TLS port 443 passes. The first step records why each connection fails, and
+    the tunnel is decided from that.
