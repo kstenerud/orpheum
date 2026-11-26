@@ -52,7 +52,7 @@
 //
 // # Where to change
 //
-//   - service.go: the service, its answers and what it records of each call. bucket.go: the
-//     token bucket a rate is kept with. importance.go: how much a request matters. tmdb/ and
+//   - service.go: the service, its answers and what it records of each call; its rates are kept
+//     with internal/platform/tokenbucket. importance.go: how much a request matters. tmdb/ and
 //     opensubtitles/: the clients, each host's limits, and its service's construction.
 package providers

@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
+	"github.com/kstenerud/orpheum/internal/platform/tokenbucket"
 )
 
 // Health is where a host's health is kept: the job queue's destinations (jobs.Queue), so a host
@@ -171,8 +172,8 @@ type Service struct {
 	// limits are the host's limits as last read; everyone and background are the rate kept for
 	// every caller and for background work's share of it. All guarded by mutex.
 	limits      Limits
-	everyone    *bucket
-	background  *bucket
+	everyone    *tokenbucket.Bucket
+	background  *tokenbucket.Bucket
 	waitUntil   time.Time
 	quota       quota
 	allowed     allowance
@@ -219,11 +220,11 @@ func (service *Service) readLimits(ctx context.Context, now time.Time) {
 	}
 	rate := service.limits.RatePerSecond
 	if service.everyone == nil { // the first read: the buckets start full
-		service.everyone, service.background = newBucket(rate, now), newBucket(rate*share, now)
+		service.everyone, service.background = tokenbucket.New(rate, now), tokenbucket.New(rate*share, now)
 		return
 	}
-	service.everyone.setRate(rate, now)
-	service.background.setRate(rate*share, now)
+	service.everyone.SetRate(rate, now)
+	service.background.SetRate(rate*share, now)
 }
 
 // Destination is the host's destination in the job queue.
@@ -251,16 +252,16 @@ func (service *Service) Ask(ctx context.Context, cost Cost) Answer {
 			return refusal
 		}
 	}
-	readyAt := service.everyone.readyAt(now)
+	readyAt := service.everyone.ReadyAt(now)
 	if importance == Background {
-		readyAt = latest(readyAt, service.background.readyAt(now))
+		readyAt = latest(readyAt, service.background.ReadyAt(now))
 	}
 	if readyAt.After(now) {
 		return Answer{Verdict: VerdictAt, At: readyAt, Why: "keeping to " + service.config.Name + "'s rate"}
 	}
-	service.everyone.take()
+	service.everyone.Take()
 	if importance == Background {
-		service.background.take()
+		service.background.Take()
 	}
 	if cost == CostCounted && service.quota.isKnown {
 		service.quota.remaining--
@@ -531,7 +532,7 @@ func (service *Service) State(ctx context.Context) State {
 	service.readLimits(ctx, now)
 	state := State{
 		Name: service.config.Name, Destination: service.config.Destination,
-		RatePerSecond: service.everyone.ratePerSecond, BackgroundRatePerSecond: service.background.ratePerSecond,
+		RatePerSecond: service.everyone.Rate(), BackgroundRatePerSecond: service.background.Rate(),
 		Credentials: service.credentials,
 	}
 	if now.Before(service.waitUntil) {
