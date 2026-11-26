@@ -12,6 +12,7 @@ import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
 import { createHiddenNeed } from "./hidden-need.ts";
 import { LiveProvider } from "./live.tsx";
 import {
+  heldUpright,
   openedMenu,
   receiverSays,
   cast,
@@ -76,6 +77,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     mounted?.unmount();
     mounted = undefined;
     window.sessionStorage.clear();
+    vi.unstubAllGlobals();
   });
 
   /** The remote on film 4's Play page (castingRemote), the one this describe unmounts. */
@@ -335,6 +337,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
   });
 
   it("sets the film's level on the castee from the Play page's bar, Mute and the volume, sending each move, and draws neither before the castee says its level (D555 §10)", async () => {
+    heldUpright();
     const { sockets } = await casting({});
     const page = mounted!.container;
     const server = sockets.session;
@@ -423,7 +426,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     }
   });
 
-  it("leaves full screen as it shows, a cast started from the film full screen showing its controls on the page (D440 §5)", async () => {
+  it("keeps full screen as a film shows on the castee, its key frame filling the screen under the overlay with where it plays, and leaves it with nothing playing there (D555 §8–9, D440 §5)", async () => {
     // The Play page's player put the whole page full screen, which outlives the player.
     Object.defineProperty(document, "fullscreenElement", {
       configurable: true,
@@ -436,6 +439,19 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     });
     try {
       await casting({});
+      const page = mounted!.container;
+      expect(exitFullscreen).not.toHaveBeenCalled();
+      const stage = page.querySelector(".castee-play__stage");
+      expect(stage?.classList.contains("film-player__stage--fills-window")).toBe(true);
+      expect(stage?.querySelector(".player-overlay")).not.toBeNull();
+      // The page's sign above is hidden under the stage: the stage says where it plays itself.
+      expect(stage?.querySelector(".castee-play__where--over")?.textContent).toContain(
+        "On: Fire TV",
+      );
+      mounted?.unmount();
+      mounted = undefined;
+      // Ready on, nothing plays there: a page and no picture.
+      await casting({}, [], { sent: { ...sending, fileId: 0, itemName: "" } });
       expect(exitFullscreen).toHaveBeenCalledOnce();
     } finally {
       Reflect.deleteProperty(document, "fullscreenElement");

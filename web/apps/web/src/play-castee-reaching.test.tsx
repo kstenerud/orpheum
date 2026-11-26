@@ -13,6 +13,7 @@ import {
 } from "./cast-session-lost.ts";
 import {
   castingRemote,
+  heldUpright,
   receiverLeads,
   sending,
   welcome,
@@ -46,6 +47,7 @@ describe("the cast remote reaches for a receiver the server no longer hears (D55
   let mounted: Mounted | undefined;
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
     mounted?.unmount();
     mounted = undefined;
   });
@@ -81,6 +83,7 @@ describe("the cast remote reaches for a receiver the server no longer hears (D55
   };
 
   it("is reaching, its pad disabled and its time standing, once the receiver's device is not among the person's connected devices", async () => {
+    heldUpright();
     fakeClock();
     const { sockets } = await casting({}, { welcome: playing });
     await sockets.session.say({ type: "roster", roster: receiverLeads });

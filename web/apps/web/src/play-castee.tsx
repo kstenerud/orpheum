@@ -6,7 +6,7 @@ import "./page-controls.css";
 import "./cast-words.ts";
 
 import type { CastSending } from "@orpheum/sdk";
-import { useEffect, useRef, type JSX, type RefObject } from "react";
+import { useEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
@@ -30,18 +30,28 @@ import {
 } from "./castee-session.tsx";
 import { useCasteeTarget, type WorkedSession } from "./castee-target.ts";
 import { EndsAt, leftMsOf } from "./convenience-area.tsx";
-import { useLeavesFullScreen } from "./film-fullscreen.ts";
+import { keepFillingWhileFullScreen, useLeavesFullScreen } from "./film-fullscreen.ts";
+import { useIsFullScreen } from "./full-screen-button.tsx";
 import { useShowsARemote } from "./hidden-need.ts";
 import { useLatest } from "./latest.ts";
 import { Pill } from "./pill.tsx";
 import { OverlayUp, PlayUpwardContext } from "./play-up.tsx";
 import type { PlaybackTarget } from "./playback-target.ts";
 import { PlayerControls, type SequenceMoves } from "./player-controls.tsx";
+import {
+  barControlsOf,
+  OverlayOver,
+  OverlayRowsOf,
+  SignsOverTheFilm,
+  useControlsShown,
+  type OverlayGiven,
+} from "./player-overlay.tsx";
 import type { ReopenAt } from "./reopen.ts";
 import { TargetMenus } from "./target-menus.tsx";
 import { TargetTimeline } from "./target-timeline.tsx";
 import { useMembership } from "./together-membership.ts";
 import { TogetherBehindTheRemote } from "./together-on-the-remote.tsx";
+import { useHasControlsOverThePicture } from "./upright.ts";
 import { useAroundFile, type AroundFile, type UpNext } from "./around-file.ts";
 import type { Resource } from "./use-resource.ts";
 
@@ -54,7 +64,9 @@ import type { Resource } from "./use-resource.ts";
  * back to the video here at the castee's last place, paused alone, playing on in a Watch Together
  * session, with no note and no press asked (D555 §5; useSwapsBackAtTheEnd). The cast moved into a
  * Watch Together part is no end (useCastSession). The castee not heard, the reconnecting sign shows on
- * its key frame and nothing takes a press (D555 §6); the server alone ends the cast.
+ * its key frame and nothing takes a press (D555 §6); the server alone ends the cast. Its controls are
+ * the video's Play page's: the bar under the picture held upright out of full screen, else the
+ * overlay over the key frame (D555 §8), which full screen fills the screen with (D555 §9).
  */
 export function CasteePlay(props: {
   readonly castId: number;
@@ -62,7 +74,6 @@ export function CasteePlay(props: {
   readonly fileId: number;
   readonly onPlayHere: PlaysHereFrom;
 }): JSX.Element | null {
-  useLeavesFullScreen();
   // Its page hidden, it keeps connecting as when shown, so the castee's controls stay at hand (D482 §3).
   useShowsARemote();
   const sent = useHeldCast(props.castId);
@@ -88,6 +99,9 @@ function CasteePlayOf(props: {
 }): JSX.Element | null {
   const { t } = useTranslation();
   const { sent, pageFileId } = props;
+  // Ready on, nothing plays on the castee: a page and no picture, which full screen leaves (D440 §5);
+  // a film on it, its key frame fills the screen as the video did (D555 §8).
+  useLeavesFullScreen(sent.fileId === 0);
   const { connection, snapshot, over, casts } = useCastSession(sent.castId);
   const hosted = useHostedPanel();
   const stoodRef = useWhereItStood(hosted?.snapshot ?? snapshot);
@@ -165,8 +179,8 @@ function useSwapsBackAtTheEnd(
 /**
  * The page while a film plays on the castee: the way up and the cast's sign, "On: ‹TV›", with when
  * the film ends; the stage, the castee's key frame (RemotePicture) with Up next or a skip over it
- * (RemoteOffers), and the reconnecting sign while the castee is not heard; then the Play page's bar
- * over the castee. The castee is the target (D555 §8); its session the one it is commanded in, the
+ * (RemoteOffers), and the reconnecting sign while the castee is not heard; then the Play page's
+ * controls over the castee, the bar under the stage or the overlay over it (useHasControlsOverThePicture). The castee is the target (D555 §8); its session the one it is commanded in, the
  * hosted session's while this tab hosts Watch Together (D364 §11), its sound and choices the cast's.
  */
 function CasteePlaying(props: {
@@ -190,6 +204,7 @@ function CasteePlaying(props: {
   const moves = useRemoteMoves(sent, around);
   const title = useRemoteTitle(props.casts, sent);
   const isDisabled = !target.isReady;
+  const isOver = useHasControlsOverThePicture();
   const reconnecting = isServerLostIn([props.cast, hosted])
     ? t("cast.serverLost")
     : t("cast.reaching", { name: sent.receiverName });
@@ -210,8 +225,19 @@ function CasteePlaying(props: {
         upNext={around?.upNext}
         art={title.art}
         sign={isDisabled ? reconnecting : undefined}
+        where={<CasteeWhere name={sent.receiverName} target={target} />}
+        overlay={(pictureRef) =>
+          isOver ? (
+            <CasteeOverlay
+              target={target}
+              moves={moves}
+              isDisabled={isDisabled}
+              pictureRef={pictureRef}
+            />
+          ) : null
+        }
       />
-      <CasteeBar target={target} moves={moves} isDisabled={isDisabled} />
+      {isOver ? null : <CasteeBar target={target} moves={moves} isDisabled={isDisabled} />}
     </PlayUpwardContext>
   );
 }
@@ -219,7 +245,9 @@ function CasteePlaying(props: {
 /**
  * Where the video would be, the castee's key frame where it says it stands (RemotePicture), with Up
  * next or a skip over it (RemoteOffers), and, while the castee is not heard, the reconnecting sign
- * (sign) in its centre (D555 §6).
+ * (sign) in its centre (D555 §6); the overlay over it where drawn. Filling the screen in full screen
+ * as the video's stage does (keepFillingWhileFullScreen, the class its full screen finds), where it
+ * stays, the page above it hidden, "On: ‹TV›" with when the film ends (where) over its top.
  */
 function CasteeStage(props: {
   readonly sent: CastSending;
@@ -227,10 +255,19 @@ function CasteeStage(props: {
   readonly upNext: UpNext | undefined;
   readonly art: Parameters<typeof RemotePicture>[0]["art"];
   readonly sign: string | undefined;
+  readonly where: ReactNode;
+  /** The overlay over the stage, given what focus goes to as it hides; null where none is drawn. */
+  readonly overlay: (pictureRef: RefObject<HTMLElement | null>) => ReactNode;
 }): JSX.Element {
   const { sent, target } = props;
+  const stageRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const stage = stageRef.current;
+    return stage === null ? undefined : keepFillingWhileFullScreen(stage, document);
+  }, []);
+  const isFullScreen = useIsFullScreen();
   return (
-    <div className="castee-play__stage">
+    <div ref={stageRef} className="film-player__stage castee-play__stage">
       <div className="castee-play__picture" aria-hidden="true">
         <RemotePicture fileId={sent.fileId} atMs={target.reportedAtMs} art={props.art} />
       </div>
@@ -242,13 +279,87 @@ function CasteeStage(props: {
           <Pill icon={<span className="cast-remote__spinner" />}>{props.sign}</Pill>
         </span>
       )}
+      {isFullScreen ? props.where : null}
+      {props.overlay(stageRef)}
     </div>
   );
 }
 
+/** Over the stage filling the screen, where the film plays and when it ends, shown throughout. */
+function CasteeWhere(props: {
+  readonly name: string;
+  readonly target: PlaybackTarget;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <p className="castee-play__where castee-play__where--over">
+      <span className="castee-play__sign">{t("cast.on", { name: props.name })}</span>
+      <EndsAt leftMs={leftMsOf(props.target)} isShown />
+    </p>
+  );
+}
+
+/** The castee's overlay holds no video: its presses go to the castee (OverlayOver's target). */
+const noVideo: RefObject<HTMLVideoElement | null> = { current: null };
+
 /**
- * The Play page's bar under the film (page-controls.css) over the castee: the timeline, then
- * ⏮ ⟲ ▶ ⟳ ⏭, the menus and the castee's volume, none taking a press while it is not heard.
+ * The video's overlay (OverlayOver) over the castee's key frame (D555 §8): its showing, hiding and
+ * presses as over the video, the castee its target, nothing taking a press while it is not heard.
+ */
+function CasteeOverlay(props: {
+  readonly target: PlaybackTarget;
+  readonly moves: SequenceMoves;
+  readonly isDisabled: boolean;
+  readonly pictureRef: RefObject<HTMLElement | null>;
+}): JSX.Element {
+  const { moves, isDisabled } = props;
+  return (
+    <OverlayOver
+      videoRef={noVideo}
+      pictureRef={props.pictureRef}
+      target={props.target}
+      rows={(over) => <CasteeOverlayRows over={over} moves={moves} isDisabled={isDisabled} />}
+    />
+  );
+}
+
+/**
+ * The overlay's rows over the castee, as over the video: the way up in full screen (above the stage
+ * otherwise), the timeline, then the bar's buttons with the castee's volume, its menus and the signs
+ * over the film; when the film ends is the stage's own, shown throughout (CasteeWhere).
+ */
+function CasteeOverlayRows(props: {
+  readonly over: OverlayGiven;
+  readonly moves: SequenceMoves;
+  readonly isDisabled: boolean;
+}): JSX.Element {
+  const { over, moves, isDisabled } = props;
+  const shown = useControlsShown(over.isTv, moves);
+  const isFullScreen = useIsFullScreen();
+  return (
+    <OverlayRowsOf
+      top={<div className="player-overlay__heading">{isFullScreen ? <OverlayUp /> : null}</div>}
+      source={over.source}
+      refs={over.refs}
+      controls={[...barControlsOf(shown), "sound"]}
+      moves={moves}
+      menus={
+        <>
+          <RemoteButtons isDisabled={isDisabled}>
+            <TargetMenus target={over.source} onOpenChange={over.onMenuOpenChange} />
+          </RemoteButtons>
+          <SignsOverTheFilm onOpenChange={over.onMenuOpenChange} />
+        </>
+      }
+      isOverTheFilm
+    />
+  );
+}
+
+/**
+ * The Play page's bar under the film (page-controls.css) over the castee, held upright out of full
+ * screen: the timeline, then ⏮ ⟲ ▶ ⟳ ⏭, the menus and the castee's volume, none taking a press
+ * while it is not heard.
  */
 function CasteeBar(props: {
   readonly target: PlaybackTarget;

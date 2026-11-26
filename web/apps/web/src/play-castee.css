@@ -65,3 +65,24 @@
   opacity: 0.4;
   cursor: default;
 }
+
+/* Filling the screen in full screen (film-fullscreen.ts), as the video's stage does: the box's own
+   ratio, height and corners give way to the screen's (player-overlay.css's fills-window). */
+.castee-play__stage.film-player__stage--fills-window {
+  aspect-ratio: auto;
+  max-height: none;
+  border-radius: 0;
+}
+
+/* Where the film plays and when it ends, over the stage filling the screen, shown throughout: the
+   page's sign above it is hidden then. At the top's centre, clear of the way up and the offers. */
+.castee-play__where--over {
+  position: absolute;
+  z-index: var(--layer-raised);
+  inset-block-start: var(--space-3);
+  inset-inline: 0;
+  justify-content: center;
+  margin: 0;
+  pointer-events: none;
+  text-shadow: 0 0 var(--space-1) var(--color-video-scrim);
+}

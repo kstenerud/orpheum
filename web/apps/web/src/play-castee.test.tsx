@@ -14,6 +14,7 @@ import {
   welcome,
   type RemoteShown,
 } from "./test-cast-remote.tsx";
+import { heldUpright } from "./test-castee.tsx";
 import { buttonNamed, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
 import { forgetMembership, keepMembership } from "./together-storage.ts";
 
@@ -35,6 +36,7 @@ describe("the Play page over the castee (D555 §5, §8)", () => {
     mounted?.unmount();
     mounted = undefined;
     forgetMembership(browserStorage(), "viewer");
+    vi.unstubAllGlobals();
   });
 
   async function casting(
@@ -57,6 +59,7 @@ describe("the Play page over the castee (D555 §5, §8)", () => {
     page().querySelector(".castee-play__centre .pill")?.textContent ?? undefined;
 
   it("draws the Play page's own bar over the castee, its sign where the film plays, and not the cast remote's page", async () => {
+    heldUpright();
     await casting();
     expect(page().querySelector(".castee-play h2")?.textContent).toBe("On: Fire TV");
     const bar = page().querySelector<HTMLElement>(".castee-play__bar.page-controls");
