@@ -31937,8 +31937,8 @@ its remote: D337, D338, D364 §6, D385, D389 §1, D446, D468, D548, D549, D550, 
 the build plan names each section replaced. D88 (a cast alone is a session of one), D120 (the
 remote plays nothing) and D518 (a guest's cast is their own part) stand, and become the one way.
 
-**Status:** decided; phases 0 to 5 of the plan (plans/playing-casting-together-rework.md) are on
-main, each walked on staging as the plan records. Left: the plan's close, with each point's proof.
+**Status:** decided and built; phases 0 to 5 of the plan (plans/playing-casting-together-rework.md) are on
+main, each walked on staging as the plan records, and each point below cites its proof.
 
 1. **A device plays a video itself or passes the playing to another device, its castee.** The cast
    belongs to the device. To a Watch Together session it is a detail of how a member plays: the
@@ -31982,3 +31982,18 @@ main, each walked on staging as the plan records. Left: the plan's close, with e
 12. **The device lab's pages go,** with the separate cast remote, the guest's cast page and the
     separate session viewer, their parts folded into the one Play page. A part of the lab with a
     reason to stay is named in the build plan for the owner to keep or drop.
+
+**Proven by:**
+
+- 1: `TestCast_AloneIsASessionOfOneAndAPartyTakesItIn`, `TestCast_ACastHandsItsCasteeTheFilmFromWhereItsGroupStands`, `TestCast_AnEndedCastLeavesTheWatchTogetherSessionGoingOn`, `web/apps/web/src/castee-target.test.tsx`
+- 2: `TestCast_AloneIsASessionOfOneAndAPartyTakesItIn`, `TestCast_AMembersCastFromAPageNamingNoFilmPlaysTheSessionsFilm`, `TestCast_JoiningASessionTakesTheCastIntoIt`, `TestGuestCastPart_IsAnotherDeviceOfTheGuestsWithTheirRights`, `web/apps/web/src/play-castee-ends.test.tsx`
+- 3: `web/apps/cast-receiver/src/device-follow.test.ts`, `web/packages/sdk/src/receiver-panels.test.ts`, `web/packages/sdk/src/together-put-on.test.ts`, `web/apps/web/src/film-player-airplay.test.tsx`
+- 4: `TestCast_TheCasteeSaysWhatStateTheCastIsIn`, `TestCast_ACasterComingBackIsToldWhereItsCastStands`
+- 5: `TestCast_AnEndedCastLeavesTheWatchTogetherSessionGoingOn`, `TestCast_ACastThatWasItsSessionsOnlyPlayerPlaysOnAsTheSessionEnds`, `TestCast_ADeclinedOrUnansweredCastTellsItsSenderWhy`, `web/apps/web/src/play-castee.test.tsx`, `web/apps/web/src/play-castee-stop.test.tsx`, `web/apps/web/src/play-castee-ends.test.tsx`
+- 6: `TestCast_ACastWhoseCasteeIsSilentForItsWaitEnds`, `TestCast_NoSenderEndsACastAsItsReceiverGone`, `TestRegistry_AReceiverComingBackKeepsItsCast`, `web/apps/web/src/play-castee-reaching.test.tsx`
+- 7: `TestCast_ACastPlaysOnAloneAsTheSessionItTookAPartInEnds`, `TestCast_AGuestsCastOfTheHostsFilmEndsWithTheSession`, `TestHub_LeavingASessionMovesTheGuestsCastToPlayAlone`, `TestGuestCastPart_EndsAsEveryCastEnds`, `web/apps/web/src/play-castee-ends.test.tsx`
+- 8: `web/apps/web/src/play-layout.browser.test.tsx`, `web/apps/web/src/play-castee-overlay.test.tsx`, `web/apps/web/src/play-castee-layout.browser.test.tsx`, `web/apps/web/src/player-overlay-layout.browser.test.tsx`, `web/apps/web/src/together-viewer.test.tsx`, VQ405
+- 9: `web/apps/web/src/play-layout.browser.test.tsx`, `web/apps/web/src/together-viewer-bar.test.tsx`, `web/apps/web/src/together-viewer-bar.browser.test.tsx`, `web/apps/web/src/player-overlay-signs.test.tsx`, VQ405
+- 10: `web/apps/web/src/player-overlay-state.test.ts`, `web/apps/web/src/play-castee-controls.test.tsx`, `web/apps/web/src/target-menus.test.tsx`
+- 11: `web/apps/web/src/player-overlay-layout.browser.test.tsx`, `web/apps/web/src/input-player.browser.test.tsx`
+- 12: `web/apps/web/src/router.test.ts`, `web/apps/web/src/this-device.test.tsx`
