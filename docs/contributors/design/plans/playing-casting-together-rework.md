@@ -213,8 +213,12 @@ full screen the browser refuses still falls back to filling the window; a televi
 the row's size, so a remote's Down from the scrub bar still lands on the row's first button
 (D407 §3). VQ405.
 
-**Left (items 1–2):** the castee's page (`CasteePlay`) keeps its bar under the key frame on its
-side and on a computer: it draws no overlay yet.
+**Built (items 1–2 over the castee, 2026-11-26):** the castee's page (`CasteePlay`) lays the
+video's overlay (`OverlayOver`, the castee its target) over the key frame on its side, in full
+screen and on a computer, its bar under the key frame only upright out of full screen. Full screen
+stays with a film on the castee, the key frame filling the screen with "On: ‹TV›" and when it ends
+over its top; "Ready on" still leaves it (D440 §5). Nothing in the overlay takes a press while the
+castee is not heard, but the signs. Left: the walk on the Pixel and a computer.
 
 **Walked (items 1–2, staging, 2026-11-26, the Pixel):** upright, the top bar, the picture and
 the controls under it, all shown; on its side, the top bar and the overlay with the 64 px play;
