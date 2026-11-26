@@ -4229,3 +4229,14 @@ An item is ticked only by the person who did it, and only with what they saw.
      you chose come back as you left them.
   6. Cast an episode with one after it, press Next episode on the pad, then load the phone's page
      again. Report whether the TV plays on in the next episode, not the one before.
+- [ ] **VQ408** — A household behind a network that lets no direct path form plays through the
+  hosted relay (D558 §7): only the two friends' own networks show it, the lead's walk having forced
+  the relay in a browser on the home's network (plans/hosted-relay.md, Proof). Once a friend's
+  server is installed and its household's realm is on the discovery's `-relay-realms`:
+  1. On a phone on mobile data, Wi-Fi off, sign in to the friend's household and play a film for
+     two minutes. Report whether it plays, and how long the first picture took.
+  2. Tell the lead the time of day it played. The lead reads the server's log for that
+     connection's path, and, where it was relayed, the relay's `relayAllocationEnded` line for the
+     household: its transport, its seconds and its bytes.
+  3. Repeat on a network known to block UDP, where one is at hand (an office's or a hotel's
+     Wi-Fi). Report whether it plays; the relay's line should say `tls`.

@@ -23,7 +23,7 @@
 //   - The bytes toward a household's clients pass a token bucket at its credential's rate, on the
 //     injected clock; what it cannot pass is dropped (D558 §1). Enforced by
 //     TestRelay_DropsWhatIsBeyondTheHouseholdsRate.
-//   - Past 2 allocations a client credential, 16 a household or 50 a source address, an allocation
+//   - Past 8 allocations a client credential, 16 a household or 50 a source address, an allocation
 //     is refused. Enforced by TestRelay_RefusesPastEachLimit.
 //   - Each ended allocation is one line: its household, role, transport, source shortened to its
 //     /24 or /48, seconds, bytes each way and its highest ten-second rate toward its client, and no

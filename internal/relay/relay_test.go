@@ -4,6 +4,7 @@ package relay
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -226,13 +227,30 @@ func send(t *testing.T, from, to end, payload []byte) {
 	}
 }
 
-// receive is the next datagram an end is relayed, and whom from.
-func receive(t *testing.T, at end) (string, net.Addr) {
+// patience is how long a test waits for what the relay must do on the loopback, which takes
+// milliseconds: a test of a rule that no longer holds fails after it, not at the run's own end.
+const patience = 10 * time.Second
+
+// patiently is a context that ends at patience, or with the test.
+func patiently(t *testing.T) context.Context {
 	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), patience)
+	t.Cleanup(cancel)
+	return ctx
+}
+
+// receive is the next datagram an end is relayed, and whom from.
+func receive(t *testing.T, reader end) (string, net.Addr) {
+	t.Helper()
+	// A deadline long past ends the read once patience is over.
+	stop := context.AfterFunc(patiently(t), func() {
+		_ = reader.relayed.SetReadDeadline(time.Unix(1, 0)) //nolint:errcheck // the read fails either way
+	})
+	defer stop()
 	buffer := make([]byte, 2048)
-	count, from, err := at.relayed.ReadFrom(buffer)
+	count, from, err := reader.relayed.ReadFrom(buffer)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("nothing was relayed to %v: %v", reader.relayed.LocalAddr(), err)
 	}
 	return string(buffer[:count]), from
 }
@@ -243,7 +261,7 @@ func (stage *stage) awaitDrop(t *testing.T) string {
 	select {
 	case reason := <-stage.drops:
 		return reason
-	case <-t.Context().Done():
+	case <-patiently(t).Done():
 		t.Fatal("no datagram was dropped")
 		return ""
 	}
@@ -252,13 +270,14 @@ func (stage *stage) awaitDrop(t *testing.T) string {
 // awaitLine is the next log line with event.
 func (stage *stage) awaitLine(t *testing.T, event string) map[string]any {
 	t.Helper()
+	waited := patiently(t)
 	for {
 		select {
 		case line := <-stage.lines:
 			if line[slogx.EventKey] == event {
 				return line
 			}
-		case <-t.Context().Done():
+		case <-waited.Done():
 			t.Fatalf("no %s line", event)
 			return nil
 		}
@@ -434,17 +453,18 @@ func TestRelay_DropsWhatIsBeyondTheHouseholdsRate(t *testing.T) {
 
 func TestRelay_RefusesPastEachLimit(t *testing.T) {
 	t.Parallel()
-	t.Run("two a client credential", func(t *testing.T) {
+	t.Run("eight a client credential", func(t *testing.T) {
 		t.Parallel()
 		stage := newStage(t)
 		username, password := stage.credential(t, relaycred.RoleClient, "household-1", 3000, 0)
-		for range allocationsPerClientCredential {
+		// A browser with two interfaces, two connections and the relay's two URLs asks for eight.
+		for count := range 8 {
 			if _, err := stage.allocate(t, "udp", username, password); err != nil {
-				t.Fatal(err)
+				t.Fatalf("allocation %d of a client credential: %v", count+1, err)
 			}
 		}
 		if _, err := stage.allocate(t, "udp", username, password); err == nil {
-			t.Error("a client credential's third allocation was made")
+			t.Error("a client credential's ninth allocation was made")
 		}
 	})
 	t.Run("sixteen a household", func(t *testing.T) {

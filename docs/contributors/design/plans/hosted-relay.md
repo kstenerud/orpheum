@@ -5,8 +5,10 @@
 # The hosted relay's first step
 
 - **Status:** IN PROGRESS — begun 2026-11-26 on the owner's go ("Yes do the relay first"). §1 (the
-  credential, `discovery/relaycred`) and §2 (the relay, `internal/relay` and `orpheum relay
-  --config <file>`) have code, built 2026-11-26; §3–5 have none yet.
+  credential, `discovery/relaycred`), §2 (the relay, `internal/relay` and `orpheum relay
+  --config <file>`) and §3 (orpheum-connect's `internal/hostedrelay`) have code, and §4 runs on the
+  edge VPS as `relay.orpheum.cc`, for staging's realm alone; production's discovery does not name
+  it yet. §5 has none. What the staging walk found is under Proof.
 - **Depends on:** D558; the design is
   [the research's §4](../research/official-relay-2026-11-26.md#4-the-proposed-design), and this
   file is what is being built of it.
@@ -60,8 +62,11 @@ served after, as the embedded relay's is.
      same household and the other role; anything else is dropped and counted.
 3. **The household's rate** (D558 §1): one token bucket per household at the credential's `kbps`,
    over every byte relayed toward its clients; what it cannot pass is dropped.
-4. **Limits**, each a refusal: 2 allocations a client credential, 16 a household, 50 a source
-   address. The figures are the research's estimates.
+4. **Limits**, each a refusal: 8 allocations a client credential, 16 a household, 50 a source
+   address. The figures are the research's estimates, but for the first, which was 2 and starved
+   the web client: Chrome allocates once for each interface and each of the relay's URLs on every
+   connection, and a sign-in holds two connections at once (staging, 2026-11-26; the owner's to
+   confirm).
 5. **What it records** (D558 §11): for each allocation that ends, a line with its household, its
    role, its transport (udp, tcp, tls), its source address shortened (an IPv4 to its /24, an IPv6
    to its /48), its seconds, its bytes each way and the highest rate it reached toward its client
@@ -98,4 +103,24 @@ parts 1 to 4 work on staging.
 
 - The relay's rules each have a test that fails on revert, on real sockets on the loopback.
 - Staging: a browser allowed to reach the relay's TCP 443 alone plays a film from the staging core.
-- A device queue item for the two friends' networks.
+  Shown 2026-11-26: a Chromium held to `turns:relay.orpheum.cc:443` and to relayed candidates
+  signed in to the staging realm and played file 1286 for 30 s at 1280 wide, its selected pair its
+  TLS allocation to the core's relayed address; the relay's lines for the walk name the client's
+  allocations as `tls` and the core's as `udp`, the largest 15.6 MB toward the client at a
+  ten-second peak of 6003 kbit/s, nothing dropped.
+- A device queue item for the two friends' networks: VQ408.
+
+## What the staging walk found (2026-11-26)
+
+1. **Two allocations a client credential starved the web client** (§2.4, now eight): the second
+   connection's allocations were all refused and its offer carried no candidate.
+2. **One browser takes many allocations.** That walk's one browser took 33 client allocations and
+   the core 11 over a sign-in and half a minute of a film: four a connection for each of its three
+   or four connections at once, though one pair carries each. The relayed ports are 40 (Hetzner's
+   firewall), and a household's limit is 16, which that one browser reached. Open, the owner's: a
+   wider port range and household limit, or a client that asks the relay only once a connection
+   without it has failed.
+3. **A core has no relay credential for up to five minutes after the discovery restarts**: it
+   takes one with its heartbeat alone. Open.
+4. **The relay says nothing of an allocation it refuses.** A line for each refusal, with which
+   limit, would have named finding 1 at once. Open; part of §5's counting.
