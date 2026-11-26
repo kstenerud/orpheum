@@ -130,6 +130,7 @@ is the evidence. The first column names each package by its path; the check read
 | `discovery/release` | R1 (the release record, signed by a root key: opening it, telling a core of its own version, a release's change to it; security-updates.md Part A, D391 §6) | — (public: the closed service serves the same file, D275 §1) |
 | `discovery/trust` | R1 (the root key design, D393: the strict line format, an SSH signature's check with the user-verified flag, a root chain of two tiers and the rules a core follows it by, the published files and the owner's ledger) | — (public: the closed service signs and checks with it, D275 §1) |
 | `discovery/trust/trusttest` | — (tests only: hardware and plain keys, and a chain they sign) | — (public, so the closed service's tests use it too) |
+| `discovery/relaycred` | R1 (the hosted relay's credential, `<expiry>:<role>:<household>:<kbps>` and its HMAC-SHA1 password, and its secret, D558) | — (public: the paid discovery makes the credentials the relay checks, D275 §1) |
 | `discovery/addressdoc` | R1 (a discovery's signed address document at its issuer's well-known path, and opening it for exactly that issuer, D391 §3) | — (public: the closed service serves the same document, D275 §1) |
 | `internal/platform/outbound`, `internal/platform/bounded` | R1 support | — |
 | `pkg/strictjson` | R1 support (every JSON document the Go code reads, decoded strictly, D456) | — (public, so the discovery packages share it) |
