@@ -223,9 +223,12 @@ describe("the loader's page while its path is lost (§28)", () => {
     });
     await settleUntil(() => page.textContent.includes(waitingWords));
     expect(page.textContent).not.toContain("Can't reach the server from this network");
+    // The wait before the next try is the clock's; the try itself is in the page's own time, which a
+    // loaded machine stretches past any count of the clock's steps (CI, 2026-11-26).
     await act(async () => {
-      await advanceUntil(() => connected.length > 0, 500, (2 * pathLostRetryMostMs) / 500);
+      await vi.advanceTimersByTimeAsync(pathLostRetryFirstMs);
     });
+    await settleUntil(() => connected.length > 0);
     expect(locates).toBe(2);
     expect(connected).toEqual(["k7xq2"]);
   });
