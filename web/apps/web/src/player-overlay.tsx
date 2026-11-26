@@ -25,7 +25,7 @@ import { useHeldDown } from "./held-down.ts";
 import { useCommands } from "./input-layer.tsx";
 import { useLatest } from "./latest.ts";
 import { OverlayUp, PlayUpwardContext } from "./play-up.tsx";
-import { usePlayersControls } from "./player-commands.ts";
+import { usePlayersControls, type PlayerStage } from "./player-commands.ts";
 import type { PlaybackTarget, PlayerSource } from "./playback-target.ts";
 import {
   CommandRightsContext,
@@ -51,7 +51,7 @@ import { OverThePicture, useVolumeShown, type PictureSigns } from "./over-the-pi
 import { useOverlayMeasured } from "./overlay-measure.ts";
 import { SideTapsContext, type SideTaps } from "./phone-side-taps.tsx";
 import { useStartRefused } from "./start-refused-shown.tsx";
-import { focusThePicture, useStageNow, type OverlayStage } from "./overlay-stage.ts";
+import { focusThePicture, useStageNow } from "./overlay-stage.ts";
 import { StopCastingHere } from "./stop-casting-here.tsx";
 import { useIsFullScreen } from "./full-screen-button.tsx";
 import { TargetMenus } from "./target-menus.tsx";
@@ -230,7 +230,7 @@ function useOverlay(
   const volume = useVolumeShown();
   const presses = { state, setState, isTv, hasOffer, isMenuOpen, onVolumeShown: volume.show };
   useOverlayPresses({ ...presses, notePress, stageNow, ...refs });
-  usePlayersControls(refs.overlayRef, refs.videoRef);
+  usePlayersControls(refs.overlayRef, refs.pictureRef);
   const isStartRefused = useStartRefused(refs, () => {
     setState({ shown: "full", shownBy: isTv ? "remote" : "pointer" });
   });
@@ -451,7 +451,7 @@ function useOverlayPresses({
   stageNow,
 }: Omit<OverlayRefs, "videoRef" | "pictureRef"> & {
   /** The stage its presses work on as each comes (useStageNow). */
-  readonly stageNow: () => OverlayStage | undefined;
+  readonly stageNow: () => PlayerStage | undefined;
   readonly state: OverlayState;
   readonly setState: (state: OverlayState) => void;
   readonly notePress: () => void;
@@ -549,7 +549,7 @@ function useMenuLeftAtFullScreenFocusesScrub(
  */
 function usePlayingLeavesPlay(
   playRef: RefObject<HTMLButtonElement | null>,
-  stageNow: () => OverlayStage | undefined,
+  stageNow: () => PlayerStage | undefined,
   isTv: boolean,
 ): void {
   const stageNowRef = useLatest(stageNow);
@@ -598,7 +598,7 @@ function overlayParts(
 }
 
 /** What the overlay knows as a press comes: where focus is, and whether the film is paused. */
-function pressContext(parts: OverlayParts, stage: OverlayStage, isTv: boolean): PressContext {
+function pressContext(parts: OverlayParts, stage: PlayerStage, isTv: boolean): PressContext {
   const focused = document.activeElement;
   return {
     isPaused: stage.isPaused,

@@ -18,16 +18,18 @@ import {
   type MediaSessionAction,
 } from "@orpheum/player";
 import { startGateOf } from "@orpheum/sdk";
-import { useEffect, useMemo, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, type RefObject } from "react";
 
-import { leaveFullScreenAsked } from "./film-fullscreen.ts";
-import { arrowsAreCommandsAttribute } from "./focus-engine.ts";
+import { leaveFullScreenAsked, toggleFullScreen } from "./film-fullscreen.ts";
+import { arrowsAreCommandsAttribute, caretOf } from "./focus-engine.ts";
 import { isMeantToPlay, isPausedAsAsked } from "./film-waits.tsx";
-import { volumeAfter } from "./volume-step.ts";
+import { useLatest } from "./latest.ts";
+import type { PlaybackTarget } from "./playback-target.ts";
+import { remoteVolumeStep, volumeAfter } from "./volume-step.ts";
 import { useCommands, useMediaPlayPause, useMediaSeeks } from "./input-layer.tsx";
 import type { Command } from "./input-buttons.ts";
 import type { CommandHold, CommandSource, MediaTracks } from "./input-commands.ts";
-import { askedByOf, seekAheadOf } from "./seek-ahead.ts";
+import { askedByOf, seekAheadOf, seekStepMs } from "./seek-ahead.ts";
 import { keepMediaActionsOf } from "./play-state-video-events.ts";
 import { monotonicMs } from "./use-together.ts";
 
@@ -63,58 +65,151 @@ export function seekBy(video: HTMLVideoElement, direction: -1 | 1, asked: AskedC
 }
 
 /** A command as the player is asked it: where it came from (none: a click's), and how it is held. */
-interface AskedCommand {
+export interface AskedCommand {
   readonly command: Command;
   readonly source?: CommandSource | undefined;
   readonly hold?: CommandHold | undefined;
 }
 
 /**
- * Whether the arrows are the video's own now: it has focus, or nothing has, or the player's own
- * timeline over it, whose Left and Right are commands (arrowsAreCommandsAttribute), as a computer's
- * bar has it (page-controls.tsx). A television's overlay answers its own timeline's before this.
+ * Whether the arrows are the film's own now: its picture (the video, or a castee's stage) has focus,
+ * or nothing has, or the player's own timeline over it, whose Left and Right are commands
+ * (arrowsAreCommandsAttribute), as a computer's bar has it (page-controls.tsx). A television's
+ * overlay answers its own timeline's before this.
  */
-function isVideosToSeek(video: HTMLVideoElement): boolean {
+function isArrowsTheFilms(picture: HTMLElement): boolean {
   const focused = document.activeElement;
-  if (focused === null || focused === document.body || focused === video) {
+  if (focused === null || focused === document.body || focused === picture) {
     return true;
   }
-  return focused.hasAttribute(arrowsAreCommandsAttribute) && isInThePlayersControls(focused, video);
+  return (
+    focused.hasAttribute(arrowsAreCommandsAttribute) && isInThePlayersControls(focused, picture)
+  );
 }
 
-/** Whether element is in the player's own controls for video (markPlayersControls). */
-function isInThePlayersControls(element: Element, video: HTMLVideoElement): boolean {
+/** Whether element is in the player's own controls for the film in picture (markPlayersControls). */
+function isInThePlayersControls(element: Element, picture: HTMLElement): boolean {
   const controls = element.closest(`[${playerControlsAttribute}]`);
-  return controls !== null && videosOfControls.get(controls)?.current === video;
+  return controls !== null && picturesOfControls.get(controls)?.current === picture;
 }
 
 /**
- * The player's own controls (playerControlsAttribute), each with the video it commands, as the
- * controls name it: the bar under the film is not in the video's stage (D407 §9), so where an element
- * lies says nothing of the video it is for (plans/player-overlay.md §6).
+ * The player's own controls (playerControlsAttribute), each with the picture of the film it commands
+ * (the video, or a castee's stage: PlayerStage), as the controls name it: the bar under the film is
+ * not in the video's stage (D407 §9), so where an element lies says nothing of the film it is for
+ * (plans/player-overlay.md §6).
  */
-const videosOfControls = new WeakMap<Element, RefObject<HTMLVideoElement | null>>();
+const picturesOfControls = new WeakMap<Element, RefObject<HTMLElement | null>>();
 
-/** Marks controls as the player's own for the video in videoRef; returns the unmarking. */
+/** Marks controls as the player's own for the film in pictureRef; returns the unmarking. */
 export function markPlayersControls(
   controls: Element,
-  videoRef: RefObject<HTMLVideoElement | null>,
+  pictureRef: RefObject<HTMLElement | null>,
 ): () => void {
-  videosOfControls.set(controls, videoRef);
+  picturesOfControls.set(controls, pictureRef);
   return () => {
-    videosOfControls.delete(controls);
+    picturesOfControls.delete(controls);
   };
 }
 
-/** Marks the controls in controlsRef as the player's own for the video in videoRef while drawn. */
+/**
+ * Marks the controls in controlsRef as the player's own for the film in pictureRef (the video, or a
+ * castee's stage) while drawn.
+ */
 export function usePlayersControls(
   controlsRef: RefObject<HTMLElement | null>,
-  videoRef: RefObject<HTMLVideoElement | null>,
+  pictureRef: RefObject<HTMLElement | null>,
 ): void {
   useEffect(() => {
     const controls = controlsRef.current;
-    return controls === null ? undefined : markPlayersControls(controls, videoRef);
-  }, [controlsRef, videoRef]);
+    return controls === null ? undefined : markPlayersControls(controls, pictureRef);
+  }, [controlsRef, pictureRef]);
+}
+
+/**
+ * What the player's commands, its keys and its overlay's presses work on (D555 §8): the video here
+ * (stageOfVideo), or another target, a castee, with its picture (stageOfTarget). A target that takes
+ * nothing now (isReady false: a castee not heard, D555 §6) plays, seeks and sets no sound.
+ */
+export interface PlayerStage {
+  /**
+   * The video, or the target's picture: focus on it is focus on the film, the overlay gives focus
+   * to it as it hides, and the stage it is in is what full screen fills.
+   */
+  readonly picture: HTMLElement;
+  readonly isPaused: boolean;
+  /** Whether it takes play, seeks and sound now: the video always, a castee while heard. */
+  readonly isReady: boolean;
+  readonly playPause: () => void;
+  /** Seeks by seekByMs, the video by a step its press names (asked), a target by seekByMs itself. */
+  readonly seekBy: (seekByMs: number, asked: AskedCommand) => void;
+  /** Moves the volume a step towards direction, a step up turning the sound on; whether it did. */
+  readonly stepVolume: (direction: -1 | 1) => boolean;
+  /** Turns the sound off, or on again (M); whether it did. */
+  readonly toggleMute: () => boolean;
+}
+
+/** The video as the stage the player's commands work on (PlayerStage). */
+export function stageOfVideo(video: HTMLVideoElement): PlayerStage {
+  return {
+    picture: video,
+    isPaused: isPausedAsAsked(video),
+    isReady: true,
+    playPause: () => {
+      playOrPause(video);
+    },
+    seekBy: (seekByMs, asked) => {
+      seekBy(video, seekByMs < 0 ? -1 : 1, asked);
+    },
+    stepVolume: (direction) => stepVolume(video, direction),
+    toggleMute: () => {
+      // eslint-disable-next-line no-param-reassign -- the element's own property is what mutes it
+      video.muted = !video.muted;
+      return true;
+    },
+  };
+}
+
+/**
+ * Another target, a castee, as the stage the player's commands work on, its picture where the video
+ * would be (PlayerStage): nothing taken while it is not ready (D555 §6); its sound, where it says
+ * one, stepped as the cast remote's Volume down and up did, remoteVolumeStep a press (D548 §6), a
+ * step up turning a muted film's sound on first.
+ */
+export function stageOfTarget(target: PlaybackTarget, picture: HTMLElement): PlayerStage {
+  const { sound, isReady } = target;
+  return {
+    picture,
+    isPaused: target.isPaused,
+    isReady,
+    playPause: () => {
+      if (isReady) {
+        target.playOrPause();
+      }
+    },
+    seekBy: (seekByMs) => {
+      if (isReady) {
+        target.seekTo(Math.max(0, target.atMs + seekByMs));
+      }
+    },
+    stepVolume: (direction) => {
+      if (!isReady || sound === undefined) {
+        return false;
+      }
+      if (direction === 1 && sound.isMuted) {
+        sound.setMuted(false);
+      }
+      sound.setVolume(volumeAfter(sound.volume, direction, remoteVolumeStep));
+      return true;
+    },
+    toggleMute: () => {
+      if (!isReady || sound === undefined) {
+        return false;
+      }
+      sound.setMuted(!sound.isMuted);
+      return true;
+    },
+  };
 }
 
 /** Leaves full screen where the page is in it; whether it was. */
@@ -140,49 +235,38 @@ function stepVolume(video: HTMLVideoElement, direction: -1 | 1): boolean {
   return true;
 }
 
+/** Plays or pauses stage where it is ready; whether it did. */
+function playsOrPauses(stage: PlayerStage): boolean {
+  if (stage.isReady) {
+    stage.playPause();
+  }
+  return stage.isReady;
+}
+
+/** Seeks stage a step towards direction where it is ready; whether it did. */
+function seeks(stage: PlayerStage, direction: -1 | 1, asked: AskedCommand): boolean {
+  if (stage.isReady) {
+    stage.seekBy(direction * seekStepMs, asked);
+  }
+  return stage.isReady;
+}
+
 /**
- * Each command's answer for a video, by command, told how it was asked (AskedCommand): whether it
- * answered. Up and Down move focus.
+ * Each command's answer for a stage (PlayerStage), the video or a castee, by command, told how it
+ * was asked (AskedCommand): whether it answered. Up and Down move focus.
  */
 const answers: Readonly<
-  Partial<Record<Command, (video: HTMLVideoElement, asked: AskedCommand) => boolean>>
+  Partial<Record<Command, (stage: PlayerStage, asked: AskedCommand) => boolean>>
 > = {
-  playPause: (video) => {
-    playOrPause(video);
-    return true;
-  },
-  seekBack: (video, asked) => {
-    seekBy(video, -1, asked);
-    return true;
-  },
-  seekForward: (video, asked) => {
-    seekBy(video, 1, asked);
-    return true;
-  },
-  left: (video, asked) => {
-    const isSeeking = isVideosToSeek(video);
-    if (isSeeking) {
-      seekBy(video, -1, asked);
-    }
-    return isSeeking;
-  },
-  right: (video, asked) => {
-    const isSeeking = isVideosToSeek(video);
-    if (isSeeking) {
-      seekBy(video, 1, asked);
-    }
-    return isSeeking;
-  },
-  select: (video) => {
-    const isOnVideo = document.activeElement === video;
-    if (isOnVideo) {
-      playOrPause(video);
-    }
-    return isOnVideo;
-  },
+  playPause: (stage) => playsOrPauses(stage),
+  seekBack: (stage, asked) => seeks(stage, -1, asked),
+  seekForward: (stage, asked) => seeks(stage, 1, asked),
+  left: (stage, asked) => isArrowsTheFilms(stage.picture) && seeks(stage, -1, asked),
+  right: (stage, asked) => isArrowsTheFilms(stage.picture) && seeks(stage, 1, asked),
+  select: (stage) => document.activeElement === stage.picture && playsOrPauses(stage),
   back: () => leaveFullscreen(),
-  volumeUp: (video) => stepVolume(video, 1),
-  volumeDown: (video) => stepVolume(video, -1),
+  volumeUp: (stage) => stage.stepVolume(1),
+  volumeDown: (stage) => stage.stepVolume(-1),
 };
 
 /**
@@ -194,71 +278,141 @@ export function answerPlayerCommand(
   command: Command,
   asked: Omit<AskedCommand, "command"> = {},
 ): boolean {
-  return answers[command]?.(video, { ...asked, command }) ?? false;
+  return answers[command]?.(stageOfVideo(video), { ...asked, command }) ?? false;
 }
 
 /**
  * The attribute that marks the player's own controls for its video, the full-screen overlay
  * (player-overlay.tsx) and the bar under the film (page-controls.tsx), each marked for its video by
- * markPlayersControls: Space on any of them but a button plays and pauses (useSpacePlaysAndPauses).
+ * markPlayersControls: Space on any of them but a button plays and pauses (usePlayersKeys).
  */
 export const playerControlsAttribute = "data-player-controls";
 
 /**
- * Whether Space is the player's while focus is where it is: on the video (the browser's own controls,
- * in its shadow, are focus on it), on nothing, or on one of the player's own controls over it that
- * Space does not press, its timeline; never on a button, which Space presses (D407 §5), nor on
- * another control the page draws over the film, as Up next, nor in a menu the overlay opened (⁝'s
- * switches, D407 §8), nor on anything outside the player.
+ * Whether a key of the player's own (playersKeyOf) is the player's while focus is where it is: on the
+ * film's picture (the video, whose browser controls, in its shadow, are focus on it, or a castee's
+ * stage), on nothing, or on one of the player's own controls for it; never in a text field, nor in a
+ * menu the overlay opened (⁝'s switches, D407 §8), nor on anything outside the player.
  */
-function isSpaceThePlayers(video: HTMLVideoElement): boolean {
+function isKeyThePlayers(picture: HTMLElement): boolean {
   const focused = document.activeElement;
-  if (focused === null || focused === document.body || focused === video) {
+  if (focused === null || focused === document.body || focused === picture) {
     return true;
   }
   return (
-    !focused.matches('button, [role="button"]') &&
+    caretOf(focused) === undefined &&
     focused.closest("dialog") === null &&
-    isInThePlayersControls(focused, video)
+    isInThePlayersControls(focused, picture)
   );
 }
 
 /**
- * Plays and pauses video at Space where focus is the player's (isSpaceThePlayers), as YouTube does,
- * its keyup's own handling prevented with it: Chrome pressed the browser's full-screen button that a
- * click had left focus on, and a cast's receiver, whose video has no browser controls, did nothing
- * (the owner, 2026-10-27), and with nothing focused still plays. On one of the player's buttons
- * Space presses it, as OK does (D407 §5). Heard before what has focus, after the receiver's first press
- * that turns the sound on (cast-receiver.tsx), which takes it first.
+ * Whether Space is the player's while focus is where it is (isKeyThePlayers): never on a button,
+ * which Space presses (D407 §5), so of the player's own controls its timeline alone; nor on another
+ * control the page draws over the film, as Up next.
  */
-function useSpacePlaysAndPauses(video: HTMLVideoElement | null): void {
-  useEffect(() => {
-    if (video === null) {
-      return undefined;
+function isSpaceThePlayers(picture: HTMLElement): boolean {
+  const focused = document.activeElement;
+  const isOnAButton = focused?.matches('button, [role="button"]') === true;
+  return !isOnAButton && isKeyThePlayers(picture);
+}
+
+/**
+ * The keys the player hears itself, which name no command (input-buttons.ts): Space, F and M, each
+ * without Ctrl, Alt or Cmd.
+ */
+type PlayersKey = "space" | "fullScreen" | "mute";
+
+/** The player's own key event is (PlayersKey), or undefined for any other. */
+function playersKeyOf(event: KeyboardEvent): PlayersKey | undefined {
+  if (event.ctrlKey || event.altKey || event.metaKey) {
+    return undefined;
+  }
+  if (event.key === " ") {
+    return "space";
+  }
+  if (event.key === "f" || event.key === "F") {
+    return "fullScreen";
+  }
+  return event.key === "m" || event.key === "M" ? "mute" : undefined;
+}
+
+/**
+ * Answers the player's own key for stage, where it is the player's; whether it is taken. Space plays
+ * and pauses a stage that is ready, a held one once; F puts the stage full screen or leaves it, as the
+ * bar's full screen does (toggleFullScreen); M mutes or unmutes a stage that has sound, neither
+ * repeating while held.
+ */
+function answerPlayersKey(stage: PlayerStage, key: PlayersKey, isRepeat: boolean): boolean {
+  if (key === "space") {
+    const isTaken = stage.isReady && isSpaceThePlayers(stage.picture);
+    if (isTaken && !isRepeat) {
+      stage.playPause();
     }
-    let isTaken = false;
-    const isSpace = (event: KeyboardEvent): boolean =>
-      event.key === " " && !event.ctrlKey && !event.altKey && !event.metaKey;
+    return isTaken;
+  }
+  if (isRepeat || !isKeyThePlayers(stage.picture)) {
+    return false;
+  }
+  if (key === "mute") {
+    return stage.toggleMute();
+  }
+  toggleFullScreen(stage.picture.closest(".film-player__stage"), document);
+  return true;
+}
+
+/**
+ * Answers the player's own keys (PlayersKey) for the stage stageNow reads as each comes, its keyup's
+ * own handling prevented with it: Space as YouTube does, as Chrome pressed the browser's full-screen
+ * button that a click had left focus on, and a cast's receiver, whose video has no browser controls,
+ * did nothing (the owner, 2026-10-27), and with nothing focused still plays; on one of the player's
+ * buttons Space presses it, as OK does (D407 §5). Heard before what has focus, after the receiver's
+ * first press that turns the sound on (cast-receiver.tsx), which takes it first.
+ */
+function usePlayersKeys(stageNow: () => PlayerStage | undefined): void {
+  const stageNowRef = useLatest(stageNow);
+  useEffect(() => {
+    let taken: string | undefined;
     const down = (event: KeyboardEvent): void => {
-      isTaken = isSpace(event) && !event.defaultPrevented && isSpaceThePlayers(video);
+      const stage = stageNowRef.current();
+      const key = playersKeyOf(event);
+      const isTaken =
+        stage !== undefined &&
+        key !== undefined &&
+        !event.defaultPrevented &&
+        answerPlayersKey(stage, key, event.repeat);
+      taken = isTaken ? event.key : undefined;
       if (isTaken) {
         event.preventDefault();
-        if (!event.repeat) {
-          playOrPause(video);
-        }
       }
     };
     const up = (event: KeyboardEvent): void => {
       // A browser presses a focused button at Space's keyup: taken too, as its keydown was.
-      if (isTaken && isSpace(event)) {
+      if (taken !== undefined && event.key === taken) {
         event.preventDefault();
-        isTaken = false;
+        taken = undefined;
       }
     };
-    // A press on the browser's own controls leaves focus on that button, inside the video, where
-    // Chrome presses it at Space before any page hears the key (the owner, 2026-10-27: the
-    // full-screen button left full screen). Focus goes back to the video itself after each, and
-    // after full screen changes, so Space is the player's.
+    document.addEventListener("keydown", down, true);
+    document.addEventListener("keyup", up, true);
+    return () => {
+      document.removeEventListener("keydown", down, true);
+      document.removeEventListener("keyup", up, true);
+    };
+  }, [stageNowRef]);
+}
+
+/**
+ * Keeps focus on video, so Space is the player's: a press on the browser's own controls leaves focus
+ * on that button, inside the video, where Chrome presses it at Space before any page hears the key
+ * (the owner, 2026-10-27: the full-screen button left full screen). Focus goes back to the video
+ * itself after each, and after full screen changes.
+ */
+function useFocusStaysOnTheVideo(video: HTMLVideoElement | null): void {
+  useEffect(() => {
+    if (video === null) {
+      return undefined;
+    }
     const takeFocusBack = (): void => {
       setTimeout(() => {
         video.focus({ preventScroll: true });
@@ -275,13 +429,9 @@ function useSpacePlaysAndPauses(video: HTMLVideoElement | null): void {
         }, 0);
       }
     };
-    document.addEventListener("keydown", down, true);
-    document.addEventListener("keyup", up, true);
     video.addEventListener("click", takeFocusBack);
     document.addEventListener("fullscreenchange", onFullscreenChange);
     return () => {
-      document.removeEventListener("keydown", down, true);
-      document.removeEventListener("keyup", up, true);
       video.removeEventListener("click", takeFocusBack);
       document.removeEventListener("fullscreenchange", onFullscreenChange);
     };
@@ -289,13 +439,30 @@ function useSpacePlaysAndPauses(video: HTMLVideoElement | null): void {
 }
 
 /**
- * Answers the commands for video while it is shown, the browser's media controls' play, pause and
- * seeking too, and their previous and next track where tracks has them, and Space wherever focus is
- * in the player. The media controls' last play or pause is kept for the video's reports to say
- * (keepMediaActionsOf).
+ * Answers the commands and the player's own keys (usePlayersKeys) for the stage stageNow reads as
+ * each comes (PlayerStage), the video here or a castee (D555 §8): one answer whatever the target, as
+ * the overlay's presses are (useStageNow, overlay-stage.ts); none while there is no stage.
+ */
+export function useStageCommands(stageNow: () => PlayerStage | undefined): void {
+  usePlayersKeys(stageNow);
+  useCommands("document", (detail, event) => {
+    const stage = stageNow();
+    if (stage !== undefined && answers[detail.command]?.(stage, detail) === true) {
+      event.preventDefault();
+    }
+  });
+}
+
+/**
+ * Answers the commands for video while it is shown (useStageCommands), the browser's media controls'
+ * play, pause and seeking too, and their previous and next track where tracks has them, and Space, F
+ * and M wherever focus is in the player. The media controls' last play or pause is kept for the
+ * video's reports to say (keepMediaActionsOf).
  */
 export function usePlayerCommands(video: HTMLVideoElement | null, tracks?: MediaTracks): void {
-  useSpacePlaysAndPauses(video);
+  const stageNow = useCallback(() => (video === null ? undefined : stageOfVideo(video)), [video]);
+  useStageCommands(stageNow);
+  useFocusStaysOnTheVideo(video);
   useMediaSeeks(tracks);
   const hear = useMemo(
     () =>
@@ -313,11 +480,6 @@ export function usePlayerCommands(video: HTMLVideoElement | null, tracks?: Media
     () => (video === null ? undefined : keepMediaActionsOf(video, lastMediaAction)),
     [video, lastMediaAction],
   );
-  useCommands("document", (detail, event) => {
-    if (video !== null && answerPlayerCommand(video, detail.command, detail)) {
-      event.preventDefault();
-    }
-  });
 }
 
 /** The film the browser's media controls' play and pause act on, as far as they ask of it. */

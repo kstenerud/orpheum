@@ -252,9 +252,13 @@ the Play page over the castee (the `play-castee-*` tests); the remote's layout, 
 notes, Play here and Cast again went untested, as D555 §5 and §8 end them. What the castee's page
 still uses keeps its `cast-remote-` name: the offers and the picture, the menus, the heard receiver
 and the report. The guest's player, tracks and Cast stay, the guest's page and its top bar mounting
-them (D555 §2); the old corner's last word and export went. Left: the pad's keys (Space, Left and
-Right, + and -, M) went with the pad, and the Play page's keys work the video alone, so over the
-castee no key plays, seeks or sets the level.
+them (D555 §2); the old corner's last word and export went. The pad's keys came back on the Play
+page's one key handler (`useStageCommands`, `src/player-commands.ts`), whose answers work a
+`PlayerStage`, the video or the castee with its stage as the picture, the overlay's target too:
+over the castee Space plays or pauses, Left and Right step 10 s, + and - step its level 10 % and M
+mutes it, F puts its stage full screen, under the bar and under the overlay alike; none while the
+castee is not heard, typing or in a dialog; F and M, single letters, are the video's keys too
+(`src/play-castee-keys.test.tsx`).
 
 **Walked (item 4, staging, 2026-11-26, headless Chromium as host and as guest by link):** before
 the host plays, the guest's page has its top bar, Leave, Talk and "Waiting for the host to start

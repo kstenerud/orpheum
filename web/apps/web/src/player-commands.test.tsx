@@ -305,6 +305,48 @@ describe("Space in the player, as YouTube's (the owner, 2026-10-27)", () => {
     mounted.unmount();
   });
 
+  // The cast remote's M (D548 §10), and F, the one key handler's whatever the target (D555 §8).
+  it("mutes and unmutes at M, and puts the video's stage full screen at F, where focus is the player's, neither with Ctrl, Alt or Cmd", async () => {
+    const stage = document.createElement("div");
+    stage.className = "film-player__stage";
+    const video = videoAt(30);
+    const outside = document.createElement("button");
+    stage.append(video);
+    document.body.append(stage, outside);
+    const requestFullscreen = vi.fn(() => Promise.resolve());
+    Object.defineProperty(stage, "requestFullscreen", {
+      configurable: true,
+      value: requestFullscreen,
+    });
+    const mounted = await mount(withServices(<PlayerOf video={video} />));
+    const press = (key: string, extra: KeyboardEventInit = {}): boolean => {
+      const down = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...extra });
+      act(() => {
+        (document.activeElement ?? document.body).dispatchEvent(down);
+      });
+      return down.defaultPrevented;
+    };
+    focusOn(video);
+    expect(press("m")).toBe(true);
+    expect(video.muted).toBe(true);
+    expect(press("M")).toBe(true);
+    expect(video.muted).toBe(false);
+    for (const modifier of [{ ctrlKey: true }, { altKey: true }, { metaKey: true }]) {
+      expect(press("m", modifier)).toBe(false);
+      expect(press("f", modifier)).toBe(false);
+    }
+    expect(video.muted).toBe(false);
+    expect(requestFullscreen).not.toHaveBeenCalled();
+    expect(press("f")).toBe(true);
+    expect(requestFullscreen).toHaveBeenCalledOnce();
+    focusOn(outside);
+    expect(press("m")).toBe(false);
+    expect(press("f")).toBe(false);
+    expect(video.muted).toBe(false);
+    expect(requestFullscreen).toHaveBeenCalledOnce();
+    mounted.unmount();
+  });
+
   // Chrome keeps focus on its own control a click pressed, inside the video, and presses it at
   // Space before the page hears the key: the full-screen button left full screen.
   it("takes focus back to the video after a press on it or its own controls", async () => {

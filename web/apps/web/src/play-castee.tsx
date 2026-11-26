@@ -37,7 +37,9 @@ import { useLatest } from "./latest.ts";
 import { Pill } from "./pill.tsx";
 import { OverlayUp, PlayUpwardContext } from "./play-up.tsx";
 import type { PlaybackTarget } from "./playback-target.ts";
+import { useStageCommands, usePlayersControls } from "./player-commands.ts";
 import { PlayerControls, type SequenceMoves } from "./player-controls.tsx";
+import { useStageNow } from "./overlay-stage.ts";
 import {
   barControlsOf,
   OverlayOver,
@@ -176,6 +178,36 @@ function useSwapsBackAtTheEnd(
   }, [castId, over, stoodRef, waysRef]);
 }
 
+/** The castee's stage holds no video: its presses, keys and commands go to the castee, its target. */
+const noVideo: RefObject<HTMLVideoElement | null> = { current: null };
+
+/**
+ * What plays after the cast's film and before it, read once for ⏮, ⏭ and Up next (D477 §2), told to
+ * onAround as it is read.
+ */
+function useAroundTold(
+  fileId: number,
+  onAround: (around: AroundFile) => void,
+): AroundFile | undefined {
+  const around = useAroundFile(fileId, true);
+  useEffect(() => {
+    if (around !== undefined) {
+      onAround(around);
+    }
+  }, [around, onAround]);
+  return around;
+}
+
+/**
+ * Works the Play page's keys and commands on the castee as on the video (D555 §8), the stage the
+ * returned ref holds its picture: nothing taken while it is not heard (D555 §6).
+ */
+function useCasteeCommands(target: PlaybackTarget): RefObject<HTMLDivElement | null> {
+  const stageRef = useRef<HTMLDivElement>(null);
+  useStageCommands(useStageNow({ videoRef: noVideo, pictureRef: stageRef }, target));
+  return stageRef;
+}
+
 /**
  * The page while a film plays on the castee: the way up and the cast's sign, "On: ‹TV›", with when
  * the film ends; the stage, the castee's key frame (RemotePicture) with Up next or a skip over it
@@ -194,17 +226,12 @@ function CasteePlaying(props: {
   const { sent, hosted, onAround } = props;
   const isHeard = useReceiverHeard(sent, props.cast.snapshot);
   const target = useCasteeTarget({ worked: hosted ?? props.cast, cast: props.cast, sent, isHeard });
-  // What plays after the cast's film and before it, read once for ⏮, ⏭ and Up next (D477 §2).
-  const around = useAroundFile(sent.fileId, true);
-  useEffect(() => {
-    if (around !== undefined) {
-      onAround(around);
-    }
-  }, [around, onAround]);
+  const around = useAroundTold(sent.fileId, onAround);
   const moves = useRemoteMoves(sent, around);
   const title = useRemoteTitle(props.casts, sent);
   const isDisabled = !target.isReady;
   const isOver = useHasControlsOverThePicture();
+  const stageRef = useCasteeCommands(target);
   const reconnecting = isServerLostIn([props.cast, hosted])
     ? t("cast.serverLost")
     : t("cast.reaching", { name: sent.receiverName });
@@ -220,6 +247,7 @@ function CasteePlaying(props: {
         </div>
       </div>
       <CasteeStage
+        stageRef={stageRef}
         sent={sent}
         target={target}
         upNext={around?.upNext}
@@ -237,7 +265,9 @@ function CasteePlaying(props: {
           ) : null
         }
       />
-      {isOver ? null : <CasteeBar target={target} moves={moves} isDisabled={isDisabled} />}
+      {isOver ? null : (
+        <CasteeBar target={target} moves={moves} isDisabled={isDisabled} stageRef={stageRef} />
+      )}
     </PlayUpwardContext>
   );
 }
@@ -250,6 +280,8 @@ function CasteePlaying(props: {
  * stays, the page above it hidden, "On: ‹TV›" with when the film ends (where) over its top.
  */
 function CasteeStage(props: {
+  /** The stage itself, the castee's picture to the player's keys and commands (PlayerStage). */
+  readonly stageRef: RefObject<HTMLDivElement | null>;
   readonly sent: CastSending;
   readonly target: PlaybackTarget;
   readonly upNext: UpNext | undefined;
@@ -259,12 +291,11 @@ function CasteeStage(props: {
   /** The overlay over the stage, given what focus goes to as it hides; null where none is drawn. */
   readonly overlay: (pictureRef: RefObject<HTMLElement | null>) => ReactNode;
 }): JSX.Element {
-  const { sent, target } = props;
-  const stageRef = useRef<HTMLDivElement>(null);
+  const { sent, target, stageRef } = props;
   useEffect(() => {
     const stage = stageRef.current;
     return stage === null ? undefined : keepFillingWhileFullScreen(stage, document);
-  }, []);
+  }, [stageRef]);
   const isFullScreen = useIsFullScreen();
   return (
     <div ref={stageRef} className="film-player__stage castee-play__stage">
@@ -298,9 +329,6 @@ function CasteeWhere(props: {
     </p>
   );
 }
-
-/** The castee's overlay holds no video: its presses go to the castee (OverlayOver's target). */
-const noVideo: RefObject<HTMLVideoElement | null> = { current: null };
 
 /**
  * The video's overlay (OverlayOver) over the castee's key frame (D555 §8): its showing, hiding and
@@ -359,16 +387,25 @@ function CasteeOverlayRows(props: {
 /**
  * The Play page's bar under the film (page-controls.css) over the castee, held upright out of full
  * screen: the timeline, then ⏮ ⟲ ▶ ⟳ ⏭, the menus and the castee's volume, none taking a press
- * while it is not heard.
+ * while it is not heard. It is the player's own controls for the castee's stage (usePlayersControls),
+ * so Space, F and M are the player's on it as on the video's bar.
  */
 function CasteeBar(props: {
   readonly target: PlaybackTarget;
   readonly moves: SequenceMoves;
   readonly isDisabled: boolean;
+  readonly stageRef: RefObject<HTMLElement | null>;
 }): JSX.Element {
   const { target, isDisabled } = props;
+  const barRef = useRef<HTMLDivElement>(null);
+  usePlayersControls(barRef, props.stageRef);
   return (
-    <div className="page-controls castee-play__bar" data-focus-container="">
+    <div
+      ref={barRef}
+      className="page-controls castee-play__bar"
+      data-focus-container=""
+      data-player-controls=""
+    >
       <TargetTimeline target={target} isDisabled={isDisabled} hasArrowsAsCommands={false} />
       <PlayerControls
         source={target}

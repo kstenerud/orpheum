@@ -376,7 +376,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   under Up next or a skip at its top-right (`src/cast-remote-offer.tsx`), the Play page's bar under
   it upright and its overlay over it otherwise, `TargetMenus` over the castee
   (`src/cast-remote-choices.tsx`'s `RemoteMenus`). While the receiver is not heard it says *Reaching
-  ‹Device›…*, the controls and the menus taking no press (D548 §9;
+  ‹Device›…*, the controls, the menus and the keys taking no press (D548 §9;
   `src/cast-remote-heard.ts`'s `useReceiverHeard`), and ends nothing itself: the server ends a
   cast whose castee is silent (D555 §3); one heard with no place yet, held for its press (D468 §2),
   is not given up; and the Cast sender SDK's session loss counts only while the cast's session
@@ -386,7 +386,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   and the bar (`useRemoteSource`, `src/session-remote.tsx`), working the session the tab hosts while
   Watch Together is on too; Talk, Subtitles, Sound track and ⁝ over the receiver's, ⁝ with no
   bare player and no Start over, and How it plays read-only (`src/how-it-plays.tsx`, which the
-  player's own ⁝ shows of this device's playback too). Watch Together's dialog is the session's
+  player's own ⁝ shows of this device's playback too). The Play page's keys work the castee as its
+  buttons do, by the one handler the video's are (`useStageCommands`, its `PlayerStage` the castee's
+  with its stage as the picture, the overlay's too): Space plays or pauses, Left and Right step
+  10 s, + and − step the castee's level 10 % (D548 §6) and M mutes it where it says one, F puts its
+  stage full screen (`src/play-castee-keys.test.tsx`). Watch Together's dialog is the session's
   panel tuned to the role (the guest's Leave; the host's people, grants and End,
   `TogetherBehindTheRemote`), the voice the page's and so unbroken as the page turns to the remote;
   full screen stays with a film on the castee, its key frame filling the screen (D555 §9); with
@@ -920,7 +924,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   by a timer, never each frame, only while a pad is connected and someone listens: "Poll 15x per
   second and we'll see if people complain", the owner, 2026-11-07; a hold's repeats keep their times
   between polls, `src/input-pad-poll.test.ts`) and the browser's media
-  seeking into commands; pages hear commands, never keys, and single-letter shortcuts have none.
+  seeking into commands; pages hear commands, never keys, and single-letter shortcuts have none
+  but the player's own F and M, which it hears as it hears Space (`src/player-commands.ts`).
   Each device's driver tells a command's hold alike (`CommandHold`, the owner, 2026-11-04): started
   at its press, continued at each repeat, marked or not (Silk's are not, VQ122), a stick's and a
   D-pad's too, and released as its key or button goes up, its stick centres or turns, its pad goes or
@@ -951,7 +956,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   presses it, as OK does (D407 §5), the cast receiver's Space still playing with nothing focused, a 10 s seek by the seeking buttons, the
   browser's media controls and Left and Right while the video, nothing or the player's timeline has
   focus, + and − moving the volume 5 % wherever focus is but a text field, + turning a muted film's
-  sound on (D407 §10), and Back leaving full screen before the page; every control over and under the video is
+  sound on (D407 §10), M muting and unmuting and F putting the stage full screen or leaving it
+  where focus is the player's, its buttons too, neither with Ctrl, Alt or Cmd nor held, and Back leaving
+  full screen before the page; the same answers whatever the target, the video or a castee
+  (`PlayerStage`, D555 §8); every control over and under the video is
   reached by arrows. A seek is shown before it is made (`src/seek-ahead.ts`): each press of an
   arrow or seeking button moves the timeline's marker and time alone 10 s, a held one, a remote's
   key and a controller's stick alike, by the time held, faster each 2 s, and the film seeks once,
