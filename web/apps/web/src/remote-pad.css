@@ -53,7 +53,8 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4) var(--space-4);
+  /* The sides a step in: six buttons, a Watch Together session's, fit one line on a phone 390 wide. */
+  padding: var(--space-3) var(--space-2) var(--space-4);
 }
 
 /* A short screen: the pad closer set and its buttons smaller, so the page fits (D548 §5). */

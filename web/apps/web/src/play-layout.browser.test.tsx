@@ -260,6 +260,24 @@ describe("the film's choices, the menus' in every layout (the owner, 2026-11-26)
       menus.getBoundingClientRect().right - Number.parseFloat(getComputedStyle(menus).paddingRight);
     expect(Math.abs(last.getBoundingClientRect().right - end)).toBeLessThan(1.5);
   });
+
+  // The lead's walk, staging, 2026-11-26: hosting Watch Together on a phone 392 wide, the row's six
+  // buttons (🔈, Talk, Subtitles, Sound, ⚙, ⤢) wrapped, ⤢ alone on a second line under the screen's end.
+  it("has room in the pad's menus' row for a Watch Together session's six buttons in one line on a phone held upright", async () => {
+    heldByAFinger();
+    await playPageAt(390, 844);
+    await expect
+      .poll(() => document.querySelector(".page-controls .remote-pad__menus button"))
+      .not.toBeNull();
+    const menus = document.querySelector<HTMLElement>(".page-controls .remote-pad__menus")!;
+    const style = getComputedStyle(menus);
+    const room =
+      menus.clientWidth -
+      Number.parseFloat(style.paddingLeft) -
+      Number.parseFloat(style.paddingRight);
+    const button = menus.querySelector<HTMLElement>("button")!.getBoundingClientRect().width;
+    expect(room).toBeGreaterThanOrEqual(6 * button + 5 * Number.parseFloat(style.columnGap));
+  });
 });
 
 /** How many signs named name the page shows, wherever they are: the top bar's and the overlay's alike. */
