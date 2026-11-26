@@ -33,14 +33,18 @@ It flows on smaller devices.
 
 In this order:
 
-1. **Previous episode** (the "|<" glyph), greyed out on a series' first episode.
+1. **Previous** (the "|<" glyph): goes to the previous video's information page; it plays nothing.
+   Greyed out on a series' first episode.
 2. **Play** (the right-facing triangle).
-3. **Next episode** (the ">|" glyph), greyed out on a series' last episode, its extras not counted.
+3. **Next** (the ">|" glyph): goes to the next video's information page; it plays nothing. Greyed
+   out on a series' last episode, its extras not counted.
 4. **More** (the "…" button), which holds Mark as watched.
 
-## Open, for the owner when the batch is scheduled
+The owner's answers, 2026-11-26:
 
-- A film has no previous or next episode: whether the two buttons are absent or greyed out there.
-- Whether Previous and Next cross a season's end (the lead's reading of "greyed out if we are on
-  the first episode of the first season": they do).
-- What else the "…" button holds beside Mark as watched (today's other actions on the page).
+- **A film has neither Previous nor Next:** absent, not greyed out.
+- **Previous and Next cross a season's end,** the whole series through, as they do on the Play
+  page. They will extend to a set of videos once sets exist.
+- **Today's "Next episode" button goes.** It plays the episode after the one shown, at once, which
+  the owner calls weird; Previous and Next replace it. The page's actions are then Play, Previous,
+  Next and, under "…", Mark as watched.
