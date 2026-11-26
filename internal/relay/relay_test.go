@@ -451,6 +451,15 @@ func TestRelay_DropsWhatIsBeyondTheHouseholdsRate(t *testing.T) {
 	}
 }
 
+// awaitRefusal waits for the line of an allocation refused past limit, asked for by role.
+func (stage *stage) awaitRefusal(t *testing.T, limit, role string) {
+	t.Helper()
+	refused := stage.awaitLine(t, "relayAllocationRefused")
+	if refused["limit"] != limit || refused["role"] != role || refused["household"] == "" {
+		t.Errorf("the refusal's line is %v; want the limit %s, the role %s and its household", refused, limit, role)
+	}
+}
+
 func TestRelay_RefusesPastEachLimit(t *testing.T) {
 	t.Parallel()
 	t.Run("eight a client credential", func(t *testing.T) {
@@ -466,6 +475,7 @@ func TestRelay_RefusesPastEachLimit(t *testing.T) {
 		if _, err := stage.allocate(t, "udp", username, password); err == nil {
 			t.Error("a client credential's ninth allocation was made")
 		}
+		stage.awaitRefusal(t, "clientCredential", "client")
 	})
 	t.Run("sixteen a household", func(t *testing.T) {
 		t.Parallel()
@@ -477,6 +487,7 @@ func TestRelay_RefusesPastEachLimit(t *testing.T) {
 		if _, err := stage.allocate(t, "udp", username, password); err == nil {
 			t.Error("a household's seventeenth allocation was made")
 		}
+		stage.awaitRefusal(t, "household", "client")
 	})
 	t.Run("fifty a source address", func(t *testing.T) {
 		t.Parallel()
@@ -488,6 +499,7 @@ func TestRelay_RefusesPastEachLimit(t *testing.T) {
 		if _, err := stage.allocate(t, "udp", username, password); err == nil {
 			t.Error("a source address's fifty-first allocation was made")
 		}
+		stage.awaitRefusal(t, "sourceAddress", "core")
 	})
 }
 

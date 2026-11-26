@@ -133,21 +133,40 @@ func (ledger *ledger) holds(source net.Addr, username string) bool {
 }
 
 // mayAllocate refuses an allocation past a limit: a client credential's, a household's or a
-// source address's.
+// source address's. Each refusal is a line naming the limit: a browser refused its allocations
+// offered no candidate and said only that it could not connect (staging, 2026-11-26).
 func (ledger *ledger) mayAllocate(username, _ string, source net.Addr) bool {
 	credential, err := relaycred.Parse(username)
 	if err != nil {
 		return false
 	}
 	ledger.mutex.Lock()
-	defer ledger.mutex.Unlock()
-	if credential.Role == relaycred.RoleClient && ledger.perCredential[username] >= allocationsPerClientCredential {
-		return false
+	limit := ledger.limitReached(credential, username, source)
+	ledger.mutex.Unlock()
+	if limit == "" {
+		return true
 	}
-	if held := ledger.households[credential.Household]; held != nil && held.live >= allocationsPerHousehold {
-		return false
+	ledger.parts.Logger.WarnContext(ledger.ctx, "refused an allocation past a limit",
+		slog.String(slogx.EventKey, "relayAllocationRefused"), slog.String("limit", limit),
+		slog.String("household", credential.Household), slog.String("role", string(credential.Role)),
+		slog.String("source", shortened(source)))
+	return false
+}
+
+// limitReached names the limit an allocation on credential from source would pass, "" for none;
+// the ledger's mutex is held.
+func (ledger *ledger) limitReached(credential relaycred.Credential, username string, source net.Addr) string {
+	switch {
+	case credential.Role == relaycred.RoleClient && ledger.perCredential[username] >= allocationsPerClientCredential:
+		return "clientCredential"
+	case ledger.households[credential.Household] != nil &&
+		ledger.households[credential.Household].live >= allocationsPerHousehold:
+		return "household"
+	case ledger.perSource[sourceIP(source)] >= allocationsPerSource:
+		return "sourceAddress"
+	default:
+		return ""
 	}
-	return ledger.perSource[sourceIP(source)] < allocationsPerSource
 }
 
 // events keeps the ledger's allocations from pion's.

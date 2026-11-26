@@ -8,7 +8,7 @@
   credential, `discovery/relaycred`), §2 (the relay, `internal/relay` and `orpheum relay
   --config <file>`) and §3 (orpheum-connect's `internal/hostedrelay`) have code, and §4 runs on the
   edge VPS as `relay.orpheum.cc`, for staging's realm alone; production's discovery does not name
-  it yet. §5 has none. What the staging walk found is under Proof.
+  it yet. §5's items 1 to 3 have code. What the staging walk found is at the end.
 - **Depends on:** D558; the design is
   [the research's §4](../research/official-relay-2026-11-26.md#4-the-proposed-design), and this
   file is what is being built of it.
@@ -96,8 +96,19 @@ staging core go; staging's and production's probe forwards stay.
 
 ## 5. Counting why connections fail (the research's phase 0)
 
-What a core records of each connection's path, and of each that never formed, for D558 §13. After
-parts 1 to 4 work on staging.
+What is recorded of each connection's path, and of each that never formed, for D558 §13, so that
+the log says whether a device took the relay needlessly (the owner, 2026-11-26):
+
+1. **The core**, on each connection's `clientConnected` line: `offered`, the client's candidates
+   counted by type, and for a relayed one `relayedWhy` and `directPairs`, how each pair without a
+   relay stood as it connected. `noDirectPair` and `directFailed` say the relay was needed;
+   `directUnfinished` that the relay answered first; `directSucceeded` that it was not needed.
+2. **The relay**, a `relayAllocationRefused` line for each allocation past a limit, naming it.
+3. **The web client**, in its problem report: the kinds of candidates it gathered and offered and
+   the errors of its gathering; and an offer with nothing past the device is gathered once more
+   before it is sent.
+4. Not yet: a connection that moves from the relay to a direct pair after it connected, or back,
+   says nothing; and the System page counts `relayed` as one figure, not by reason.
 
 ## Proof
 
@@ -123,4 +134,4 @@ parts 1 to 4 work on staging.
 3. **A core has no relay credential for up to five minutes after the discovery restarts**: it
    takes one with its heartbeat alone. Open.
 4. **The relay says nothing of an allocation it refuses.** A line for each refusal, with which
-   limit, would have named finding 1 at once. Open; part of §5's counting.
+   limit, would have named finding 1 at once. It now does (§5 item 2).

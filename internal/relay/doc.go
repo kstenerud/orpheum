@@ -24,7 +24,7 @@
 //     injected clock; what it cannot pass is dropped (D558 §1). Enforced by
 //     TestRelay_DropsWhatIsBeyondTheHouseholdsRate.
 //   - Past 8 allocations a client credential, 16 a household or 50 a source address, an allocation
-//     is refused. Enforced by TestRelay_RefusesPastEachLimit.
+//     is refused, with a line naming the limit. Enforced by TestRelay_RefusesPastEachLimit.
 //   - Each ended allocation is one line: its household, role, transport, source shortened to its
 //     /24 or /48, seconds, bytes each way and its highest ten-second rate toward its client, and no
 //     full address and nothing relayed; each household's day is one line at UTC midnight with the
