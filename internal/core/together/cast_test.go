@@ -647,6 +647,49 @@ func TestHub_LeavingASessionMovesTheGuestsCastToPlayAlone(t *testing.T) {
 	}
 }
 
+// A signed-in guest starting a session of their own leaves the one they joined (D372 §8), and takes
+// their cast out with them to play on alone as leaving it by Leave does (D555 §7): told moved once the
+// hub's lock is let go, a part in no session, and theirs still.
+func TestHub_StartingASessionMovesTheCastOfTheOneTheGuestLeavesToPlayAlone(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	var moved []EndedCast
+	stage.hub.OnCastMoved(func(each EndedCast) {
+		if _, err := stage.hub.Mine(stage.owner.UserID); err != nil { // the lock is let go, or this waits
+			t.Error(err)
+		}
+		moved = append(moved, each)
+	})
+	friend := Person{UserID: 2, Name: "friend"}
+	made, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "a friend", Rights{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined, err := stage.hub.Join(made.Secret, "friend", &friend, Leaving{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cast, err := stage.hub.OpenCast(friend, joined.MembershipCredential)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sessionID, _ := stage.hub.CastPart(cast.CastID, friend.UserID); sessionID != stage.opened.SessionID {
+		t.Fatalf("the friend's cast is a part in session %d; want %d", sessionID, stage.opened.SessionID)
+	}
+	if _, err = stage.hub.Open(friend); err != nil {
+		t.Fatal(err)
+	}
+	if want := []EndedCast{{CastID: cast.CastID, UserID: friend.UserID}}; !reflect.DeepEqual(moved, want) {
+		t.Errorf("the casts told moved = %v; want %v", moved, want)
+	}
+	if sessionID, _ := stage.hub.CastPart(cast.CastID, friend.UserID); sessionID != 0 {
+		t.Errorf("the friend's cast is a part in session %d; want none, alone", sessionID)
+	}
+	if _, err = stage.hub.CastCredential(cast.CastID, friend.UserID); err != nil {
+		t.Errorf("the friend's cast has no credential: %v; want it going on", err)
+	}
+}
+
 // A cast says what state it is in (D555 §4): starting until its castee says, then waiting for its OK
 // (D468 §2) and running as the castee says, kept with the cast for its caster coming back and shown
 // to its remote in the roster; a state no castee says, or one said by a device of no cast, is refused.

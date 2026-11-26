@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/live"
 	"github.com/kstenerud/orpheum/internal/core/together"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // liveSocket is one page's live connection, in a test.
@@ -714,5 +715,30 @@ func TestLiveSocket_AMessageOfAnUnknownTypeIsLoggedAndTheConnectionGoesOn(t *tes
 		t.Fatal(err)
 	}
 	harness.logs.AwaitEvent(t, "liveUnknownType", `"level":"DEBUG"`, `"userId":1`, `"type":"fromTheFuture"`)
+	socket.awaitConnected()
+}
+
+// A together message, the server's own word that a Watch Together part changed, sent back by a page
+// is ignored as the server's other types are, not logged as a type the server does not know.
+func TestLiveSocket_APagesTogetherMessageIsIgnoredNotLoggedAsUnknown(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	token := harness.createAdminAndSignIn(t)
+	socket := harness.dialLive(t, token)
+	socket.awaitConnected()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	// The unknown type after it marks that the socket has read the together message: it reads in order.
+	for _, kind := range []live.MessageType{live.MessageTogether, "fromTheFuture"} {
+		if err := wsjson.Write(ctx, socket.connection, live.Inbound{Type: kind}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	harness.logs.AwaitEvent(t, "liveUnknownType", `"type":"fromTheFuture"`)
+	for _, line := range testutil.LinesWith(harness.logs.String(), "liveUnknownType") {
+		if strings.Contains(line, `"type":"together"`) {
+			t.Errorf("a page's together message was logged as unknown: %s", line)
+		}
+	}
 	socket.awaitConnected()
 }
