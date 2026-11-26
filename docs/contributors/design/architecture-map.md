@@ -122,6 +122,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/node/systemvideo` | R3 | — (makes the server's own videos into the node's system folder, D435 §4) |
 | `internal/node/watch` | R2 (change detection, D27) | — (notices what changed under each root for the core to scan, D272 §9) |
 | `internal/nodeproto` | R8 | — |
+| `internal/relay` | R1 (the hosted TURN relay, `orpheum relay`: closed to a household's own core and clients, at its rate, its records, D558) | — (shares the listeners and the bucket with the core's voice relay through internal/platform, never importing internal/core) |
 | `discovery/discoveryproto` | R1 (the wire between a core and its discovery, D273) | — (public: the closed service imports it, D275 §1) |
 | `discovery/link` | R1 (a core's link as a client reads it, `<coreId>.<secret>.<fingerprint>`, and its locate hash, the protocol's §3.1) | — (public: the closed service and the client read links one way, D275 §1) |
 | `discovery/proof` | R1 (what a core's signatures cover, to its discovery and over a WebRTC answer, their checks, and the identity key's fingerprint, D273) | — (public: the closed service imports it, D275 §1) |
