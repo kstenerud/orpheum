@@ -232,6 +232,14 @@ device lab reported until it went, D555 §12) and a WebRTC call of a page with i
   address; `isSecureUnfinished` reads one whose ICE got through and whose secure connection (DTLS)
   never completed, which a page says as that, not as a network with no way to the core (the
   owner's Firefox 158, 2026-11-07; D441). `src/rtc-connect.test.ts`.
+- **A WebRTC offer says what it gathered, and one with nothing past this device is gathered once
+  more** (`gatheringText`, `isPastThisDevice`): its "offer sent" step names its candidates by kind
+  and family ("1 host (mDNS), 1 srflx IPv4") and the errors gathering met by scheme and code
+  ("turn 486"), never an address, a name or a credential; an offer holding no server-reflexive,
+  relayed or literal-address host candidate is made again on a new connection, within what is left
+  of `connectTimeoutMs`, and the second sent as it is, never a third (the owner's phone on a bus's
+  Wi-Fi offered only mDNS host candidates, which the core drops, 2026-11-26).
+  `src/rtc-connect.test.ts`.
 - **A WebRTC transport connects again within a bound once the network is back, in every browser**:
   a connection is gone when its connection's or its ICE's state is `failed` or `closed`, its
   signalling `closed`, or either state `disconnected` for `disconnectedGraceMs`, judged at each of

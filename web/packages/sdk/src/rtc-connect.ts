@@ -328,17 +328,19 @@ export function offerWith<Channel>(peer: OfferingPeer<Channel>): Channel {
   return channel;
 }
 
-/** One peer connection, connected through signaller; given up, its peer closed, once signal aborts. */
-async function connectOne(
-  signaller: Signaller,
-  rtcConfig: RTCConfiguration,
-  signal: AbortSignal,
-): Promise<PeerLike> {
+/** A peer connection with its offer made and its candidates gathered, and what it holds to connect. */
+interface Offered {
+  readonly peer: RTCPeerConnection;
+  readonly verdict: Promise<void>;
+  readonly iceAt: () => number | undefined;
+  readonly channelAt: () => number | undefined;
+  readonly sdp: string;
+  readonly errors: readonly string[];
+}
+
+/** A new peer connection on rtcConfig, its offer made, gathered for at most waitMostMs. */
+async function offerGathered(rtcConfig: RTCConfiguration, waitMostMs: number): Promise<Offered> {
   const peer = new RTCPeerConnection(rtcConfig);
-  const giveUp = (): void => {
-    peer.close();
-  };
-  signal.addEventListener("abort", giveUp, { once: true });
   try {
     let channelAt: number | undefined;
     const verdict = verdictOf(channelOf(offerWith(peer)), () => {
@@ -346,16 +348,54 @@ async function connectOne(
     });
     verdict.catch(() => undefined);
     const iceAt = whenIceThrough(peer);
-    const startedAt = performance.now();
+    const errors = gatheringErrorsOf(peer);
     await peer.setLocalDescription(await peer.createOffer());
-    await gathered(peer, hasRelayServer(rtcConfig));
-    const gatheredAt = performance.now();
+    await gathered(peer, hasRelayServer(rtcConfig), waitMostMs);
     const local = peer.localDescription;
     if (local === null) {
       throw new Error("the connection made no offer");
     }
-    noteStep("WebRTC: offer sent");
-    const answer = await signaller({ type: "offer", sdp: local.sdp }, signal);
+    return { peer, verdict, iceAt, channelAt: () => channelAt, sdp: local.sdp, errors: errors() };
+  } catch (error: unknown) {
+    peer.close();
+    throw error;
+  }
+}
+
+/**
+ * One peer connection, connected through signaller; given up, its peer closed, once signal aborts.
+ * An offer whose gathering found nothing past this device is made once more, on a new peer
+ * connection, within what is left of connectTimeoutMs, and the second sent whatever it holds: a phone
+ * on a bus's Wi-Fi offered only its mDNS host candidates, which the core drops, and could not connect
+ * (the owner's Firefox on Android, 2026-11-26).
+ */
+async function connectOne(
+  signaller: Signaller,
+  rtcConfig: RTCConfiguration,
+  signal: AbortSignal,
+): Promise<PeerLike> {
+  let peer: RTCPeerConnection | undefined;
+  const giveUp = (): void => {
+    peer?.close();
+  };
+  signal.addEventListener("abort", giveUp, { once: true });
+  try {
+    const startedAt = performance.now();
+    let offered = await offerGathered(rtcConfig, connectTimeoutMs);
+    peer = offered.peer;
+    const leftMs = connectTimeoutMs - (performance.now() - startedAt);
+    if (!isPastThisDevice(offered.sdp) && !signal.aborted && leftMs > 0) {
+      const errors = offered.errors.length === 0 ? "" : ` (${errorsText(offered.errors)})`;
+      noteStep(`WebRTC: gathered nothing past this device${errors}; gathering again`);
+      peer.close();
+      peer = undefined;
+      offered = await offerGathered(rtcConfig, leftMs);
+      peer = offered.peer;
+    }
+    const { verdict, iceAt, channelAt, sdp } = offered;
+    const gatheredAt = performance.now();
+    noteStep(`WebRTC: offer sent with ${gatheringText(sdp, offered.errors)}`);
+    const answer = await signaller({ type: "offer", sdp }, signal);
     const answeredAt = performance.now();
     noteStep("WebRTC: the core answered");
     await peer.setRemoteDescription(answer);
@@ -369,7 +409,13 @@ async function connectOne(
       gathering: gatheredAt - startedAt,
       answer: answeredAt - gatheredAt,
       connecting: heldAt - answeredAt,
-      steps: connectingStepsOf({ answeredAt, iceAt: iceAt(), connectedAt, channelAt, heldAt }),
+      steps: connectingStepsOf({
+        answeredAt,
+        iceAt: iceAt(),
+        connectedAt,
+        channelAt: channelAt(),
+        heldAt,
+      }),
     });
     if (slow !== undefined) {
       reportFailure(new Error(slow));
@@ -377,11 +423,96 @@ async function connectOne(
     return peerOf(peer);
   } catch (error: unknown) {
     noteStep(`WebRTC: failed: ${error instanceof Error ? error.message : String(error)}`);
-    peer.close();
+    peer?.close();
     throw error;
   } finally {
     signal.removeEventListener("abort", giveUp);
   }
+}
+
+/** One candidate an offer holds, by its kinds alone: never its address. */
+interface CandidateKind {
+  readonly type: string;
+  /** "mDNS" for a name ending .local, which the core drops; "IPv4" or "IPv6" for an address. */
+  readonly family: "mDNS" | "IPv4" | "IPv6";
+}
+
+/** The kinds of each candidate an offer's SDP holds (its a=candidate lines). */
+function candidateKindsOf(sdp: string): CandidateKind[] {
+  const kinds: CandidateKind[] = [];
+  for (const line of sdp.split(/\r?\n/)) {
+    // a=candidate:<foundation> <component> <transport> <priority> <address> <port> typ <type> ...
+    const fields = /^a=candidate:\S+ \S+ \S+ \S+ (\S+) \S+ typ (\S+)/.exec(line.trim());
+    if (fields === null) {
+      continue;
+    }
+    const [, address = "", type = "unknown"] = fields;
+    kinds.push({ type, family: familyOf(address) });
+  }
+  return kinds;
+}
+
+/** The family of a candidate's address: an mDNS name (ending .local), IPv6 or IPv4. */
+function familyOf(address: string): CandidateKind["family"] {
+  if (/\.local\.?$/i.test(address)) {
+    return "mDNS";
+  }
+  return address.includes(":") ? "IPv6" : "IPv4";
+}
+
+/**
+ * Whether an offer's SDP holds a candidate the core can reach this device by: a server-reflexive or
+ * relayed one, or a host one with an address, not an mDNS name (the core drops those, rtcapi's
+ * checkRelayedOffer).
+ */
+export function isPastThisDevice(sdp: string): boolean {
+  return candidateKindsOf(sdp).some(({ type, family }) => type !== "host" || family !== "mDNS");
+}
+
+/**
+ * What an offer's SDP holds, by kind and family, never an address or a name, with the errors its
+ * gathering met: "2 host (mDNS), 1 srflx IPv4", or "2 host (mDNS), no candidate past this device;
+ * gathering errors: turn 486".
+ */
+export function gatheringText(sdp: string, errors: readonly string[] = []): string {
+  const counts = new Map<string, number>();
+  for (const { type, family } of candidateKindsOf(sdp)) {
+    const kind = family === "mDNS" ? `${type} (mDNS)` : `${type} ${family}`;
+    counts.set(kind, (counts.get(kind) ?? 0) + 1);
+  }
+  const held = Array.from(counts, ([kind, count]) => `${String(count)} ${kind}`);
+  if (!isPastThisDevice(sdp)) {
+    held.push("no candidate past this device");
+  }
+  const text = held.join(", ");
+  return errors.length === 0 ? text : `${text}; ${errorsText(errors)}`;
+}
+
+/** Gathering's errors in words: "gathering errors: turn 486, stun 701". */
+function errorsText(errors: readonly string[]): string {
+  return `gathering errors: ${errors.join(", ")}`;
+}
+
+/** What gatheringErrorsOf needs of a peer connection: the browser's, or a test's. */
+export interface ErringPeer {
+  addEventListener(
+    type: "icecandidateerror",
+    listener: (event: RTCPeerConnectionIceErrorEvent) => void,
+  ): void;
+}
+
+/**
+ * The errors peer's gathering meets, each told once as its server's scheme and its code ("turn 486",
+ * a TURN server's refusal; "stun 701", a STUN server not reached), never the server's address or its
+ * credentials, nor this device's address: why a kind of candidate is missing.
+ */
+export function gatheringErrorsOf(peer: ErringPeer): () => readonly string[] {
+  const errors = new Set<string>();
+  peer.addEventListener("icecandidateerror", (event) => {
+    const scheme = /^(stuns?|turns?):/i.exec(event.url)?.[1]?.toLowerCase() ?? "unknown";
+    errors.add(`${scheme} ${String(event.errorCode)}`);
+  });
+  return () => Array.from(errors);
 }
 
 /** What whenIceThrough needs of a peer connection: the browser's, or a test's. */
@@ -440,16 +571,20 @@ export interface GatheringPeer {
 /**
  * Resolves once peer has gathered its candidates; gatherAfterReflexiveMs after its first
  * server-reflexive or relayed one, but with a TURN server (willRelay) gatherForRelayMs after its
- * first server-reflexive one unless a relayed one comes first; or after connectTimeoutMs with those it
- * has: whichever is first.
+ * first server-reflexive one unless a relayed one comes first; or after waitMostMs (connectTimeoutMs
+ * where not given) with those it has: whichever is first.
  */
-export function gathered(peer: GatheringPeer, willRelay = false): Promise<void> {
+export function gathered(
+  peer: GatheringPeer,
+  willRelay = false,
+  waitMostMs: number = connectTimeoutMs,
+): Promise<void> {
   return new Promise((resolve) => {
     if (peer.iceGatheringState === "complete") {
       resolve();
       return;
     }
-    const timers = [setTimeout(done, connectTimeoutMs)];
+    const timers = [setTimeout(done, waitMostMs)];
     function done(): void {
       timers.forEach(clearTimeout);
       resolve();

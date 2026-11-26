@@ -10,8 +10,11 @@ import {
   gatherAfterReflexiveMs,
   gatherForRelayMs,
   gathered,
+  gatheringErrorsOf,
+  gatheringText,
   growthOn,
   hasRelayServer,
+  isPastThisDevice,
   isSecureUnfinished,
   isTurnedAway,
   offerWith,
@@ -416,7 +419,7 @@ describe("offerWith", () => {
  */
 class RefusingPeer {
   readonly iceGatheringState = "complete";
-  readonly localDescription = { type: "offer", sdp: "v=0" };
+  readonly localDescription = { type: "offer", sdp: sdpWith(reflexiveV4) };
   isClosed = false;
   createDataChannel(): EventTarget & { readyState: string } {
     return Object.assign(new EventTarget(), { readyState: "connecting" });
@@ -453,10 +456,223 @@ describe("the steps of a WebRTC connection", () => {
       connectRtc(() => Promise.resolve({ type: "answer", sdp: "v=0" }), {}, { count: 1 }),
     ).rejects.toThrow("the answer does not fit the offer");
     expect(stepsSoFar().map((step) => step.replace(/^\d+ ms /, ""))).toEqual([
-      "WebRTC: offer sent",
+      "WebRTC: offer sent with 1 srflx IPv4",
       "WebRTC: the core answered",
       "WebRTC: failed: the answer does not fit the offer",
     ]);
+  });
+});
+
+/** Candidate lines of each kind, at documentation addresses and an mDNS name. */
+const hostMdns =
+  "a=candidate:1 1 UDP 2122252543 1f3c9a2e-0b7d-4c55-9e0a-5d1b2c3d4e5f.local 50000 typ host";
+const hostV4 = "a=candidate:2 1 UDP 2122187007 192.0.2.10 50001 typ host";
+const reflexiveV4 =
+  "a=candidate:3 1 UDP 1685921791 203.0.113.7 40000 typ srflx raddr 0.0.0.0 rport 0";
+const relayedV6 =
+  "a=candidate:4 1 UDP 92216831 2001:db8::7 3478 typ relay raddr 2001:db8::1 rport 50002";
+
+/** An offer's SDP holding candidates. */
+function sdpWith(...candidates: string[]): string {
+  return ["v=0", "m=application 9 UDP/DTLS/SCTP webrtc-datachannel", ...candidates, ""].join(
+    "\r\n",
+  );
+}
+
+describe("what an offer gathered (the owner's phone on a bus's Wi-Fi, 2026-11-26)", () => {
+  it("is told by kind and family, never an address or a name", () => {
+    const text = gatheringText(sdpWith(hostMdns, hostMdns, hostV4, reflexiveV4, relayedV6));
+    expect(text).toBe("2 host (mDNS), 1 host IPv4, 1 srflx IPv4, 1 relay IPv6");
+    expect(text).not.toMatch(/192\.0\.2|203\.0\.113|2001:db8|\.local/);
+  });
+
+  it("says so when nothing in it reaches past this device, with the errors gathering met", () => {
+    expect(isPastThisDevice(sdpWith(hostMdns, hostMdns))).toBe(false);
+    expect(isPastThisDevice(sdpWith(hostV4))).toBe(true);
+    expect(isPastThisDevice(sdpWith(reflexiveV4))).toBe(true);
+    expect(gatheringText(sdpWith(hostMdns), ["turn 486"])).toBe(
+      "1 host (mDNS), no candidate past this device; gathering errors: turn 486",
+    );
+    expect(gatheringText("v=0")).toBe("no candidate past this device");
+  });
+
+  it("tells each gathering error once, as its server's scheme and code, never its address", () => {
+    const listeners: ((event: RTCPeerConnectionIceErrorEvent) => void)[] = [];
+    const errors = gatheringErrorsOf({
+      addEventListener: (_, listener) => {
+        listeners.push(listener);
+      },
+    });
+    const fail = (url: string, errorCode: number): void => {
+      const event = { url, errorCode, address: "192.0.2.10", errorText: "x" };
+      listeners.forEach((listener) => {
+        listener(event as unknown as RTCPeerConnectionIceErrorEvent);
+      });
+    };
+    fail("turn:relay.example.com:3478?transport=udp", 486);
+    fail("turn:relay.example.com:3478?transport=udp", 486);
+    fail("STUN:stun.example.com:3478", 701);
+    fail("turns:relay.example.com:5349", 701);
+    expect(errors()).toEqual(["turn 486", "stun 701", "turns 701"]);
+  });
+});
+
+/**
+ * A browser's peer connection whose offer holds what the test queued for it (peerOffers), gathered
+ * at once or after gatherMs (never, for Infinity), its gathering errors told as it gathers, and
+ * which takes no answer, as RefusingPeer.
+ */
+interface PeerOffer {
+  readonly sdp: string;
+  readonly gatherMs?: number;
+  readonly errors?: readonly { url: string; errorCode: number }[];
+}
+const peerOffers: PeerOffer[] = [];
+const madePeers: GatheringOncePeer[] = [];
+
+class GatheringOncePeer {
+  iceGatheringState: RTCIceGatheringState = "gathering";
+  readonly localDescription: { type: string; sdp: string };
+  isClosed = false;
+  readonly #offer: PeerOffer;
+  readonly #listeners = new Map<string, ((event: unknown) => void)[]>();
+  constructor() {
+    this.#offer = peerOffers.shift() ?? { sdp: "v=0" };
+    this.localDescription = { type: "offer", sdp: this.#offer.sdp };
+    madePeers.push(this);
+  }
+  createDataChannel(): EventTarget & { readyState: string } {
+    return Object.assign(new EventTarget(), { readyState: "connecting" });
+  }
+  addTransceiver(): void {
+    // The video m-line is offered; nothing comes of it here.
+  }
+  addEventListener(type: string, listener: (event: unknown) => void): void {
+    this.#listeners.set(type, [...(this.#listeners.get(type) ?? []), listener]);
+  }
+  createOffer(): Promise<{ type: string; sdp: string }> {
+    return Promise.resolve(this.localDescription);
+  }
+  setLocalDescription(): Promise<void> {
+    for (const error of this.#offer.errors ?? []) {
+      this.#tell("icecandidateerror", error);
+    }
+    const { gatherMs = 0 } = this.#offer;
+    if (gatherMs === 0) {
+      this.iceGatheringState = "complete";
+    } else if (gatherMs !== Infinity) {
+      setTimeout(() => {
+        this.iceGatheringState = "complete";
+        this.#tell("icegatheringstatechange", undefined);
+      }, gatherMs);
+    }
+    return Promise.resolve();
+  }
+  setRemoteDescription(): Promise<void> {
+    return Promise.reject(new Error("the answer does not fit the offer"));
+  }
+  close(): void {
+    this.isClosed = true;
+  }
+  #tell(type: string, event: unknown): void {
+    (this.#listeners.get(type) ?? []).forEach((listener) => {
+      listener(event);
+    });
+  }
+}
+
+describe("an offer that gathered nothing past this device (the owner's phone, 2026-11-26)", () => {
+  afterEach(() => {
+    forgetSteps();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    peerOffers.length = 0;
+    madePeers.length = 0;
+  });
+
+  /**
+   * Connects once through a signaller that records each offer's SDP, and when it was sent (onSent);
+   * returns them and the steps.
+   */
+  async function connectRecording(
+    onSent: () => void = () => undefined,
+  ): Promise<{ sent: string[]; steps: string[] }> {
+    vi.stubGlobal("RTCPeerConnection", GatheringOncePeer);
+    const sent: string[] = [];
+    await expect(
+      connectRtc(
+        (offer) => {
+          sent.push(offer.sdp);
+          onSent();
+          return Promise.resolve({ type: "answer", sdp: "v=0" });
+        },
+        {},
+        { count: 1 },
+      ),
+    ).rejects.toThrow("the answer does not fit the offer");
+    return { sent, steps: stepsSoFar().map((step) => step.replace(/^\d+ ms /, "")) };
+  }
+
+  it("is gathered once more on a new connection, and the second offer sent", async () => {
+    peerOffers.push(
+      { sdp: sdpWith(hostMdns), errors: [{ url: "turn:relay.example.com:3478", errorCode: 486 }] },
+      { sdp: sdpWith(hostMdns, relayedV6) },
+    );
+    const { sent, steps } = await connectRecording();
+    expect(sent).toEqual([sdpWith(hostMdns, relayedV6)]);
+    expect(madePeers).toHaveLength(2);
+    expect(madePeers[0]?.isClosed).toBe(true);
+    expect(steps.slice(0, 2)).toEqual([
+      "WebRTC: gathered nothing past this device (gathering errors: turn 486); gathering again",
+      "WebRTC: offer sent with 1 host (mDNS), 1 relay IPv6",
+    ]);
+  });
+
+  it("is sent as it is the second time, never gathered a third", async () => {
+    peerOffers.push({ sdp: sdpWith(hostMdns) }, { sdp: sdpWith(hostMdns) }, { sdp: sdpWith() });
+    const { sent, steps } = await connectRecording();
+    expect(sent).toEqual([sdpWith(hostMdns)]);
+    expect(madePeers).toHaveLength(2);
+    expect(steps.slice(0, 2)).toEqual([
+      "WebRTC: gathered nothing past this device; gathering again",
+      "WebRTC: offer sent with 1 host (mDNS), no candidate past this device",
+    ]);
+  });
+
+  it("is not gathered again when the first offer reaches past this device", async () => {
+    peerOffers.push({ sdp: sdpWith(hostMdns, hostV4) }, { sdp: sdpWith(reflexiveV4) });
+    const { sent, steps } = await connectRecording();
+    expect(sent).toEqual([sdpWith(hostMdns, hostV4)]);
+    expect(madePeers).toHaveLength(1);
+    expect(steps[0]).toBe("WebRTC: offer sent with 1 host (mDNS), 1 host IPv4");
+  });
+
+  it("is gathered again only within what is left of connectTimeoutMs", async () => {
+    vi.useFakeTimers();
+    const startedAt = performance.now();
+    let sentAt: number | undefined;
+    const recordSent = (): void => {
+      sentAt = performance.now() - startedAt;
+    };
+    peerOffers.push(
+      { sdp: sdpWith(hostMdns), gatherMs: 4_000 },
+      { sdp: sdpWith(), gatherMs: Infinity },
+    );
+    const capped = connectRecording(recordSent);
+    await vi.advanceTimersByTimeAsync(connectTimeoutMs - 1);
+    expect(sentAt).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(1);
+    await capped;
+    expect(sentAt).toBe(connectTimeoutMs);
+    expect(madePeers).toHaveLength(2);
+    forgetSteps();
+    madePeers.length = 0;
+    peerOffers.push({ sdp: sdpWith(hostMdns), gatherMs: Infinity }, { sdp: sdpWith(reflexiveV4) });
+    const spent = connectRecording();
+    await vi.advanceTimersByTimeAsync(connectTimeoutMs);
+    const { steps } = await spent;
+    expect(madePeers).toHaveLength(1);
+    expect(steps[0]).toBe("WebRTC: offer sent with 1 host (mDNS), no candidate past this device");
   });
 });
 

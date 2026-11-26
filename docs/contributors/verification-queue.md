@@ -4240,3 +4240,11 @@ An item is ticked only by the person who did it, and only with what they saw.
      household: its transport, its seconds and its bytes.
   3. Repeat on a network known to block UDP, where one is at hand (an office's or a hotel's
      Wi-Fi). Report whether it plays; the relay's line should say `tls`.
+- [ ] **VQ409** — A phone on a network whose first gathering finds nothing past the device gathers
+  once more, and its problem report says what it gathered: only such a network shows it (a bus's
+  Wi-Fi over several mobile uplinks, the owner's Firefox on Android, 2026-11-26).
+  1. On a bus's or a train's Wi-Fi, open Orpheum and use it as usual.
+  2. When "Orpheum could not reach its server" shows, copy the report. Report its Steps: the
+     line `WebRTC: offer sent with …` names what the phone gathered, and a line `gathered nothing
+     past this device; gathering again` says the second try was made.
+  3. Tell the lead the time of day. The lead reads the server's log for that connection.
