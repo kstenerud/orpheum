@@ -18,6 +18,7 @@ import {
   useCastSession,
   useAddressFollowsTheCast,
   useEpisodesMovedTo,
+  useFilmOn,
   useHeldCast,
   useHostedPanel,
   useLeavesAtTheCastsEnd,
@@ -26,6 +27,7 @@ import {
   useRemoteTitle,
   useWhereItStood,
   type CastEnd,
+  type CastOn,
   type PlaysHereFrom,
 } from "./castee-session.tsx";
 import { useCasteeTarget, type WorkedSession } from "./castee-target.ts";
@@ -93,16 +95,17 @@ function CasteePlayOf(props: {
   readonly onPlayHere: PlaysHereFrom;
 }): JSX.Element | null {
   const { t } = useTranslation();
-  const { sent, pageFileId } = props;
+  const { pageFileId } = props;
   // Casting is never full screen (the owner, 2026-11-26: "Never offer the fullscreen mode button when
   // casting"): a cast started from the film full screen leaves it, as Ready on always did (D440 §5).
   useLeavesFullScreen();
-  const { connection, snapshot, over, casts } = useCastSession(sent.castId);
+  const { connection, snapshot, over, casts } = useCastSession(props.sent.castId);
+  const episodes = useEpisodesMovedTo();
+  const sent = useFilmOn(props.sent, snapshot, episodes.of);
   const hosted = useHostedPanel();
   const stoodRef = useWhereItStood(hosted?.snapshot ?? snapshot);
   const playHere = usePlaysHere(sent, pageFileId, props.onPlayHere);
   useSwapsBackAtTheEnd(sent.castId, over, { stoodRef, isInASession: useIsInASession(), playHere });
-  const episodes = useEpisodesMovedTo();
   useLeavesAtTheCastsEnd(sent.fileId, pageFileId, episodes.of);
   useAddressFollowsTheCast(sent.fileId, pageFileId, episodes.of);
   if (over !== undefined) {
@@ -222,7 +225,7 @@ function useCasteeCommands(target: PlaybackTarget): RefObject<HTMLDivElement | n
  * controls for the castee's stage (usePlayersControls), so Space and M are the player's on it.
  */
 function CasteePlaying(props: {
-  readonly sent: CastSending;
+  readonly sent: CastOn;
   readonly cast: WorkedSession;
   readonly casts: Resource<readonly Cast[]>;
   readonly hosted: WorkedSession | undefined;

@@ -29,6 +29,7 @@ import {
   castingRemote,
   type RemoteShown,
   catReads,
+  catTitle,
   filmReads,
   receiverLeads,
 } from "./test-castee.tsx";
@@ -555,6 +556,30 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     await sockets.live.say({
       type: "sending",
       sending: { ...sending, fileId: 5, itemName: "Cat" },
+    });
+    await settleUntil(() => wayUp(mounted!.container) !== "Metropolis");
+    expect(wayUp(mounted!.container)).toBe("S1E2 Cat");
+  });
+
+  it("names the film a guest's session moved on to, its cast handed the one before, as its castee follows the session (the rework plan's next batch, item 2)", async () => {
+    // A guest's cast: the server hands it, and lists it, at the film it started on; its castee
+    // follows the session itself (cast-ready.tsx), the session's film moved on by another's Next.
+    const { sockets } = await casting(
+      {
+        "GET /files/4/up-next": [200, catNext],
+        "GET /files/5/up-next": [200, {}],
+        "GET /me/casts": [200, { casts: [cast] }],
+        "GET /items/3": [200, catTitle],
+        "GET /files/5/segments": [200, { segments: [] }],
+      },
+      [],
+      { welcome: { ...welcome, isHost: false } },
+    );
+    await settleUntil(() => wayUp(mounted!.container) === "Metropolis");
+    await sockets.session.say({
+      type: "group",
+      seq: 4,
+      group: { state: "playing", positionMs: 0, rate: 1, fileId: 5, event: "changedItem" },
     });
     await settleUntil(() => wayUp(mounted!.container) !== "Metropolis");
     expect(wayUp(mounted!.container)).toBe("S1E2 Cat");
