@@ -32152,7 +32152,7 @@ both ends ask the relay on every connection. It keeps D558's other clauses. Prod
 discovery names the relay only once this stands (the owner: "Let's wait until it's settled. I can
 test the relay when we're on good footing for it").
 
-**Status:** decided. §2 has code; §1 and §3 have none.
+**Status:** decided. §2 and §3 have code; §1 has none.
 
 1. **A device's connection first tries without a relay.** When it has not connected 3
    seconds after the core's answer, a second attempt that also asks the relays starts beside it,
@@ -32168,4 +32168,6 @@ test the relay when we're on good footing for it").
 3. **The relayed ports widen and the limits rise after them.** The owner widens Hetzner's firewall
    for the relay's UDP range to 49160–51159 (2,000 ports); the household's limit then goes from 16
    allocations to 64 and a client credential's from 8 to 16. Until the firewall is changed the
-   range and the limits stay.
+   range and the limits stay. The owner changed it the same day ("I've made the firewall change").
+   A source address's limit goes from 50 to 128 with them, a core's allocations all coming from its
+   one address (the lead's figure; the owner's to confirm).

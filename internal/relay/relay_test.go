@@ -462,22 +462,22 @@ func (stage *stage) awaitRefusal(t *testing.T, limit, role string) {
 
 func TestRelay_RefusesPastEachLimit(t *testing.T) {
 	t.Parallel()
-	t.Run("eight a client credential", func(t *testing.T) {
+	t.Run("sixteen a client credential", func(t *testing.T) {
 		t.Parallel()
 		stage := newStage(t)
 		username, password := stage.credential(t, relaycred.RoleClient, "household-1", 3000, 0)
-		// A browser with two interfaces, two connections and the relay's two URLs asks for eight.
-		for count := range 8 {
+		// A browser with two interfaces, four connections and the relay's two URLs asks for sixteen.
+		for count := range 16 {
 			if _, err := stage.allocate(t, "udp", username, password); err != nil {
 				t.Fatalf("allocation %d of a client credential: %v", count+1, err)
 			}
 		}
 		if _, err := stage.allocate(t, "udp", username, password); err == nil {
-			t.Error("a client credential's ninth allocation was made")
+			t.Error("a client credential's seventeenth allocation was made")
 		}
 		stage.awaitRefusal(t, "clientCredential", "client")
 	})
-	t.Run("sixteen a household", func(t *testing.T) {
+	t.Run("sixty-four a household", func(t *testing.T) {
 		t.Parallel()
 		stage := newStage(t)
 		for range allocationsPerHousehold {
@@ -485,19 +485,19 @@ func TestRelay_RefusesPastEachLimit(t *testing.T) {
 		}
 		username, password := stage.credential(t, relaycred.RoleClient, "household-1", 3000, 0)
 		if _, err := stage.allocate(t, "udp", username, password); err == nil {
-			t.Error("a household's seventeenth allocation was made")
+			t.Error("a household's sixty-fifth allocation was made")
 		}
 		stage.awaitRefusal(t, "household", "client")
 	})
-	t.Run("fifty a source address", func(t *testing.T) {
+	t.Run("a hundred and twenty-eight a source address", func(t *testing.T) {
 		t.Parallel()
 		stage := newStage(t)
 		for count := range allocationsPerSource {
-			stage.mustAllocate(t, "udp", relaycred.RoleCore, fmt.Sprintf("household-%02d", count), 3000)
+			stage.mustAllocate(t, "udp", relaycred.RoleCore, fmt.Sprintf("household-%03d", count), 3000)
 		}
 		username, password := stage.credential(t, relaycred.RoleCore, "household-xx", 3000, 0)
 		if _, err := stage.allocate(t, "udp", username, password); err == nil {
-			t.Error("a source address's fifty-first allocation was made")
+			t.Error("a source address's hundred and twenty-ninth allocation was made")
 		}
 		stage.awaitRefusal(t, "sourceAddress", "core")
 	})

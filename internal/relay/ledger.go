@@ -18,15 +18,16 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/tokenbucket"
 )
 
-// The limits on allocations, each a refusal (the plan's §2.4; the research's estimates). A client
-// credential's is what one browser asks for on it: Chrome allocates once for each of its interfaces
-// and each of the relay's URLs, on every connection, and the web client holds two connections at
-// once as it signs in, so a machine with two interfaces asks for eight. At two, the second
+// The limits on allocations, each a refusal (the plan's §2.4; D559 §3, the relayed ports being
+// 2,000). A client credential's is what one browser asks for on it: Chrome allocates once for each of
+// its interfaces and each of the relay's URLs, on every connection, and the web client holds up to
+// four connections, so a machine with two interfaces asks for sixteen. At two, the second
 // connection's allocations were all refused (486) and it offered no candidate (staging, 2026-11-26).
+// A source address's is above a household's: a core's allocations all come from its one address.
 const (
-	allocationsPerClientCredential = 8
-	allocationsPerHousehold        = 16
-	allocationsPerSource           = 50
+	allocationsPerClientCredential = 16
+	allocationsPerHousehold        = 64
+	allocationsPerSource           = 128
 )
 
 // Transports an allocation is made over, as its ended line names them.

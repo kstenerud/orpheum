@@ -62,11 +62,12 @@ served after, as the embedded relay's is.
      same household and the other role; anything else is dropped and counted.
 3. **The household's rate** (D558 §1): one token bucket per household at the credential's `kbps`,
    over every byte relayed toward its clients; what it cannot pass is dropped.
-4. **Limits**, each a refusal: 8 allocations a client credential, 16 a household, 50 a source
-   address. The figures are the research's estimates, but for the first, which was 2 and starved
-   the web client: Chrome allocates once for each interface and each of the relay's URLs on every
-   connection, and a sign-in holds two connections at once (staging, 2026-11-26; the owner's to
-   confirm).
+4. **Limits**, each a refusal: 16 allocations a client credential, 64 a household, 128 a source
+   address (D559 §3, the relayed ports being UDP 49160–51159). The first was 2 and starved the web
+   client: Chrome allocates once for each interface and each of the relay's URLs on every
+   connection, and a page holds up to four connections (staging, 2026-11-26). The third is the
+   lead's, above a household's because a core's allocations all come from its one address; the
+   owner's to confirm.
 5. **What it records** (D558 §11): for each allocation that ends, a line with its household, its
    role, its transport (udp, tcp, tls), its source address shortened (an IPv4 to its /24, an IPv6
    to its /48), its seconds, its bytes each way and the highest rate it reached toward its client
