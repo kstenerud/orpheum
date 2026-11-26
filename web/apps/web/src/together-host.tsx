@@ -12,6 +12,7 @@ import {
   type PlaybackSound,
   type TogetherConnection,
   type TogetherEndReason,
+  type TogetherSnapshot,
 } from "@orpheum/sdk";
 import { use, useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
@@ -19,7 +20,7 @@ import { useTranslation } from "react-i18next";
 import { OpenedAsContext } from "./around-file.ts";
 import { tabStorage } from "./browser-storage.ts";
 import { pageThatPausesWhenHidden } from "./handheld.ts";
-import { useToken } from "./services.tsx";
+import { useServices, useToken } from "./services.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useMembership } from "./together-membership.ts";
 import { SoundOnPill } from "./sound-on-pill.tsx";
@@ -180,6 +181,36 @@ function whereItStandsMs(video: HTMLVideoElement | null): number | undefined {
   return video !== null && video.readyState >= haveMetadata ? video.currentTime * 1000 : undefined;
 }
 
+/**
+ * Takes the host's page to a film another member put on for the group while it led its own: a
+ * guest's next or previous (D471 §2), which is "for everyone". Only a group seen playing this
+ * page's film and then another is followed: a page opened on a film the group does not play yet
+ * puts its own on (useLeadingPlayer), and a group that stops takes the page nowhere. The host's page
+ * stayed on its episode, playing on alone, while its guest watched the next (the owner, staging,
+ * 2026-11-26: "only the guest changed videos").
+ */
+function useGoesToAFilmPutOnForTheGroup(
+  snapshot: TogetherSnapshot | undefined,
+  fileId: number,
+): void {
+  const { navigation } = useServices();
+  const groupsFileId = snapshot?.status === "connected" ? (snapshot.group?.fileId ?? 0) : 0;
+  const groupsItemId = snapshot?.group?.itemId;
+  const hasPlayedOursRef = useRef(false);
+  useEffect(() => {
+    if (groupsFileId === fileId) {
+      hasPlayedOursRef.current = true;
+    } else if (groupsFileId !== 0 && hasPlayedOursRef.current) {
+      hasPlayedOursRef.current = false;
+      navigation.replace({
+        screen: "play",
+        fileId: groupsFileId,
+        ...(groupsItemId === undefined ? {} : { itemId: groupsItemId }),
+      });
+    }
+  }, [groupsFileId, groupsItemId, fileId, navigation]);
+}
+
 /** The host's player, leading the session it is connected to. */
 function HostLeading(
   props: HostPlayer & {
@@ -212,6 +243,7 @@ function HostLeading(
     isPutOnPaused,
   });
   useToldCannotKeepUp(connection, props.cannotKeepUp);
+  useGoesToAFilmPutOnForTheGroup(snapshot, fileId);
   useEffect(() => {
     if (endReason !== undefined) {
       onOver(endReason);
