@@ -326,6 +326,23 @@ end and swap back, the reaching sign and its keys stay. Held upright, the video'
 the film are the same pad with no volume's row and ⤢ last in the menus' row, and `OverlayHeld` is
 gone: the film's choices are the menus' in every layout.
 
+**The remote pad's placements (the owner, 2026-11-26).** "The "Ends" line is placed wrong. It
+should be under the backlink at the top. The playback position and total time display should be
+directly under the scrub bar on the right-hand side, right up close so that there's just enough
+clearance for the position gadget to not overlap. It can be this close because the text display
+is non-interactive. In portrait mode, the scrub bar can be much closer to the video frame since
+the frame itself is non-interactive." Built: casting, *Ends: ‹time›* sits directly under the way
+up at its start, *On: ‹TV›* after it on that line, in every layout (on a phone on its side the
+bar is now two lines, as upright); the Play page held upright has its trail and the film's name
+instead of a way up, so Ends sits directly under the name, over the picture
+(`src/ends-place.tsx`), and a Watch Together guest's keeps it among the offers. The time sits
+under the scrub bar's track at its end, as the overlay's does: a half step under the track's
+middle and a half step in from its end, clear of the thumb (`src/remote-pad.css`). Upright, the
+track's middle sits one step (1 rem) under the picture or the key frame, the slider's touch box
+reaching over the frame's foot; the castee's key frame sits at the foot of its cell so the slack
+goes above it (`src/play-castee.css`, `src/page-controls.css`). Pinned in both engines by
+`src/play-castee-layout.browser.test.tsx` and `src/play-layout.browser.test.tsx`.
+
 **Next batch (found on these walks):**
 
 - The sound timing clip does not play on staging: the Play page says it is no longer there
