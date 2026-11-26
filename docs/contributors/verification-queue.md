@@ -4265,3 +4265,13 @@ An item is ticked only by the person who did it, and only with what they saw.
      pauses, plays and steps; the volume and mute are this page's own; F puts the film full screen.
   4. Open the second link on the computer and press the same keys. Report whether only −, +, M
      and F do anything.
+
+- [ ] **VQ411** — A Chromecast's volume shows as a number on the pad (the owner, 2026-11-26: "Yes,
+  show a number"): only a real Chromecast's Cast session says its volume and its changes. On the
+  phone's Chrome, cast a film to the Chromecast, the pad upright. Then:
+  1. Press Volume up twice and Volume down once. Report whether "Volume ‹n› %" shows in the middle
+     of the picture at each press, and whether the number matches the TV's own volume bar.
+  2. Press Mute. Report whether it shows "Volume 0 %", and whether a second press shows the level
+     again.
+  3. Turn the volume with the TV's own remote, then press Volume up on the pad. Report whether the
+     number starts from the level the TV's remote left.

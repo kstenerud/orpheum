@@ -8,6 +8,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";
 import { CasteePlay } from "./play-castee.tsx";
 import { startCast } from "./cast.ts";
+import { forgetCastDeviceVolume, tellCastDeviceVolume } from "./cast-device-volume.ts";
+import type { CastDeviceVolume } from "./cast-sdk.ts";
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
 import { createHiddenNeed } from "./hidden-need.ts";
 import { LiveProvider } from "./live.tsx";
@@ -410,6 +412,63 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
       channel(0.7, false),
       channel(0.8, false),
     ]);
+  });
+
+  it("shows a Chromecast's own volume as a number from its Cast session at each press of the pad's volume, and the number it changes to (D557 §5)", async () => {
+    vi.stubGlobal("matchMedia", heldUpright);
+    let level = 0.4;
+    let isMuted = false;
+    const listeners = new Set<() => void>();
+    const changeTo = (toLevel: number, isMutedNow: boolean): void => {
+      level = toLevel;
+      isMuted = isMutedNow;
+      for (const listener of listeners) {
+        listener();
+      }
+    };
+    const volume: CastDeviceVolume = {
+      read: () => ({ level, isMuted }),
+      // The session answers a set later, telling it as its volume-changed event does.
+      setLevel: (to) => {
+        queueMicrotask(() => {
+          changeTo(to, isMuted);
+        });
+      },
+      setMuted: (isMutedTo) => {
+        queueMicrotask(() => {
+          changeTo(level, isMutedTo);
+        });
+      },
+      onChange: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
+    tellCastDeviceVolume(9, volume);
+    try {
+      const { sockets } = await casting({});
+      const page = mounted!.container;
+      // A Chromecast says no film channel of its own: the pad works the device's volume.
+      await receiverSays(sockets.session, {
+        delivery: "direct",
+        sound: { isLevellingOn: false, audioTracks: [] },
+      });
+      const number = (): string | undefined =>
+        page.querySelector(".player-overlay-volume .pill")?.textContent ?? undefined;
+      expect(number()).toBeUndefined();
+      await click(buttonNamed(page, "Volume up"));
+      await settleUntil(() => number() === "Volume 50 %");
+      // The TV's own remote turns it down: the number shown follows.
+      await act(async () => {
+        changeTo(0.3, false);
+        await Promise.resolve();
+      });
+      expect(number()).toBe("Volume 30 %");
+      await click(buttonNamed(page, "Mute"));
+      await settleUntil(() => number() === "Volume 0 %");
+    } finally {
+      forgetCastDeviceVolume(9);
+    }
   });
 
   it("says it is reaching the receiver while it is not reached, its pad and menus taking no press, and ends nothing itself however long it goes unreached, the server's end alone (D548 §9, D555 §3)", async () => {
