@@ -31940,6 +31940,8 @@ remote plays nothing) and D518 (a guest's cast is their own part) stand, and bec
 **Status:** decided and built; phases 0 to 5 of the plan (plans/playing-casting-together-rework.md) are on
 main, each walked on staging as the plan records, and each point below cites its proof.
 
+**Amended by D556** (2026-11-26): §8's layout is D556's now; the one Play page, §9 and §10 stand.
+
 1. **A device plays a video itself or passes the playing to another device, its castee.** The cast
    belongs to the device. To a Watch Together session it is a detail of how a member plays: the
    castee has no effect on the session beyond what the caster would have, playing itself.
@@ -31997,3 +31999,39 @@ main, each walked on staging as the plan records, and each point below cites its
 - 10: `web/apps/web/src/player-overlay-state.test.ts`, `web/apps/web/src/play-castee-controls.test.tsx`, `web/apps/web/src/target-menus.test.tsx`
 - 11: `web/apps/web/src/player-overlay-layout.browser.test.tsx`, `web/apps/web/src/input-player.browser.test.tsx`
 - 12: `web/apps/web/src/router.test.ts`, `web/apps/web/src/this-device.test.tsx`
+
+## D556 — The Play page keeps the remote's pad for casting and for a film held upright, and the overlay elsewhere
+
+**Decided** (2026-11-26), by the project owner, on seeing D555 §8 built: *"It looks like the
+controls and displays have been moved around to random places depending on the view mode or
+casting. I wanted the layout to follow what we already had for fullscreen mode and for casting
+mode from previous batches."* **Amends** D555 §8 (the layout alone; the one Play page stands) and
+sharpens D555 §9 and §10.
+
+**Status:** decided. Its code is on main; its clauses are yet to be read back against it. Left for
+the owner to place: what still lies under the stage (the plan's "Next batch").
+
+1. **Which layout where.** The owner: *"Yes I meant the one with the remote-control looking layout
+   (3x3 pad). That should be the layout for portrait and landscape mode when casting, and the
+   layout in portrait for local playback. The others should have the overlay on top of the video,
+   and the video frame taking most of the real estate. In phone landscape mode there's not enough
+   room for that, so it's OK if it has to scroll."* A Watch Together guest follows the rule for
+   local playback.
+2. **The buttons.** The owner: *"The general rules for the buttons are: Only display if they can
+   actually do something. For the bottom button row, always right-aligned and only displayed if
+   they can actually do something (for submenus, only if there's at least one submenu item that
+   can do something). Cast and watch together buttons only show once (top bar if it's visible,
+   bottom bar otherwise). Never offer the fullscreen mode button when casting. If they do enable
+   fullscreen mode through their browser's controls while casting, we present a similar display
+   layout to the non-fullscreen one."*
+3. **The picture never shows the focus ring.** The owner: *"The video frame should never have a
+   ring around it."* It takes focus without one, whatever pressed last.
+4. **Focus starts on the top bar's Home mark as the app opens.** The owner: *"I'd like the home
+   icon on the top bar to start out highlighted on TVs, and selected but not showing the ring on
+   desktop. All keyboard movement happens from there and begins highlighting."*
+
+**Proof:**
+
+- 1: `web/apps/web/src/play-castee-layout.browser.test.tsx`, `web/apps/web/src/together-guest-tracks.test.tsx`
+- 2: `web/apps/web/src/play-layout.browser.test.tsx`, `web/apps/web/src/player-menus.test.tsx`
+- 3, 4: `web/apps/web/src/arrival.browser.test.tsx`

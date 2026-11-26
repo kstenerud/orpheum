@@ -49,6 +49,17 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A95 — Read "the casting mode we had" as the overlay, and briefed an agent to build it (2026-11-26)
+
+- **What happened:** the owner asked for the layout "to follow what we already had for fullscreen
+  mode and for casting mode from previous batches". The lead read both as the overlay over the
+  picture and briefed an agent to put the overlay everywhere. The owner meant the cast remote's
+  3×3 pad: *"Yes I meant the one with the remote-control looking layout (3x3 pad)."* The agent was
+  re-briefed mid-run.
+- **Caught by:** the lead's question to the owner, asked after the brief had gone out, not before.
+- **Gate:** none can check a reading. The lesson: where a request names an earlier look, find that
+  look in the history and show it back to the owner before an agent builds on the reading (D556).
+
 ### A94 — Blamed a test's failure on two Firefox processes, with its cause in one (2026-11-24)
 
 - **What happened:** timing the browser tier's Firefox run as two processes of three pages each, one

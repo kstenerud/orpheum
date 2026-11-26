@@ -339,6 +339,19 @@ gone: the film's choices are the menus' in every layout.
 - A Fire TV sent Home keeps its cast: Silk plays on unseen behind the launcher and the caster's page
   goes on saying "On: Silk on Fire TV". Whether a receiver whose page is hidden should end its cast
   (or pause and say so) is the owner's to decide.
+- A start that cannot be made says nothing (found 2026-11-26, file 1282 on a Chromecast, fixed at
+  its cause by the encode's times starting at its first picture): the castee stays black and the
+  caster's Play does nothing while the core answers each chunk 422 `cannotConvert`. Whether both
+  say "This video cannot be played", and whether sooner than the core's give-up, is the owner's to
+  decide; so is whether the 2026-11-03 rule (no step down on a chunk that cannot be made) stands.
+- A file whose picture starts after its sound (an MP4 empty edit, 105 ms in file 1282) may now play
+  with that much between picture and sound; measure before changing anything.
+- What still lies under the stage after D556, each needing the owner's choice of a home: the
+  Watch Together host's and guest's panel (news, voice, volume), a guest's own tracks and sound
+  timing, the castee's Watch Together controls, and the lasting alerts (where you are is no longer
+  kept, stopped by the admin, the original-format line).
+- On Home, Down from the Home mark lands on the first Continue Watching card's more-actions button,
+  not its poster; the owner's to say which is wanted.
 
 ### Phase 5: the lab goes (D555 §12)
 
