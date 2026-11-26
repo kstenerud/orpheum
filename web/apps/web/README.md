@@ -1023,8 +1023,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   (ui-audit-2026-11-04.md R3–R6; the owner, 2026-11-04). *Arrival* (R3): a page or dialog marks
   its main action with `arrivalMark` and focus goes there as it is drawn (`arriveWhenDrawn`,
   `src/focus-navigation.ts`; a dialog's by `src/modal-layer.tsx`), shown with a ring after a key or
-  a controller and none after a pointer, and taken only from nothing or from what opened it, never
-  once the person has moved on; `src/arrival.browser.test.tsx`. A dialog with no marked arrival
+  a controller and none after a pointer or before any press (`focusAfterNoPress`, as the picture's
+  focus too; but on a television, whose remote is its only input), and taken only from nothing or from what opened it, never
+  once the person has moved on; `src/arrival.browser.test.tsx`, its "focus a script gives before any
+  key or controller has pressed" for the ring. A dialog with no marked arrival
   decides its own from its choices (D421): its first not marked a dangerous action
   (`dangerousMark`), never its Close, or, where every choice is, none, focus resting on the dialog
   itself (`choiceArrivalIn`); "where a dialog's focus arrives as it opens (D421)" in

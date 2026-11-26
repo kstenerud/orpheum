@@ -20,6 +20,7 @@ import {
 } from "./focus-engine.ts";
 import { rememberingAround, watchWhileDrawn, type ContainerMemory } from "./focus-memory.ts";
 import type { Direction } from "./input-buttons.ts";
+import { isOnTelevision } from "./input-mode.ts";
 
 /**
  * The region an arrow moves within: the element shown full screen, else the open modal dialog,
@@ -320,6 +321,19 @@ function scrollClear(element: HTMLElement, isMovedTo: boolean): void {
   if (top < hiddenBy) {
     window.scrollBy({ top: top - hiddenBy });
   }
+}
+
+/**
+ * Focuses element by script where no key or controller the app hears has pressed: with no ring
+ * (`focusVisible: false`, which Chromium and Firefox honour), as a pointer's own focus has none. A
+ * browser draws one for a script's focus on a page nothing has pressed on yet, and Firefox for one
+ * given where the element left showed it: Home's first poster ringed as the page loaded, and the Play
+ * page a click on it opened ringed its picture (the owner, Firefox on a Mac, 2026-11-26); Chromium
+ * ringed the picture after a key the app had not heard. On a television the remote is the only
+ * input, so the ring is left to the browser, which draws it.
+ */
+export function focusAfterNoPress(element: HTMLElement, options: FocusOptions = {}): void {
+  element.focus(isOnTelevision() ? options : { ...options, focusVisible: false });
 }
 
 /**

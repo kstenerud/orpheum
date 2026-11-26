@@ -22,7 +22,8 @@ import type { FilmParts } from "./film-player.tsx";
 import { levelRowAttribute } from "./focus-engine.ts";
 import { isThisHandheld } from "./handheld.ts";
 import { useHeldDown } from "./held-down.ts";
-import { useCommands } from "./input-layer.tsx";
+import type { CommandSource } from "./input-commands.ts";
+import { useCommands, useLastSource } from "./input-layer.tsx";
 import { useLatest } from "./latest.ts";
 import { OverlayUp, PlayUpwardContext } from "./play-up.tsx";
 import { usePlayersControls, type PlayerStage } from "./player-commands.ts";
@@ -488,7 +489,7 @@ function useOverlayPresses({
       if (answer.isVolumeShown === true) {
         onVolumeShown();
       }
-      moveFocus(answer.focus, stage.picture, askFocusToScrub);
+      moveFocus(answer.focus, askFocusToScrub, { picture: stage.picture, source: detail.source });
       if (answer.isTaken) {
         event.preventDefault();
       }
@@ -499,12 +500,12 @@ function useOverlayPresses({
 
 /**
  * Moves focus where a press's answer asks: to the scrub bar once drawn; to it at once, the press then
- * moving it on as if it had been there (D411); or to the picture.
+ * moving it on as if it had been there (D411); or to the picture, shown as the press's source shows.
  */
 function moveFocus(
   focus: OverlayAnswer["focus"],
-  picture: HTMLElement,
   askFocusToScrub: (isAtOnce?: boolean) => void,
+  pressed: { readonly picture: HTMLElement; readonly source: CommandSource },
 ): void {
   if (focus === "scrub") {
     askFocusToScrub();
@@ -513,7 +514,7 @@ function moveFocus(
   } else if (focus === "video") {
     // Down from the buttons (Q14), once the press is through.
     queueMicrotask(() => {
-      focusThePicture(picture);
+      focusThePicture(pressed.picture, pressed.source);
     });
   }
 }
@@ -553,6 +554,7 @@ function usePlayingLeavesPlay(
   isTv: boolean,
 ): void {
   const stageNowRef = useLatest(stageNow);
+  const lastSource = useLastSource();
   useEffect(() => {
     const play = playRef.current;
     if (isTv || play === null) {
@@ -562,7 +564,7 @@ function usePlayingLeavesPlay(
       const stage = stageNowRef.current();
       if (stage?.isPaused === true) {
         queueMicrotask(() => {
-          focusThePicture(stage.picture);
+          focusThePicture(stage.picture, lastSource());
         });
       }
     };
@@ -570,7 +572,7 @@ function usePlayingLeavesPlay(
     return () => {
       play.removeEventListener("click", pressed, true);
     };
-  }, [playRef, stageNowRef, isTv]);
+  }, [playRef, stageNowRef, isTv, lastSource]);
 }
 
 /**
@@ -725,6 +727,7 @@ function useFocusLeavesWhatHides(
   refs: Pick<OverlayRefs, "overlayRef" | "pictureRef" | "convenienceRef">,
 ): void {
   const { overlayRef, pictureRef, convenienceRef } = refs;
+  const lastSource = useLastSource();
   useLayoutEffect(() => {
     const picture = pictureRef.current;
     const focused = document.activeElement;
@@ -735,10 +738,10 @@ function useFocusLeavesWhatHides(
     if (focused === document.body || overlayRef.current?.contains(focused) === true) {
       const offer = offerOf(convenienceRef.current);
       if (offer === null) {
-        focusThePicture(picture);
+        focusThePicture(picture, lastSource());
       } else {
         offer.focus();
       }
     }
-  }, [state.shown, overlayRef, pictureRef, convenienceRef]);
+  }, [state.shown, overlayRef, pictureRef, convenienceRef, lastSource]);
 }

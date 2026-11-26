@@ -11,10 +11,11 @@ import "./tokens.css";
 import "./base.css";
 import "./i18n.ts";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { createSession } from "./session.ts";
+import { directDecision } from "./test-fixtures.ts";
 import { fakeTogetherServer } from "./test-together.ts";
 import {
   filmDetail,
@@ -315,5 +316,93 @@ describe("a page's arrival", () => {
     await expect
       .poll(() => document.activeElement?.getAttribute("name"), { message: focused() })
       .toBe("name");
+  });
+});
+
+/** A Fire TV's Silk, as the device names itself: a television's browser. */
+const fireTvSilk =
+  "Mozilla/5.0 (Linux; Android 9; AFTSSS) AppleWebKit/537.36 (KHTML, like Gecko) Silk/138.19.9 like Chrome/138.0.7204.244 Safari/537.36";
+
+/** Home with one film being watched, its file 70, and what opening that file to play answers. */
+const watchingOne: WalkAnswers = {
+  ...signedIn,
+  "GET /home": {
+    continueWatching: [
+      { id: 7, name: "Metropolis", libraryId: 1, fileId: 70, positionMs: 250, durationMs: 1000 },
+    ],
+    newestFilms: films(6),
+    newestSeries: [],
+  },
+  "GET /items/7": filmDetail(7, "Metropolis"),
+  "POST /playback": directDecision({
+    titleName: "Metropolis",
+    plays: { itemId: 7, kind: "film", libraryId: 1 },
+    url: "/no-such-media",
+  }),
+};
+
+/** Whether element draws the focus ring (tokens.css): an outline or the ring's shadow. */
+function drawsRing(element: Element | null): boolean {
+  if (element === null) {
+    return false;
+  }
+  const style = getComputedStyle(element);
+  return style.outlineStyle !== "none" || style.boxShadow !== "none";
+}
+
+/**
+ * Puts the browser where a page's first load leaves it, drawing a ring for a script's focus, whatever
+ * an earlier test's pointer left: a key pressed before the app starts, which the app's input never
+ * hears, so no key has pressed for it.
+ */
+async function asAtFirstLoad(): Promise<void> {
+  await userEvent.keyboard("{Shift}");
+}
+
+// The owner, Firefox on a Mac with a mouse, 2026-11-26: Home's first Continue watching poster drew
+// the ring as the page loaded, nothing pressed, and the Play page it opened ringed the whole stage.
+describe("focus a script gives before any key or controller has pressed", () => {
+  let walking: Walking | undefined;
+  afterEach(() => {
+    walking?.unmount();
+    walking = undefined;
+    vi.restoreAllMocks();
+  });
+
+  it("is the arrival's, focused with no ring on a computer, the first key's move showing the ring", async () => {
+    await page.viewport(1280, 800);
+    await asAtFirstLoad();
+    walking = await mountApp(walkServices(watchingOne, "/"));
+    await expect.poll(focusedName, { message: focused() }).toContain("Metropolis");
+    expect(document.activeElement?.matches(":focus-visible")).toBe(false);
+    expect(drawsRing(document.activeElement)).toBe(false);
+    const arrival = document.activeElement;
+    await userEvent.keyboard("{Tab}");
+    await expect.poll(() => document.activeElement !== arrival).toBe(true);
+    expect(drawsRing(document.activeElement)).toBe(true);
+  });
+
+  it("is the arrival's, ringed on a television, whose remote is its only input", async () => {
+    vi.spyOn(Navigator.prototype, "userAgent", "get").mockReturnValue(fireTvSilk);
+    await page.viewport(960, 480);
+    await asAtFirstLoad();
+    walking = await mountApp(walkServices(watchingOne, "/"));
+    await expect.poll(focusedName, { message: focused() }).toContain("Metropolis");
+    expect(drawsRing(document.activeElement)).toBe(true);
+  });
+
+  it("leaves no ring on the picture of the film a pointer opened from it", async () => {
+    await page.viewport(1280, 800);
+    await asAtFirstLoad();
+    walking = await mountApp(walkServices(watchingOne, "/"));
+    await expect.poll(focusedName, { message: focused() }).toContain("Metropolis");
+    const poster = document.activeElement;
+    if (poster instanceof HTMLElement) {
+      await userEvent.click(poster);
+    }
+    await expect.poll(() => document.querySelector("video")?.error?.code).toBeDefined();
+    const picture = document.querySelector(".film-player__stage video");
+    await expect.poll(() => document.activeElement === picture, { message: focused() }).toBe(true);
+    expect(drawsRing(picture)).toBe(false);
   });
 });

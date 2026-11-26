@@ -22,7 +22,12 @@ import "./input-layer.css";
 
 import { isFullScreenLeaveAsked } from "./film-fullscreen.ts";
 import { asFocusNote, noteOf, restoreWaitsMs, restoreWhenDrawn } from "./focus-memory.ts";
-import { arriveWhenDrawn, focusAndShow, scrollIntoViewGently } from "./focus-navigation.ts";
+import {
+  arriveWhenDrawn,
+  focusAfterNoPress,
+  focusAndShow,
+  scrollIntoViewGently,
+} from "./focus-navigation.ts";
 import type { Command } from "./input-buttons.ts";
 import {
   hearMediaSeeks,
@@ -47,6 +52,8 @@ interface InputTold {
   readonly letBrowserNavigate: () => () => void;
   /** Offers a command as though pressed: the Media Session's seeking. */
   readonly dispatch: (command: Command, source: CommandSource) => boolean;
+  /** Where the last command came from, undefined where none has. */
+  readonly lastSource: () => CommandSource | undefined;
 }
 
 /** The input layer's ways, where one runs; a screen rendered alone in a test has none. */
@@ -86,13 +93,13 @@ function showAgainOnceLaidOut(element: HTMLElement): void {
 
 /**
  * Focuses a page's arrival: shown as a key's focus is where a controller last pressed, and scrolled
- * gently into view where any key or controller did; for a pointer neither, so a page opened by a
- * click shows no ring (the browser's :focus-visible draws none after a pointer) and does not move.
+ * gently into view where any key or controller did; where neither has, it does not move and shows
+ * no ring but on a television (focusAfterNoPress), the first key moving on from it with the ring.
  */
 function focusArrival(element: HTMLElement, input: Input): void {
   const source = input.lastSource();
   if (source === undefined) {
-    element.focus({ preventScroll: true });
+    focusAfterNoPress(element, { preventScroll: true });
   } else {
     focusAndShow(element, source === "pad");
   }
@@ -271,6 +278,7 @@ function RunningInputLayer(props: { readonly children: ReactNode }): JSX.Element
         };
       },
       dispatch: (command, source) => inputRef.current?.dispatch(command, source) ?? false,
+      lastSource: () => inputRef.current?.lastSource(),
     }),
     [],
   );
@@ -444,4 +452,17 @@ export function useListDrawsToFocusNoted<T>(pages: Pages<T>, hrefOf: (item: T) =
       drawThrough(place + 1);
     }
   }, [held, drawThrough, hrefOf, navigation]);
+}
+
+/** Where nothing tells it: no press. */
+function noPress(): CommandSource | undefined {
+  return undefined;
+}
+
+/**
+ * Where the last command came from (Input's lastSource), read when asked: undefined where none has
+ * or no input layer runs (a screen rendered alone in a test).
+ */
+export function useLastSource(): () => CommandSource | undefined {
+  return use(InputContext)?.lastSource ?? noPress;
 }
