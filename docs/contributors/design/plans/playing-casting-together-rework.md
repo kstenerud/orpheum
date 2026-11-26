@@ -533,3 +533,18 @@ README and its panels say why). After a page reload the pad has no volume for a 
 start: the Cast session is that page's (idiosyncrasies.md). VQ407 walks it on the device. The
 Watch Together volumes and a guest's tracks and timing went into the bar's menus, as the
 "Next batch" item above says.
+
+## Next batch, from the 11-26 walk (the owner, 2026-11-26)
+
+0. **A guest's page is the base display, its keys with it** (D557 §6, decided and not built; the
+   owner: "OK, follow your recommendation"). A guest's page is its own build of the player and
+   binds none of the player's commands (player-commands.ts): no key plays, pauses, seeks, moves
+   the volume or goes full screen for a guest. Built on the one base display with only a guest's
+   parts shown, each key does what its button does for a guest. First in the batch.
+1. **A Chromecast's volume shows a number on the pad** (the owner: "Yes, show a number. Do this
+   in the next batch"). The pad's Volume down, Mute and Volume up set the TV's own volume through
+   the caster's Cast session and show none today; the session's `getVolume()` says it.
+2. **A guest's cast's remote names the film the session moved to** (the owner: "Fix that in the
+   next batch"). A guest's Next moves the host's own cast along; a guest's TV follows the session,
+   but that guest's remote may still show the film it was handed.
+3. **Mute is not kept between films** (the owner: "No, mute doesn't stick"): as built, nothing to do.
