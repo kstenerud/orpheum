@@ -7,11 +7,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { apiPrefix } from "@orpheum/sdk";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { buttonWithText, chooseIn, click, mount, type Mounted } from "./test-dom.tsx";
 import type { SubtitleTrack } from "./subtitles.tsx";
 import { directDecision, unmeasuredSound } from "./test-fixtures.ts";
+import { heldUpright } from "./test-castee.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 import { fakeTogetherServer } from "./test-together.ts";
 import { TogetherViewer } from "./together-viewer.tsx";
@@ -217,5 +218,56 @@ describe("a Watch Together guest's sound and subtitles (D471)", () => {
     );
     expect(fields).toEqual(["Subtitles"]);
     expect(kept.refused).toEqual([]);
+  });
+});
+
+// The owner, 2026-11-26: the 3x3 pad is "the layout in portrait for local playback"; a guest's film
+// held upright is laid out as the Play page's own (UnderTheGuestsFilm), the pad under the picture.
+describe("a Watch Together guest's film held upright, laid out as local playback (the owner, 2026-11-26)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+    vi.unstubAllGlobals();
+    window.localStorage.clear();
+  });
+
+  /** The guest's page playing film 5, its device held upright or not. */
+  async function guestPlaying(isUpright: boolean): Promise<HTMLElement> {
+    if (isUpright) {
+      vi.stubGlobal("matchMedia", heldUpright);
+    }
+    window.localStorage.setItem(
+      "orpheum.together.viewer",
+      JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
+    );
+    const kept: Asked = { asked: [], refused: [], wants: [] };
+    const server = fakeTogetherServer();
+    mounted = await mount(
+      withServices(<TogetherViewer />, {
+        ...testServices(undefined, "/together", guestsServer(kept)),
+        openTogetherSocket: server.openSocket,
+      }),
+    );
+    await click(buttonWithText(mounted.container, "Tap to continue"));
+    await server.accept();
+    await server.say(welcome);
+    await server.say({
+      type: "group",
+      seq: 2,
+      group: { state: "playing", positionMs: 60_000, rate: 1, fileId: 5 },
+    });
+    return mounted.container;
+  }
+
+  it("draws the remote's 3x3 pad under the picture upright, and no overlay", async () => {
+    const page = await guestPlaying(true);
+    expect(page.querySelector('.remote-pad [aria-label="Play"]')).not.toBeNull();
+    expect(page.querySelector(".player-overlay")).toBeNull();
+  });
+
+  it("draws no pad off upright, the overlay over the picture", async () => {
+    const page = await guestPlaying(false);
+    expect(page.querySelector(".remote-pad")).toBeNull();
   });
 });
