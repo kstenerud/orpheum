@@ -267,6 +267,13 @@ Talk and Full screen stay. Not walked: on the Pixel itself.
 **Walked (phase 5, staging, 2026-11-26):** `/lab` and `/lab/sound` say there is nothing at the
 address; This device links the sound timing test, and its page offers the clip.
 
+**Walked (a cast's ends, 2026-11-26, Pixel 3a casting to the lead's Fire TV on staging):** the
+cast took after OK on the Fire TV and played. Back on the Fire TV, pressed three times, left the film
+on it and the phone over it, as the receiver's controlled mode says. Home on the Fire TV left the
+cast standing too: Silk lives on behind the launcher, so the phone showed "On: Silk on Fire TV" for
+the 72 s watched. Silk stopped outright, the phone had the film on its own Play page 20 s later,
+paused at the Fire TV's position, with no dialog. VQ406 holds the ends only the owner can make.
+
 **Next batch (found on these walks):**
 
 - The sound timing clip does not play on staging: the Play page says it is no longer there
@@ -277,6 +284,9 @@ address; This device links the sound timing test, and its page offers the clip.
   server's and older than this rework.
 - `failure-reports.test.ts` failed once under the gate's load (three reports where one was
   expected) and passes alone.
+- A Fire TV sent Home keeps its cast: Silk plays on unseen behind the launcher and the caster's page
+  goes on saying "On: Silk on Fire TV". Whether a receiver whose page is hidden should end its cast
+  (or pause and say so) is the owner's to decide.
 
 ### Phase 5: the lab goes (D555 §12)
 
