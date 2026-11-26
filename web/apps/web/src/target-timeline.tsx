@@ -12,7 +12,7 @@ import { ClockTimes, shownAtMsOf, Timeline } from "./timeline.tsx";
  * The one timeline over a playback target (D555 §8, §10): the film's place on its slider, a seek
  * sent to the target, disabled until the target is ready (or as isDisabled says), and its times,
  * in it (the bar's) or apart in a span of timesClassName (the overlay's and the cast remote's, the
- * time under it at the start). The Play page's bar, its overlay and the cast remote draw it, so
+ * time under it). The Play page's bar, its overlay and the cast remote draw it, so
  * each reads the target alone.
  */
 export function TargetTimeline(props: {

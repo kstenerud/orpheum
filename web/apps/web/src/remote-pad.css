@@ -4,18 +4,24 @@
    the D555 rework (the owner, 2026-11-26): where each page lays them is its own sheet's
    (play-castee.css, page-controls.css). */
 
-/* The timeline the whole width, the time under it at its start (D548 §4). */
+/* The timeline the whole width, the time under its track at its end, as close under it as the
+   slider's thumb leaves room for, in the slider's own room for a finger, which it lets through to it:
+   it is read and never pressed (the owner, 2026-11-26: "directly under the scrub bar on the
+   right-hand side, right up close"), as the overlay's times are (player-overlay.css). */
 .remote-pad__timeline {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  position: relative;
   min-width: 0;
 }
 
 .remote-pad__time {
+  position: absolute;
+  inset-block-start: calc(50% + var(--space-2));
+  inset-inline-end: var(--space-2);
   font-size: var(--font-size-small);
   font-variant-numeric: tabular-nums;
+  line-height: 1;
   white-space: nowrap;
+  pointer-events: none;
 }
 
 /* Three equal columns, each button centred in its cell (D548 §5). */

@@ -93,6 +93,15 @@ async function playPageAt(width: number, height: number): Promise<HTMLElement> {
   return stage;
 }
 
+/** Where the page draws part (a selector); it fails the test when there is none. */
+function boxOf(part: string): DOMRect {
+  const element = document.querySelector(part);
+  if (element === null) {
+    throw new Error(`no ${part}`);
+  }
+  return element.getBoundingClientRect();
+}
+
 /** Whether the shell's top bar shows. */
 function isTopBarShown(): boolean {
   const banner = document.querySelector(".app-shell__banner");
@@ -148,6 +157,21 @@ describe("the Play page upright and on its side (D555 §8)", () => {
     const video = stage.querySelector("video")?.getBoundingClientRect();
     expect(controls?.getBoundingClientRect().top).toBeGreaterThanOrEqual(video?.bottom ?? 0);
     expect(controls?.querySelector('button[aria-label="Play"]')).not.toBeNull();
+  });
+
+  // The owner, 2026-11-26: "The playback position and total time display should be directly under
+  // the scrub bar on the right-hand side, right up close so that there's just enough clearance for
+  // the position gadget to not overlap."
+  it("draws the time close under the timeline's track at its end on a phone held upright", async () => {
+    heldByAFinger();
+    await playPageAt(390, 844);
+    const range = boxOf('.page-controls input[type="range"]');
+    const time = boxOf(".page-controls .remote-pad__time");
+    const middle = range.top + range.height / 2;
+    expect(Math.abs(time.right - (range.right - 8))).toBeLessThan(1.5);
+    expect(time.left).toBeGreaterThan(range.left + range.width / 2);
+    expect(time.top - middle).toBeGreaterThanOrEqual(7.5);
+    expect(time.top - middle).toBeLessThanOrEqual(12);
   });
 
   it("draws the overlay over the picture on a phone on its side", async () => {

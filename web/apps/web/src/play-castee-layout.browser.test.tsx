@@ -106,7 +106,29 @@ function expectMenusAtTheEnd(container: HTMLElement): void {
   expect(Math.abs(last.getBoundingClientRect().right - end)).toBeLessThan(1.5);
 }
 
+/**
+ * That the time sits close under the timeline's track at its end (the owner, 2026-11-26: "directly
+ * under the scrub bar on the right-hand side, right up close so that there's just enough clearance
+ * for the position gadget to not overlap"): its end a step in from the slider's, its top no more than
+ * 12 px under the track's middle, clear of the thumb's half of 8 px.
+ */
+function expectTimeCloseUnderAtItsEnd(container: HTMLElement): void {
+  const range = boxOf(container, `${timeline} input[type="range"]`);
+  const time = boxOf(container, `${timeline} .remote-pad__time`);
+  const middle = range.top + range.height / 2;
+  expect(Math.abs(time.right - (range.right - 8))).toBeLessThan(1.5);
+  expect(time.left).toBeGreaterThan(range.left + range.width / 2);
+  expect(time.top - middle).toBeGreaterThanOrEqual(7.5);
+  expect(time.top - middle).toBeLessThanOrEqual(12);
+}
+
 describe("the castee's Play page laid out as the remote (the owner, 2026-11-26)", () => {
+  it("draws the time close under the timeline's track at its end, upright and on its side", async () => {
+    expectTimeCloseUnderAtItsEnd(await casteeAt(390, 844));
+    mounted?.unmount();
+    expectTimeCloseUnderAtItsEnd(await casteeAt(780, 360));
+  });
+
   it("lays a phone upright out as one column, the pad at the bottom under the offer area, Play 96 px, the others 72 and 64 px, Mute pressed on the status ground", async () => {
     const upright = await casteeAt(360, 780);
     expectAllInside(upright, 360, 780);

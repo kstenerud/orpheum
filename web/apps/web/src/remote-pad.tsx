@@ -4,7 +4,7 @@
  * The remote's layout's pieces (D548 §1, §4–§6), drawn by the castee's Play page and by the Play
  * page under the film held upright (the owner, 2026-11-26: "the one with the remote-control looking
  * layout (3x3 pad). That should be the layout for portrait and landscape mode when casting, and the
- * layout in portrait for local playback"): the timeline with the time under it at the start
+ * layout in portrait for local playback"): the timeline with the time under it at its end
  * (PadTimeline), the 3×3 pad (RemotePad), and the menus' row (PadMenus). Each page lays them out
  * (play-castee.css, page-controls.css); the keys are the page's own (useStageCommands,
  * usePlayersControls), not the pad's.
@@ -89,7 +89,7 @@ export function remoteSoundMovesOf(
 }
 
 /**
- * The timeline the whole width, the time under it at the start (D548 §4), its slider's arrows the
+ * The timeline the whole width, the time close under it at its end (D548 §4; the owner, 2026-11-26), its slider's arrows the
  * player's seeks where hasArrowsAsCommands; disabled as isDisabled says, else while the target takes
  * no seek (TargetTimeline).
  */
