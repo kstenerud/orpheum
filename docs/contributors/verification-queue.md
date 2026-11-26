@@ -4227,3 +4227,5 @@ An item is ticked only by the person who did it, and only with what they saw.
      whether moving its timing 2 s later moves it.
   5. Stop the cast, and cast the film again. Report whether the track, the boost and the subtitles
      you chose come back as you left them.
+  6. Cast an episode with one after it, press Next episode on the pad, then load the phone's page
+     again. Report whether the TV plays on in the next episode, not the one before.
