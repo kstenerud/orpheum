@@ -307,3 +307,63 @@ func (opened socket) awaitRoster(isIt func([]together.MemberView) bool) {
 		}
 	}
 }
+
+// A guest's next takes the host's cast along to the episode it puts on for everyone (D471 §2, D555
+// §1): the host casts their own part to the TV, a guest with canNext moves the session on, and the TV
+// is handed the next episode, by name, and the host's remote is told it with its name and length, as
+// the cast's own next tells them (the walk on staging, 2026-11-26: the TV stayed on the episode
+// before, the remote kept its address, name and length, and stopping the cast put it back on).
+func TestCast_AGuestsNextTakesTheHostsCastAlong(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	harness.shelveDVDOrder(t) // aired: 21 (file 2), 22 (3), 23 (4), then 24 (5)
+	tvToken := harness.signIn(t, "owner", "owner-password")
+	tv := harness.thisDevice(t, tvToken)
+	tvSocket := harness.dialLive(t, tvToken)
+	tvSocket.awaitDevices(tv)
+	phoneSocket := harness.dialLive(t, phoneToken)
+	hosted := harness.openTogether(t, phoneToken)
+	cast := startedCast(t, harness.do(t, http.MethodPost, "/me/casts", phoneToken, map[string]any{
+		"toDeviceId": tv, "fileId": 2, "togetherCredential": hosted.Body.MembershipCredential,
+	}))
+	handed := tvSocket.await(live.MessageReceive, func(message live.Outbound) bool {
+		return message.Receive.CastID == cast.CastID && message.Receive.FileID == 2
+	}).Receive
+	castee := harness.dialCast(t, handed.Credential, together.RoleVideo)
+	castee.awaitWelcome()
+	castee.send(together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageCommand, Command: together.CommandChangeItem, FileID: 2,
+	})
+	castee.send(together.Inbound{V: together.ProtocolVersion, Type: together.MessageState, IsPlaying: true, FileID: 2})
+	castee.awaitGroup(together.GroupPlaying)
+	made := harness.do(t, http.MethodPost, fmt.Sprintf("/together/%d/links", hosted.Body.SessionID), phoneToken,
+		map[string]any{"hostNote": "Anna", "rights": map[string]bool{
+			"canPlayPause": true, "canSeek": true, "canNext": true,
+		}})
+	var link api.TogetherLinkOutput
+	if err := json.Unmarshal([]byte(made.body), &link.Body); err != nil || made.status != http.StatusCreated {
+		t.Fatalf("POST /together/%d/links = %d %s", hosted.Body.SessionID, made.status, made.body)
+	}
+	joined := harness.do(t, http.MethodPost, "/together/join", "",
+		map[string]any{"secret": link.Body.Secret, "name": "Anna"})
+	var guest api.JoinTogetherOutput
+	if err := json.Unmarshal([]byte(joined.body), &guest.Body); err != nil || joined.status != http.StatusOK {
+		t.Fatalf("POST /together/join = %d %s", joined.status, joined.body)
+	}
+	guestDevice := harness.dialTogether(t, guest.Body.MembershipCredential)
+	guestDevice.awaitWelcome()
+	guestDevice.send(together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageCommand, Command: together.CommandNext,
+	})
+	again := tvSocket.await(live.MessageReceive, func(message live.Outbound) bool {
+		return message.Receive.CastID == cast.CastID && message.Receive.FileID == 3
+	}).Receive
+	if again.ItemName == "" || again.TogetherCredential == "" || again.IsTogetherFollower {
+		t.Errorf("the TV was handed %+v; want the next episode by name, leading in the host's part still", again)
+	}
+	phoneSocket.await(live.MessageSending, func(message live.Outbound) bool {
+		return message.Sending != nil && message.Sending.CastID == cast.CastID && message.Sending.FileID == 3 &&
+			message.Sending.ItemName != "" && message.Sending.DurationMs > 0
+	})
+}

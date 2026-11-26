@@ -191,6 +191,14 @@
 //     TestCast_AGuestsCastOfTheHostsFilmEndsWithTheSession, TestCast_JoiningASessionTakesTheCastIntoIt,
 //     TestCast_JoiningASessionWhileCastingAFilmPutsTheSessionsFilmOn and
 //     TestCast_AHostOpeningAnotherSessionKeepsTheCast in internal/core/api.
+//   - A film another member puts on for everyone by a next or a previous takes along each cast that
+//     is the host's playing device, handed the film it moved on from (castsMoveAlong): the cast
+//     hands the episode put on, from where it was put on, and whoever registered (OnCastMovedAlong)
+//     is told once the lock is let go, to name it and hand it again, so the castee and its remote
+//     follow the session (D471 §2, D555 §1); a guest's castee follows the session itself. A film put
+//     on starts where it is put on (changeItem stands the group still then). Enforced by
+//     TestCast_AGuestsNextMovesTheHostsCastAlongWithTheSession, TestHub_AFilmPutOnStartsWhereItIsPutOn
+//     and, through the API, TestCast_AGuestsNextTakesTheHostsCastAlong in internal/core/api.
 //   - A Watch Together invitation is short-term (D346): a link admits its person for its lifetime
 //     from when it was made, then no one, and leaves the host's list and the discovery's links; a
 //     session idle for its idle end, neither played to a player nor acted in by a member, is ended

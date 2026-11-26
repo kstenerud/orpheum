@@ -272,3 +272,57 @@ func TestCast_ACastNeverAnsweredEndsAndOneAcceptedGoesOn(t *testing.T) {
 		t.Errorf("the cast taken: %v; want it going on", err)
 	}
 }
+
+// A guest's next or previous moves the host's cast along with the session, as it is for everyone
+// (D471 §2, D555 §1): the castee, the host's playing device, is handed the episode put on, from where
+// it was put on, and the cast is told once the hub is let go, so its castee is handed it again; a
+// next refused moves nothing (the walk on staging, 2026-11-26: the television stayed on the episode
+// before, and stopping the cast put that back on for the group).
+func TestCast_AGuestsNextMovesTheHostsCastAlongWithTheSession(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	stage.hub.MovesAlongBy(neighbourOneAlong(stage.owner.UserID))
+	var moved []EndedCast
+	stage.hub.OnCastMovedAlong(func(each EndedCast) {
+		if _, err := stage.hub.CastHandedOf(each.CastID, each.UserID); err != nil { // let go: it may call the hub
+			t.Error(err)
+		}
+		moved = append(moved, each)
+	})
+	cast, err := stage.hub.OpenCast(stage.owner, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	film := CastFilm{FileID: 7, ItemName: "synthetic film", DurationMs: 3_600_000}
+	if err = stage.hub.CastPuts(cast.CastID, stage.owner.UserID, film, nil, false); err != nil {
+		t.Fatal(err)
+	}
+	castee, _ := stage.attach(t, cast.ReceiverCredential, RoleVideo)
+	stage.command(t, castee, CommandChangeItem, film.FileID)
+	stage.ready(t, castee, false)
+	stage.clock.Advance(30 * time.Second)
+	withheld, _ := stage.guestWith(t, Rights{CanPlayPause: true})
+	stage.command(t, withheld, CommandNext, 0)
+	if len(moved) != 0 {
+		t.Fatalf("a refused next moved casts %v; want none", moved)
+	}
+	given, _ := stage.guestWith(t, Rights{CanNext: true})
+	stage.command(t, given, CommandNext, 0)
+	want := EndedCast{CastID: cast.CastID, UserID: stage.owner.UserID}
+	if len(moved) != 1 || moved[0] != want {
+		t.Fatalf("a guest's next moved casts %v; want %+v", moved, want)
+	}
+	startMs := int64(0)
+	stage.wantHanded(t, cast.CastID, "the host's cast after a guest's next", CastHanded{
+		Film: CastFilm{FileID: 8}, PositionMs: &startMs,
+	})
+	stage.ready(t, castee, false)
+	stage.command(t, given, CommandPrevious, 0)
+	backMs := int64(120_000)
+	stage.wantHanded(t, cast.CastID, "the host's cast after a guest's previous", CastHanded{
+		Film: CastFilm{FileID: 7}, PositionMs: &backMs,
+	})
+	if len(moved) != 2 {
+		t.Errorf("a guest's next and previous moved casts %v; want the host's cast twice", moved)
+	}
+}

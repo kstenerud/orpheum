@@ -3,6 +3,8 @@
 package together
 
 import (
+	"cmp"
+	"slices"
 	"time"
 )
 
@@ -92,10 +94,11 @@ func (kept *handed) anchor(from, into *session, now time.Time) {
 	kept.putSeq = into.group.seq
 }
 
-// follow has the cast, moved into a guest's part in into, hand the film into plays from where into
-// stands, as any guest's player follows it (D555 §1, §7): its own film is left behind, so the castee
-// is not handed a film the session does not play. The film is named by its ids alone until the
-// caster's rights name it (the API's CastPuts); nothing, the castee ready, while into plays nothing.
+// follow has the cast hand the film into plays from where into stands, as any guest's player
+// follows it (D555 §1, §7): moved into a guest's part in into, or its host's player as another member
+// moved into's film along (castsMoveAlong). Its film is left behind, so the castee is not handed a
+// film the session does not play. The film is named by its ids alone until the caster's rights name
+// it (the API's CastPuts); nothing, the castee ready, while into plays nothing.
 func (kept *handed) follow(into *session, now time.Time) {
 	kept.video = CastFilm{FileID: into.group.fileID, ItemID: into.group.itemID}
 	kept.startMs, kept.isPaused = nil, false
@@ -104,6 +107,35 @@ func (kept *handed) follow(into *session, now time.Time) {
 		kept.startMs, kept.isPaused = &positionMs, into.group.state == GroupPaused
 	}
 	kept.putSeq = into.group.seq
+}
+
+// castsMoveAlong has each cast that is its host's playing device in where, handed the film a next or
+// a previous moved where on from, hand the film it put on for everyone instead, from where it put it
+// on (D471 §2, D555 §1): a guest's next takes the host's television along, as it takes the host's
+// own page (the walk on staging, 2026-11-26: the television stayed on the episode before, and the
+// host's stop of the cast put that back on for the group). It returns the casts moved, for their
+// castees to be handed again (OnCastMovedAlong); none where message moved nothing along, wasOn the
+// film where played before it. The caller holds the mutex.
+func (hub *Hub) castsMoveAlong(where *session, wasOn int64, message Inbound) []EndedCast {
+	isMove := message.Command == CommandNext || message.Command == CommandPrevious
+	if !isMove || message.movedFrom == 0 || wasOn != message.movedFrom || message.FileID == 0 ||
+		where.group.fileID != message.FileID {
+		return nil
+	}
+	now := hub.clock.Now()
+	var moved []EndedCast
+	for _, each := range hub.casts {
+		if each.isOwn || each.sessionID != where.id || each.handed.video.FileID != message.movedFrom {
+			continue
+		}
+		if _, caster := hub.castersPart(each); caster == nil || !caster.isHost {
+			continue // a guest's castee follows the session itself (cast-ready.tsx)
+		}
+		each.handed.follow(where, now)
+		moved = append(moved, EndedCast{CastID: each.id, UserID: each.userID})
+	}
+	slices.SortFunc(moved, func(a, b EndedCast) int { return cmp.Compare(a.CastID, b.CastID) })
+	return moved
 }
 
 // leave has the film handed be the one from plays as the cast leaves it for its own session of one,

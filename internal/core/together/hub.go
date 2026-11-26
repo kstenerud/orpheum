@@ -96,6 +96,9 @@ type Hub struct {
 	// onCastMoved is told each cast that moved to a session of one as its caster's part ended, after
 	// the hub's lock is let go (OnCastMoved); nil tells nothing.
 	onCastMoved func(moved EndedCast)
+	// onCastMovedAlong is told each cast moved along with its session's film by another member's
+	// next or previous, after the hub's lock is let go (OnCastMovedAlong); nil tells nothing.
+	onCastMovedAlong func(moved EndedCast)
 	// onPartChanged is told each signed-in person whose part in a Watch Together session changed,
 	// after the hub's lock is let go (OnPartChanged); nil tells nothing.
 	onPartChanged func(userID int64)
@@ -485,6 +488,16 @@ func (hub *Hub) OnCastMoved(moved func(EndedCast)) {
 	hub.onCastMoved = moved
 }
 
+// OnCastMovedAlong has moved called with each cast that is its host's playing device in a Watch
+// Together session whose film another of its members moved along, a guest's next or previous, which
+// is for everyone (D471 §2): the cast hands its castee that film now, named by its ids alone, from
+// where the session put it on (castsMoveAlong). Its castee is to be handed it again and its remote
+// told, as for the cast's own next, the film named by its caster's rights. Called before the hub is
+// used; moved is called once the hub's lock is let go, so it may call the hub.
+func (hub *Hub) OnCastMovedAlong(moved func(EndedCast)) {
+	hub.onCastMovedAlong = moved
+}
+
 // endSession ends the Watch Together session ended: each of its devices is told why, every
 // credential and link admits nothing more, and onSessionEnded is told as the lock is let go
 // (unlockTelling). The one way a Watch Together session ends; the caller holds the mutex.
@@ -613,7 +626,8 @@ func (hub *Hub) Detach(attachment Attachment, because GoneBecause) {
 // Handle takes one message from an attached device. A change of what plays is checked against
 // what the host may play, a next's or a previous's film found, whether anything plays after the
 // film its leader's player ended, and a seek's keyframe found, before the hub is held, since they
-// read the store.
+// read the store. Each cast a next or a previous moved along with its session is told once the hub
+// is let go (OnCastMovedAlong).
 func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbound) {
 	if message.Type == MessageCommand && message.Command == CommandChangeItem &&
 		!hub.mayPlay(ctx, hub.hostOf(attachment.SessionID), message.FileID) {
@@ -622,19 +636,30 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 	hub.findNeighbour(ctx, attachment, &message)
 	hub.findNothingNext(ctx, attachment, &message)
 	hub.findKeyframe(ctx, attachment, &message)
+	movedAlong := hub.handleHeld(ctx, attachment, message)
+	if hub.onCastMovedAlong != nil {
+		for _, each := range movedAlong {
+			hub.onCastMovedAlong(each)
+		}
+	}
+}
+
+// handleHeld takes the message as Handle says, holding the hub: the casts it moved along with their
+// session, a next's or a previous's film put on (castsMoveAlong).
+func (hub *Hub) handleHeld(ctx context.Context, attachment Attachment, message Inbound) []EndedCast {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
 	handled, found := hub.sessions[attachment.SessionID]
 	if !found {
-		return
+		return nil
 	}
 	sender, found := handled.members[attachment.MemberID]
 	if !found {
-		return
+		return nil
 	}
 	from, found := sender.devices[attachment.DeviceID]
 	if !found {
-		return
+		return nil
 	}
 	now := hub.clock.Now()
 	hub.heardFrom(sender, from, now)
@@ -652,7 +677,9 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 		handled.passStalledLead(now)
 	case MessageCommand:
 		handled.touch(now)
+		wasOn := handled.group.fileID
 		handled.command(now, sender, from, message)
+		return hub.castsMoveAlong(handled, wasOn, message)
 	case MessageRTC:
 		handled.relay(from, message)
 	case MessageNote, MessageStanding, MessageSound, MessagePicture, MessagePlayback:
@@ -668,6 +695,7 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 			append(handled.deviceAttributes(sender, from), "type", string(message.Type))...)
 		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeInvalid})
 	}
+	return nil
 }
 
 // takeState takes what a device says of itself, and everyone is told: whether its page is hidden

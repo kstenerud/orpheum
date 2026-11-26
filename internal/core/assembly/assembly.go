@@ -319,6 +319,35 @@ func castMoved(
 	}
 }
 
+// castMovedAlong hands each cast that another member's next or previous moved along with its Watch
+// Together session, its host's playing device, to its receiver again with the episode put on for
+// everyone (D471 §2, D555 §1), as the cast's own next is (POST /me/casts/{id}/next): the hub put it on
+// by its ids, which its caster's rights name here for the remote, as the cast's own film is named;
+// one they cannot name now plays by its ids. Its sender's pages are told it as it is handed, so the
+// remote's address, name and length follow the television's. It reads the store by ctx, the core's.
+func castMovedAlong(ctx context.Context, dependencies *api.Dependencies, logger *slog.Logger) func(together.EndedCast) {
+	return func(moved together.EndedCast) {
+		hub := dependencies.Together
+		handed, err := hub.CastHandedOf(moved.CastID, moved.UserID)
+		if err != nil {
+			return // ended as it moved
+		}
+		if reach, err := dependencies.Auth.ReachOfUser(ctx, moved.UserID); err == nil {
+			opened := library.Opened{FileID: handed.Film.FileID, TitleID: handed.Film.ItemID}
+			if work, err := dependencies.Browser.WorkOfFile(ctx, reach, opened); err == nil {
+				film := together.CastFilm{
+					FileID: opened.FileID, ItemID: work.TitleID, ItemName: work.Name, DurationMs: work.DurationMs,
+				}
+				//nolint:errcheck // a cast ended meanwhile is handed nothing
+				_ = hub.CastPuts(moved.CastID, moved.UserID, film, handed.PositionMs, handed.IsPaused)
+			}
+		}
+		dependencies.Live.HandAgain(moved.UserID, moved.CastID)
+		logger.InfoContext(ctx, "cast: a cast moved along with its session's film", "castId", moved.CastID,
+			"userId", moved.UserID, "fileId", handed.Film.FileID)
+	}
+}
+
 // handedBy is what each cast hands its receiver, as the live registry reads it: the hub's, nothing
 // for a cast the hub no longer holds (D555 §2).
 func handedBy(hub *together.Hub) live.HandedOf {
@@ -482,6 +511,8 @@ func (services *Services) wireJobsInto(ctx context.Context, parts Parts) error {
 	// A cast whose caster's part ended plays on alone where its film is theirs by right (D555 §7).
 	dependencies.Together.OnCastMoved(castMoved(ctx, dependencies.Live, dependencies.Together, mayPlayBy(dependencies),
 		parts.Logger))
+	// A cast its host plays the session on follows a film another member puts on for everyone (D471 §2).
+	dependencies.Together.OnCastMovedAlong(castMovedAlong(ctx, dependencies, parts.Logger))
 	// Each page of a person whose Watch Together part changed reads it again, whatever changed it.
 	dependencies.Together.OnPartChanged(dependencies.Live.TellTogetherChanged)
 	// The last resort when the server's upload cannot carry its players at their lowest (D286 §5).
