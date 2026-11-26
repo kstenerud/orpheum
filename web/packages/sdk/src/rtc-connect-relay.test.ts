@@ -2,14 +2,9 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { withoutRelayServers } from "./rtc-candidates.ts";
-import {
-  connectRtc,
-  forgetRelayNeeded,
-  relayAfterMs,
-  RtcUnconnected,
-  type Signaller,
-} from "./rtc-connect.ts";
+import { withoutRelayServers, withUdpRelaysAlone } from "./rtc-candidates.ts";
+import { connectRtc, RtcUnconnected, type Signaller } from "./rtc-connect.ts";
+import { forgetRelayNeeded, relayAfterMs } from "./rtc-ladder.ts";
 import { RtcTransport } from "./rtc-transport.ts";
 import { forgetSteps, stepsSoFar } from "./steps.ts";
 
@@ -98,6 +93,23 @@ const stunAndTurn: RTCConfiguration = {
 const stunOnly: RTCConfiguration = {
   iceServers: [{ urls: ["stun:stun.example.com:3478"], username: "user", credential: "secret" }],
 };
+/** stunAndTurn with its UDP relay alone: the TLS one taken out (D561 §2). */
+const stunAndUdpTurn: RTCConfiguration = {
+  iceServers: [
+    {
+      urls: ["stun:stun.example.com:3478", "turn:relay.example.com:3478"],
+      username: "user",
+      credential: "secret",
+    },
+  ],
+};
+/** A STUN server and a relay named by its TLS URL alone, with no UDP one. */
+const stunAndTlsTurn: RTCConfiguration = {
+  iceServers: [
+    { urls: "stun:stun.example.com:3478" },
+    { urls: "turns:relay.example.com:443?transport=tcp", username: "user", credential: "secret" },
+  ],
+};
 
 describe("a connection asks the relays only once it has not connected without them (D559 §1)", () => {
   afterEach(() => {
@@ -153,14 +165,16 @@ describe("a connection asks the relays only once it has not connected without th
     expect(racingPeers).toHaveLength(1);
     await vi.advanceTimersByTimeAsync(1);
     expect(racingPeers).toHaveLength(2);
-    expect(racingPeers[1]?.config).toEqual(stunAndTurn);
+    expect(racingPeers[1]?.config).toEqual(stunAndUdpTurn);
     racingPeers[1]?.connects();
     expect(await connecting).toBeInstanceOf(RtcTransport);
     expect(racingPeers.map((peer) => peer.isClosed)).toEqual([true, false]);
     expect(steps()).toContain(
-      "WebRTC: not connected 3 s after the answer; trying with the relay too",
+      "WebRTC: not connected 3 s after the answer; trying with the relay over UDP too",
     );
-    expect(steps()).toContain("WebRTC: connected through the attempt that asked the relay");
+    expect(steps()).toContain(
+      "WebRTC: connected through the attempt that asked the relay over UDP",
+    );
     expect(steps().filter((step) => step.startsWith("WebRTC: failed"))).toEqual([]);
   });
 
@@ -181,12 +195,14 @@ describe("a connection asks the relays only once it has not connected without th
     await first;
     const { connecting: next } = await startConnecting(stunAndTurn);
     expect(racingPeers).toHaveLength(3);
-    expect(racingPeers[2]?.config).toEqual(stunAndTurn);
+    expect(racingPeers[2]?.config).toEqual(stunAndUdpTurn);
     racingPeers[2]?.connects();
     expect(await next).toBeInstanceOf(RtcTransport);
     await vi.advanceTimersByTimeAsync(relayAfterMs * 3);
     expect(racingPeers).toHaveLength(3);
-    expect(steps()).toContain("WebRTC: this page's network needed the relay; asking it at once");
+    expect(steps()).toContain(
+      "WebRTC: this page's network needed the relay over UDP; asking it at once",
+    );
   });
 
   it("never makes a second connection where no TURN server is named", async () => {
@@ -203,9 +219,18 @@ describe("a connection asks the relays only once it has not connected without th
     racingPeers[0]?.fails();
     await vi.advanceTimersByTimeAsync(0);
     expect(racingPeers).toHaveLength(2);
-    expect(racingPeers[1]?.config).toEqual(stunAndTurn);
-    expect(steps()).toContain("WebRTC: failed without the relay; trying with the relay too");
-    racingPeers[1]?.fails("checking");
+    expect(racingPeers[1]?.config).toEqual(stunAndUdpTurn);
+    expect(steps()).toContain(
+      "WebRTC: failed without the relay; trying with the relay over UDP too",
+    );
+    racingPeers[1]?.fails();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(racingPeers).toHaveLength(3);
+    expect(racingPeers[2]?.config).toEqual(stunAndTurn);
+    expect(steps()).toContain(
+      "WebRTC: failed with the relay over UDP; trying with the relay's every address too",
+    );
+    racingPeers[2]?.fails("checking");
     const problem = await connecting;
     expect(problem instanceof Error ? problem.message : "").toBe(
       "the WebRTC connection failed (ICE checking, connection failed, no pair selected)",
@@ -220,5 +245,124 @@ describe("a connection asks the relays only once it has not connected without th
     const problem = await connecting;
     expect(problem instanceof Error ? problem.message : "").toBe("the offer reached no server");
     expect(racingPeers).toHaveLength(1);
+  });
+  it("asks a relay's UDP URLs alone first, keeping its STUN ones (D561 §2)", () => {
+    const hosted: RTCConfiguration = {
+      iceServers: [
+        { urls: "stun:stun.example.com:3478" },
+        {
+          urls: [
+            "turn:relay.example.com:3478?transport=udp",
+            "turns:relay.example.com:443?transport=tcp",
+            "turn:relay.example.com:3478?transport=tcp",
+          ],
+          username: "user",
+          credential: "secret",
+        },
+      ],
+    };
+    expect(withUdpRelaysAlone(hosted)).toEqual({
+      iceServers: [
+        { urls: ["stun:stun.example.com:3478"] },
+        {
+          urls: ["turn:relay.example.com:3478?transport=udp"],
+          username: "user",
+          credential: "secret",
+        },
+      ],
+    });
+    expect(withUdpRelaysAlone(stunAndTurn)).toEqual(stunAndUdpTurn);
+  });
+
+  it("asks the relay's every address only once the UDP one has not connected relayAfterMs after it started (D561 §2)", async () => {
+    const { connecting } = await startConnecting(stunAndTurn);
+    await vi.advanceTimersByTimeAsync(relayAfterMs);
+    expect(racingPeers).toHaveLength(2);
+    expect(racingPeers[1]?.config).toEqual(stunAndUdpTurn);
+    await vi.advanceTimersByTimeAsync(relayAfterMs - 1);
+    racingPeers[1]?.connects();
+    expect(await connecting).toBeInstanceOf(RtcTransport);
+    await vi.advanceTimersByTimeAsync(relayAfterMs * 3);
+    expect(racingPeers).toHaveLength(2);
+  });
+
+  it("asks the relay's every address relayAfterMs after the UDP attempt started, though the core never answered it (D561 §2)", async () => {
+    let offers = 0;
+    const { connecting } = await startConnecting(stunAndTurn, (_offer, signal) => {
+      offers += 1;
+      return offers !== 2
+        ? Promise.resolve({ type: "answer", sdp: "v=0" })
+        : new Promise((_, reject) => {
+            signal?.addEventListener("abort", () => {
+              reject(new Error("given up"));
+            });
+          });
+    });
+    await vi.advanceTimersByTimeAsync(relayAfterMs);
+    expect(racingPeers).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(relayAfterMs - 1);
+    expect(racingPeers).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(racingPeers).toHaveLength(3);
+    expect(racingPeers[2]?.config).toEqual(stunAndTurn);
+    expect(steps()).toContain(
+      "WebRTC: not connected 3 s after trying with the relay over UDP; trying with the relay's every address too",
+    );
+    racingPeers[2]?.connects();
+    expect(await connecting).toBeInstanceOf(RtcTransport);
+    expect(racingPeers.map((peer) => peer.isClosed)).toEqual([true, true, false]);
+    expect(steps()).toContain(
+      "WebRTC: connected through the attempt that asked the relay's every address",
+    );
+  });
+
+  it("starts a page's later connections at the relay's every address once one needed it, with no rung after (D561 §2)", async () => {
+    const { connecting: first } = await startConnecting(stunAndTurn);
+    await vi.advanceTimersByTimeAsync(relayAfterMs * 2);
+    expect(racingPeers).toHaveLength(3);
+    racingPeers[2]?.connects();
+    await first;
+    const { connecting: next } = await startConnecting(stunAndTurn);
+    expect(racingPeers).toHaveLength(4);
+    expect(racingPeers[3]?.config).toEqual(stunAndTurn);
+    expect(steps()).toContain(
+      "WebRTC: this page's network needed the relay's every address; asking it at once",
+    );
+    await vi.advanceTimersByTimeAsync(relayAfterMs * 3);
+    expect(racingPeers).toHaveLength(4);
+    racingPeers[3]?.connects();
+    expect(await next).toBeInstanceOf(RtcTransport);
+  });
+
+  it("goes straight to the relay's every address where it names no UDP one (D561 §2)", async () => {
+    const { connecting } = await startConnecting(stunAndTlsTurn);
+    expect(racingPeers[0]?.config).toEqual({
+      iceServers: [{ urls: ["stun:stun.example.com:3478"] }],
+    });
+    await vi.advanceTimersByTimeAsync(relayAfterMs);
+    expect(racingPeers).toHaveLength(2);
+    expect(racingPeers[1]?.config).toEqual(stunAndTlsTurn);
+    expect(steps()).toContain(
+      "WebRTC: not connected 3 s after the answer; trying with the relay's every address too",
+    );
+    racingPeers[1]?.connects();
+    expect(await connecting).toBeInstanceOf(RtcTransport);
+  });
+
+  it("asks no more than the UDP relay where the relay names no other address, and tells its failure (D561 §2)", async () => {
+    const { connecting } = await startConnecting(stunAndUdpTurn);
+    await vi.advanceTimersByTimeAsync(relayAfterMs);
+    expect(racingPeers).toHaveLength(2);
+    expect(racingPeers[1]?.config).toEqual(stunAndUdpTurn);
+    await vi.advanceTimersByTimeAsync(relayAfterMs * 3);
+    expect(racingPeers).toHaveLength(2);
+    racingPeers[0]?.fails();
+    racingPeers[1]?.fails("checking");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(racingPeers).toHaveLength(2);
+    const problem = await connecting;
+    expect(problem instanceof Error ? problem.message : "").toBe(
+      "the WebRTC connection failed (ICE checking, connection failed, no pair selected)",
+    );
   });
 });

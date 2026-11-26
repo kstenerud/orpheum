@@ -5,11 +5,51 @@
  * its gathering met, and which of its ICE servers relay (rtc-connect.ts makes the offers).
  */
 
+/** Whether url names a TURN server, through which a relayed candidate will come. */
+function isRelayUrl(url: string): boolean {
+  return /^turns?:/i.test(url);
+}
+
+/**
+ * Whether url names a TURN server over UDP: a turn: URL that does not say transport=tcp, as one
+ * that names no transport is UDP (RFC 7065). A turns: URL is TLS, or DTLS, never plain UDP.
+ */
+function isUdpRelayUrl(url: string): boolean {
+  return /^turn:/i.test(url) && !/[?&]transport=tcp(?:&|$)/i.test(url);
+}
+
+/** Every ICE server URL a configuration names. */
+function urlsOf(rtcConfig: RTCConfiguration): string[] {
+  return (rtcConfig.iceServers ?? []).flatMap((server) =>
+    Array.isArray(server.urls) ? server.urls : [server.urls],
+  );
+}
+
+/** rtcConfig with only the URLs keep keeps, and a server left with none dropped. */
+function withUrlsKept(
+  rtcConfig: RTCConfiguration,
+  keep: (url: string) => boolean,
+): RTCConfiguration {
+  const iceServers = (rtcConfig.iceServers ?? []).flatMap((server) => {
+    const urls = (Array.isArray(server.urls) ? server.urls : [server.urls]).filter(keep);
+    return urls.length === 0 ? [] : [{ ...server, urls }];
+  });
+  return { ...rtcConfig, iceServers };
+}
+
 /** Whether a configuration names a TURN server, through which a relayed candidate will come. */
 export function hasRelayServer(rtcConfig: RTCConfiguration): boolean {
-  return (rtcConfig.iceServers ?? []).some((server) =>
-    (Array.isArray(server.urls) ? server.urls : [server.urls]).some((url) => /^turns?:/i.test(url)),
-  );
+  return urlsOf(rtcConfig).some(isRelayUrl);
+}
+
+/** Whether a configuration names a TURN server over UDP (isUdpRelayUrl). */
+export function hasUdpRelayServer(rtcConfig: RTCConfiguration): boolean {
+  return urlsOf(rtcConfig).some(isUdpRelayUrl);
+}
+
+/** Whether a configuration names a TURN server by a URL that is not UDP: a turns: one, or transport=tcp. */
+export function hasRelayBesidesUdp(rtcConfig: RTCConfiguration): boolean {
+  return urlsOf(rtcConfig).some((url) => isRelayUrl(url) && !isUdpRelayUrl(url));
 }
 
 /**
@@ -17,13 +57,17 @@ export function hasRelayServer(rtcConfig: RTCConfiguration): boolean {
  * connection asks first, its STUN servers alone (D559 §1).
  */
 export function withoutRelayServers(rtcConfig: RTCConfiguration): RTCConfiguration {
-  const iceServers = (rtcConfig.iceServers ?? []).flatMap((server) => {
-    const urls = (Array.isArray(server.urls) ? server.urls : [server.urls]).filter(
-      (url) => !/^turns?:/i.test(url),
-    );
-    return urls.length === 0 ? [] : [{ ...server, urls }];
-  });
-  return { ...rtcConfig, iceServers };
+  return withUrlsKept(rtcConfig, (url) => !isRelayUrl(url));
+}
+
+/**
+ * rtcConfig with every TURN URL but the UDP ones taken out, its STUN URLs kept, and a server left
+ * with none dropped: what a connection asks once it has not connected without a relay, before the
+ * relay's TLS address (D561 §2). A browser allocates at each relay URL for each of its addresses, and
+ * the TLS allocations of the hosted relay carried nothing while they filled its limit.
+ */
+export function withUdpRelaysAlone(rtcConfig: RTCConfiguration): RTCConfiguration {
+  return withUrlsKept(rtcConfig, (url) => !isRelayUrl(url) || isUdpRelayUrl(url));
 }
 
 /** One candidate an offer holds, by its kinds alone: never its address. */

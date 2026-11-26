@@ -14,9 +14,9 @@ import {
   gatheringText,
   hasRelayServer,
   isPastThisDevice,
-  withoutRelayServers,
 } from "./rtc-candidates.ts";
 import { connectingStepsOf, slowConnection } from "./rtc-connect-timing.ts";
+import { climbLadder, lostToAnotherAttempt, type AttemptHooks } from "./rtc-ladder.ts";
 import { candidatePairsOf } from "./rtc-pairs.ts";
 import { peerOf } from "./rtc-peer.ts";
 import {
@@ -280,32 +280,10 @@ async function offerGathered(rtcConfig: RTCConfiguration, waitMostMs: number): P
 }
 
 /**
- * How long after the core's answer a connection that asked no relay may go unconnected before a
- * second, which asks the relays too, is made beside it (D559 §1): nearly every connection connects
- * without a relay, and the hosted relay has few ports, so each connection asking every TURN server
- * for each of its interfaces at once held allocations it never used.
- */
-export const relayAfterMs = 3_000;
-
-/**
- * Whether a connection of this page has connected only through the attempt that asked the relays:
- * the page's network needs a relay, and its later connections ask them at once (D559 §1). Kept for
- * the page's life.
- */
-let isRelayNeededHere = false;
-
-/** Forgets that this page's network needed a relay, as a test starting afresh does. */
-export function forgetRelayNeeded(): void {
-  isRelayNeededHere = false;
-}
-
-/**
  * One peer connection, connected through signaller; given up, its peer closed, once signal aborts.
- * Where rtcConfig names a TURN server, it is tried first without one, and with them too only once
- * that has not connected relayAfterMs after the core's answer, or failed after it; the first of the
- * two to connect is taken and the other closed. A page whose network needed a relay asks them at
- * once (D559 §1). The discovery's answer does not say which relay is a household's own, so it waits
- * with the hosted one.
+ * Where rtcConfig names a TURN server, it climbs the ladder of attempts rtc-ladder.ts gives, from
+ * the rung this page's network last needed (climbLadder; D559 §1, D561 §2). The discovery's answer
+ * does not say which relay is a household's own, so it waits with the hosted one.
  */
 async function connectOne(
   signaller: Signaller,
@@ -315,130 +293,11 @@ async function connectOne(
   if (!hasRelayServer(rtcConfig)) {
     return await connectAttempt(signaller, rtcConfig, { signal });
   }
-  if (isRelayNeededHere) {
-    noteStep("WebRTC: this page's network needed the relay; asking it at once");
-    return await connectAttempt(signaller, rtcConfig, { signal });
-  }
-  return await connectDirectFirst(signaller, rtcConfig, signal);
-}
-
-/** Why an attempt was given up: the other attempt of its connection connected first (D559 §1). */
-const lostToTheOtherAttempt = "the other attempt connected first";
-
-/**
- * Connects as connectOne does where rtcConfig names a TURN server and the page has not needed one:
- * the attempt without the relays, and the one with them once that is late or failed after the
- * core's answer (D559 §1). A direct attempt that failed before the core answered (its offer reached
- * no core) or that the core turned away is the connection's failure, as a relay mends neither; where
- * both fail, the relayed attempt's failure is the one told, as it tried every way.
- */
-async function connectDirectFirst(
-  signaller: Signaller,
-  rtcConfig: RTCConfiguration,
-  signal: AbortSignal,
-): Promise<PeerLike> {
-  const direct = new AbortController();
-  const relayed = new AbortController();
-  const passOnAbort = (): void => {
-    direct.abort(signal.reason);
-    relayed.abort(signal.reason);
-  };
-  signal.addEventListener("abort", passOnAbort, { once: true });
-  const relay = relayDecision(signal);
-  const directTry = connectAttempt(signaller, withoutRelayServers(rtcConfig), {
-    signal: direct.signal,
-    onAnswered: relay.startLateTimer,
+  return await climbLadder(rtcConfig, {
+    attempt: (config, hooks) => connectAttempt(signaller, config, hooks),
+    isTurnedAway: (failure) => isTurnedAway(failure),
+    signal,
   });
-  directTry.then(
-    () => {
-      relay.decide(false);
-    },
-    (failure: unknown) => {
-      relay.decide(relay.isAnswered() && !isTurnedAway(failure), "failed without the relay");
-    },
-  );
-  // Unasked, the relayed attempt fails as the direct one does, and never connects.
-  const relayedTry = relay.isAsked.then(async (isAsked) =>
-    isAsked
-      ? await connectAttempt(signaller, rtcConfig, { signal: relayed.signal })
-      : await directTry.then(async () => await new Promise<never>(() => undefined)),
-  );
-  try {
-    const { peer, isRelayed } = await Promise.any([
-      directTry.then((each) => ({ peer: each, isRelayed: false })),
-      relayedTry.then((each) => ({ peer: each, isRelayed: true })),
-    ]);
-    (isRelayed ? direct : relayed).abort(lostToTheOtherAttempt);
-    (isRelayed ? directTry : relayedTry).then(
-      (loser) => {
-        loser.close();
-      },
-      () => undefined,
-    );
-    if (isRelayed) {
-      isRelayNeededHere = true;
-      noteStep("WebRTC: connected through the attempt that asked the relay");
-    } else if (relay.wasAsked()) {
-      noteStep("WebRTC: connected through the attempt without the relay");
-    }
-    return peer;
-  } catch (problem: unknown) {
-    const failures = problem instanceof AggregateError ? Array.from<unknown>(problem.errors) : [];
-    throw failures[1] ?? problem;
-  } finally {
-    relay.decide(false);
-    signal.removeEventListener("abort", passOnAbort);
-  }
-}
-
-/**
- * Whether a connection's attempt with the relays is made, decided once (D559 §1): yes once its direct
- * attempt has not connected relayAfterMs after the core's answer, or failed after it; no once that
- * attempt is settled otherwise, or the connection is given up.
- */
-function relayDecision(signal: AbortSignal): {
-  readonly isAsked: Promise<boolean>;
-  readonly startLateTimer: () => void;
-  readonly isAnswered: () => boolean;
-  readonly wasAsked: () => boolean;
-  readonly decide: (shouldAsk: boolean, why?: string) => void;
-} {
-  let tell: (isAsked: boolean) => void = () => undefined;
-  const isAsked = new Promise<boolean>((resolve) => {
-    tell = resolve;
-  });
-  let willAsk: boolean | undefined;
-  let isAnswered = false;
-  let lateTimer: ReturnType<typeof setTimeout> | undefined;
-  const decide = (shouldAsk: boolean, why = ""): void => {
-    clearTimeout(lateTimer);
-    if (willAsk !== undefined) {
-      return;
-    }
-    willAsk = shouldAsk && !signal.aborted;
-    if (willAsk) {
-      noteStep(`WebRTC: ${why}; trying with the relay too`);
-    }
-    tell(willAsk);
-  };
-  return {
-    isAsked,
-    startLateTimer: () => {
-      isAnswered = true;
-      lateTimer = setTimeout(() => {
-        decide(true, `not connected ${String(relayAfterMs / 1000)} s after the answer`);
-      }, relayAfterMs);
-    },
-    isAnswered: () => isAnswered,
-    wasAsked: () => willAsk === true,
-    decide,
-  };
-}
-
-/** What an attempt at a connection is given: its abort, and what it tells as the core answers. */
-interface AttemptHooks {
-  readonly signal: AbortSignal;
-  readonly onAnswered?: () => void;
 }
 
 /**
@@ -525,9 +384,9 @@ function reportIfSlow(offered: Offered, marks: AttemptMarks): void {
   }
 }
 
-/** Notes an attempt's failure as a step, unless it was closed as the other connected (D559 §1). */
+/** Notes an attempt's failure as a step, unless it was given up as another connected (D559 §1). */
 function noteFailure(error: unknown, signal: AbortSignal): void {
-  if (signal.reason !== lostToTheOtherAttempt) {
+  if (signal.reason !== lostToAnotherAttempt) {
     noteStep(`WebRTC: failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
