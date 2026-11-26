@@ -385,6 +385,12 @@ export class RtcTransport {
     }, settledAfterMs);
     this.closeWhenIdle(link);
     this.wakeWaiting();
+    // One back from disconnected takes the requests that waited while it could carry none.
+    peer.onJudged?.(() => {
+      if (this.links.includes(link)) {
+        this.wakeWaiting();
+      }
+    });
     peer.onGone?.((why) => {
       this.gone(link, why);
     });
@@ -630,8 +636,12 @@ export class RtcTransport {
 
   /**
    * A room for a request of rung on the connection with the fewest under way, taken at once, when one
-   * is up and has room, and, for a cosmetic one, while the cosmetic hold fewer than
-   * cosmeticRoomsPerConnection for each connection up.
+   * is up, can carry it (PeerLike.canCarry) and has room, and, for a cosmetic one, while the cosmetic
+   * hold fewer than cosmeticRoomsPerConnection for each connection up. One disconnected is passed by,
+   * and with none other the request waits, as with none up, for one back or new: a phone whose network
+   * changed had all four disconnected together, each held for disconnectedGraceMs, and a read asked
+   * again three times failed on them at once, before a new one was up (the owner's phone, production,
+   * 2026-11-26).
    */
   private claimNow(rung: Rung): Link | undefined {
     if (
@@ -640,7 +650,11 @@ export class RtcTransport {
     ) {
       return undefined;
     }
-    const link = fewestUnderWay(this.links.filter((each) => each.underWay < requestsPerConnection));
+    const link = fewestUnderWay(
+      this.links.filter(
+        (each) => each.underWay < requestsPerConnection && (each.peer.canCarry?.() ?? true),
+      ),
+    );
     if (link !== undefined) {
       link.underWay += 1;
       link.stopIdle();

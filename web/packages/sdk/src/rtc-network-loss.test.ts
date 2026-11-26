@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  canCarry,
   coreHoldsSilentMs,
   disconnectedGraceMs,
   peerLookEveryMs,
@@ -158,6 +159,96 @@ describe("a connection's states, watched for its going", () => {
     other.connectionState = "failed";
     vi.advanceTimersByTime(peerLookEveryMs * 10);
     expect(told).toHaveLength(1);
+  });
+});
+
+describe("whether a connection can carry a request", () => {
+  it("cannot while its connection or its ICE is disconnected, failed or closed, nor once its signalling closed", () => {
+    const peer = new SilentStates();
+    expect(canCarry(peer)).toBe(true);
+    peer.iceConnectionState = "disconnected"; // its connection still saying connected
+    expect(canCarry(peer)).toBe(false);
+    peer.iceConnectionState = "connected";
+    peer.connectionState = "disconnected";
+    expect(canCarry(peer)).toBe(false);
+    peer.connectionState = "failed";
+    expect(canCarry(peer)).toBe(false);
+    peer.connectionState = "connected";
+    peer.signalingState = "closed";
+    expect(canCarry(peer)).toBe(false);
+  });
+
+  it("is judged again each look while it is not gone, so one back with no event is seen", () => {
+    const peer = new SilentStates();
+    let judged = 0;
+    watchGone(peer, () => undefined, {
+      judged: () => {
+        judged += 1;
+      },
+    });
+    expect(judged).toBe(1); // as watching starts
+    vi.advanceTimersByTime(peerLookEveryMs * 3);
+    expect(judged).toBe(4);
+    peer.connectionState = "failed";
+    vi.advanceTimersByTime(peerLookEveryMs * 3);
+    expect(judged).toBe(4); // gone: judged no more
+  });
+});
+
+/** A connection whose states the test moves, judged as a browser's is (peerOf), recording its channels. */
+class StatesLink extends SilentStates implements PeerLike {
+  channels = 0;
+  private readonly judgedListeners: (() => void)[] = [];
+
+  createDataChannel(): ChannelLike {
+    this.channels += 1;
+    return {
+      readyState: "open",
+      send: () => undefined,
+      close: () => undefined,
+      listen: () => undefined,
+    };
+  }
+
+  close(): void {
+    // Closed by the transport once gone.
+  }
+
+  canCarry(): boolean {
+    return canCarry(this);
+  }
+
+  onJudged(listener: () => void): void {
+    this.judgedListeners.push(listener);
+  }
+
+  onGone(listener: (why: string) => void): void {
+    watchGone(this, listener, {
+      judged: () => {
+        for (const each of this.judgedListeners) {
+          each();
+        }
+      },
+    });
+  }
+}
+
+// The owner's phone, its network changed: every connection went disconnected together and was held
+// for disconnectedGraceMs, and a read asked again on them failed at once (production, 2026-11-26).
+describe("a transport whose connections are disconnected", () => {
+  it("hands no request to one disconnected, and gives it the request that waited once it is back, told by no event", async () => {
+    const peer = new StatesLink();
+    const transport = new RtcTransport([peer], undefined, () => Date.now());
+    peer.iceConnectionState = "disconnected";
+    void transport
+      .fetch(new Request("https://app.example/api/v1/me/devices"))
+      .catch(() => undefined);
+    await vi.advanceTimersByTimeAsync(disconnectedGraceMs - peerLookEveryMs);
+    expect(peer.channels).toBe(0); // waiting, not failed on it
+    peer.iceConnectionState = "connected"; // back within the grace, no event
+    await vi.advanceTimersByTimeAsync(peerLookEveryMs);
+    expect(peer.channels).toBe(1);
+    transport.close();
   });
 });
 

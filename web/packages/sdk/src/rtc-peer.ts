@@ -53,18 +53,43 @@ const watchedStates = [
 ] as const;
 
 /**
+ * Whether peer can carry a request now: neither its connection nor its ICE is disconnected, failed
+ * or closed, and its signalling is not closed. A phone whose network changed has every connection
+ * disconnected at once, each still held for disconnectedGraceMs, and a read asked again on one of
+ * them failed at once as its channel closed, its three asks spent before a new connection was up
+ * (the owner's phone, production, 2026-11-26).
+ */
+export function canCarry(peer: StatesPeer): boolean {
+  const unable: readonly string[] = ["disconnected", "failed", "closed"];
+  return (
+    peer.signalingState !== "closed" &&
+    !unable.includes(peer.connectionState) &&
+    !unable.includes(peer.iceConnectionState)
+  );
+}
+
+/** What watchGone reads the time from, and whom it tells each judging that finds a peer not gone. */
+export interface WatchTold {
+  readonly nowMs?: () => number;
+  readonly judged?: () => void;
+}
+
+/**
  * Tells listener once, with why, when peer is gone: its connection or its ICE failed or closed, its
  * signalling closed (the browser closed it), or either stayed disconnected for disconnectedGraceMs.
  * Its states are judged at each of their events and every peerLookEveryMs besides, the connection's
  * and the ICE's apart, since browsers do not move them together (idiosyncrasies.md, Firefox). One
  * whose page went unrun for coreHoldsSilentMs between two looks, the core having ended it meanwhile,
- * is gone too, the times read from nowMs. Returns the end of watching.
+ * is gone too, the times read from told's nowMs. Each judging that finds it not gone is told to told's judged, so
+ * one back from disconnected, told by no event, is seen within peerLookEveryMs. Returns the end of
+ * watching.
  */
 export function watchGone(
   peer: StatesPeer,
   listener: (why: string) => void,
-  nowMs: () => number = () => Date.now(),
+  told: WatchTold = {},
 ): () => void {
+  const { nowMs = () => Date.now(), judged = () => undefined } = told;
   let isGone = false;
   const unrunFor = sinceLast(nowMs);
   let grace: ReturnType<typeof setTimeout> | undefined;
@@ -103,9 +128,11 @@ export function watchGone(
           judge();
         }
       }, disconnectedGraceMs);
+      judged();
     } else {
       clearTimeout(grace);
       grace = undefined;
+      judged();
     }
   };
   const looking = setInterval(() => {
@@ -138,11 +165,18 @@ function lookAfter(unrunMs: number, judge: () => void, gone: (why: string) => vo
 }
 
 /**
- * A browser's peer connection as the transport uses it: each channel delivers ArrayBuffers, and it
- * says once when it is gone, and why (watchGone).
+ * A browser's peer connection as the transport uses it: each channel delivers ArrayBuffers, it says
+ * whether it can carry a request now (canCarry) and each time its states were judged, and it says
+ * once when it is gone, and why (watchGone).
  */
 export function peerOf(peer: RTCPeerConnection): PeerLike {
   let stopWatching = (): void => undefined;
+  const judgedListeners: (() => void)[] = [];
+  const judged = (): void => {
+    for (const listener of judgedListeners) {
+      listener();
+    }
+  };
   return {
     createDataChannel: (label) => {
       const channel = peer.createDataChannel(label);
@@ -154,8 +188,12 @@ export function peerOf(peer: RTCPeerConnection): PeerLike {
       peer.close();
     },
     candidatePairs: async () => candidatePairsOf((await peer.getStats()).values()),
+    canCarry: () => canCarry(peer),
+    onJudged: (listener) => {
+      judgedListeners.push(listener);
+    },
     onGone: (listener) => {
-      stopWatching = watchGone(peer, listener);
+      stopWatching = watchGone(peer, listener, { judged });
     },
   };
 }

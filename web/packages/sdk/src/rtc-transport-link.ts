@@ -25,6 +25,13 @@ export interface PeerLike {
    * disconnected longer than disconnectedGraceMs (rtc-peer.ts). A test's peer may never tell.
    */
   onGone?(listener: (why: string) => void): void;
+  /**
+   * Whether it can carry a request now: not while its connection or its ICE is disconnected, failed
+   * or closed (rtc-peer.ts's canCarry). A test's peer that cannot say always can.
+   */
+  canCarry?(): boolean;
+  /** Tells listener each time its states were judged (watchGone), so a change in canCarry is seen. */
+  onJudged?(listener: () => void): void;
   /** Its candidate pairs as the browser sees them (rtc-pairs.ts); a test's peer may have none. */
   candidatePairs?(): Promise<CandidatePairSeen[]>;
 }

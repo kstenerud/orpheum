@@ -200,7 +200,11 @@ device lab reported until it went, D555 §12) and a WebRTC call of a page with i
   2026-10-30; idiosyncrasies.md). `src/rtc-request-silence.browser.test.ts`, in both browsers. A
   request given up for its silence names its channel's SCTP stream in what `carrierOf` says, as the
   core's log names the channel (`src/rtc-transport-carrier.test.ts`). Requests go to the connection
-  with the fewest under way, and a switchable fetch moves the API's requests to a new path while the
+  with the fewest under way that can carry them (`canCarry`: neither its connection's nor its ICE's
+  state `disconnected`, `failed` or `closed`); while none can, a request waits for one back or new,
+  as with none up, so a read asked again after a phone's network changed is not failed at once on
+  the connections dying together (production, 2026-11-26; `src/rtc-network-loss.test.ts`,
+  `apps/web/src/ask-after-network-change.test.ts`). A switchable fetch moves the API's requests to a new path while the
   app runs, saying so in the console. `src/rtc-transport.test.ts`; in a real
   browser against a real core, `web/e2e/webrtc.spec.ts`.
 - **A WebRTC transport holds one connection, and more only while its requests crowd it**: another

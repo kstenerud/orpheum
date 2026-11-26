@@ -625,7 +625,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   asks again after the failed wait, so one request that never answers cannot stop it for good (the
   owner, 2026-10-24). A read its WebRTC connection left unanswered (`isUnanswered`: silent, or its
   channel closed under it) is asked again at once on the next connection (`askWhileUnanswered`),
-  unless its answer is single-use, and a poll's that still fails leaves the answer drawn in place (the
+  one that can carry it, waiting for a new one while every one up is disconnected (the owner's phone,
+  its network changed, production, 2026-11-26; `src/ask-after-network-change.test.ts`), unless its
+  answer is single-use, and a poll's that still fails leaves the answer drawn in place (the
   owner's phone back from another app, 2026-11-14). A read that failed, its answer not single-use,
   is read again at once each time the way to the core may work again (`Services.onPathBack`: a
   WebRTC connection up after a time with none, or the browser back online; on the core's own origin
