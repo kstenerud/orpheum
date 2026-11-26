@@ -21742,6 +21742,10 @@ the hand-off (the plan's §3, A).
 
 **Status:** Decided; its §9 questions answered 2026-10-25; being built.
 
+**Amended by D555** (2026-11-25, built by 2026-11-26): what this says of a cast's place on the
+server, of its ends and of its remote is D555's now. The cast remote's page is gone, and the
+Play page works the castee as it works the video (plans/playing-casting-together-rework.md).
+
 ## D336 — A film's sound plays as it is unless the device cannot play it or the person asks for a feature that needs it made; no one is asked how their device makes sound
 
 **Decided** (2026-10-25), by the project owner. People were confused by the question of how their
@@ -21912,6 +21916,10 @@ as it names its roles.
 > **Revised by [D364](#d364--casting-is-a-session-with-a-device-while-it-lasts-whatever-the-person-plays-plays-there-and-the-sending-device-shows-it-in-the-tray)** (2026-10-27): between videos the receiver waits full screen and ready; taking control back with nothing playing goes to its home page; Stop casting returns it to the page it was on before the session.
 
 **Status:** Decided, and built (cast-to-device.md §11, its assumptions 2, 3, 5, 7, 11–13). Device checks: VQ64–VQ66 and VQ68 as revised, and VQ71.
+
+**Amended by D555** (2026-11-25, built by 2026-11-26): what this says of a cast's place on the
+server, of its ends and of its remote is D555's now. The cast remote's page is gone, and the
+Play page works the castee as it works the video (plans/playing-casting-together-rework.md).
 
 ## D339 — Up next keeps its 30 s lead until credits are detected, a run of three autoplays with no press asks Still watching, and a host's autoplay moves their group on
 
@@ -23487,6 +23495,10 @@ socket's new `sending` message and `receive`'s `isAccepted` and `togetherCredent
 live socket has none, and its pages are served by the same core); Watch Together's protocol is
 unchanged but for the cast's end `receiverGone`.
 
+**Amended by D555** (2026-11-25, built by 2026-11-26): what this says of a cast's place on the
+server, of its ends and of its remote is D555's now. The cast remote's page is gone, and the
+Play page works the castee as it works the video (plans/playing-casting-together-rework.md).
+
 Resolved in the build, where the decision left it open (say if any should go otherwise):
 - **Casting while Watch Together is on** (§11, §13) is plans/cast-to-device.md §7's step 8 in its
   simplest form: the receiver is handed a host's credential for the person's session with each film
@@ -24882,6 +24894,10 @@ taking the receiver (`replaced`) and the server no longer knowing the cast (`gon
 the cast's Play page as it ends plays nothing, as for Stop casting; the receiver's take-back no longer
 names who took control back on the sender's page, which plays the film at once instead. Device
 check: VQ190.
+
+**Amended by D555** (2026-11-25, built by 2026-11-26): what this says of a cast's place on the
+server, of its ends and of its remote is D555's now. The cast remote's page is gone, and the
+Play page works the castee as it works the video (plans/playing-casting-together-rework.md).
 
 ## D386 — A device receiving a cast is no one else's cast target, and a cast the server no longer knows sends its page home
 
@@ -26962,6 +26978,10 @@ and D445 §1 (ending a cast stays with the device that cast).
 **Status:** decided. Built in "feat(cast): a receiver's own Stop casting here, the sender taking on the state it left" (§1–3, §5) and "feat(cast)!: a receiver no longer moves the session its person hosts here (D446 §4)" (§4: the receiver shows no Watch
 Together sign for the session cast to it, and the cast end reason `movedHere` is gone).
 
+**Amended by D555** (2026-11-25, built by 2026-11-26): what this says of a cast's place on the
+server, of its ends and of its remote is D555's now. The cast remote's page is gone, and the
+Play page works the castee as it works the video (plans/playing-casting-together-rework.md).
+
 **Proven by:** "ends the cast by its own Stop casting here, as taken back, going home as the cast
 ends" and "has focus arrive on its ⤢, never on Stop casting here at its top" (`cast-ready.test.tsx`);
 "heads its player's overlay with Stop casting here, which a device playing its own film has not"
@@ -27995,6 +28015,10 @@ and kept focused, asking for full screen in its handler (`cast-start.tsx`; §2);
 and the receiver's minute removed; the sender's give-up at `castTakenWithinMs`, and `declined` and
 `unanswered` still read from older receivers (`cast-to.tsx`, `cast.ts`). The film is held over the
 page the tab was on, not at its first frame on the Play page: the press opens it there.
+
+**Amended by D555** (2026-11-25, built by 2026-11-26): what this says of a cast's place on the
+server, of its ends and of its remote is D555's now. The cast remote's page is gone, and the
+Play page works the castee as it works the video (plans/playing-casting-together-rework.md).
 
 **Proven by:**
 - 1, 3: web/apps/web/src/cast-receiving.test.tsx, web/apps/web/src/start-refused.test.ts, VQ308
@@ -31430,6 +31454,10 @@ thumb's reach; the volume had a slider alone; and nothing said the TV was being 
 **Status:** decided; not built. Its code is `web/apps/web/src/cast-remote.tsx` and the files
 beside it.
 
+**Amended by D555** (2026-11-25, built by 2026-11-26): what this says of a cast's place on the
+server, of its ends and of its remote is D555's now. The cast remote's page is gone, and the
+Play page works the castee as it works the video (plans/playing-casting-together-rework.md).
+
 1. **One part, CastRemote,** built from IconButton, OfferCard, Pill and StatusNote with the
    player's timeline and buttons row. It no longer uses the player's overlay (`OverlayRowsOf`,
    `.player-overlay`); it keeps the way up and Ends at.
@@ -31508,6 +31536,10 @@ position need not be exact: it must still never be 0:00 for want of one.
 **Status:** decided; not built. Its code is `cast-remote.tsx`'s usePlaysHere, useWhereItStood,
 useTakesTheFilmOver and useCastSession, taken up in the redesign batch (D548) once its layout lands.
 
+**Amended by D555** (2026-11-25, built by 2026-11-26): what this says of a cast's place on the
+server, of its ends and of its remote is D555's now. The cast remote's page is gone, and the
+Play page works the castee as it works the video (plans/playing-casting-together-rework.md).
+
 1. **One rule for every Stop:** stopped here, stopped on the receiver, control taken back or the
    receiver gone, the film plays here again from where the receiver last stood, paused where it
    was paused. The page goes home only where the receiver truly had nothing on (the cast's
@@ -31542,6 +31574,10 @@ already knows, and lets the person act on it.
 
 **Status:** decided; not built. Its code is `cast-remote.tsx`'s useRemoteSource and RemoteOf, and
 `cast-remote-offer.tsx`'s useNotAnswering, taken up in the redesign batch (D548) after its layout.
+
+**Amended by D555** (2026-11-25, built by 2026-11-26): what this says of a cast's place on the
+server, of its ends and of its remote is D555's now. The cast remote's page is gone, and the
+Play page works the castee as it works the video (plans/playing-casting-together-rework.md).
 
 1. **What went wrong.** The remote's `isReady` is its own connection to the cast's session with a
    position heard: a television switched off leaves both standing. The server takes a device
@@ -31650,6 +31686,10 @@ back against the code). Its code is `cast-remote-ends.ts`'s endWayOf, useEndWay 
 useRemoteEnded, `cast-remote.tsx`'s useWhereItStood (lostBeforeGoneMs) and playsFromWhereItStood,
 `cast-remote-offer.tsx`'s RemoteOffer (`ended`), `cast.ts`'s endAskedOf, `cast-sdk.ts`'s
 onSessionEnded and `google-cast.ts`'s linkCastSession.
+
+**Amended by D555** (2026-11-25, built by 2026-11-26): what this says of a cast's place on the
+server, of its ends and of its remote is D555's now. The cast remote's page is gone, and the
+Play page works the castee as it works the video (plans/playing-casting-together-rework.md).
 
 1. **The remote stays as the cast ends with its receiver gone.** The server's end stands (D364 §6:
    two minutes after the receiver's connection was lost, reason `receiverGone`), and the cast is
@@ -31778,6 +31818,10 @@ the cast's and the hosted session's reconnecting state. §5 is `google-cast.ts`'
 and `cast-session-lost.ts`, read by `cast-remote-heard.ts`'s `useReceiverHeard`; the server's
 accepted `receiverGone` is unchanged.
 
+**Amended by D555** (2026-11-25, built by 2026-11-26): what this says of a cast's place on the
+server, of its ends and of its remote is D555's now. The cast remote's page is gone, and the
+Play page works the castee as it works the video (plans/playing-casting-together-rework.md).
+
 1. **An end the sender asked for brings the film to the sender at once**, as the receiver had it,
    paused or playing: Stop casting in Cast's dialog, Play here while Reaching, and the person's
    Stop in Chrome's own Cast control (D552 §4–5, D446 §2, D549). Hosting Watch Together, the
@@ -31844,6 +31888,10 @@ only while the cast's session shows no leader, and is forgotten as the leader is
 (`useReceiverHeard`, `cast-session-lost.ts`). The server's `receiverGone` end, which a sender may
 send, is unchanged.
 
+**Amended by D555** (2026-11-25, built by 2026-11-26): what this says of a cast's place on the
+server, of its ends and of its remote is D555's now. The cast remote's page is gone, and the
+Play page works the castee as it works the video (plans/playing-casting-together-rework.md).
+
 1. **A receiver unheard for `notAnsweringAfterMs` is given up by the remote**: unheard as
    `useReceiverHeard` says (its device gone from the live roster, its session lost, its lead lost
    after leading), not a receiver that has not begun: a receiver page holding the cast for its press
@@ -31889,7 +31937,8 @@ its remote: D337, D338, D364 §6, D385, D389 §1, D446, D468, D548, D549, D550, 
 the build plan names each section replaced. D88 (a cast alone is a session of one), D120 (the
 remote plays nothing) and D518 (a guest's cast is their own part) stand, and become the one way.
 
-**Status:** decided; not built. The build plan follows, for the owner's review.
+**Status:** decided; phases 0 to 5 of the plan (plans/playing-casting-together-rework.md) are on
+main, each walked on staging as the plan records. Left: the plan's close, with each point's proof.
 
 1. **A device plays a video itself or passes the playing to another device, its castee.** The cast
    belongs to the device. To a Watch Together session it is a detail of how a member plays: the
