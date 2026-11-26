@@ -9,11 +9,8 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import { clockText } from "./date-time-text.ts";
 import type { OfferPiece, OfferPlace } from "./convenience-area.tsx";
 import { PlayUpwardContext } from "./play-up.tsx";
-import {
-  CommandRightsContext,
-  type CommandRights,
-  type SequenceMoves,
-} from "./player-controls.tsx";
+import type { CommandRights } from "./player-commands.ts";
+import { CommandRightsContext, type SequenceMoves } from "./player-controls.tsx";
 import { PlayerOverlay } from "./player-overlay.tsx";
 import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
 import { seekAskedEvent, seekRestMs, soughtByOf, stopSeekAheadOf } from "./seek-ahead.ts";

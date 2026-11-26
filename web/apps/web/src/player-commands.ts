@@ -25,7 +25,6 @@ import { arrowsAreCommandsAttribute, caretOf } from "./focus-engine.ts";
 import { isMeantToPlay, isPausedAsAsked } from "./film-waits.tsx";
 import { useLatest } from "./latest.ts";
 import type { PlaybackTarget } from "./playback-target.ts";
-import type { CommandRights } from "./player-controls.tsx";
 import { remoteVolumeStep, volumeAfter } from "./volume-step.ts";
 import { useCommands, useMediaPlayPause, useMediaSeeks } from "./input-layer.tsx";
 import type { Command } from "./input-buttons.ts";
@@ -154,6 +153,17 @@ export interface PlayerStage {
   readonly stepVolume: (direction: -1 | 1) => boolean;
   /** Turns the sound off, or on again (M); whether it did. */
   readonly toggleMute: () => boolean;
+}
+
+/**
+ * What the controls over the video here may command: play and pause, and seeks. Every page's video
+ * takes both, but a Watch Together guest's, whose link's rights say which they have (D271 §4): their
+ * Play page draws only the controls those give (D555 §8, §10), its group undoing any other change
+ * (followGroup).
+ */
+export interface CommandRights {
+  readonly canPlayPause: boolean;
+  readonly canSeek: boolean;
 }
 
 /** Every right a player's commands can have: any page's video's but a Watch Together guest's. */

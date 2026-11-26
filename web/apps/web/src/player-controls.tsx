@@ -22,7 +22,7 @@ import { isPausedAsAsked } from "./film-waits.tsx";
 import { useIsVolumeSettable } from "./film-volume-slider.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { useSideTapsOf } from "./phone-side-taps.tsx";
-import { answerPlayerCommand } from "./player-commands.ts";
+import { answerPlayerCommand, type CommandRights } from "./player-commands.ts";
 import {
   MutedIcon,
   NextIcon,
@@ -346,17 +346,6 @@ interface Standing {
   readonly reportedAtMs: number;
   readonly durationMs: number;
   readonly isPaused: boolean;
-}
-
-/**
- * What the controls over the video here may command: play and pause, and seeks. Every page's video
- * takes both, but a Watch Together guest's, whose link's rights say which they have (D271 §4): their
- * Play page draws only the controls those give (D555 §8, §10), its group undoing any other change
- * (followGroup).
- */
-export interface CommandRights {
-  readonly canPlayPause: boolean;
-  readonly canSeek: boolean;
 }
 
 /** The rights of the controls over the video here (CommandRights): every one, but a guest's. */

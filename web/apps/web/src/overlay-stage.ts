@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { useLatest } from "./latest.ts";
-import { stageOfTarget, stageOfVideo, type PlayerStage } from "./player-commands.ts";
+import {
+  stageOfTarget,
+  stageOfVideo,
+  type CommandRights,
+  type PlayerStage,
+} from "./player-commands.ts";
 import type { PlaybackTarget } from "./playback-target.ts";
-import type { CommandRights } from "./player-controls.tsx";
 import type { RefObject } from "react";
 
 /**
