@@ -32207,7 +32207,8 @@ worth that.
 owner's phone was refused allocations on production ("I'd rather we find the root cause instead of
 trying quick fixes"). It adds to D558 §4 and D559 §1, and amends neither.
 
-**Status:** decided. §1 has code and runs on the edge VPS; §2 is being built; §3 waits for both.
+**Status:** decided. §1 has code and runs on the edge VPS; §2 has code and runs on staging,
+reaching production with its next Connect package; §3's figure is proposed to the owner.
 
 **What the relay's lines showed.** The phone, with three local addresses, made six allocations a
 connection: one for each address and each of the relay's two URLs. The page grew to four

@@ -156,4 +156,9 @@ the log says whether a device took the relay needlessly (the owner, 2026-11-26):
    the relay ends an allocation idle a minute, and a connection asks the UDP address first.
 8. **Each connection makes one UDP and one TLS allocation that end within their first second**,
    carrying nothing (Firefox, the phone and the desktop). Not explained. Open.
-
+9. **D561 walked on staging** (2026-11-26). A Firefox held to relayed candidates kept its
+   connections 13 minutes after the relay ended its spare allocations at one minute, then played;
+   a Chromium the same over three minutes. With the ladder, both played asking the relay's UDP
+   address alone and made no TLS allocation; a Chromium allowed the TLS address alone played
+   through the last rung, 20 TLS allocations over the walk, five of them carrying anything. A
+   browser's allocations left behind ended as idle 60 to 70 s after its page went.

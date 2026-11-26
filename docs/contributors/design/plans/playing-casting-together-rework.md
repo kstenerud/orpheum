@@ -560,3 +560,13 @@ Added by the owner, 2026-11-26, from the same walk's unfixed observations:
 8. **The Invite dialog's "Make a link" button sits under a phone's keyboard.**
 9. **The Fire TV's own volume across films is walked on the device**: kept per device by the
    batch, and not yet walked there.
+10. **A phone whose network changed could not reach the server for two minutes** (production, the
+    owner's phone, 2026-11-26 21:36–21:39Z, Chrome on Android, film page of file 1322). Its four
+    connections came direct from a mobile address; the core last heard them about 21:36:42; new
+    ones came from a fixed line's IPv6 at 21:36:53 (eleven seconds), and the core last heard those
+    about 21:37:16; none came again until 21:39:15. In between the Cast panel said "The server
+    could not be reached. Check the connection and try again." and listed no device. The relay
+    carried nothing of it. Not known: what changed on the phone the second time (its status bar
+    showed a VPN), and whether 21:39:15 was the page's own doing or a reload. To find: how long a
+    page takes to see its connections dead and make new ones, and whether the panel should wait
+    for that and ask again before it says anything.
