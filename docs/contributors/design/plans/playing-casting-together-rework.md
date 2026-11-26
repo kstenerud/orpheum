@@ -317,8 +317,8 @@ something (for submenus, only if there's at least one submenu item that can do s
 and watch together buttons only show once (top bar if it's visible, bottom bar otherwise). Never
 offer the fullscreen mode button when casting. If they do enable fullscreen mode through their
 browser's controls while casting, we present a similar display layout to the non-fullscreen
-one." Put back: the castee's Play page laid out as the remote was before D555 (the bar with *On:
-‹TV›* and the end, the key frame with its offers and centre pill, the timeline with the time
+one." Put back: the castee's Play page laid out as the remote was before D555 (the bar with _On:
+‹TV›_ and the end, the key frame with its offers and centre pill, the timeline with the time
 under it, the 3×3 pad, the menus' row end-aligned), one column upright and two on its side or
 wide, in and out of full screen, with no overlay and no ⤢, F doing nothing and the page leaving
 full screen as it opens (`src/remote-pad.tsx`, `src/play-castee.tsx`); D555's one Play page, its
@@ -510,3 +510,21 @@ browser cannot be worked from another, and a castee carried over could be left w
 The seat then runs on the new device alone, playing itself. Today a signed-in guest gets a
 credential for each of their devices and may be in on several: phase 1 ends that.
 
+## After the close: everything the Chromecast can do (2026-11-26)
+
+The owner, 2026-11-26: "Check what the chromecast is actually capable of. Anything it can do, I
+want. I want the volume controls for watch together to be merged into the volume button in the
+bottom bar. The tracks and sound timing and such should also be put in their relative submenus,
+visible only when it makes sense."
+
+Built for the Chromecast, with no server or protocol change (the core already relays a remote's
+sound and picture choices to the device playing): its receiver works the remote's Sound menu as a
+browser castee does, the audio track, dialogue boost and levelling (switched in place, each kept
+for the person as the Play page keeps it) and the sound timing (for the film alone); its Subtitles
+menu, the core's tracks shown as the video's own WebVTT track at the person's timing; and quality,
+which it already followed. The pad's volume and mute set the TV's own volume through the caster's
+Cast session, and follow the TV's remote. Not offered: the
+original file (the receiver asks for no container of a file's own), the film's own channel (the
+device's volume stands for it), a file's sound offset, and a subtitle found from the remote until
+the next film (the receiver's README and its panels say why). After a page reload the pad has no volume for a cast it did not start: the Cast
+session is that page's (idiosyncrasies.md). VQ407 walks it on the device.
