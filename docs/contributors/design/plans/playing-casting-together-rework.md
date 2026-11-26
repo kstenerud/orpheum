@@ -218,7 +218,16 @@ video's overlay (`OverlayOver`, the castee its target) over the key frame on its
 screen and on a computer, its bar under the key frame only upright out of full screen. Full screen
 stays with a film on the castee, the key frame filling the screen with "On: ‹TV›" and when it ends
 over its top; "Ready on" still leaves it (D440 §5). Nothing in the overlay takes a press while the
-castee is not heard, but the signs. Left: the walk on the Pixel and a computer.
+castee is not heard, but the signs.
+
+**Walked (the castee, staging, 2026-11-26, the Pixel and the Chromecast):** on its side the
+overlay shows over the key frame, and its Play, Forward 10 s and Pause each reach the Chromecast;
+Full screen fills the screen, "On: ‹TV›" and when it ends over the top, the signs and Leave full
+screen in the bottom row, and leaving it brings the top bar back; upright the bar is under the key
+frame; Stop casting swaps the film back to the phone, paused where the Chromecast stood. For the
+owner: on its side and not full screen the stage is taller than the room under the top bar, so
+Settings and Full screen sit half below the screen's edge until the page is scrolled; upright the
+bar has no Full screen and no volume. Not walked: the castee's page on a computer.
 
 **Walked (items 1–2, staging, 2026-11-26, the Pixel):** upright, the top bar, the picture and
 the controls under it, all shown; on its side, the top bar and the overlay with the 64 px play;
@@ -238,7 +247,26 @@ corner (⏮ ⏭ and Full screen) is gone. Where the design was silent: the sessi
 and offset staying under the picture; a signed-in guest gets the same controls, its Cast and Leave
 staying in the panel under the shell's bar; AirPlay is offered as before.
 
-**Left (item 4):** to walk on a phone and a computer as a guest by link.
+**Walked (item 4, staging, 2026-11-26, headless Chromium as host and as guest by link):** before
+the host plays, the guest's page has its top bar, Leave, Talk and "Waiting for the host to start
+a film"; with the host playing, the guest's film plays in step under the overlay, without menus or
+a way up; the guest's Pause, Forward 10 s and Play each move the host's film to the same second; at
+a phone's size upright the controls are under the picture. Not walked: on the Pixel itself; a
+guest whose link allows neither play nor seek.
+
+**Walked (phase 5, staging, 2026-11-26):** `/lab` and `/lab/sound` say there is nothing at the
+address; This device links the sound timing test, and its page offers the clip.
+
+**Next batch (found on these walks):**
+
+- The sound timing clip does not play on staging: the Play page says it is no longer there
+  (`notFound: no such file to play`). The server made the clip again after a deploy and the scan
+  took it for a second place of a file found before (`copiesMerged`); the file's own place is no
+  longer read, and a file plays only from its own place (`GetPlayableFile`), so the clip the system
+  videos name cannot be played. The page and the route are the lab's unchanged; the fault is the
+  server's and older than this rework.
+- `failure-reports.test.ts` failed once under the gate's load (three reports where one was
+  expected) and passes alone.
 
 ### Phase 5: the lab goes (D555 §12)
 
