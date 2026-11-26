@@ -26,6 +26,7 @@ import "./title.tsx";
 import "./together-viewer.tsx";
 import "./ui-gallery.tsx";
 import "./watch-together.tsx";
+import { routeOfHref } from "./router.ts";
 import { resetLazyScreensOnMount } from "./screen-load.tsx";
 import { ServicesContext, type Services } from "./services.tsx";
 import type { ShellBody } from "./shell-read.ts";
@@ -221,6 +222,22 @@ export async function mountApp(services: Services): Promise<Walking> {
       container.remove();
     },
   };
+}
+
+/**
+ * Mounts the whole client over services as mountApp does, with its page opened after the app's
+ * opening, as a pointer's press on a link to it opens it: the app opened on Home (on Films where the
+ * page is Home's), then the page, which arrives on its own arrival as every page opened after the
+ * opening does. As the app opens, before any press, focus goes to the top bar's Home mark instead
+ * (focus-navigation.ts openingArrivalIn), so a walk of what a page does from its arrival opens it so.
+ * Back from the page goes to the page the app opened on.
+ */
+export async function mountAfterTheOpening(services: Services): Promise<Walking> {
+  const opened = services.navigation.route();
+  services.navigation.replace(routeOfHref(opened.screen === "home" ? "/films" : "/"));
+  const walking = await mountApp(services);
+  services.navigation.go(opened);
+  return walking;
 }
 
 /** What has focus, by its text or name, for a walk's checks. */

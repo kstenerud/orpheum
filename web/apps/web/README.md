@@ -948,7 +948,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   content goes back to what last had focus there; the focused element is scrolled into view no
   further than it must be, clear of the sticky banner, and Up or Down over more than half a screen
   of text scrolls through it a step at a time before the control past it takes focus; a
-  controller's move is shown as a key's is (`:focus-visible`), a pointer's never; Back returns focus to what had it on the page left, noted
+  controller's move is shown as a key's is (`:focus-visible`), a pointer's never, and an arrow's
+  always, the ring shown on the focus an arrow that cannot move stays on; Back returns focus to what had it on the page left, noted
   on its history entry as the page was left and found once the page draws it (`src/focus-memory.ts`),
   Silk's Back too. The player answers with its own controls on every device, never the browser's
   (D369 §2; `src/player-commands.ts`): play/pause wherever focus is, OK on the video, Space on the
@@ -1028,7 +1029,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   a controller and none after a pointer or before any press (`focusAfterNoPress`, as the picture's
   focus too; but on a television, whose remote is its only input), and taken only from nothing or from what opened it, never
   once the person has moved on; `src/arrival.browser.test.tsx`, its "focus a script gives before any
-  key or controller has pressed" for the ring. A dialog with no marked arrival
+  key or controller has pressed" for the ring. As the app opens, before any press, focus goes in
+  the page's arrival's place to the top bar's Home mark (`openingMark`, `openingArrivalIn`; the
+  owner, 2026-11-26), where every key's move starts: but where the page's arrival is a text field,
+  the page draws no top bar, or it marks no arrival (the Play page, whose picture takes focus); a
+  page opened after keeps its own. A dialog with no marked arrival
   decides its own from its choices (D421): its first not marked a dangerous action
   (`dangerousMark`), never its Close, or, where every choice is, none, focus resting on the dialog
   itself (`choiceArrivalIn`); "where a dialog's focus arrives as it opens (D421)" in

@@ -18,7 +18,14 @@ import { chooseOk, okChoice } from "./controller-choice.ts";
 import { closeTrayDialog } from "./tray-dialog.ts";
 import { createSession } from "./session.ts";
 import { screens, signedIn, devices, remoteWalk } from "./test-walk.tsx";
-import { focusedName, isFocusIn, mountApp, walkServices, type Walking } from "./test-walk.tsx";
+import {
+  focusedName,
+  isFocusIn,
+  mountAfterTheOpening,
+  mountApp,
+  walkServices,
+  type Walking,
+} from "./test-walk.tsx";
 
 const { press, pressUntil, drawn, unreachedInMain, unreachedIn } = remoteWalk({
   expect,
@@ -68,7 +75,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
 
   it("goes Down from This device's Rename, its arrival, to the controller's choices", async () => {
     await page.viewport(width, height);
-    walking = await mountApp(
+    walking = await mountAfterTheOpening(
       walkServices({ ...signedIn, "GET /me/devices": { devices: devices(1) } }, "/this-device"),
     );
     await expect.poll(focusedName).toBe("Rename");

@@ -41,6 +41,7 @@ import {
   isDrawn,
   isFocusIn,
   isFocusOnFirst,
+  mountAfterTheOpening,
   mountApp,
   reachedFrom,
   viewer,
@@ -64,7 +65,9 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
 
   it("opens the banner's menu by OK, goes down its places to This device, and Back returns to its icon", async () => {
     await page.viewport(width, height);
-    walking = await mountApp(walkServices({ ...signedIn, "GET /me/devices": { devices: [] } }));
+    walking = await mountAfterTheOpening(
+      walkServices({ ...signedIn, "GET /me/devices": { devices: [] } }),
+    );
     // The page opens with focus on its first poster, its arrival (ui-audit-2026-11-04.md R3).
     await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     expect(await pressUntil("{ArrowUp}", () => isFocusIn(".app-shell__banner"))).toBe(true);
@@ -82,7 +85,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
 
   it("closes the open menu by Back, keeping its icon, before going anywhere", async () => {
     await page.viewport(width, height);
-    walking = await mountApp(walkServices(signedIn));
+    walking = await mountAfterTheOpening(walkServices(signedIn));
     // The page opens with focus on its first poster, its arrival (ui-audit-2026-11-04.md R3).
     await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     await pressUntil("{ArrowUp}", () => isFocusIn(".app-shell__banner"));
@@ -105,8 +108,9 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await page.viewport(width, height);
     const place = fakePlace("/");
     const navigation = createNavigation(place, false);
-    navigation.go({ screen: "films" });
+    // Films opened from Home after the app's opening, as a pointer opens it, so that it arrives.
     walking = await mountApp({ ...walkServices(signedIn), navigation });
+    navigation.go({ screen: "films" });
     // The page opens with focus on its first poster, its arrival (ui-audit-2026-11-04.md R3).
     await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     await pressUntil("{ArrowUp}", () => isFocusIn(".app-shell__banner"));
@@ -124,7 +128,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
 
   it("closes the open menu by Left and by Right, focus on its icon, Down still moving within it", async () => {
     await page.viewport(width, height);
-    walking = await mountApp(walkServices(signedIn));
+    walking = await mountAfterTheOpening(walkServices(signedIn));
     // The page opens with focus on its first poster, its arrival (ui-audit-2026-11-04.md R3).
     await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     await pressUntil("{ArrowUp}", () => isFocusIn(".app-shell__banner"));
@@ -142,7 +146,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
 
   it("reaches every control of a film's page, its own Back first", async () => {
     await page.viewport(width, height);
-    walking = await mountApp(
+    walking = await mountAfterTheOpening(
       walkServices({ ...signedIn, "GET /items/103": filmDetail(103, "Film 3") }, "/titles/103"),
     );
     await drawn(".title__play");
@@ -152,7 +156,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
   // Under the page's "…" (the owner, 2026-10-29), whose place opens its dialog in the list's place.
   it("reaches every control of an admin's film page, and of Identified incorrectly's dialog opened from its … by OK", async () => {
     await page.viewport(width, height);
-    walking = await mountApp(
+    walking = await mountAfterTheOpening(
       walkServices(
         {
           ...signedIn,
@@ -204,7 +208,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
   // which adds no step to Back.
   it("reaches every control of a series' page, and picks a season in its place", async () => {
     await page.viewport(width, height);
-    walking = await mountApp(
+    walking = await mountAfterTheOpening(
       walkServices({ ...signedIn, "GET /items/20": glassTide }, "/series/20"),
     );
     await drawn(".title__play");
@@ -217,6 +221,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     expect(await pressUntil("{ArrowRight}", () => isFocusOnLinkTo("/series/20?season=2"))).toBe(
       true,
     );
+    const behind = walking.services.navigation.behind();
     await press("{Enter}");
     await expect
       .poll(() => walking?.services.navigation.route())
@@ -225,7 +230,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
         collectionId: 20,
         season: 2,
       });
-    expect(walking.services.navigation.behind()).toEqual([]);
+    expect(walking.services.navigation.behind()).toEqual(behind);
     await expect.poll(() => document.querySelector("main h2")?.textContent).toBe("Season 2");
   });
 
@@ -266,7 +271,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     "goes Up from every poster of a full first row on %s to its tools, its Sort and filter among them",
     async (path) => {
       await page.viewport(width, height);
-      walking = await mountApp(
+      walking = await mountAfterTheOpening(
         walkServices({ ...aLibrary, "GET /items": { items: films(12), nextCursor: "" } }, path),
       );
       await drawn("main .list-criteria__button");

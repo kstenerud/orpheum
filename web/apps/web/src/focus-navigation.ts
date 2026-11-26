@@ -86,6 +86,39 @@ export function arrivalIn(root: ParentNode): HTMLElement | undefined {
 }
 
 /**
+ * focusStartAttribute's value marking where focus starts as the app opens, before any key, controller
+ * or pointer has pressed: the top bar's Home mark (the owner, 2026-11-26: "I'd like the home icon on
+ * the top bar to start out highlighted on TVs, and selected but not showing the ring on desktop").
+ * Outside the page's main content, it is no start of an arrow's (startIn).
+ */
+export const openingValue = "opening";
+
+/** The attribute marking the top bar's Home mark as where the app's opening focus goes. */
+export const openingMark: { readonly [focusStartAttribute]: typeof openingValue } = {
+  [focusStartAttribute]: openingValue,
+};
+
+/**
+ * Where focus goes as the app opens on the page root, before any press: the top bar's Home mark
+ * (openingMark) in place of the page's own arrival, once that is drawn, so all the keyboard's moving
+ * starts from the mark. The page's own arrival where it is a text field, which the first keys type
+ * into (Your account's code), or where the page is drawn under no top bar; none, as before, where
+ * the page marks no arrival, as the Play page, whose picture takes focus for its keys. Undefined
+ * while the mark waits inert for the shell's first read (app-shell.tsx BannerNav).
+ */
+export function openingArrivalIn(root: ParentNode): HTMLElement | undefined {
+  const own = arrivalIn(root);
+  if (own === undefined || caretOf(own) !== undefined) {
+    return own;
+  }
+  const opening = document.querySelector<HTMLElement>(`[${focusStartAttribute}="${openingValue}"]`);
+  if (opening === null) {
+    return own;
+  }
+  return startOf(opening);
+}
+
+/**
  * The attribute marking a choice as a dangerous action where it is written (D421 §3): one that
  * changes something a press too many should not, as a red confirm (D278 §4) or Sign out. A dialog's
  * focus never arrives on one as it opens (choiceArrivalIn). It says nothing of the choice's colour.
@@ -330,10 +363,12 @@ function scrollClear(element: HTMLElement, isMovedTo: boolean): void {
  * given where the element left showed it: Home's first poster ringed as the page loaded, and the Play
  * page a click on it opened ringed its picture (the owner, Firefox on a Mac, 2026-11-26); Chromium
  * ringed the picture after a key the app had not heard. On a television the remote is the only
- * input, so the ring is left to the browser, which draws it.
+ * input, so the ring is shown (`focusVisible: true`): Firefox drew none for the top bar's Home mark
+ * focused as the app opened, nothing having shown focus before it (idiosyncrasies.md, "Firefox
+ * counts a script's focus as a key's only when focus was already shown").
  */
 export function focusAfterNoPress(element: HTMLElement, options: FocusOptions = {}): void {
-  element.focus(isOnTelevision() ? options : { ...options, focusVisible: false });
+  element.focus({ ...options, focusVisible: isOnTelevision() });
 }
 
 /**
@@ -395,8 +430,10 @@ function destinationOf(
 /**
  * Moves real DOM focus one step in direction within the region a person can reach now; while nothing
  * there has focus, to where the first arrow starts. Whether it moved: false where nothing lies that
- * way, so the browser does with the arrow what it would, as scrolling a page past its last control;
- * true, focus shown where it is, where a container still growing that way holds it.
+ * way, so the browser does with the arrow what it would, as scrolling a page past its last control,
+ * the focus it stays on shown, which neither browser shows for an arrow that could not move where it
+ * was held with no ring, as the app's opening holds the top bar's Home mark (focusAfterNoPress); true,
+ * focus shown where it is, where a container still growing that way holds it.
  */
 export function moveFocus(
   direction: Direction,
@@ -405,18 +442,31 @@ export function moveFocus(
 ): boolean {
   const region = focusRegion();
   const from = document.activeElement;
-  const next =
-    from instanceof HTMLElement && from !== region && region.contains(from)
-      ? destinationOf(from, direction, { region, moving })
-      : startIn(region);
+  const isFromFocused = from instanceof HTMLElement && from !== region && region.contains(from);
+  const next = isFromFocused ? destinationOf(from, direction, { region, moving }) : startIn(region);
   if (next === undefined) {
+    if (isFromFocused) {
+      showFocusOn(from);
+    }
     return false;
   }
-  if (from instanceof HTMLElement && isReadOnTheWay(from, next, direction)) {
+  if (isFromFocused && isReadOnTheWay(from, next, direction)) {
     return true;
   }
   focusAndShow(next, isFromAController);
   return true;
+}
+
+/**
+ * Shows the ring on element, which has focus, where it has none: its focus taken off and given again,
+ * shown, since neither Chromium nor Firefox changes what they show for a focus given again to what
+ * has it.
+ */
+function showFocusOn(element: HTMLElement): void {
+  if (!element.matches(":focus-visible")) {
+    element.blur();
+    element.focus({ preventScroll: true, focusVisible: true });
+  }
 }
 
 /**

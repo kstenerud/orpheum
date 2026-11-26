@@ -33,6 +33,7 @@ import {
   focusedName,
   isFocusIn,
   isFocusOnFirst,
+  mountAfterTheOpening,
   mountApp,
   reachedFrom,
   walkServices,
@@ -145,7 +146,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
 
   it("goes Up from a list shorter than a row to its tools, and Up again to the banner (the owner, 2026-11-04)", async () => {
     await page.viewport(width, height);
-    walking = await mountApp(
+    walking = await mountAfterTheOpening(
       walkServices(
         { ...aLibrary, "GET /items": { items: films(2), nextCursor: "" } },
         "/browse?library=1",
@@ -161,7 +162,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
 
   it("types a search on the Libraries page, arrows into its results, opens one and goes back", async () => {
     await page.viewport(width, height);
-    walking = await mountApp(
+    walking = await mountAfterTheOpening(
       walkServices(
         {
           ...aLibrary,

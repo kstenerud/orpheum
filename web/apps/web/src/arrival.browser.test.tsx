@@ -3,7 +3,9 @@
 /**
  * Where focus is as a page or a dialog opens, its arrival (ui-audit-2026-11-04.md R3; focus-navigation.ts
  * arriveWhenDrawn): on what the page is for, so the first press acts on it, in a real browser, as
- * the app draws it from the server's answers; and shown with no ring where a pointer opened it.
+ * the app draws it from the server's answers; and shown with no ring where a pointer opened it. As
+ * the app opens, before any press, focus is on the top bar's Home mark instead (the owner,
+ * 2026-11-26; focus-navigation.ts openingArrivalIn), so a page's own arrival is a page opened after.
  */
 
 // Every page's ground, as the client's entry lays it (client-main.tsx): its tokens and base rules.
@@ -24,6 +26,7 @@ import {
   isDrawn,
   isFocusIn,
   isFocusOnFirst,
+  mountAfterTheOpening,
   mountApp,
   viewer,
   walkServices,
@@ -107,6 +110,11 @@ function announced(): string {
   return region?.getAttribute("aria-live") === "polite" ? region.textContent : "";
 }
 
+/** Whether the top bar's Home mark has focus: where it starts as the app opens. */
+function isOnHomeMark(): boolean {
+  return document.activeElement?.matches("header .app-shell__home") === true;
+}
+
 /** Waits until what has focus is inside what selector names. */
 async function arrivesIn(selector: string): Promise<void> {
   await expect.poll(() => isFocusIn(selector), { message: focused() }).toBe(true);
@@ -150,7 +158,7 @@ describe("a page's arrival", () => {
 
   it("is a list's first poster", async () => {
     await page.viewport(1280, 800);
-    walking = await mountApp(walkServices(signedIn, "/films"));
+    walking = await mountAfterTheOpening(walkServices(signedIn, "/films"));
     await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
   });
 
@@ -158,7 +166,7 @@ describe("a page's arrival", () => {
   // on the page's arrival rather than on its heading.
   it("stays off the heading, which is announced, on a page opened and on one Back returns to", async () => {
     await page.viewport(1280, 800);
-    walking = await mountApp(
+    walking = await mountAfterTheOpening(
       walkServices({ ...signedIn, "GET /items/101": filmDetail(101, "Film 1") }, "/films"),
     );
     await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
@@ -180,7 +188,7 @@ describe("a page's arrival", () => {
     await page.viewport(800, 600);
     walking = await mountApp(walkServices(signedIn, "/"));
     await expect.poll(() => isDrawn('main a[href="/titles/101"]')).toBe(true);
-    await expect.poll(() => document.activeElement?.getAttribute("href")).toBe("/titles/101");
+    await expect.poll(isOnHomeMark, { message: focused() }).toBe(true);
     // Home's newest films' See all, pressed by a real pointer.
     const seeAll = document.querySelector<HTMLElement>('main a[href^="/films"]');
     expect(seeAll).not.toBeNull();
@@ -195,7 +203,7 @@ describe("a page's arrival", () => {
   // ui-audit-2026-11-04.md §3: the actions row's Play, so the remote's first OK plays.
   it("is a film's Play, first in its actions row", async () => {
     await page.viewport(1280, 800);
-    walking = await mountApp(
+    walking = await mountAfterTheOpening(
       walkServices({ ...signedIn, "GET /items/103": filmDetail(103, "Film 3") }, "/titles/103"),
     );
     await arrivesIn(".title-head__actions");
@@ -204,7 +212,7 @@ describe("a page's arrival", () => {
 
   it("is a series' next episode", async () => {
     await page.viewport(1280, 800);
-    walking = await mountApp(
+    walking = await mountAfterTheOpening(
       walkServices(
         {
           ...signedIn,
@@ -234,7 +242,7 @@ describe("a page's arrival", () => {
 
   it("is Home's Continue watching, where it has anything, before the newest films", async () => {
     await page.viewport(1280, 800);
-    walking = await mountApp(
+    walking = await mountAfterTheOpening(
       walkServices(
         {
           ...signedIn,
@@ -262,7 +270,7 @@ describe("a page's arrival", () => {
 
   it("is Home's newest films where nothing is being watched", async () => {
     await page.viewport(1280, 800);
-    walking = await mountApp(walkServices(signedIn, "/"));
+    walking = await mountAfterTheOpening(walkServices(signedIn, "/"));
     await expect
       .poll(() => document.activeElement?.getAttribute("href"), { message: focused() })
       .toBe("/titles/101");
@@ -270,7 +278,7 @@ describe("a page's arrival", () => {
 
   it("is This device's Rename", async () => {
     await page.viewport(1280, 800);
-    walking = await mountApp(
+    walking = await mountAfterTheOpening(
       walkServices(
         { ...signedIn, "GET /me/devices": { devices: [device(5, "Karl's laptop", true)] } },
         "/this-device",
@@ -279,6 +287,7 @@ describe("a page's arrival", () => {
     await expect.poll(focusedName, { message: focused() }).toBe("Rename");
   });
 
+  // A text field, its first keys typing into it: its own arrival at the app's opening too.
   it("is Your account's code field", async () => {
     await page.viewport(1280, 800);
     walking = await mountApp(walkServices(signedIn, "/account"));
@@ -291,21 +300,21 @@ describe("a page's arrival", () => {
 
   it("is the Libraries page's first library", async () => {
     await page.viewport(1280, 800);
-    walking = await mountApp(walkServices(anAdmin, "/libraries"));
+    walking = await mountAfterTheOpening(walkServices(anAdmin, "/libraries"));
     await arrivesIn(".libraries__list");
     expect(focusedName()).toBe("Manage this library");
   });
 
   it("is the People page's first person", async () => {
     await page.viewport(1280, 800);
-    walking = await mountApp(walkServices(anAdmin, "/users"));
+    walking = await mountAfterTheOpening(walkServices(anAdmin, "/users"));
     await arrivesIn('[aria-labelledby="people-accounts"] .grid-list');
     expect(focusedName()).toContain("Karl");
   });
 
   it("is the first of the files a library's scanner saw", async () => {
     await page.viewport(1280, 800);
-    walking = await mountApp(walkServices(anAdmin, "/libraries/1/files"));
+    walking = await mountAfterTheOpening(walkServices(anAdmin, "/libraries/1/files"));
     await arrivesIn("details");
   });
 
@@ -360,7 +369,9 @@ async function asAtFirstLoad(): Promise<void> {
 }
 
 // The owner, Firefox on a Mac with a mouse, 2026-11-26: Home's first Continue watching poster drew
-// the ring as the page loaded, nothing pressed, and the Play page it opened ringed the whole stage.
+// the ring as the page loaded, nothing pressed, and the Play page it opened ringed the whole stage;
+// then: "I'd like the home icon on the top bar to start out highlighted on TVs, and selected but not
+// showing the ring on desktop. All keyboard movement happens from there and begins highlighting."
 describe("focus a script gives before any key or controller has pressed", () => {
   let walking: Walking | undefined;
   afterEach(() => {
@@ -369,25 +380,65 @@ describe("focus a script gives before any key or controller has pressed", () => 
     vi.restoreAllMocks();
   });
 
-  it("is the arrival's, focused with no ring on a computer, the first key's move showing the ring", async () => {
+  it("is the top bar's Home mark at the app's opening, focused with no ring on a computer, Tab moving on with the ring", async () => {
     await page.viewport(1280, 800);
     await asAtFirstLoad();
     walking = await mountApp(walkServices(watchingOne, "/"));
-    await expect.poll(focusedName, { message: focused() }).toContain("Metropolis");
+    await expect.poll(() => isDrawn(".continue-watching .poster-card__link")).toBe(true);
+    await expect.poll(isOnHomeMark, { message: focused() }).toBe(true);
     expect(document.activeElement?.matches(":focus-visible")).toBe(false);
     expect(drawsRing(document.activeElement)).toBe(false);
-    const arrival = document.activeElement;
+    const mark = document.activeElement;
     await userEvent.keyboard("{Tab}");
-    await expect.poll(() => document.activeElement !== arrival).toBe(true);
+    await expect.poll(() => document.activeElement !== mark).toBe(true);
     expect(drawsRing(document.activeElement)).toBe(true);
   });
 
-  it("is the arrival's, ringed on a television, whose remote is its only input", async () => {
+  it("shows the ring where the first arrow from the unringed Home mark lands", async () => {
+    await page.viewport(1280, 800);
+    await asAtFirstLoad();
+    walking = await mountApp(walkServices(watchingOne, "/"));
+    await expect.poll(() => isDrawn(".continue-watching .poster-card__link")).toBe(true);
+    await expect.poll(isOnHomeMark, { message: focused() }).toBe(true);
+    const mark = document.activeElement;
+    await userEvent.keyboard("{ArrowRight}");
+    await expect.poll(() => document.activeElement !== mark, { message: focused() }).toBe(true);
+    expect(drawsRing(document.activeElement)).toBe(true);
+  });
+
+  it("shows the ring on the unringed Home mark where the first arrow cannot move from it", async () => {
+    await page.viewport(1280, 800);
+    await asAtFirstLoad();
+    walking = await mountApp(walkServices(watchingOne, "/"));
+    await expect.poll(() => isDrawn(".continue-watching .poster-card__link")).toBe(true);
+    await expect.poll(isOnHomeMark, { message: focused() }).toBe(true);
+    expect(drawsRing(document.activeElement)).toBe(false);
+    // Nothing lies left of the mark, the top bar's first place.
+    await userEvent.keyboard("{ArrowLeft}");
+    await expect.poll(() => drawsRing(document.activeElement), { message: focused() }).toBe(true);
+    expect(isOnHomeMark()).toBe(true);
+  });
+
+  it("opens Home by Enter on the unringed Home mark", async () => {
+    await page.viewport(1280, 800);
+    await asAtFirstLoad();
+    walking = await mountApp(walkServices(signedIn, "/films"));
+    await expect.poll(isOnHomeMark, { message: focused() }).toBe(true);
+    expect(drawsRing(document.activeElement)).toBe(false);
+    await userEvent.keyboard("{Enter}");
+    await expect.poll(() => walking?.services.navigation.route().screen).toBe("home");
+  });
+
+  it("is the top bar's Home mark at the app's opening, ringed on a television, Down from it reaching the page", async () => {
     vi.spyOn(Navigator.prototype, "userAgent", "get").mockReturnValue(fireTvSilk);
     await page.viewport(960, 480);
     await asAtFirstLoad();
     walking = await mountApp(walkServices(watchingOne, "/"));
-    await expect.poll(focusedName, { message: focused() }).toContain("Metropolis");
+    await expect.poll(() => isDrawn(".continue-watching .poster-card__link")).toBe(true);
+    await expect.poll(isOnHomeMark, { message: focused() }).toBe(true);
+    expect(drawsRing(document.activeElement)).toBe(true);
+    await userEvent.keyboard("{ArrowDown}");
+    await expect.poll(() => isFocusIn("main"), { message: focused() }).toBe(true);
     expect(drawsRing(document.activeElement)).toBe(true);
   });
 
@@ -395,9 +446,10 @@ describe("focus a script gives before any key or controller has pressed", () => 
     await page.viewport(1280, 800);
     await asAtFirstLoad();
     walking = await mountApp(walkServices(watchingOne, "/"));
-    await expect.poll(focusedName, { message: focused() }).toContain("Metropolis");
-    const poster = document.activeElement;
-    if (poster instanceof HTMLElement) {
+    await expect.poll(() => isDrawn(".continue-watching .poster-card__link")).toBe(true);
+    await expect.poll(isOnHomeMark, { message: focused() }).toBe(true);
+    const poster = document.querySelector<HTMLElement>(".continue-watching .poster-card__link");
+    if (poster !== null) {
       await userEvent.click(poster);
     }
     await expect.poll(() => document.querySelector("video")?.error?.code).toBeDefined();

@@ -20,6 +20,7 @@ import {
   films,
   isDrawn,
   isFocusIn,
+  mountAfterTheOpening,
   mountApp,
   viewer,
   walkServices,
@@ -225,7 +226,7 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
 
   it("goes back to the film it left in Continue Watching, and to the one it left in the newest films", async () => {
     await page.viewport(width, height);
-    walking = await mountApp(walkServices(withContinueWatching, "/"));
+    walking = await mountAfterTheOpening(walkServices(withContinueWatching, "/"));
     await expect.poll(() => isDrawn(`${newestFilms} .poster-card__link`)).toBe(true);
     await expect.poll(() => isDrawn(".continue-watching .poster-card__link")).toBe(true);
     // The page's arrival (R3): Down from it would leave the row now that Hide is in the card's "…".
@@ -255,7 +256,7 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
       ),
       "PUT /items/202/hidden": null,
     };
-    walking = await mountApp(walkServices(answers, "/", heard));
+    walking = await mountAfterTheOpening(walkServices(answers, "/", heard));
     await expect.poll(() => isDrawn(`${newestFilms} .poster-card__link`)).toBe(true);
     await expect.poll(focusedCard).toBe("Metropolis");
     await userEvent.keyboard("{ArrowRight}");
@@ -288,7 +289,7 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
       "PUT /items/203/hidden": null,
       "PUT /items/201/hidden": null,
     };
-    walking = await mountApp(walkServices(answers, "/", heard));
+    walking = await mountAfterTheOpening(walkServices(answers, "/", heard));
     await expect.poll(focusedCard).toBe("Metropolis");
     await userEvent.keyboard("{ArrowRight}");
     expect(focusedCard()).toBe("Sunrise");
@@ -338,7 +339,7 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
     "goes back to the episode it opened at %s, not the page's Play",
     async (path) => {
       await page.viewport(width, height);
-      walking = await mountApp(walkServices(withNextUp, path));
+      walking = await mountAfterTheOpening(walkServices(withNextUp, path));
       await expect.poll(() => isDrawn(".series__episode")).toBe(true);
       await expect.poll(() => isFocusIn("main")).toBe(true);
       expect(await pressUntil("{ArrowDown}", () => focusedEpisode() === "Episode 3")).toBe(true);
@@ -391,7 +392,7 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
 
   it("draws the whole focus ring of a card in Continue Watching and of a place in the banner, rows that scroll sideways", async () => {
     await page.viewport(width, height);
-    walking = await mountApp(walkServices(withContinueWatching, "/"));
+    walking = await mountAfterTheOpening(walkServices(withContinueWatching, "/"));
     await expect.poll(() => isDrawn(".continue-watching .poster-card__link")).toBe(true);
     // The page's arrival (R3): Down from it would leave the row now that Hide is in the card's "…".
     await expect.poll(focusedCard).toBe("Metropolis");

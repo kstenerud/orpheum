@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import logo from "./assets/orpheum-logo.svg";
 import { useBackToBannerPlace } from "./banner-back.ts";
 import { DropDown } from "./drop-down.tsx";
+import { openingMark } from "./focus-navigation.ts";
 import { ProblemReportDialog } from "./problem-report.tsx";
 import { ConfirmDialog } from "./confirm-button.tsx";
 import { FilmsIcon, LibrariesIcon, MenuIcon, SeriesIcon } from "./icons.tsx";
@@ -64,9 +65,10 @@ function WatchingPlaces(props: {
 /** The logo, the way home, underlined while home is the page (the owner, 2026-10-25). */
 function HomeLogo(props: { readonly isHome: boolean }): JSX.Element {
   return (
-    <p className="app-shell__title">
+    <p className="app-shell__title" {...openingMark}>
       {/* The logo is the way home, as on most sites, and the banner's mark of being there
-          (the owner, 2026-10-25: no Home entry; the logo, underlined at home). */}
+          (the owner, 2026-10-25: no Home entry; the logo, underlined at home), and where focus
+          starts as the app opens (openingMark). */}
       <Link to={{ screen: "home" }} className="app-shell__home" isCurrent={props.isHome}>
         {/* On a phone, the laurel alone, the favicon's mark: the wordmark beside the bar's end ran
             into it (the owner, 2026-10-28: "reduce the orpheum text to just the logo when the screen

@@ -27,6 +27,7 @@ import {
   isFocusOnFirst,
   isFocusInView,
   letteredFilms,
+  mountAfterTheOpening,
   mountApp,
   railLetterAt,
   viewer,
@@ -65,7 +66,7 @@ describe.each(screens)("the app by a remote's keys, on $name", ({ width, height 
 
   it("starts in the page, not the banner, moves across the films, opens one and goes back to it", async () => {
     await page.viewport(width, height);
-    walking = await mountApp(walkServices(filmsAndOne));
+    walking = await mountAfterTheOpening(walkServices(filmsAndOne));
     // The page opens with focus on its first film, its arrival (ui-audit-2026-11-04.md R3).
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
     await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
@@ -83,7 +84,7 @@ describe.each(screens)("the app by a remote's keys, on $name", ({ width, height 
 
   it("reaches the banner by Up from the page's top, past the list's tools, and comes back down to where it left", async () => {
     await page.viewport(width, height);
-    walking = await mountApp(walkServices(filmsAndOne));
+    walking = await mountAfterTheOpening(walkServices(filmsAndOne));
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
     await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     await userEvent.keyboard("{ArrowRight}");
@@ -108,7 +109,7 @@ describe.each(screens)("the app by a remote's keys, on $name", ({ width, height 
     // Sixty films: ten rows at the Fire TV's width, so eight presses from the first film stay in the
     // list; forty ended at the seventh row, and a press past it reached the letters beside the list,
     // where focus is on no film.
-    walking = await mountApp(
+    walking = await mountAfterTheOpening(
       walkServices({ ...filmsAndOne, "GET /items": { items: letteredFilms(60) } }),
     );
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
@@ -278,7 +279,7 @@ describe.each(screens)("the app by a game controller, on $name", ({ width, heigh
     const pad = xboxPad();
     Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => [pad.pad] });
     await page.viewport(width, height);
-    walking = await mountApp(walkServices(filmsAndOne));
+    walking = await mountAfterTheOpening(walkServices(filmsAndOne));
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
     await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     expect(focusedTile()).toBe("Film 1");
@@ -305,7 +306,7 @@ describe.each(screens)("the app by a game controller, on $name", ({ width, heigh
     Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => [pad.pad] });
     const heard: string[] = [];
     await page.viewport(width, height);
-    walking = await mountApp(walkServices(filmsAndOne, "/films", heard));
+    walking = await mountAfterTheOpening(walkServices(filmsAndOne, "/films", heard));
     // The page opens with focus on its first film, its arrival (ui-audit-2026-11-04.md R3); the
     // sort is above the row's last films.
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);

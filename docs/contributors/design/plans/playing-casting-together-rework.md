@@ -297,6 +297,15 @@ television rings it at first load, its remote being its only input. What the men
 hidden, kept mounted, wherever the overlay lies over the picture, and shows under the film only
 on a device held upright out of full screen (`OverlayHeld`); the alerts above it stay.
 
+**Where focus starts (the owner, 2026-11-26):** "I'd like the home icon on the top bar to start
+out highlighted on TVs, and selected but not showing the ring on desktop. All keyboard movement
+happens from there and begins highlighting." Built: as the app opens, before any key or controller
+has pressed, focus goes to the top bar's Home mark in place of the page's own arrival, ringed on a
+television and held with no ring elsewhere; a page whose arrival is a text field, one drawn under no
+top bar and the Play page keep their own, and every page opened later arrives as before. An arrow
+now always shows the ring: where it lands, and on the focus it leaves where it cannot move (Right on
+a row of one poster showed none). `web/apps/web/src/arrival.browser.test.tsx`.
+
 **Next batch (found on these walks):**
 
 - The sound timing clip does not play on staging: the Play page says it is no longer there

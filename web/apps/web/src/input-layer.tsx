@@ -23,9 +23,11 @@ import "./input-layer.css";
 import { isFullScreenLeaveAsked } from "./film-fullscreen.ts";
 import { asFocusNote, noteOf, restoreWaitsMs, restoreWhenDrawn } from "./focus-memory.ts";
 import {
+  arrivalIn,
   arriveWhenDrawn,
   focusAfterNoPress,
   focusAndShow,
+  openingArrivalIn,
   scrollIntoViewGently,
 } from "./focus-navigation.ts";
 import type { Command } from "./input-buttons.ts";
@@ -150,7 +152,8 @@ function announceWhenDrawn(announce: (heading: string) => void): () => void {
  * is where a controller pressed Back. A page go opens starts at its top: the window kept the scroll
  * of the page left, so a series chosen far down the Series list opened at its last episodes, past
  * what had focus (the owner's Fire TV, 2026-10-29); and focus is put on its arrival as it is drawn
- * (focus-navigation.ts arriveWhenDrawn), as on the page the app opens on. Either way the new page's
+ * (focus-navigation.ts arriveWhenDrawn), as on the page the app opens on, where nothing has pressed
+ * yet, on the top bar's Home mark in its place (openingArrivalIn). Either way the new page's
  * heading is told to announce, for a screen reader to say where it now is (R4).
  */
 function keepFocusOnEntries(
@@ -167,14 +170,19 @@ function keepFocusOnEntries(
     }
   });
   let shown = routeHref(navigation.route());
-  const arrive = (): (() => void) =>
+  const arrive = (arrivalOf = arrivalIn): (() => void) =>
     arriveWhenDrawn(
       () => document.querySelector("main"),
       (element) => {
         focusArrival(element, input);
       },
+      arrivalOf,
     );
-  let stopRestoring = arrive();
+  // The app's opening: the top bar's Home mark while nothing has pressed (openingArrivalIn), the
+  // page's own arrival once a key or controller has, as on every page opened after.
+  let stopRestoring = arrive((root) =>
+    input.lastSource() === undefined ? openingArrivalIn(root) : arrivalIn(root),
+  );
   let stopAnnouncing = (): void => undefined;
   const stopListening = navigation.subscribe(() => {
     const now = routeHref(navigation.route());

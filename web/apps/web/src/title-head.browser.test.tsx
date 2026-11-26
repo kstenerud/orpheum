@@ -20,6 +20,7 @@ import {
   focusedName,
   isDrawn,
   isFocusIn,
+  mountAfterTheOpening,
   mountApp,
   viewer,
   walkServices,
@@ -112,7 +113,7 @@ describe.each(screens)("a title's first screen, on $name", ({ width, height }) =
     { kind: "episode", path: "/titles/230", answers: { "GET /items/230": episode } },
   ])("has a $kind's Play within the window, focused as it opens", async ({ path, answers }) => {
     await page.viewport(width, height);
-    walking = await mountApp(walkServices({ ...signedIn, ...answers }, path));
+    walking = await mountAfterTheOpening(walkServices({ ...signedIn, ...answers }, path));
     await expect.poll(() => isFocusIn(".title-head__actions")).toBe(true);
     expect(focusedName()).toBe("Play");
     const top = mainAction()?.getBoundingClientRect().top ?? Infinity;
@@ -122,7 +123,9 @@ describe.each(screens)("a title's first screen, on $name", ({ width, height }) =
 
   it("has a series' Continue within the window, focused as it opens", async () => {
     await page.viewport(width, height);
-    walking = await mountApp(walkServices({ ...signedIn, "GET /items/20": series }, "/series/20"));
+    walking = await mountAfterTheOpening(
+      walkServices({ ...signedIn, "GET /items/20": series }, "/series/20"),
+    );
     await expect.poll(() => isFocusIn(".title-head__actions")).toBe(true);
     expect(focusedName()).toBe("Continue S1E2");
     const top = mainAction()?.getBoundingClientRect().top ?? Infinity;
@@ -161,7 +164,7 @@ describe("a title's actions row, by a remote", () => {
   it("arrives on the … of a film that cannot be played now, not on Mark as watched", async () => {
     await page.viewport(1280, 800);
     const away = { ...film, id: 104, unavailable: { reason: "nodeAway", nodeName: "devnas" } };
-    walking = await mountApp(
+    walking = await mountAfterTheOpening(
       walkServices(
         {
           ...signedIn,
@@ -181,7 +184,7 @@ describe("a title's actions row, by a remote", () => {
     await page.viewport(1280, 800);
     const away = { ...film, id: 105, unavailable: { reason: "nodeAway", nodeName: "devnas" } };
     const heard: string[] = [];
-    walking = await mountApp(
+    walking = await mountAfterTheOpening(
       walkServices({ ...signedIn, "GET /items/105": away }, "/titles/105", heard),
     );
     await expect.poll(() => document.activeElement?.className ?? "").toContain("title-head__notes");
@@ -206,7 +209,7 @@ describe("a title's actions row, by a remote", () => {
         { name: "tmdb:dvd", kind: "dvd", label: "DVD Order", listedCount: 4, episodeCount: 4 },
       ],
     };
-    walking = await mountApp(
+    walking = await mountAfterTheOpening(
       walkServices({ ...signedIn, "GET /items/22": watchedThrough }, "/series/22"),
     );
     await expect.poll(() => isFocusIn(".title-head__actions")).toBe(true);
@@ -295,7 +298,7 @@ describe("a title's genres, by a remote", () => {
         { id: 18, name: "Drama" },
       ],
     };
-    walking = await mountApp(
+    walking = await mountAfterTheOpening(
       walkServices({ ...signedIn, "GET /items/106": genred }, "/titles/106"),
     );
     await expect.poll(() => isFocusIn(".title-head__actions")).toBe(true);

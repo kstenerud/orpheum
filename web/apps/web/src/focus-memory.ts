@@ -176,7 +176,7 @@ export function restoreWhenDrawn(
 
 /**
  * Gives focus by give to what look finds as root draws: look is called now and in the frame after
- * changes to root's tree, once however many came, given give, until it answers that it is done,
+ * changes to root's tree or to what in it is inert, once however many came, given give, until it answers that it is done,
  * restoreWaitsMs pass, or focus goes anywhere not by give, the person having moved on. The one watch both a page returned to
  * (restoreWhenDrawn) and a page opened (focus-navigation.ts arriveWhenDrawn) use. Returns the
  * stopping.
@@ -225,7 +225,8 @@ export function watchWhileDrawn(
     clearTimeout(timer);
     document.removeEventListener("focusin", movedOn);
   }
-  observer.observe(root, { childList: true, subtree: true });
+  // inert too: the top bar's places are drawn inert until the shell's first read (app-shell.tsx).
+  observer.observe(root, { childList: true, subtree: true, attributeFilter: ["inert"] });
   document.addEventListener("focusin", movedOn);
   return stop;
 }
