@@ -99,7 +99,7 @@ func recipes() map[kind][]string {
 	}
 }
 
-// soundTimingH264AAC is the device lab's sound timing clip (lab-sound-clip.ts) as a file: four
+// soundTimingH264AAC is the sound timing test's clip (sound-timing.tsx) as a file: four
 // seconds, a beep for the first tenth of each, rising 440, 554, 659 and 880 Hz, and the picture
 // flashing white with the beep, a bar along its foot growing a quarter each second, so which beep is
 // which is seen. A keyframe every second, so a player can start at any beep.

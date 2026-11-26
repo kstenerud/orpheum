@@ -37,7 +37,6 @@ const enOwn = {
     users: "Users",
     thisDevice: "This device",
     account: "Your account",
-    experimental: "Experimental",
     about: "About",
     signOut: "Sign out",
     signOutAsked: "Sign out of this device?",
@@ -619,9 +618,9 @@ const enOwn = {
 
 /**
  * The English catalogue, bundled as the offline floor (D51). Other languages are served by the
- * server once translations exist. Keys name what the text is for, never what it says. The lab's, the
+ * server once translations exist. Keys name what the text is for, never what it says. The
  * gallery's, the settings pages', a credited person's page's, the devices pages', the player's and
- * the casting pages' words come with their screens' code (lab-words.ts, gallery-words.ts,
+ * the casting pages' words come with their screens' code (gallery-words.ts,
  * settings-words.ts, credits-words.ts, devices-words.ts, play-words.ts, cast-words.ts), not here. Its
  * type is its parts' together: their keys never overlap.
  */

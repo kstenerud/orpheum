@@ -36,9 +36,8 @@
 //   - Only the client's screens and the cast receiver load from elsewhere, and only Google's Cast SDK
 //     (www.gstatic.com): every screen of the client its sender's, for the Cast menu's Chromecast to
 //     load in Chrome at its first opening (D465 §3), since the client moves between screens in place
-//     and a page keeps the policy it was loaded with, and the lab's cast probe at /lab/cast with them;
-//     the receiver under /cast/ CAF's and the Cast platform's socket on the device
-//     (ws://localhost:8008). The client's files and the lab's other probes load nothing from
+//     and a page keeps the policy it was loaded with; the receiver under /cast/ CAF's and the Cast
+//     platform's socket on the device (ws://localhost:8008). The client's files load nothing from
 //     elsewhere, and only the receiver reaches the device's socket. Enforced by
 //     TestHandler_OnlyTheScreensAndTheReceiverMayLoadGooglesCastSDK.
 //   - The cast receiver, where it is built in (dist/cast/, which web/apps/cast-receiver's build

@@ -128,9 +128,9 @@ func TestHandler_WithoutTheClientSaysSo(t *testing.T) {
 
 // Only the client's screens and the cast receiver may load Google's Cast SDK: every screen the
 // sender's, which the Cast menu's Chromecast loads in Chrome at its first opening (D465 §3), the
-// client moving between screens in place, and the lab's cast probe with them; the receiver under
-// /cast/ CAF's and the Cast platform's socket on the device. The client's files and the lab's other
-// probes load nothing from elsewhere, and no screen reaches the device's socket.
+// client moving between screens in place; the receiver under /cast/ CAF's and the Cast platform's
+// socket on the device. The client's files load nothing from elsewhere, and no screen reaches the
+// device's socket.
 func TestHandler_OnlyTheScreensAndTheReceiverMayLoadGooglesCastSDK(t *testing.T) {
 	t.Parallel()
 	files := builtClientFS()
@@ -139,13 +139,12 @@ func TestHandler_OnlyTheScreensAndTheReceiverMayLoadGooglesCastSDK(t *testing.T)
 	policyOf := func(target string) string {
 		return get(t, handler, target).Header().Get("Content-Security-Policy")
 	}
-	for _, target := range []string{"/lab", "/lab/device", "/lab/cast/x", "/favicon.svg", "/assets/app-1a2b.js",
-		"/assets/missing-9z.js"} {
+	for _, target := range []string{"/favicon.svg", "/assets/app-1a2b.js", "/assets/missing-9z.js"} {
 		if policy := policyOf(target); strings.Contains(policy, "gstatic") || strings.Contains(policy, "localhost") {
 			t.Errorf("%s: the policy %q lets the page load from elsewhere", target, policy)
 		}
 	}
-	for _, target := range []string{"/", "/index.html", "/films", "/play/4", "/castle", "/lab/cast"} {
+	for _, target := range []string{"/", "/index.html", "/films", "/play/4", "/castle"} {
 		sender := policyOf(target)
 		for _, want := range []string{"script-src 'self' 'wasm-unsafe-eval' https://www.gstatic.com;",
 			"connect-src 'self' https://www.gstatic.com;", "frame-ancestors 'none'", "object-src 'none'"} {
@@ -185,7 +184,7 @@ func TestHandler_TheClientsPagesReportWhatTrustedTypesWouldRefuse(t *testing.T) 
 			t.Errorf("%s: the enforced policy %q holds Trusted Types, still to be reported on first", target, enforced)
 		}
 	}
-	for _, target := range []string{"/cast/", "/lab/cast"} {
+	for _, target := range []string{"/cast/", "/cast/assets/receiver-1a.js"} {
 		if got := get(t, handler, target).Header().Get("Content-Security-Policy-Report-Only"); got != "" {
 			t.Errorf("%s: the report-only policy %q, want none", target, got)
 		}

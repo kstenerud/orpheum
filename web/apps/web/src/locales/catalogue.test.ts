@@ -10,7 +10,6 @@ import { enCast } from "./en-cast.ts";
 import { enCredits } from "./en-credits.ts";
 import { enDevices } from "./en-devices.ts";
 import { enGallery } from "./en-gallery.ts";
-import { enLab } from "./en-lab.ts";
 import { enLibraries } from "./en-libraries.ts";
 import { enPeople } from "./en-people.ts";
 import { enPlay } from "./en-play.ts";
@@ -38,7 +37,6 @@ function keysAskedFor(source: string): string[] {
 
 /** The words a module adds as it loads, never with the first page, by the import that adds them. */
 const laterWords: Record<string, object> = {
-  "./lab-words.ts": enLab,
   "./gallery-words.ts": enGallery,
   "./system-words.ts": enSystem,
   "./libraries-words.ts": enLibraries,

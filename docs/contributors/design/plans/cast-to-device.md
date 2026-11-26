@@ -78,7 +78,7 @@
 | Subtitles, sound, volume | `subtitles.tsx`, `sound.tsx` (`BoostSwitch`), `film-volume.ts`, `levelling.tsx` | the receiver's own choices, as on any Play page | a way for another device to set them |
 | Media Session | the player's `watchMediaSession` (`web/packages/player/src/event-context.ts`) | play and pause from the system's media controls, recorded for the playback's events | seeking actions; Fire TV's key 179 (§6.4) |
 | An admin's stop | `POST /now-playing/{id}/stop` ([`now_playing.go`](../../../../internal/core/api/now_playing.go)) | a message reaching a player within one report interval | far too slow for a remote: 10 s per command. Not a control channel |
-| Prototypes | [`lab-extend-channel.ts`](../../../../web/apps/web/src/lab-extend-channel.ts) (a remote and a player over a `BroadcastChannel`), [`lab-remote.tsx`](../../../../web/apps/web/src/lab-remote.tsx) (the phone's endurance probe, VQ56) | the remote's message shape, tried; what a phone page survives | a channel between two machines |
+| Prototypes | the lab's `lab-extend-channel.ts` (a remote and a player over a `BroadcastChannel`) and `lab-remote.tsx` (the phone's endurance probe, VQ56), removed with the lab (D555 §12) | the remote's message shape, tried; what a phone page survives | a channel between two machines |
 
 ## 3. The live connection: presence and control
 

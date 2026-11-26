@@ -14,10 +14,14 @@ export const enDevices = {
     notListed: "This browser is not one of your devices: sign in again to name it.",
     nameSaved: "Saved",
     soundOffsetNotKept: "This device could not keep its sound timing: {{problem}}",
-    deviceTests: {
-      heading: "For testers",
-      open: "Device tests",
-      soundTiming: "Sound timing test",
+    soundTiming: {
+      open: "Sound timing test",
+      back: "Back to This device",
+      heading: "Sound timing",
+      explain:
+        "The test clip plays as your films do. Each second the picture flashes and a beep sounds. In the player's menu, move the sound earlier or later until each beep comes with its flash. The timing is kept with this device for every film.",
+      play: "Play the test clip",
+      making: "The server is making the test clip. This page shows it once it is ready.",
     },
     controller: {
       heading: "Game controller",

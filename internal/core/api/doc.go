@@ -48,7 +48,7 @@
 //     and the code say one name. Enforced by TestArch_APIHandlersAreNamedForTheirOperations.
 //   - Every operation declares who may call it where it is registered (callableBy, access.go): its
 //     capability as x-orpheum-capability (signedIn, admin, accountSecurity, editMetadata,
-//     hostTogether, deviceTests, member, media, or none for a secret in the request itself) and
+//     hostTogether, member, media, or none for a secret in the request itself) and
 //     its OpenAPI security, of the schemes session, membership and media; the Authorization
 //     header is read for the handler and
 //     documented by the security alone (D425 §6). Each handler checks its caller as its operation
@@ -209,13 +209,6 @@
 //   - A chosen match is confirmed, and an override is set and removed, through the identify
 //     package (D172, D183). Enforced by TestIdentification_APersonChoosesAnAmbiguousTitlesMatch and
 //     TestIdentification_OverridesAreSetAndRemoved.
-//   - What a lab page measured on a device is taken from a signed-in page only, at most
-//     labResultBytesAtMost bytes, and logged at info as one line under the name it answers with, the
-//     result whole inside it, for the device tests to be read from the log (plans/tv-device-tests.md).
-//     Enforced by TestLab_AResultIsLoggedAsOneLineNamedByItsIDAndIsBounded. While the admin has the
-//     device tests off (shouldOfferDeviceTests, its start), it is refused as notFound, and
-//     /client-settings says whether they are offered. Enforced by
-//     TestLab_ResultsAreRefusedAndTheTestsNotOfferedUntilTheAdminTurnsThemOn.
 //   - An AirPlay grant (GET /bytes/media/g/{grant}/..., D473) is made only for a playback the
 //     caller's session holds (POST /airplay/grants) and serves that playback's film alone, with no
 //     credential, its playlists' URIs relative so the grant carries on; it signs no one in, and is
@@ -251,22 +244,6 @@
 //     casts nothing itself (D520 §1): a Google Cast device's credential of a guest's part is refused
 //     POST /together/cast-grants and POST /together/airplay-grants, enforced by
 //     TestGuestReceiver_AWatchTogetherGuestsCastDeviceIsRefusedACastOfItsOwn.
-//   - The throughput test's body (GET /lab/throughput) is the 1 to 256 MiB asked for, of bytes no
-//     gzip shrinks, never cached, behind the same sign-in and setting, each one logged as sent with
-//     the path it came over; a throughput test's figures are logged as "a throughput test ran"
-//     (webrtc-throughput-2026-10-28.md). Enforced by
-//     TestLab_TheThroughputTestsBodyIsTheSizeAskedForAndLoggedAsSent and
-//     TestLab_AThroughputTestsFiguresAreLoggedUnderTheirOwnWords.
-//   - The button test's events (POST /lab/input-events) are logged at info a line each, flat, by
-//     the run's name the page made, with a line for the run's start; a request carries 1 to 200
-//     events, each field named and bounded (a kind, a button, a controller's layout and mapping and
-//     a full screen's target from their lists, a key's key and code at most 40 characters, numbers
-//     in their ranges), so a page writes no attribute of its own and no long value into the log; its
-//     text field's events carry the value's length, never its text; behind the same sign-in, setting
-//     and body bound as a result (requireDeviceTests). Enforced by
-//     TestLab_TheButtonTestsEventsAreLoggedALineEachAndBounded,
-//     TestLab_TheButtonTestsFieldFullScreenAndControllerEventsAreLoggedFlat and
-//     TestLab_TheButtonTestsEventsAreRefusedUntilTheAdminTurnsTheTestsOn.
 //   - The presence socket is the session socket's address with a live hello (live_socket.go): a
 //     signed-in page's device is listed to its person while it is open and gone after the silence
 //     limit, and a hello of no sign-in is closed for policy (D337 §2). Enforced by
@@ -335,8 +312,7 @@
 //     config.go, secrets.go, health.go, identification.go, libraries.go, browse.go, item.go (one
 //     item of any kind, D416 §2), art.go, doctor.go, system.go, playback.go, subtitle.go,
 //     subtitle_fetch.go, preferences.go, report.go, home.go, watched.go (marking by hand, D370),
-//     accounts.go, devices.go and jobs.go; lab.go, the lab pages' results and the button test's
-//     events.
+//     accounts.go, devices.go and jobs.go.
 //   - access.go: who may call an operation, its capability and security schemes (callableBy, D425 §6).
 //   - server.go holds the readiness gate and the authentication helpers: requireSignedIn,
 //     requireAdmin and requireAccountManager; requireMetadataEditor is in identification.go,

@@ -38,7 +38,6 @@ const (
 	ShouldServeDebugPProf                          Key = "shouldServeDebugPprof"
 	ShouldServeDebugMetrics                        Key = "shouldServeDebugMetrics"
 	ShouldShowDeveloperPages                       Key = "shouldShowDeveloperPages"
-	ShouldOfferDeviceTests                         Key = "shouldOfferDeviceTests"
 	NodeSilentAfterSeconds                         Key = "nodeSilentAfterSeconds"
 	AssignedJobLimitHours                          Key = "assignedJobLimitHours"
 	ShouldScanOnNodeHello                          Key = "shouldScanOnNodeHello"
@@ -605,20 +604,13 @@ func chunkDefinitions() []Definition {
 }
 
 // offeredPagesDefinitions are the pages the client offers only once an admin turns them on: those
-// for development, and the device lab's tests.
+// for development.
 func offeredPagesDefinitions() []Definition {
 	return []Definition{
 		{
 			Key: ShouldShowDeveloperPages, Kind: KindBool, StartJSON: json.RawMessage("false"),
 			Description: "whether the client's menu offers its pages for development, such as the UI gallery",
 			StartSource: "the owner, 2026-10-17: development items behind a setting, in the menu when on",
-		},
-		{
-			Key: ShouldOfferDeviceTests, Kind: KindBool, StartJSON: json.RawMessage("false"),
-			Description: "whether the device lab's tests are offered to everyone signed in, beside Watch Together " +
-				"in the menu, and the server takes their results (plans/tv-device-tests.md)",
-			StartSource: "the owner, 2026-10-25: the lab is for running device tests with beta participants, " +
-				"off unless an admin turns it on",
 		},
 	}
 }

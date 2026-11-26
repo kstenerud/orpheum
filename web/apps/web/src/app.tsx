@@ -30,8 +30,6 @@ import {
   HowToUpdate,
   Identify,
   Jobs,
-  Lab,
-  LabExtendPlayer,
   Libraries,
   LibraryBrowse,
   LibraryPage,
@@ -41,6 +39,7 @@ import {
   Series,
   Settings,
   SignIn,
+  SoundTiming,
   System,
   Network,
   ThisDevice,
@@ -54,7 +53,6 @@ import {
   type LoadedAhead,
   usePreloadsSignIn,
 } from "./later-screens.tsx";
-import { DeviceTestsOfferedContext } from "./lab-offered.ts";
 import { DebugToolsContext, type DebugToolsChoice } from "./debug-tools.tsx";
 import { chipsOf } from "./list-filters.ts";
 import {
@@ -118,14 +116,6 @@ function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.
         <LiveProvider>
           <TogetherViewer />
         </LiveProvider>
-      </LaterScreen>
-    );
-  }
-  if (props.route.screen === "lab-extend-player") {
-    // The lab's test pattern on the TV's screen: no shell, and no server, so no sign-in.
-    return (
-      <LaterScreen resetKey={props.route.screen}>
-        <LabExtendPlayer />
       </LaterScreen>
     );
   }
@@ -313,11 +303,9 @@ function PersonSignedIn(props: {
                     onSwitchHousehold={switchHousehold}
                     onSignOut={signOut}
                   >
-                    <DeviceTestsOfferedContext value={clientSettings?.shouldOfferDeviceTests}>
-                      <MeContext value={signedInMe}>
-                        <Screen route={route} />
-                      </MeContext>
-                    </DeviceTestsOfferedContext>
+                    <MeContext value={signedInMe}>
+                      <Screen route={route} />
+                    </MeContext>
                   </AppShell>
                 </InterestSaidEveryContext>
               </BackgroundChangesContext>
@@ -472,7 +460,7 @@ function creditedScreen(route: Route): JSX.Element | undefined {
 
 /**
  * The screens anyone signed in may see beyond the library: their account, Watch Together (the
- * server refuses a session to a role that may not host), the device lab and About.
+ * server refuses a session to a role that may not host), the sound timing test and About.
  */
 function nonLibraryScreen(route: Route): JSX.Element | undefined {
   if (route.screen === "account") {
@@ -480,6 +468,9 @@ function nonLibraryScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "this-device") {
     return <ThisDevice />;
+  }
+  if (route.screen === "sound-timing") {
+    return <SoundTiming />;
   }
   if (route.screen === "watch-together") {
     // Watch Together is a dialog (D384 §2): its old address goes to the group's film, or home.
@@ -497,9 +488,6 @@ function nonLibraryScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "ui-gallery") {
     return <UiGallery />;
-  }
-  if (route.screen === "lab") {
-    return <Lab key={route.probe ?? "menu"} probe={route.probe} />;
   }
   return route.screen === "about" ? <About /> : undefined;
 }

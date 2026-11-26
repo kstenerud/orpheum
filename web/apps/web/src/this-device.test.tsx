@@ -6,7 +6,6 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { chooseOk, chosenOkButton, okChoiceKey } from "./controller-choice.ts";
-import { DeviceTestsOfferedContext } from "./lab-offered.ts";
 import {
   buttonWithText,
   click,
@@ -129,32 +128,16 @@ describe("the This device page", () => {
     expect(chosenOkButton()).toBeUndefined();
   });
 
-  // The owner, 2026-11-04 (ui-audit-2026-11-04.md Q8): Device tests move from the menu to here,
-  // behind "For testers", shown as the menu showed them: while the server offers them.
-  it("leads to Device tests under For testers only while the server offers them", async () => {
-    const drawnWith = async (isOffered: boolean | undefined): Promise<Element | null> => {
-      const services = servedBy({ "GET /me/devices": [200, { devices: [laptop] }] });
-      services.session.signIn("token");
-      mounted?.unmount();
-      mounted = await mount(
-        withServices(
-          <DeviceTestsOfferedContext value={isOffered}>
-            <ThisDevice />
-          </DeviceTestsOfferedContext>,
-          services,
-        ),
-      );
-      return mounted.container.querySelector('a[href="/lab"]');
-    };
-    expect((await drawnWith(true))?.textContent).toBe("Device tests");
-    expect(mounted?.container.textContent).toContain("For testers");
-    // The sound timing test sets this device's sound offset: a link of its own (the owner, 2026-11-06).
-    expect(mounted?.container.querySelector('a[href="/lab/sound"]')?.textContent).toBe(
-      "Sound timing test",
-    );
-    expect(await drawnWith(false)).toBeNull();
-    expect(mounted?.container.querySelector('a[href="/lab/sound"]')).toBeNull();
-    expect(mounted?.container.textContent).not.toContain("For testers");
-    expect(await drawnWith(undefined)).toBeNull();
+  // The sound timing test sets this device's sound offset, so it is a page of this one's (the owner,
+  // 2026-11-06), for everyone now the device lab is gone (D555 §12; the owner, 2026-11-25).
+  it("leads to the sound timing test for everyone, and to no device lab", async () => {
+    const services = servedBy({ "GET /me/devices": [200, { devices: [laptop] }] });
+    services.session.signIn("token");
+    mounted = await mount(withServices(<ThisDevice />, services));
+    expect(
+      mounted.container.querySelector('a[href="/this-device/sound-timing"]')?.textContent,
+    ).toBe("Sound timing test");
+    expect(mounted.container.querySelector('a[href^="/lab"]')).toBeNull();
+    expect(mounted.container.textContent).not.toContain("For testers");
   });
 });

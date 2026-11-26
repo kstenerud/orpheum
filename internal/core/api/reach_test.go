@@ -274,9 +274,6 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// A problem report, which answers only its id: the file it names is read for the admin's
 		// report, never for its caller (D524 §2).
 		"makeProblemReport",
-		// What a lab page measured on a device, which is only logged and answers its name in the log or
-		// nothing, and the throughput test's body, bytes of no meaning.
-		"reportLabResult", "reportLabInputEvents", "getLabThroughput",
 		// An AirPlay grant is made for a playback the caller holds, found by ChunksOf, which
 		// checks the reach; Stop answers how many grants it revoked.
 		"makeAirPlayGrant", "revokeAirPlayGrants",

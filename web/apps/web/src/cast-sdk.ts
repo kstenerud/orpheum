@@ -4,8 +4,8 @@
  * Google's Cast sender SDK, reached through a narrow adapter, since the SDK comes with no types this
  * tree may add (AGENTS.md rule 3): loaded from Google once a page means to cast, which the core's
  * policy allows on the client's screens (internal/core/webclient), and a session opened with a
- * receiver application, spoken to on one namespace. The Cast menu's Chromecast (google-cast.ts) and
- * the lab's cast probe (lab-cast-sdk.ts) both use it. Chromium only; HTTPS or localhost only.
+ * receiver application, spoken to on one namespace. The Cast menu's Chromecast (google-cast.ts) uses
+ * it. Chromium only; HTTPS or localhost only.
  */
 
 /** Where the sender SDK loads from, its framework with it. */

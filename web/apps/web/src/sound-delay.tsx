@@ -286,7 +286,7 @@ export function SoundOffsetInput(props: {
  * The sound timing starting from the offset kept with the device this tab is signed in on, and from
  * in step for a tab on none, where no playback gives one: a Watch Together viewer's under the film
  * (the owner, 2026-11-06: "Make it respect the sound offset. Put a control in watch together"), as
- * the server gives a guest's playback none, and the device lab's sound timing test's (lab-sound.tsx).
+ * the server gives a guest's playback none.
  */
 export function DeviceSoundOffsetControl(props: {
   readonly videoRef: RefObject<HTMLVideoElement | null>;

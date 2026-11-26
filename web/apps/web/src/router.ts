@@ -8,21 +8,6 @@ export interface Scanned {
   readonly keyHash: string;
 }
 
-/** The device lab's probes, each a page under /lab/. */
-export const labPages = [
-  "device",
-  "input",
-  "sound",
-  "remote",
-  "extend",
-  "throughput",
-  "cast",
-  "airplay",
-] as const;
-
-/** One of the device lab's probes. */
-export type LabPage = (typeof labPages)[number];
-
 /**
  * The pages after the libraries one of the first-time pages (D527 §3), each at an address of its
  * own so a reload or Back returns to it: the libraries page is /welcome itself.
@@ -149,6 +134,8 @@ export type Route =
   /** One's account; with scanned, a device's QR code was scanned, to activate it there (D321). */
   | { readonly screen: "account"; readonly scanned?: Scanned }
   | { readonly screen: "this-device" }
+  /** This device's sound timing test, which sets its sound offset (the owner, 2026-11-06). */
+  | { readonly screen: "sound-timing" }
   | { readonly screen: "register" }
   | { readonly screen: "together" }
   | { readonly screen: "watch-together" }
@@ -159,13 +146,6 @@ export type Route =
   | { readonly screen: "casting" }
   /** A cast's receiver between videos: full screen, ready, controlled from the sender (D364 §5). */
   | { readonly screen: "cast-ready" }
-  /**
-   * The device lab (plans/tv-device-tests.md): its menu, or one of its probes, at a short address a
-   * TV's remote types quickly; no menu leads to it.
-   */
-  | { readonly screen: "lab"; readonly probe?: LabPage }
-  /** The lab's extend probe's player, in a window of its own on the TV's screen: no shell. */
-  | { readonly screen: "lab-extend-player" }
   /** The client's own parts with made-up data, for seeing how they look; no menu leads to it. */
   | { readonly screen: "ui-gallery" }
   | { readonly screen: "not-found" };
@@ -249,18 +229,16 @@ const shapes: readonly Shape[] = [
   },
   { pattern: /^\/account\/?$/u, toRoute: (_, search) => accountRoute(search) },
   { pattern: /^\/this-device\/?$/u, toRoute: () => ({ screen: "this-device" }) },
+  {
+    pattern: /^\/this-device\/sound-timing\/?$/u,
+    toRoute: () => ({ screen: "sound-timing" }),
+  },
   { pattern: /^\/register\/?$/u, toRoute: () => ({ screen: "register" }) },
   { pattern: /^\/together\/?$/u, toRoute: () => ({ screen: "together" }) },
   { pattern: /^\/watch-together\/?$/u, toRoute: () => ({ screen: "watch-together" }) },
   { pattern: /^\/casting\/?$/u, toRoute: () => ({ screen: "casting" }) },
   { pattern: /^\/cast-ready\/?$/u, toRoute: () => ({ screen: "cast-ready" }) },
   { pattern: /^\/ui-gallery\/?$/u, toRoute: () => ({ screen: "ui-gallery" }) },
-  { pattern: /^\/lab\/?$/u, toRoute: () => ({ screen: "lab" }) },
-  ...labPages.map((probe) => ({
-    pattern: new RegExp(`^/lab/${probe}/?$`, "u"),
-    toRoute: (): Route => ({ screen: "lab", probe }),
-  })),
-  { pattern: /^\/lab\/extend\/player\/?$/u, toRoute: () => ({ screen: "lab-extend-player" }) },
 ];
 
 /**
@@ -482,24 +460,16 @@ function failedJobsHref(route: Route): string | undefined {
 }
 
 /**
- * The address of a first-time page, of Settings', of the failed jobs or of the device lab's, or
- * undefined for another.
+ * The address of a first-time page, of Settings', of the failed jobs or of This device's sound
+ * timing test, or undefined for another.
  */
 function pageRouteHref(route: Route): string | undefined {
   return (
     welcomeRouteHref(route) ??
     settingsRouteHref(route) ??
     failedJobsHref(route) ??
-    labRouteHref(route)
+    (route.screen === "sound-timing" ? "/this-device/sound-timing" : undefined)
   );
-}
-
-/** The address of one of the device lab's routes, or undefined for another. */
-function labRouteHref(route: Route): string | undefined {
-  if (route.screen === "lab") {
-    return route.probe === undefined ? "/lab" : `/lab/${route.probe}`;
-  }
-  return route.screen === "lab-extend-player" ? "/lab/extend/player" : undefined;
 }
 
 /** The screens at the site's root: home, and an address that names nothing, which goes there. */
@@ -534,9 +504,9 @@ export function routeHref(route: Route): string {
   if (library !== undefined) {
     return library;
   }
-  const lab = pageRouteHref(route);
-  if (lab !== undefined) {
-    return lab;
+  const page = pageRouteHref(route);
+  if (page !== undefined) {
+    return page;
   }
   return rootScreens.has(route.screen) ? "/" : `/${route.screen}`;
 }

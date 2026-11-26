@@ -34,7 +34,6 @@ import {
 } from "./libraries-reached.ts";
 import { NoticeNote } from "./notice-note.tsx";
 import { ShellBanners } from "./shell-banners.tsx";
-import { useShowsDebugTools } from "./debug-tools.tsx";
 
 import { productName } from "./product-name.ts";
 import type { Route } from "./router.ts";
@@ -126,15 +125,13 @@ interface Destination {
     | "update"
     | "thisDevice"
     | "account"
-    | "experimental"
     | "about"
     | "uiGallery";
   /**
-   * Who it shows to: everyone, an admin, anyone while the admin has the pages for development
-   * turned on, or anyone while their own Show debug tools is on (debug-tools.tsx). The device tests
-   * are This device's (this-device.tsx), not the menu's.
+   * Who it shows to: everyone, an admin, or anyone while the admin has the pages for development
+   * turned on.
    */
-  readonly audience: "everyone" | "admin" | "developer" | "debugTools";
+  readonly audience: "everyone" | "admin" | "developer";
   /**
    * Where in the banner it is: the places for watching, always in view; or, in the one menu at the
    * banner's end, the admin's area under Manage, the pages for development, or the person's own
@@ -210,9 +207,6 @@ const destinations: readonly Destination[] = [
   },
   { route: { screen: "this-device" }, labelKey: "thisDevice", audience: "everyone", group: "own" },
   { route: { screen: "account" }, labelKey: "account", audience: "everyone", group: "own" },
-  // The way to what is being experimented with, the lab's menu first, right after Your account, for
-  // anyone showing debug tools (the owner, 2026-11-11). The lab keeps its own gate, Offer Device tests.
-  { route: { screen: "lab" }, labelKey: "experimental", audience: "debugTools", group: "own" },
   { route: { screen: "about" }, labelKey: "about", audience: "everyone", group: "own" },
 ];
 
@@ -262,10 +256,7 @@ export interface AppShellProps {
  */
 export function AppShell(props: AppShellProps): JSX.Element {
   const { t } = useTranslation();
-  const showsDebugTools = useShowsDebugTools();
-  const shown = destinations.filter((destination) =>
-    isShownTo(destination.audience, props, showsDebugTools),
-  );
+  const shown = destinations.filter((destination) => isShownTo(destination.audience, props));
   const inGroup = (group: Destination["group"]): readonly Destination[] =>
     shown.filter((destination) => destination.group === group);
   const links = (group: Destination["group"]): JSX.Element[] =>
@@ -355,11 +346,7 @@ function SharesLibrariesReached(props: { readonly children: ReactNode }): JSX.El
  * Whether the shell shows a destination for audience to the person it is drawn for, who shows debug
  * tools or not.
  */
-function isShownTo(
-  audience: Destination["audience"],
-  shell: AppShellProps,
-  showsDebugTools: boolean,
-): boolean {
+function isShownTo(audience: Destination["audience"], shell: AppShellProps): boolean {
   switch (audience) {
     case "everyone":
       return true;
@@ -367,8 +354,6 @@ function isShownTo(
       return shell.isAdmin;
     case "developer":
       return shell.showsDeveloperPages === true;
-    case "debugTools":
-      return showsDebugTools;
   }
 }
 

@@ -26,8 +26,6 @@ const (
 	capabilityEditMetadata capability = "editMetadata"
 	// A role that may host Watch Together: requireTogetherHost.
 	capabilityHostTogether capability = "hostTogether"
-	// Anyone signed in while the admin offers the device tests: requireDeviceTests.
-	capabilityDeviceTests capability = "deviceTests"
 	// A Watch Together member, by their membership credential (D246 §3).
 	capabilityMember capability = "member"
 	// A byte path's caller, signed in by the header or the media cookie (D216).
@@ -103,7 +101,7 @@ func defaultSchemes(declared capability) []string {
 	case capabilityMedia:
 		return []string{schemeSession, schemeMedia}
 	case capabilitySignedIn, capabilitySignedInOrGuest, capabilityAdmin, capabilityAccountSecurity,
-		capabilityEditMetadata, capabilityHostTogether, capabilityDeviceTests:
+		capabilityEditMetadata, capabilityHostTogether:
 	}
 	return []string{schemeSession}
 }

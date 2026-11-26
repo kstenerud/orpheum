@@ -11,7 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/pathtree"
 )
 
-// contentSecurityPolicy is what the client's files and the lab's probes may load and run, and the
+// contentSecurityPolicy is what the client's files may load and run, and the
 // client's screens with Google's Cast sender besides (castSenderPolicy): everything from the server
 // itself and nothing from elsewhere, the subtitle renderer's WebAssembly and the player's workers
 // (from blob URLs too), media and images from blob URLs, inline styles, which React sets; no framing,
@@ -34,16 +34,8 @@ const trustedTypesPolicy = "require-trusted-types-for 'script'"
 // (developers.google.com/cast): their scripts, and the framework scripts they load in turn.
 const castSDKOrigin = "https://www.gstatic.com"
 
-// castSenderLabPath is the lab's cast probe (plans/tv-device-tests.md), which loads Google's Cast
-// sender SDK at its own load, under the client's screens' policy; the lab's other probes, each opened
-// by its own load too, keep the policy that loads nothing from elsewhere.
-const castSenderLabPath = "lab/cast"
-
-// labDirectory is where the lab's probes are, under /lab/.
-const labDirectory = "lab"
-
 // castSenderPolicy is contentSecurityPolicy with the Cast sender SDK's scripts and requests allowed,
-// what the lab's probe needed of it on the owner's devices (VQ286, VQ287) and nothing more: the
+// what the Cast sender needed of it on the owner's devices (VQ286, VQ287) and nothing more: the
 // client's screens, whose Cast menu loads it in Chrome at its first opening, to cast to any Google
 // Cast device (D465 §3). The client moves between its screens in place, so a page keeps the policy
 // of the screen it was loaded at, and every screen has it; the client's files keep the strict one.
@@ -65,16 +57,12 @@ const receiverPolicy = "default-src 'self'; script-src 'self' " + castSDKOrigin 
 	"font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 
 // policyFor is the content-security policy of the page or file at name, a path without its leading
-// slash: the receiver's under /cast/; the Cast sender's for the client's screens, the lab's cast probe
-// among them; the strict one for the lab's other probes and for every file.
+// slash: the receiver's under /cast/; the Cast sender's for the client's screens; the strict one for
+// every file.
 func policyFor(name string) string {
 	switch {
 	case isReceiverPath(name):
 		return receiverPolicy
-	case name == castSenderLabPath:
-		return castSenderPolicy
-	case pathtree.IsAtOrUnder(name, labDirectory):
-		return contentSecurityPolicy
 	case isScreenPath(name):
 		return castSenderPolicy
 	}
@@ -89,9 +77,9 @@ func isScreenPath(name string) bool {
 }
 
 // isCastPage is whether name, a path without its leading slash, is a cast page, whose Google SDK is
-// not the client's to change: the receiver's, or the lab's cast probe.
+// not the client's to change: the receiver's.
 func isCastPage(name string) bool {
-	return isReceiverPath(name) || name == castSenderLabPath
+	return isReceiverPath(name)
 }
 
 // isReceiverPath is whether name, a path without its leading slash, is the cast receiver's.

@@ -335,7 +335,7 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   bufferFullError and its flush a Fire TV stood 0.12 s short of its next picture for good (the
   owner's, 2026-11-11; VQ298). A paused or seeking video is left to its own. `holes.test.ts`.
 - **A chunked playback's requests carry an Authorization only where one is handed in**, for a page
-  with no media cookie on the core's origin: the lab's cast receiver (plans/tv-device-tests.md).
+  with no media cookie on the core's origin, such as a cast receiver's.
   `chunked.test.ts`.
 - **One public entry.** `exports` in `package.json` exposes only `src/index.ts`.
 - **One library per job:** hls.js for HLS and JASSUB for ASS/SSA; alternatives are named in

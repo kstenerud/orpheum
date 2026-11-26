@@ -9,16 +9,7 @@ import { resetLazyScreensForTests } from "./later-screens.tsx";
 import { mount } from "./test-dom.tsx";
 
 /** Every screen's exported name, read fresh each time so a snapshot is the reference at that call. */
-const screenNames = [
-  "Title",
-  "Series",
-  "Play",
-  "TogetherViewer",
-  "Lab",
-  "LabExtendPlayer",
-  "Settings",
-  "UiGallery",
-] as const;
+const screenNames = ["Title", "Series", "Play", "TogetherViewer", "Settings", "UiGallery"] as const;
 
 describe("resetLazyScreensForTests (the shared module state note, test-architecture-2026-10-26.md)", () => {
   it("gives every screen a fresh React.lazy wrapper, not the one an earlier test already resolved", () => {

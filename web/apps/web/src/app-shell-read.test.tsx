@@ -18,7 +18,6 @@ const shell = {
     screenRefreshFailedWaitSeconds: 5,
     interestSaidEverySeconds: 15,
     shouldShowDeveloperPages: false,
-    shouldOfferDeviceTests: false,
     readyAheadOfNextChunkPercent: 150,
   },
   libraries: [{ id: 1, name: "Films", kind: "film" }],

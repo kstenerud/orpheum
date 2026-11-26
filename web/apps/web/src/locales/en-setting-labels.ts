@@ -124,7 +124,6 @@ export const enSettingLabels = {
     shouldScanOnNodeHello: "Scan when a machine connects",
     shouldServeDebugMetrics: "Serve debug metrics",
     shouldServeDebugPprof: "Serve the Go profiler",
-    shouldOfferDeviceTests: "Offer Device tests",
     shouldShowDeveloperPages: "Show developer pages",
     shouldTogetherNudgeKeepPitch: "Keep the pitch when Watch Together nudges",
     shouldTogetherVoiceBrowserLevelMicrophone: "Let the browser level the microphone",

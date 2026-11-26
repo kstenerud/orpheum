@@ -5,8 +5,9 @@
 
 # TV and device tests
 
-- **Status:** PLANNED — 2026-10-25. The lab pages are built (web client `/lab`, the cast receiver
-  under `/cast/`); the runs are the owner's.
+- **Status:** HISTORY — the lab's pages are removed (D555 §12, 2026-11-26), but for the sound timing
+  test, now a page of This device's (`/this-device/sound-timing`). Planned 2026-10-25, the lab pages
+  were built (web client `/lab`, the cast receiver under `/cast/`); the runs were the owner's.
 - **Depends on:** —
 - **Why:** the owner, 2026-10-25: *test first, then choose the casting and controller approach*;
   "extend to the TV" in the beta if possible, even primitive. The evidence it weighs:

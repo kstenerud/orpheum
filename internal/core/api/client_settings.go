@@ -27,9 +27,6 @@ type ClientSettingsBody struct {
 	// ShouldShowDeveloperPages is whether the client's menu offers its pages for development, such
 	// as the UI gallery (the owner, 2026-10-17).
 	ShouldShowDeveloperPages bool `json:"shouldShowDeveloperPages"`
-	// ShouldOfferDeviceTests is whether the menu offers the device lab's tests to everyone signed
-	// in, and the server takes their results (the owner, 2026-10-25).
-	ShouldOfferDeviceTests bool `json:"shouldOfferDeviceTests"`
 	// ReadyAheadOfNextChunkPercent is how much film a player waits to have loaded ahead before it
 	// starts, and plays on after a seek: this percent of its next chunk's expected load time (the
 	// owner, 2026-10-28).
@@ -90,7 +87,6 @@ func (server *Server) clientSettingsBody(ctx context.Context, dependencies *Depe
 		into *bool
 	}{
 		{settings.ShouldShowDeveloperPages, &output.Body.ShouldShowDeveloperPages},
-		{settings.ShouldOfferDeviceTests, &output.Body.ShouldOfferDeviceTests},
 	} {
 		value, err := dependencies.Settings.Bool(ctx, read.key)
 		if err != nil {

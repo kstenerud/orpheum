@@ -20,8 +20,6 @@ import { focusRegion } from "./focus-navigation.ts";
 // they were before they were split: a walk's time is its own, not the dev server's first build of a
 // screen, which under load took the player's walk past the 15 s a test has (2026-10-25).
 import "./cast-remote.tsx";
-import "./lab.tsx";
-import "./lab-extend-player.tsx";
 import "./play.tsx";
 import "./series.tsx";
 import "./settings.tsx";
@@ -95,7 +93,6 @@ const clientSettings: components["schemas"]["ClientSettingsBody"] = {
   screenRefreshFailedWaitSeconds: 5,
   interestSaidEverySeconds: 15,
   shouldShowDeveloperPages: false,
-  shouldOfferDeviceTests: false,
   readyAheadOfNextChunkPercent: 150,
 };
 
@@ -523,8 +520,6 @@ export const personPages: readonly string[] = [
  * The pages this walk leaves to others, and why:
  * - /play/<file>: the player, full screen on a TV, its video needing a stream the test services
  *   cannot serve; walked by input-player.browser.test.tsx and player-widgets.browser.test.tsx.
- * - /lab and /lab-extend-player: the device lab, whose tiles take the remote's keys as what they
- *   measure, not as navigation (lab-input.browser.test.tsx).
  * - /ui-gallery: every widget laid out at once for a person to look at, each alone and some without
  *   the page around it that would reach it (a pop-up's list drawn open, the player's rows without
  *   their film); not a page to use by a remote.

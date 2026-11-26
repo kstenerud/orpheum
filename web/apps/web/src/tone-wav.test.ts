@@ -2,9 +2,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { toneWav } from "./lab-tone.ts";
+import { toneWav } from "./tone-wav.ts";
 
-describe("a lab tone", () => {
+describe("a tone", () => {
   it("is a mono 16-bit WAV of whole cycles, so it loops without a click", () => {
     const bytes = toneWav(440, { seconds: 1, sampleRate: 22_050 });
     const view = new DataView(bytes.buffer);

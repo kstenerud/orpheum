@@ -2,7 +2,7 @@
 
 // Package systemvideo makes the server's own videos (D435 §4): short clips FFmpeg draws from nothing,
 // by a recipe this build knows, into the node's system folder, which the node lists as one of its
-// roots so the core scans and plays them as any video. The device lab's sound timing clip is the
+// roots so the core scans and plays them as any video. The sound timing test's clip is the
 // first.
 //
 // # Invariants

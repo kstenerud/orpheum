@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * The throughput test's timing (webrtc-throughput-2026-10-28.md): how long one load of the core's
- * throughput body (GET /lab/throughput) took to arrive whole, read as it comes, never held.
+ * How long one load took to arrive whole, read as it comes, never held, as the throughput test
+ * timed the core's (webrtc-throughput-2026-10-28.md): what a link's estimate and a shown check time
+ * a load by.
  */
 
 /** What one load took: the bytes read, its first byte's wait, its whole time, and its rate. */

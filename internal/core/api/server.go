@@ -335,7 +335,6 @@ func newServer(logger *slog.Logger, schemas huma.Registry) *Server {
 func (server *Server) registerWhatPagesLog() {
 	server.registerClientProblems()
 	server.registerClientPaths()
-	server.registerLab()
 	server.registerAirPlay()
 	server.registerSystemVideos()
 }

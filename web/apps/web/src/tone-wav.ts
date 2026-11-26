@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * Tones for the lab pages (plans/tv-device-tests.md), as WAV bytes a media element plays from a
- * blob URL: the extend probe sends one to each of two outputs by setSinkId, which only a media
- * element has; the button test plays one, once its switch is on, so the page counts as playing
- * media, which a desktop browser asks before it gives a page a keyboard's media keys; and the sound
- * timing test plays its beeps through a video element, as a film's sound plays. Made here, so the
- * probes load nothing.
+ * A tone as WAV bytes, which a media element plays from a blob URL: made here, so a test that
+ * needs a sound to play loads nothing.
  */
 
 /** The bytes of a WAV file of samples, each from -1 to 1: 16-bit mono PCM at sampleRate. */
@@ -55,14 +51,4 @@ export function toneWav(
     samples[index] = Math.sin((2 * Math.PI * frequencyHz * index) / sampleRate) * amplitude;
   }
   return pcmWav(samples, sampleRate);
-}
-
-/** A blob URL of a looping tone's WAV, for an <audio> element; revoke it when done. */
-export function toneUrl(frequencyHz: number, amplitude?: number): string {
-  return wavUrl(toneWav(frequencyHz, amplitude === undefined ? {} : { amplitude }));
-}
-
-/** A blob URL of a WAV's bytes, for a media element; revoke it when done. */
-function wavUrl(bytes: Uint8Array<ArrayBuffer>): string {
-  return URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
 }

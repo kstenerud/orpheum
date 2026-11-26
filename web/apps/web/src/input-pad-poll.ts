@@ -313,8 +313,8 @@ export interface PadPollCost {
 let cost: PadPollCost = { polls: 0, spentMs: 0 };
 
 /**
- * The polls' cost on this page so far, for a page to show (the button test, lab-pad-input.tsx): the
- * owner asked it measured (2026-11-07). Read twice, the difference is a span's.
+ * The polls' cost on this page so far: the owner asked it measured (2026-11-07). Read twice, the
+ * difference is a span's.
  */
 export function padPollCost(): PadPollCost {
   return cost;

@@ -70,10 +70,7 @@ describe("what the home page loads before it draws (the audit of 2026-10-25, W1)
     expect(loadedBy.has("./app-shell.tsx")).toBe(true);
     expect(loadedBy.has("./home.tsx")).toBe(true);
     const unwanted = [...loadedBy.keys()].filter(
-      (path) =>
-        path === "@orpheum/player" ||
-        path === "hls.js" ||
-        (/^\.\/lab[-.]/u.test(path) && path !== "./lab-offered.ts"),
+      (path) => path === "@orpheum/player" || path === "hls.js",
     );
     expect(unwanted.map((path) => chainTo(loadedBy, path))).toEqual([]);
   });

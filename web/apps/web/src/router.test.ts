@@ -53,14 +53,7 @@ describe("parseRoute and routeHref", () => {
       { screen: "watch-together" },
       { screen: "casting" },
       { screen: "cast-ready" },
-      { screen: "lab" },
-      { screen: "lab", probe: "device" },
-      { screen: "lab", probe: "input" },
-      { screen: "lab", probe: "sound" },
-      { screen: "lab", probe: "remote" },
-      { screen: "lab", probe: "extend" },
-      { screen: "lab", probe: "cast" },
-      { screen: "lab-extend-player" },
+      { screen: "sound-timing" },
     ];
     for (const route of routes) {
       const url = new URL(routeHref(route), "http://orpheum.test");
@@ -109,12 +102,13 @@ describe("parseRoute and routeHref", () => {
     }
   });
 
-  it("reaches the device lab by a short address, with or without a slash, and no other probe", () => {
-    expect(parseRoute("/lab", "")).toEqual({ screen: "lab" });
-    expect(parseRoute("/lab/", "")).toEqual({ screen: "lab" });
-    expect(parseRoute("/lab/input/", "")).toEqual({ screen: "lab", probe: "input" });
-    expect(parseRoute("/lab/extend/player", "")).toEqual({ screen: "lab-extend-player" });
-    expect(parseRoute("/lab/elsewhere", "")).toEqual({ screen: "not-found" });
-    expect(parseRoute("/laboratory", "")).toEqual({ screen: "not-found" });
+  // The device lab went (D555 §12): its addresses name nothing; its sound timing test stayed, a page
+  // of This device's (the owner, 2026-11-25).
+  it("reaches the sound timing test under This device, and the lab's old addresses name nothing", () => {
+    expect(parseRoute("/this-device/sound-timing", "")).toEqual({ screen: "sound-timing" });
+    expect(parseRoute("/this-device/sound-timing/", "")).toEqual({ screen: "sound-timing" });
+    expect(parseRoute("/lab", "")).toEqual({ screen: "not-found" });
+    expect(parseRoute("/lab/sound", "")).toEqual({ screen: "not-found" });
+    expect(parseRoute("/lab/extend/player", "")).toEqual({ screen: "not-found" });
   });
 });

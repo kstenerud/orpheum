@@ -13,7 +13,7 @@ import { startGateOf } from "@orpheum/sdk";
 import { afterEach, describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 
-import { toneWav } from "./lab-tone.ts";
+import { toneWav } from "./tone-wav.ts";
 import { keepThePressForTheStart } from "./start-refused.ts";
 
 /**

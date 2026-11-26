@@ -589,17 +589,20 @@ An item is ticked only by the person who did it, and only with what they saw.
   H.264, HEVC, AV1, VP9 profile 0, AAC, HE-AAC, Opus and FLAC yes, VP9 10-bit, AC-3 and E-AC-3 no.
   The core logged it at 11:48:23Z (`a lab page sent its results`, `labResultId=NGYYG5QS
   probe=device userId=4 deviceId=110`) with the codecs, the audio latency and the call.
+  Withdrawn 2026-11-26: the device lab is removed (D555 §12), and this page with it; nothing is left to walk.
 - [ ] **VQ56** — On the iPhone, in a Safari tab and then as a home-screen app, and on an Android
   phone in Chrome, run `/lab/remote` with earphones for the runs of plans/tv-device-tests.md H4.
   Passes when each run's log reaches the core every 30 s (`probe=remote`) with its wake-lock,
   sound-flowing and page-stopped counts, whatever they show; what they show is the finding.
   (`web/apps/web/src/lab-remote.tsx`, `web/packages/sdk/src/rtc-loopback.ts`)
+  Withdrawn 2026-11-26: the device lab is removed (D555 §12), and this page with it; nothing is left to walk.
 - [ ] **VQ57** — On the Windows laptop extending to a TV (Win+K, Win+P Extend), in Chrome, open
   `/lab/extend`, **Find screens**, open the test film on the TV, drive it with play/pause and ±10 s,
   then play the two tones on two outputs (plans/tv-device-tests.md H3, H5). Passes when the test
   film opens on the TV's screen and goes full screen at a press, the laptop's page shows its position
   move with each command, and each tone is heard on the output chosen for it, or the page says
   plainly which API is missing. (`web/apps/web/src/lab-extend.tsx`, `lab-extend-player.tsx`)
+  Withdrawn 2026-11-26: the device lab is removed (D555 §12), and this page with it; nothing is left to walk.
 - [x] **VQ58** — (the owner, 2026-11-11, on staging, a 3rd-generation Chromecast at home: "it's playing now"; the receiver registered at the client origin's `/cast/` and the lab opened there, since at the loader's origin the core refuses the film's bytes, plan 11-23 item 3(d); CAF started, the reports reached the core's log as 2IVHOVHY and UZNLOXRD, the film played over the direct name.) With a Chromecast (or the TCL's built-in one) registered for development and our
   receiver registered at `https://<core's LAN name>/cast/` (plans/tv-device-tests.md §3), open
   `/lab/cast` in desktop Chrome at that name, **Cast to our receiver**, **Ask for its report**, and
@@ -613,12 +616,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   B2). Passes when the page logs the remote's keys and measures each move; D190's line is our
   geometric search's worst key-to-focus at or under 250 ms, which the result records whether or not
   it is met. (`web/apps/web/src/lab-input.tsx`, `focus-engine.ts`)
+  Withdrawn 2026-11-26: the device lab is removed (D555 §12), and this page with it; nothing is left to walk.
 - [ ] **VQ60** — On a Fire TV stick in Silk's spatial mode and on a laptop's Chrome and Firefox,
   run `/lab/input`'s text field, both full-screen buttons and the 8BitDo SN30 Pro in each of its
   modes (plans/tv-device-tests.md H6–H8). Passes when the core's log holds the run's `fieldIn`,
   `fieldInput` (a length, no text), `fullscreenEnter` or `fullscreenRefused`, keys with
   `inFullscreen: true`, and a `pad` line per mode with its layout; what they show is the finding.
   (`web/apps/web/src/lab-field.tsx`, `lab-fullscreen.tsx`, `lab-pad-input.tsx`, `input-pads.ts`)
+  Withdrawn 2026-11-26: the device lab is removed (D555 §12), and this page with it; nothing is left to walk.
 - [ ] **VQ61** — On a Fire TV stick in Silk's spatial navigation mode, walk the app by the remote
   alone (plans/tv-device-tests.md H9): Films with Continue Watching, a film, a series and a season,
   search, the banner's menu, This device, Play and Watch Together. Passes when every control is
@@ -2376,6 +2381,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   `altGraph`, …), `location` and `isComposing` where set, and Menu either as a key or as a
   `contextmenu` line, or absent; note for each what arrived, as the input for steps 2, 9 and 10.
   (`web/apps/web/src/lab-key-table.tsx`)
+  Withdrawn 2026-11-26: the device lab is removed (D555 §12), and this page with it; nothing is left to walk.
 
 - [ ] **VQ243** — the player's overlay on a Fire TV walks its rows, seeks only where it should, and
   hides by Back (D407 §4–§7; plan item 17, Right seeking instead of reaching Full screen, 2026-11-02).
@@ -2541,6 +2547,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   `web/apps/web/src/lab-cast.tsx`, the page's `throughDiscovery` handed to its services in
   `client-main.tsx`, `web/packages/player/src/fetch-loader.ts`; orpheum-connect's
   `internal/webclient`)
+  Withdrawn 2026-11-26: the device lab is removed (D555 §12), and this page with it; nothing is left to walk.
 - [ ] **VQ257** — the core records what it and each node use of their machines, once a minute
   (toolkit.md, "Core and node record their own CPU and memory use"; "feat(core): the core and each node record what they use of their machines"). The recorder and the
   node's reading are tested; only a server left running past its first minute shows the loop that
@@ -2693,6 +2700,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   Corrected the same day (A62): the sync clips settle with the sound 300 ms *earlier*, Level
   loudness on or off, so the film's sound is the late one; the test still cannot stand for a film,
   whose sound and picture take a path the page-drawn flash does not.
+  Superseded by VQ275: the page-made WAV it walks is gone; the sound timing test, kept as a page of
+  This device's when the lab went (D555 §12), plays the server's clip as a film (`web/apps/web/src/sound-timing.tsx`).
 
 - [x] **VQ270** — a film opened on a television in an Android WebView starts by itself (the owner's
   TCL TV in TV Bro, 2026-11-06: films opened paused, Level loudness on or off). Going full screen as
@@ -2745,9 +2754,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   failure and `sound-timing.h264-aac.mp4` in its system folder; (2) a second ask, after the scan,
   answers `isReady: true` with a file; (3) the debug view lists the clip with its size, and its rebuild
   makes it again. (`internal/core/systemvideos/systemvideos.go`, `internal/node/systemvideo/`)
-- [ ] **VQ275** — the TCL TV plays the system clip from the lab page, and each beep lines up with its
+- [ ] **VQ275** — the TCL TV plays the system clip from the sound timing test, and each beep lines up with its
   flash (D435 §6). Only a device shows its sound against its picture. On staging, on the TCL TV in TV
-  Bro, open the device lab's sound timing page once VQ274 passes. Passes when the clip plays through
+  Bro, open This device, then Sound timing test (`/this-device/sound-timing`), once VQ274 passes. Passes when the clip plays through
   the player as a film does, and each beep is heard with its flash, adjusting the player's sound
   offset if it must, the offset that lines them up noted here. (`internal/core/api/systemvideos.go`)
 - [ ] **VQ276** — a tab moved to WebRTC by `?transport=webrtc` on the core's own origin tells its
@@ -2848,6 +2857,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   Orpheum device removed first: "I saw the code, pressed \"they're the same\", and it now shows up
   in my device list. Playing a movie also works"). Still to do: the film played from away, through
   the discovery.
+  Withdrawn 2026-11-26: the device lab is removed (D555 §12), and this page with it; nothing is left to walk. D288's pairing of a Chromecast through the lab goes too (the owner, 2026-11-25).
 - [x] **VQ287** — A cast to the Chromecast plays and its remote works it (D434) (passed 2026-11-12 on staging at "fix(cast-receiver): a Chromecast takes the next cast after one is stopped", the owner's 3rd-generation Chromecast: play, pause and seek from the Mac's Chrome moved the TV, "it worked across multiple casts"; it took that fix and "fix(cast-receiver): a Chromecast plays the cast it leads, not only once its group says playing", and the loader's own copy of the receiver rebuilt, since `./staging quick` does not reach `orpheum.dev/cast/`). After VQ286, the
   lab's cast left running, open a film in another tab on the Mac, press Cast and choose the
   Chromecast. Passes when the film plays on the TV, the tab shows the cast's controls, play, pause
@@ -3093,6 +3103,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   **Second run, 2026-11-13 11:40 to 12:01** (airplay.md, "The lab's second run"): films 2, 8, 13, 27
   and 33 play with sound by Way B, seeking and pausing from the iPhone; the Mac plays on with the iPhone
   locked or in another app, and stops as Safari comes back (unlocking, or returning to it).
+  Withdrawn 2026-11-26: the device lab is removed (D555 §12), and this page with it; nothing is left to walk.
 
 - [ ] **VQ311** — Cast to this device signs a device in for one cast, and it is let go as the cast
   ends (D469). On staging, open orpheum.cc on a television's browser (the TCL or the Fire TV) and

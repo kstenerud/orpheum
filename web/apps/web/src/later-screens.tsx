@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { CastReady as CastReadyComponent } from "./cast-ready.tsx";
-import type { LabExtendPlayer as LabExtendPlayerComponent } from "./lab-extend-player.tsx";
-import type { Lab as LabComponent } from "./lab.tsx";
 import type { Play as PlayComponent } from "./play.tsx";
 import type { Series as SeriesComponent } from "./series.tsx";
 import type { Settings as SettingsComponent } from "./settings.tsx";
@@ -32,6 +30,7 @@ import type {
 } from "./old-addresses.tsx";
 import type { Register as RegisterComponent } from "./register.tsx";
 import type { SignIn as SignInComponent } from "./sign-in.tsx";
+import type { SoundTiming as SoundTimingComponent } from "./sound-timing.tsx";
 import type { ThisDevice as ThisDeviceComponent } from "./this-device.tsx";
 
 import { useEffect } from "react";
@@ -60,12 +59,6 @@ const loadTogetherViewer = async (): Promise<{ default: typeof TogetherViewerCom
 });
 const loadCastReady = async (): Promise<{ default: typeof CastReadyComponent }> => ({
   default: (await import("./cast-ready.tsx")).CastReady,
-});
-const loadLab = async (): Promise<{ default: typeof LabComponent }> => ({
-  default: (await import("./lab.tsx")).Lab,
-});
-const loadLabExtendPlayer = async (): Promise<{ default: typeof LabExtendPlayerComponent }> => ({
-  default: (await import("./lab-extend-player.tsx")).LabExtendPlayer,
 });
 const loadSettings = async (): Promise<{ default: typeof SettingsComponent }> => ({
   default: (await import("./settings.tsx")).Settings,
@@ -141,14 +134,16 @@ const loadSignIn = async (): Promise<{ default: typeof SignInComponent }> => ({
 const loadThisDevice = async (): Promise<{ default: typeof ThisDeviceComponent }> => ({
   default: (await import("./this-device.tsx")).ThisDevice,
 });
+const loadSoundTiming = async (): Promise<{ default: typeof SoundTimingComponent }> => ({
+  default: (await import("./sound-timing.tsx")).SoundTiming,
+});
 
 /**
  * The screens whose code loads only when one is first shown, each with what only it needs: a
  * title's and a series' pages, which make a film ready to play, the player and hls.js with it,
  * a cast's ready page, the server's settings and the admin's other screens (D361's libraries, users,
- * jobs, matching, what needs attention, System, Remote access and How to update, which only an admin opens), the
- * device lab and its player, and the UI gallery, the lab's and the gallery's words with them
- * (lab-words.ts, gallery-words.ts). They were
+ * jobs, matching, what needs attention, System, Remote access and How to update, which only an admin opens),
+ * and the UI gallery, the gallery's words with it (gallery-words.ts). They were
  * all in the one script every page loaded before it drew, most of it hls.js, which a TV parses
  * slowly (the audit of 2026-10-25, W1); app.tsx shows each in a LaterScreen: Loading… meanwhile,
  * and a page that says so, with Reload, when its code does not load (screen-load.tsx). A screen
@@ -175,11 +170,6 @@ export let TogetherViewer: LazyScreenOf<typeof TogetherViewerComponent> = lazySc
 export let CastReady: LazyScreenOf<typeof CastReadyComponent> = lazyScreen(
   "cast-ready",
   loadCastReady,
-);
-export let Lab: LazyScreenOf<typeof LabComponent> = lazyScreen("lab", loadLab);
-export let LabExtendPlayer: LazyScreenOf<typeof LabExtendPlayerComponent> = lazyScreen(
-  "lab-extend-player",
-  loadLabExtendPlayer,
 );
 export let Settings: LazyScreenOf<typeof SettingsComponent> = lazyScreen("settings", loadSettings);
 export let UiGallery: LazyScreenOf<typeof UiGalleryComponent> = lazyScreen(
@@ -238,6 +228,10 @@ export let SignIn: ScreenOf<typeof SignInComponent> = signIn.component;
 export let ThisDevice: LazyScreenOf<typeof ThisDeviceComponent> = lazyScreen(
   "this-device",
   loadThisDevice,
+);
+export let SoundTiming: LazyScreenOf<typeof SoundTimingComponent> = lazyScreen(
+  "sound-timing",
+  loadSoundTiming,
 );
 
 /**
@@ -328,8 +322,6 @@ export function resetLazyScreensForTests(): void {
   Play = play.component;
   TogetherViewer = lazyScreen("together-viewer", loadTogetherViewer);
   CastReady = lazyScreen("cast-ready", loadCastReady);
-  Lab = lazyScreen("lab", loadLab);
-  LabExtendPlayer = lazyScreen("lab-extend-player", loadLabExtendPlayer);
   Settings = lazyScreen("settings", loadSettings);
   UiGallery = lazyScreen("ui-gallery", loadUiGallery);
   Identify = lazyScreen("identify", loadIdentify);
@@ -355,5 +347,6 @@ export function resetLazyScreensForTests(): void {
   signIn = preloadableScreen("sign-in", loadSignIn);
   SignIn = signIn.component;
   ThisDevice = lazyScreen("this-device", loadThisDevice);
+  SoundTiming = lazyScreen("sound-timing", loadSoundTiming);
 }
 resetOnEachTestMount(resetLazyScreensForTests);

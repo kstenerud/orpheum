@@ -6,7 +6,7 @@ import "./i18n.ts";
 import { act } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { LabSound } from "./lab-sound.tsx";
+import { SoundTiming } from "./sound-timing.tsx";
 import { BackgroundChangesContext, type Ask, type Poller } from "./polling.ts";
 import { routeHref } from "./router.ts";
 import {
@@ -62,22 +62,22 @@ describe("the sound timing test (D435 §6)", () => {
     mounted = await mount(
       withServices(
         <BackgroundChangesContext value={byHand}>
-          <LabSound />
+          <SoundTiming />
         </BackgroundChangesContext>,
         services,
       ),
     );
     const page = mounted;
     await settleUntil(() => page.container.querySelector("output") !== null);
-    expect(page.container.querySelector("a.lab__button")).toBeNull();
+    expect(page.container.querySelector('a[href^="/play/"]')).toBeNull();
     await act(async () => {
       for (const ask of asks) {
         ask(() => undefined);
       }
       await Promise.resolve();
     });
-    await settleUntil(() => page.container.querySelector("a.lab__button") !== null);
-    expect(page.container.querySelector("a.lab__button")?.getAttribute("href")).toBe(
+    await settleUntil(() => page.container.querySelector('a[href^="/play/"]') !== null);
+    expect(page.container.querySelector('a[href^="/play/"]')?.getAttribute("href")).toBe(
       routeHref({ screen: "play", fileId: 77 }),
     );
     expect(heard.map((each) => each.methodAndPath)).toEqual([
@@ -95,16 +95,16 @@ describe("the sound timing test (D435 §6)", () => {
     const page = await mountToRevisit(
       withServices(
         <BackgroundChangesContext value={byHand}>
-          <LabSound />
+          <SoundTiming />
         </BackgroundChangesContext>,
         services,
       ),
     );
     mounted = page;
-    await settleUntil(() => page.container.querySelector("a.lab__button") !== null);
+    await settleUntil(() => page.container.querySelector('a[href^="/play/"]') !== null);
     await page.leave();
     await page.comeBack();
-    expect(page.container.querySelector("#lab-sound-heading")).not.toBeNull();
-    expect(page.container.querySelector("a.lab__button")).toBeNull();
+    expect(page.container.querySelector("#sound-timing-heading")).not.toBeNull();
+    expect(page.container.querySelector('a[href^="/play/"]')).toBeNull();
   });
 });

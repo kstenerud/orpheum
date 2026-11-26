@@ -57,14 +57,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   refusal is told by its reason (`providerProblemText`), with who can fix it.
   `no-restricted-syntax` on `error.error.message`; `src/screen-refusals.test.tsx`.
 - **The shell renders a banner with the product name and the menu, and one `main` landmark;**
-  an admin's destinations show to an admin only (the server refuses them to anyone else); Device
-  tests, among the places for watching, shows to everyone while the server offers them
-  (`shouldOfferDeviceTests`). The menu's Sign out asks first, in the shared modal dialog, Sign out
+  an admin's destinations show to an admin only (the server refuses them to anyone else). The
+  menu's Sign out asks first, in the shared modal dialog, Sign out
   or Cancel, and only its Sign out signs out (the owner, 2026-10-30). **The banner's places, signs
   and menu draw together once the shell's first read answers** (D476), the admin's among them, from
   that answer alone; the banner keeps its room meanwhile and the screen reads and draws as it would
   (the owner, 2026-11-13: "It shouldn't be necessary to render the admin things separately").
-  `src/app-shell.test.tsx`, `src/app-shell.browser.test.tsx`, `src/lab.test.tsx`,
+  `src/app-shell.test.tsx`, `src/app-shell.browser.test.tsx`,
   `src/app-shell-read.test.tsx`.
 - **Watch Together and Cast are their status tray signs, never top-bar places** (D364 §12–§14):
   both always in the tray, Cast's to everyone and Watch Together's to a person who may host or a
@@ -913,62 +912,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/rescan.test.tsx`, `src/input-pages.browser.test.tsx`; on devices, VQ161.
 - **About credits TMDB with its logo and exact notice, and names what we are built on**
   (D213 §7). `src/about.test.tsx`.
-- **The device lab is at `/lab`, each probe a page of its own** (plans/tv-device-tests.md), offered
-  only while the server's `shouldOfferDeviceTests` is on (the owner, 2026-10-25): off, every lab
-  page says so in place of its probe, the test film excepted; the menu's Experimental, right after
-  Your account, leads to it for anyone showing debug tools, and for no one else (the owner,
-  2026-11-11; `src/app-shell.test.tsx`); a menu
-  of big links a D-pad's own browser navigation reaches; each probe shows what it found in large
-  type and sends it to the core's log through the SDK, showing the name the log keeps it by (the
-  button test as it goes, below); the
-  cast probe opens by its own load, the one page the core lets load Google's Cast SDK; the extend
-  probe's test film needs no sign-in. The AirPlay probe (`src/lab-airplay.tsx`, airplay.md's spike) is
-  in the menu for someone showing debug tools alone (the grant is the product's since D473): opening its AirPlay menu fetches the grant in the
-  media's path, on the core's name the page's requests reach it at, never the client origin, and
-  says AirPlay cannot work where the core is reached over WebRTC alone (`grantOriginOf`, the
-  loader's `directOriginInUse`, its minor 6), so way B's press shows Safari's picker within its
-  gesture; way A gives a second
-  element the grant, way B offers the grant as the page's own element's alternative, as the product
-  does (D523 §1), logging AirPlay's start and end by the wireless flag; Stop ends both and shows the
-  revocation's answer, every step in its log (`src/lab-airplay.test.tsx`). The sound timing test (`src/lab-sound.tsx`, the owner, 2026-11-06) has
-  no Send: what it finds is kept as the device's sound offset, by the control under a film. Its
-  beeps, a WAV made in the page (`src/lab-tone.ts`), play through a video element as a film's sound
-  does, levelled as the person's Level loudness says and moved by the device's offset through the
-  player's own gain and offset; its flash is drawn from the element's clock, held back by as much as
-  the player moves the sound earlier (`playerMovedSoundEvent`), which a film's chunks would carry
-  out and a file played whole cannot. The input probe, the button test, lights a chip for each
-  button heard, whether as a key, a step back, a controller's button or stick or a Media Session
-  action (`src/input-buttons.ts`), and fits a Fire TV's 960 × 540 in the shell unscrolled, a
-  controller of unknown layout connected too (the owner, 2026-10-25); it has no Send: each press (a
-  key going down, not up), each move of focus with its latency and each change of who moves it goes
-  to the core's log as it happens, one request on its way at most and what came meanwhile sent
-  together after it, what waits sent kept alive as the page hides or leaves, under the run's name
-  the page makes as it loads and shows (`src/lab-events.ts`; the owner, 2026-10-25); its quiet
-  tone, for a keyboard's media keys alone, is off until switched on in its details; its focus
-  engine sits behind `FocusEngine` (`src/focus-engine.ts`), so another can be measured beside ours,
-  and ours moves across the whole app, the shell's title bar included, among what is laid out, and
-  leaves an arrow to a text field but at the value's end it points to (Up and Down always leave one
-  line) or while it composes. Its text field sends its focus, input and composition with the
-  value's length, never its text, and a character typed in it as `Character` (`src/lab-field.tsx`,
-  H6); its full-screen test puts a video drawn in the page full screen by its box or bare, leaves
-  at Back or Escape and sends what happened (`src/lab-fullscreen.tsx`, H7); its controller line
-  shows the first pad's name, mapping and the layout its id says (`src/input-pads.ts`: by vendor, else
-  by name; Nintendo's OK is the right face button, Xbox's and PlayStation's the bottom one), offers
-  the choice of OK, kept as the This device page keeps it, and sends a pad with no standard
-  mapping's buttons as numbers and its axes as they cross half way, and says how often the pads are
-  polled and the time each poll takes (`padPollCost`; `src/lab-pad-input.tsx`, H8);
-  the app's navigation moves by a standard pad there as on every page, and the test keeps Back
-  rather than going back by it. Each key goes with the modifiers held (AltGr by
-  `getModifierState`), its place on the keyboard and whether an input method composed it, shown in
-  its key table, and each context menu the page is asked for is sent with whether it was full
-  screen, for the volume keys' layouts and a TV's Menu key (`src/lab-keys.ts`,
-  `src/lab-key-table.tsx`; D407 §10). `src/lab.test.tsx`,
-  `src/lab-input.test.tsx`, `src/lab-input-field.test.tsx`, `src/lab-pad-input.test.tsx`,
-  `src/input-pads.test.ts`, `src/lab-events.test.ts`, `src/lab-input.browser.test.tsx`,
-  `src/lab-buttons.test.ts`, `src/input-buttons.test.ts`, `src/router.test.ts`, `src/focus-engine.test.ts`,
-  `src/lab-timing.test.ts`, `src/lab-keys.test.ts`,
-  `src/lab-extend-channel.test.ts`, `src/lab-tone.test.ts`, `src/lab-sound.test.tsx`,
-  `src/lab-sound-clip.test.ts`; on devices, VQ55–VQ60, VQ242 and VQ269.
+- **The sound timing test is a page of This device's, at `/this-device/sound-timing`**, the one
+  part of the device lab kept when the lab went (D555 §12; the owner, 2026-11-25), linked from This
+  device for everyone: it asks the server for its sound timing clip, a flash and a beep each second,
+  and plays it on the Play page as any film, so its sound is levelled and moved by the device's
+  sound offset as a film's is (`src/sound-timing.tsx`). `src/sound-timing.test.tsx`,
+  `src/this-device.test.tsx`, `src/router.test.ts`; on devices, VQ269.
 - **Every page is driven by a remote, a keyboard or a game controller**
   (controller-input-2026-10-25.md §6.1; the owner, 2026-10-25): one input layer
   (`src/input-commands.ts`, run around every screen by `src/input-layer.tsx`) turns a key (by its
@@ -1289,11 +1238,8 @@ for anything a person sees, [standards/ui.md](../../../docs/contributors/standar
   every listener, 15 times a second, and the polls' cost), `controller-choice.ts` (the OK chosen on This device), `focus-engine.ts` (where an
   arrow moves focus, within containers), `focus-navigation.ts` (moving, starting, scrolling,
   pressing) and `focus-memory.ts` (what each container and history entry remembers).
-- The device lab (plans/tv-device-tests.md): `lab.tsx` (its menu), `lab-frame.tsx` (a probe's
-  page and its Send), `lab-device.tsx`, `lab-input.tsx` (the button test, with `lab-buttons.ts`, its
-  chips, `lab-keys.ts` and `lab-key-table.tsx`, its keys, `lab-events.ts`, its events on their way to the log, `lab-field.tsx`, its text field, `lab-fullscreen.tsx`, its full-screen test, and `lab-pad-input.tsx`, its controllers), `lab-remote.tsx`, `lab-extend.tsx` and `lab-extend-player.tsx` (with
-  `lab-extend-channel.ts`), `lab-cast.tsx` (with `lab-cast-sdk.ts`, Google's sender SDK),
-  `lab-send.ts`, `lab-timing.ts`, `lab-tone.ts`, `lab-offered.ts` (whether the server offers it); its words in `src/locales/en-lab.ts`.
+- The sound timing test: `sound-timing.tsx`, This device's page (D555 §12); `tone-wav.ts`, a
+  tone as a WAV, for a test's sound.
 - The look of plain elements everywhere: `src/base.css`; the skin's tokens: `src/tokens.css`
   (D251).
 - Every user-visible string: `src/locales/en.ts` and its parts (`en-together.ts`,

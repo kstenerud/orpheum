@@ -21,8 +21,6 @@ const (
 	CacheForADay             = cacheForADay
 	ClientPingEvery          = clientPingEvery
 	IdempotentAnswerKept     = idempotentAnswerKept
-	LabResultBytesAtMost     = labResultBytesAtMost
-	LabResultIDLength        = labResultIDLength
 	ProblemBodySchemaName    = problemBodySchemaName
 	SchemaRefPrefix          = schemaRefPrefix
 	SilenceLimit             = silenceLimit

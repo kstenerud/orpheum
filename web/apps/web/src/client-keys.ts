@@ -44,10 +44,6 @@ const clientKeys = new Set([
   "orpheum.debug.castLogTicked",
   // The realm a person asked the page to remember (discovery-start.ts).
   "orpheum.discovery.realm",
-  // The custom Cast receiver's app id the lab's cast probe launches (lab-cast.tsx).
-  "orpheum.lab.castAppId",
-  // The core's LAN address the lab's throughput test loads from (lab-throughput.tsx).
-  "orpheum.lab.lanAddress",
   // Which face button of a game controller is OK on this browser (controller-choice.ts).
   "orpheum.controller.ok",
   // Whether Settings' section pages show the advanced settings too (settings.tsx advancedShownKey).

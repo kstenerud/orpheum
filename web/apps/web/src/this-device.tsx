@@ -2,13 +2,12 @@
 
 import "./devices-words.ts";
 
-import { use, useState, type JSX } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { listMyDevices, myDevicesKey, renameMyDevice } from "./accounts.ts";
 import { chooseOk, okChoices, useOkChoice } from "./controller-choice.ts";
 import { arrivalMark } from "./focus-navigation.ts";
-import { DeviceTestsOfferedContext } from "./lab-offered.ts";
 import { Link } from "./link.tsx";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -52,28 +51,16 @@ function ControllerChoice(): JSX.Element {
 }
 
 /**
- * The device lab's tests, while the server offers them (DeviceTestsOfferedContext): a test is of the
- * device in hand, so they are this page's, not the menu's, which they crowded for everyone else
- * (ui-audit-2026-11-04.md Q8, the owner's answer: "For testers"). The sound timing test is a link
- * of its own, as it sets this device's sound offset (the owner, 2026-11-06).
+ * The sound timing test, a page of this one's, as it sets this device's sound offset (the owner,
+ * 2026-11-06), for everyone: the device lab that offered it to testers went (D555 §12), and the
+ * sound-timing page stayed (the owner, 2026-11-25).
  */
-function DeviceTests(): JSX.Element | null {
+function SoundTimingLink(): JSX.Element {
   const { t } = useTranslation();
-  if (use(DeviceTestsOfferedContext) !== true) {
-    return null;
-  }
   return (
-    <>
-      <h2>{t("thisDevice.deviceTests.heading")}</h2>
-      <p>
-        <Link to={{ screen: "lab" }}>{t("thisDevice.deviceTests.open")}</Link>
-      </p>
-      <p>
-        <Link to={{ screen: "lab", probe: "sound" }}>
-          {t("thisDevice.deviceTests.soundTiming")}
-        </Link>
-      </p>
-    </>
+    <p>
+      <Link to={{ screen: "sound-timing" }}>{t("thisDevice.soundTiming.open")}</Link>
+    </p>
   );
 }
 
@@ -126,7 +113,7 @@ export function ThisDevice(): JSX.Element {
         }}
       />
       <ControllerChoice />
-      <DeviceTests />
+      <SoundTimingLink />
       <p>
         <Link to={{ screen: "account" }}>{t("thisDevice.elsewhere")}</Link>
       </p>

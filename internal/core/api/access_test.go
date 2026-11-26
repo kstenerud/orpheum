@@ -44,8 +44,6 @@ var callerChecks = map[string]callerCheck{
 	"requireMetadataEditor":         {"editMetadata", []string{schemeSession}},
 	"requireMetadataEditorReaching": {"editMetadata", []string{schemeSession}},
 	"requireTogetherHost":           {"hostTogether", []string{schemeSession}},
-	"requireDeviceTests":            {"deviceTests", []string{schemeSession}},
-	"deviceTestsCaller":             {"deviceTests", []string{schemeSession}},
 	"requireSignedInForMedia":       {"media", []string{schemeSession, schemeMedia}},
 	// A byte path's holder: the person signed in by the header or the media cookie, or a viewer by
 	// their membership (D246 §3).

@@ -321,12 +321,11 @@ describe("the shell, laid out by a real browser", () => {
           for (const [index, centre] of centres.slice(1).entries()) {
             expect(centre - (centres[index] ?? 0)).toBeCloseTo(fingertip * 0.75, 0);
           }
-          // The realm is the menu's to say, and the places for watching fit the row with no lab.
+          // The realm is the menu's to say.
           expect(
             container.querySelector(".app-shell__end .app-shell__realm")?.getBoundingClientRect()
               .width ?? 0,
           ).toBe(0);
-          expect(container.querySelector('.app-shell__watching a[href="/lab"]')).toBeNull();
         });
       } finally {
         await page.viewport(1280, 720);

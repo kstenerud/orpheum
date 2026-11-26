@@ -9,9 +9,9 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
 It checks the core's Ed25519 signatures in any browser, an old Chromecast's included
 (`src/ed25519.ts`).
 
-It also holds the device lab's capability report (`src/device-report.ts`: what a browser decodes
-and which APIs it has) and a WebRTC call of a page with itself (`src/rtc-loopback.ts`), shared by
-the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither talks to a server.
+It also holds what a browser decodes and which APIs it has (`src/device-report.ts`, which the
+device lab reported until it went, D555 §12) and a WebRTC call of a page with itself
+(`src/rtc-loopback.ts`); neither talks to a server.
 
 ## Invariants
 
