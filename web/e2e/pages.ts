@@ -120,14 +120,16 @@ export async function shownOverTheFilm(
 }
 
 /**
- * A control of the overlay over the castee's key frame on a computer (D555 §8), by its name: hidden
- * while the castee plays, as over the film, so the pointer moves over the key frame first.
+ * A control of the castee's page by its name: its remote's pad or the menus' row under it, laid out
+ * as the remote in every mode (the owner, 2026-11-26), with no overlay over the key frame. The pad
+ * hides with the controls while the castee plays, so the pointer moves over the key frame first.
  */
 export async function shownOverTheCastee(
   page: Page,
   name: string | RegExp,
 ): Promise<ReturnType<Page["locator"]>> {
-  return await shownOver(page, ".castee-play__stage", name);
+  await shownOver(page, ".castee-play__stage", name);
+  return page.locator(".castee-play__page").getByRole("button", { name });
 }
 
 /** The overlay's control by its name, the pointer moved over what (a selector) first, as a person's. */
