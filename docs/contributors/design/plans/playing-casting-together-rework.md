@@ -549,7 +549,14 @@ Watch Together volumes and a guest's tracks and timing went into the bar's menus
    the caster's Cast session and show none today; the session's `getVolume()` says it.
 2. **A guest's cast's remote names the film the session moved to** (the owner: "Fix that in the
    next batch"). A guest's Next moves the host's own cast along; a guest's TV follows the session,
-   but that guest's remote may still show the film it was handed.
+   but that guest's remote may still show the film it was handed. **Item 1 needed no code**
+   (2026-11-26): the pad already shows "Volume ‹n› %" from the Cast session, a test now holds it,
+   and VQ411 asks for it on a Chromecast. **Item 2 was built and taken back** the same night: the
+   remote took the session's film once it differed from the film sent, and a plain cast's second
+   film then never played (`cast.spec.ts`, the remote left at "Ready on"): the remote's page opens
+   before it hears its session, the session says the second film before the server hands the cast
+   again, and the remote showed that film with no length. The rule needs to know the cast is a
+   guest's in a Watch Together session, not only that the two films differ. Open.
 3. **Mute is not kept between films** (the owner: "No, mute doesn't stick"): as built, nothing to do.
 
 Added by the owner, 2026-11-26, from the same walk's unfixed observations:

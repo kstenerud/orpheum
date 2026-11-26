@@ -69,61 +69,6 @@ export function useHeldCast(castId: number): CastSending | undefined {
   return now ?? held;
 }
 
-/** A cast as its remote shows it: as sent, or on the film its session moved on to (useFilmOn). */
-export type CastOn = CastSending & {
-  /** The title its film plays as, where the session names it or the remote read it; else undefined. */
-  readonly itemId?: number | undefined;
-};
-
-/** Whether a session on groupFileId has moved on from the film sent, on groupFileIdAsSent as it was sent. */
-function isMovedOn(
-  sentFileId: number,
-  groupFileId: number,
-  groupFileIdAsSent: number | undefined,
-): boolean {
-  return (
-    sentFileId !== 0 &&
-    groupFileId !== 0 &&
-    groupFileId !== sentFileId &&
-    groupFileId !== groupFileIdAsSent
-  );
-}
-
-/**
- * The cast sent as its remote shows it: on the film sent, until its session moves on to another
- * while the film sent stays, then on the session's film, its title the session's or the episode the
- * remote read for it (episodeOf), its length unknown. A guest's cast is handed the film it started
- * on, and the server leaves it so as the session moves on, its castee following the session itself
- * (cast-ready.tsx; the rework plan's next batch, item 2: the guest's remote named the film it was
- * handed). The session's film as the cast was last sent is not followed: a film just sent is yet
- * to be put on there.
- */
-export function useFilmOn(
-  sent: CastSending,
-  snapshot: TogetherSnapshot | undefined,
-  episodeOf: (fileId: number) => number | undefined,
-): CastOn {
-  const group = snapshot?.group;
-  const [asSent, setAsSent] = useState({ sent, groupFileId: group?.fileId });
-  if (asSent.sent !== sent) {
-    setAsSent({ sent, groupFileId: group?.fileId }); // kept as it renders: the session's film then
-  }
-  if (
-    group === undefined ||
-    asSent.sent !== sent ||
-    !isMovedOn(sent.fileId, group.fileId, asSent.groupFileId)
-  ) {
-    return sent;
-  }
-  return {
-    ...sent,
-    fileId: group.fileId,
-    itemName: "",
-    durationMs: 0,
-    itemId: group.itemId ?? episodeOf(group.fileId),
-  };
-}
-
 /**
  * Plays the film of the cast's last word here again, from atMs, paused there where isPaused, or from
  * its own start where atMs is undefined, no place being known (D549 §3): on the
@@ -429,26 +374,30 @@ export function useRemoteMoves(sent: CastSending, around: AroundFile | undefined
  */
 export function useRemoteTitle(
   casts: Resource<readonly Cast[]>,
-  sent: CastOn,
+  sent: CastSending,
 ): {
   readonly upward: ReturnType<typeof usePlayUpward> | undefined;
   readonly art: ArtBody | undefined;
 } {
-  const title = useCastTitle(casts, sent);
+  const title = useCastTitle(casts, sent.castId, sent.fileId);
   const upward = usePlayUpward(title === undefined ? undefined : playsOf(title), title?.name);
   return { upward: title === undefined ? undefined : upward, art: title?.art };
 }
 
 /**
- * The title the cast sent plays as its film: the cast's item, as the server's list of this device's
+ * The title the cast castId plays as fileId: the cast's item, as the server's list of this device's
  * casts names it (casts, the cast's session's read), read again under its file where the cast has
- * moved on since that read, else the cast's own itemId (a guest's cast the session moved on, useFilmOn), then
+ * moved on since that read, then
  * the title's detail, as its Title page reads it (readTitle). Undefined while read, or where the
  * cast names no title.
  */
-function useCastTitle(casts: Resource<readonly Cast[]>, sent: CastOn): TitleBody | undefined {
+function useCastTitle(
+  casts: Resource<readonly Cast[]>,
+  castId: number,
+  fileId: number,
+): TitleBody | undefined {
   const { api } = useServices();
-  const itemId = useCastItemId(casts, sent.castId, sent.fileId) ?? sent.itemId;
+  const itemId = useCastItemId(casts, castId, fileId);
   const [title] = useResource(
     itemId === undefined ? "cast-art/none" : titleKey(itemId),
     async (signal) => (itemId === undefined ? undefined : await readTitle(api, itemId, signal)),
