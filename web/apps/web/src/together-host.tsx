@@ -26,7 +26,6 @@ import { useMembership } from "./together-membership.ts";
 import { SoundOnPill } from "./sound-on-pill.tsx";
 import { useHostsSessionOver } from "./together-session-end.ts";
 import type { Membership } from "./together-storage.ts";
-import { followFilmVolume } from "./film-volume.ts";
 import { isPausedAsAsked } from "./film-waits.tsx";
 import { ComingAndGoing, onTheFilmsStage, TogetherPanel } from "./together-over-the-film.tsx";
 import { OnlyOnThePanelsPage } from "./together-panel-place.tsx";
@@ -105,7 +104,7 @@ interface LeadingPlayer {
  * video stands, unless the session plays it already; the session's roster names this player its
  * leader, which plays as it would alone, the group following it, and carries out another device's
  * play, pause and seek as its own press; its own play, pause and seeks are the session's (D371);
- * the film plays at the tab's volume (D281 §5).
+ * the film plays at the device's volume as every film on the Play page does (play.tsx; D281 §5).
  */
 export function useLeadingPlayer(leading: LeadingPlayer): void {
   const { connection, isWelcomed, fileId, video, startPositionMs, putOnAtMs, delivery } = leading;
@@ -144,7 +143,6 @@ export function useLeadingPlayer(leading: LeadingPlayer): void {
           }),
     [connection, fileId, video, delivery, readSound, readPicture],
   );
-  useEffect(() => (video === null ? undefined : followFilmVolume(video)), [video]);
 }
 
 /**

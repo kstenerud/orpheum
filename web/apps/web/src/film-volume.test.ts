@@ -3,10 +3,17 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { filmVolume, followFilmVolume, setFilmVolume } from "./film-volume.ts";
+import {
+  filmVolume,
+  filmVolumeKey,
+  followFilmVolume,
+  forgetFilmVolumeRead,
+  setFilmVolume,
+} from "./film-volume.ts";
 
 afterEach(() => {
-  setFilmVolume(1);
+  window.localStorage.clear();
+  forgetFilmVolumeRead();
 });
 
 describe("the film's volume in a tab (D281 §5)", () => {
@@ -30,5 +37,24 @@ describe("the film's volume in a tab (D281 §5)", () => {
     expect(filmVolume()).toBe(1);
     setFilmVolume(-1);
     expect(filmVolume()).toBe(0);
+  });
+
+  it("is kept on the device, for the page loaded again (the owner, 2026-11-26)", () => {
+    setFilmVolume(0.4);
+    expect(window.localStorage.getItem(filmVolumeKey)).toBe("0.4");
+    forgetFilmVolumeRead(); // the page loaded again
+    expect(filmVolume()).toBe(0.4);
+    const video = document.createElement("video");
+    followFilmVolume(video)();
+    expect(video.volume).toBe(0.4);
+  });
+
+  it("is full where the browser keeps none, or keeps what is no volume", () => {
+    expect(filmVolume()).toBe(1);
+    for (const kept of ["loud", "7", "-1", ""]) {
+      window.localStorage.setItem(filmVolumeKey, kept);
+      forgetFilmVolumeRead();
+      expect(filmVolume(), kept).toBe(1);
+    }
   });
 });

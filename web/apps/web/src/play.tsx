@@ -33,6 +33,7 @@ import type { LadderOffer } from "./moving-down.ts";
 import { usePlayState } from "./play-state.ts";
 import { usePlayerCommands } from "./player-commands.ts";
 import { fillTheScreen, useStageFillingAsTheDeviceHasIt } from "./film-fullscreen.ts";
+import { followFilmVolume } from "./film-volume.ts";
 import { keepThePressForTheStart } from "./start-refused.ts";
 import { useVideoPressedForPlay } from "./video-pressed-for-play.ts";
 import { isBrowserFullscreen, isOnTelevision, thisBrowserWindow } from "./input-mode.ts";
@@ -195,6 +196,8 @@ function PlayerView(
   const isNothingNext = useIsNothingNext(offered);
   usePlayerCommands(video, tracks);
   useStageAsTheDeviceHasIt(video, receiving === undefined);
+  // Every film plays at the device's volume, alone, leading a session or cast to (film-volume.ts).
+  useEffect(() => (video === null ? undefined : followFilmVolume(video)), [video]);
   const ways = useMemo(
     () => ({
       fileId,

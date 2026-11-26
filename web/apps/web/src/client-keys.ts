@@ -56,6 +56,8 @@ const clientKeys = new Set([
   "orpheum.cast.receiving",
   // The latency of this device's sound through Web Audio, as last measured (sound-latency.ts).
   "orpheum.sound.latencyMs",
+  // The film's volume on this device, which every film plays at (film-volume.ts).
+  "orpheum.sound.filmVolume",
   // That the note on the browser's local-network prompt was dismissed (local-network-note.tsx).
   "orpheum.localNetwork.noteDismissed",
   // That the note on what a page over plain http cannot do was dismissed (plain-http-note.tsx).
