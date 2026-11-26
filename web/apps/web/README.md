@@ -971,7 +971,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   sound on (D407 §10), M muting and unmuting and F putting the stage full screen or leaving it
   where focus is the player's, its buttons too, neither with Ctrl, Alt or Cmd nor held, and Back leaving
   full screen before the page; the same answers whatever the target, the video or a castee
-  (`PlayerStage`, D555 §8); every control over and under the video is
+  (`PlayerStage`, D555 §8), and on a Watch Together guest's page, each key doing what its button
+  does for the guest: play and pause and the seeks only where the link gives them, as only then
+  are those buttons drawn, ⏮ and ⏭ where it puts on another episode, the volume, M and F always
+  (`CommandRights`, D557 §6; `src/together-viewer-keys.test.tsx`); every control over and under the video is
   reached by arrows. A seek is shown before it is made (`src/seek-ahead.ts`): each press of an
   arrow or seeking button moves the timeline's marker and time alone 10 s, a held one, a remote's
   key and a controller's stick alike, by the time held, faster each 2 s, and the film seeks once,

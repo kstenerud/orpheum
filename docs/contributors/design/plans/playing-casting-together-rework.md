@@ -540,7 +540,10 @@ Watch Together volumes and a guest's tracks and timing went into the bar's menus
    owner: "OK, follow your recommendation"). A guest's page is its own build of the player and
    binds none of the player's commands (player-commands.ts): no key plays, pauses, seeks, moves
    the volume or goes full screen for a guest. Built on the one base display with only a guest's
-   parts shown, each key does what its button does for a guest. First in the batch.
+   parts shown, each key does what its button does for a guest. First in the batch. **Built**
+   (2026-11-26): the guest's page binds the Play page's keys, its stage taking play, pause and seeks
+   only as far as the link's rights (`PlayerStage`, `useMovesCommands` for ⏮ and ⏭), the overlay's
+   presses too; walked on devices by VQ410.
 1. **A Chromecast's volume shows a number on the pad** (the owner: "Yes, show a number. Do this
    in the next batch"). The pad's Volume down, Mute and Volume up set the TV's own volume through
    the caster's Cast session and show none today; the session's `getVolume()` says it.

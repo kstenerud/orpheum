@@ -32043,9 +32043,11 @@ the owner to place: what still lies under the stage (the plan's "Next batch").
 (a guest's page).
 
 **Status:** decided. §1–5 have code on main, read back against these clauses and walked on staging on a
-phone, a Chromecast and a Fire TV (2026-11-26); §6 has none: a guest's page is still its own
-(`together-viewer.tsx`), given §1–4 by its own changes. It is first in the next batch
-([the rework plan](../design/plans/playing-casting-together-rework.md)).
+phone, a Chromecast and a Fire TV (2026-11-26); §6 has code, not yet walked on a device: a guest's
+page (`together-viewer.tsx`) composes the Play page's player, overlay and bar with only the controls
+its link gives (`CommandRightsContext`), and now its keys too, the Play page's own, each doing what
+its button does for the guest (`PlayerStage`'s rights); its film's name over the player is still
+its own ([the rework plan](../design/plans/playing-casting-together-rework.md), next batch item 0).
 
 1. **The "Ends" line sits under the way up.** The owner: *"The "Ends" line is placed wrong. It
    should be under the backlink at the top."*
@@ -32075,6 +32077,7 @@ phone, a Chromecast and a Fire TV (2026-11-26); §6 has none: a guest's page is 
 - 2, 3: `web/apps/web/src/play-castee-layout.browser.test.tsx`
 - 4: `web/apps/web/src/together-voice.test.tsx`, `web/apps/web/src/together-guest-tracks.test.tsx`, `web/apps/web/src/play-layout.browser.test.tsx`
 - 5: `web/apps/web/src/target-menus.test.tsx`, `web/apps/cast-receiver/src/sound-panel.test.ts`, `web/apps/web/src/cast-sdk.test.ts`
+- 6: `web/apps/web/src/together-viewer-keys.test.tsx`, `web/apps/web/src/player-overlay.test.tsx`; VQ410
 
 ## D558 — The paid discovery relays the connections that fail, capped at 3 Mb/s a household; a household's own relay, registered with it, is uncapped and used first
 

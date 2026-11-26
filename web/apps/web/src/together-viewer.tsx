@@ -88,6 +88,7 @@ import {
   GuestsEntries,
   GuestsUpNext,
   GuestTopBar,
+  useGuestsKeys,
   useGuestsMoves,
 } from "./together-guest-controls.tsx";
 import { SessionVoiceContext, useVoice, VoiceControls } from "./together-voice.tsx";
@@ -489,6 +490,7 @@ function GroupFilm(props: {
         return (
           <GuestFilmContext
             value={{
+              keptVideo: props.keptVideo,
               fileId: props.fileId,
               following: props.following,
               isVoiceWaiting: props.isVoiceWaiting,
@@ -568,6 +570,8 @@ function GuestsPage(props: {
 
 /** What the guest's pieces of the player need of its page: the film, the group, the membership. */
 interface GuestFilm {
+  /** The session's kept video, the one the film plays in (useKeptVideo). */
+  readonly keptVideo: HTMLVideoElement;
   readonly fileId: number;
   readonly following: Following;
   /** Whether the voices wait for a tap, which is asked for over the film with its own. */
@@ -628,12 +632,13 @@ function GuestStalls(props: FilmParts): JSX.Element {
  * top bar out of it (D555 §9).
  */
 function FollowingGroup(props: FilmParts): JSX.Element {
-  const { fileId, following, isVoiceWaiting } = useGuestFilm();
+  const { fileId, following, isVoiceWaiting, keptVideo } = useGuestFilm();
   const muted = useFollowing(props.videoRef, fileId, following);
   const isTv = isOnTelevision();
   useStageFillingFromTheVideo(props.videoRef, isTv);
   const { canPlayPause } = use(CommandRightsContext);
   const moves = useGuestsMoves();
+  useGuestsKeys(keptVideo, moves);
   return (
     <>
       {muted.isMuted || isVoiceWaiting ? (

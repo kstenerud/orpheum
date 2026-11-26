@@ -237,7 +237,15 @@ export function useSequenceMoves(offered: UpNextOffered | undefined): SequenceMo
  * there are, so the browser's media controls offer only those (hearMediaSeeks).
  */
 export function useSequenceCommands(offered: UpNextOffered): Required<MediaTracks> {
-  const moves = useSequenceMoves(offered);
+  return useMovesCommands(useSequenceMoves(offered));
+}
+
+/**
+ * Answers the previous and next commands by moves, the Play page's own (useSequenceCommands) or a
+ * Watch Together guest's ⏮ and ⏭ (D557 §6), where each is given; returns which there are, so the
+ * browser's media controls offer only those (hearMediaSeeks).
+ */
+export function useMovesCommands(moves: SequenceMoves): Required<MediaTracks> {
   useCommands("document", (detail, event) => {
     if (detail.command !== "previous" && detail.command !== "next") {
       return;

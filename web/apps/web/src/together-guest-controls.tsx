@@ -10,13 +10,14 @@ import type { OfferPlace } from "./convenience-area.tsx";
 import type { FilmParts } from "./film-player.tsx";
 import { useIsFullScreen } from "./full-screen-button.tsx";
 import { CommandRightsContext, useVideoTarget, type SequenceMoves } from "./player-controls.tsx";
+import { usePlayerCommands } from "./player-commands.ts";
 import { productName } from "./product-name.ts";
 import { useServices } from "./services.tsx";
 import { GuestsCastEntry, type GuestsCast } from "./together-guest-cast.tsx";
 import { LeaveButton } from "./together-leave.tsx";
 import { requestTogetherAround } from "./together-playback.ts";
 import type { Membership } from "./together-storage.ts";
-import { TargetUpNext } from "./up-next.tsx";
+import { TargetUpNext, useMovesCommands } from "./up-next.tsx";
 import { useResource } from "./use-resource.ts";
 
 /** What a guest's Cast and Leave are given. */
@@ -169,4 +170,19 @@ export function GuestsUpNext(props: FilmParts & OfferPlace): JSX.Element | null 
       onPlay={guestsMoves.moves.next}
     />
   );
+}
+
+/** A guest's moves where its link puts on no episode before or after: none. */
+const noMoves: SequenceMoves = {};
+
+/**
+ * The guest's keys, the Play page's own (usePlayerCommands, useMovesCommands), each doing what its
+ * button does for the guest (D557 §6): play and pause, and the steps, only where the link gives them,
+ * as only then are their buttons drawn; ⏮ and ⏭ where it puts on the episode before or after; the
+ * volume, mute and full screen always, as the guest's 🔈 and full screen are always drawn.
+ */
+export function useGuestsKeys(video: HTMLVideoElement, moves: SequenceMoves | undefined): void {
+  const rights = use(CommandRightsContext);
+  const tracks = useMovesCommands(moves ?? noMoves);
+  usePlayerCommands(video, tracks, rights);
 }

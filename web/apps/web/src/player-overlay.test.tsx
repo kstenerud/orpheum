@@ -9,7 +9,11 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import { clockText } from "./date-time-text.ts";
 import type { OfferPiece, OfferPlace } from "./convenience-area.tsx";
 import { PlayUpwardContext } from "./play-up.tsx";
-import type { SequenceMoves } from "./player-controls.tsx";
+import {
+  CommandRightsContext,
+  type CommandRights,
+  type SequenceMoves,
+} from "./player-controls.tsx";
 import { PlayerOverlay } from "./player-overlay.tsx";
 import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
 import { seekAskedEvent, seekRestMs, soughtByOf, stopSeekAheadOf } from "./seek-ahead.ts";
@@ -19,6 +23,9 @@ import { withServices } from "./test-services.tsx";
 
 /** The full-screen button, found by its name as a viewer finds it (it takes no class of its own). */
 const FULL_SCREEN = 'button:is([aria-label="Full screen"], [aria-label="Leave full screen"])';
+
+/** The rights every page's controls have but a Watch Together guest's (CommandRights). */
+const everyRight: CommandRights = { canPlayPause: true, canSeek: true };
 
 /** A Fire TV's Silk, which the overlay takes for a television's remote. */
 const silk =
@@ -61,17 +68,23 @@ describe("the film's times", () => {
 
 describe("the player's full-screen overlay on a television (D407)", () => {
   let mounted: Mounted | undefined;
+  /** The rights the overlay's controls are drawn with (CommandRightsContext). */
+  let shownRights: CommandRights = everyRight;
   beforeEach(() => {
     vi.spyOn(Navigator.prototype, "userAgent", "get").mockReturnValue(silk);
   });
   afterEach(() => {
+    shownRights = everyRight;
     mounted?.unmount();
     mounted = undefined;
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
-  /** Draws the overlay over video in a stage, with offer in its convenience area where given. */
+  /**
+   * Draws the overlay over video in a stage, with offer in its convenience area where given, its
+   * controls' rights shownRights (every one but in a Watch Together guest's test: their link's).
+   */
   async function drawn(
     video: HTMLVideoElement,
     offer?: OfferPiece,
@@ -82,15 +95,17 @@ describe("the player's full-screen overlay on a television (D407)", () => {
     onTestFinished(stopSeekAheadOf.bind(undefined, video)); // let go as the player does (Stage)
     mounted = await mount(
       withServices(
-        <div className="film-player__stage">
-          <PlayerOverlay
-            videoRef={videoRef}
-            readLinkKbps={() => undefined}
-            failure={undefined}
-            offer={offer}
-            moves={moves}
-          />
-        </div>,
+        <CommandRightsContext value={shownRights}>
+          <div className="film-player__stage">
+            <PlayerOverlay
+              videoRef={videoRef}
+              readLinkKbps={() => undefined}
+              failure={undefined}
+              offer={offer}
+              moves={moves}
+            />
+          </div>
+        </CommandRightsContext>,
       ),
     );
     mounted.container.querySelector(".film-player__stage")?.prepend(video); // where the player draws it
@@ -249,6 +264,24 @@ describe("the player's full-screen overlay on a television (D407)", () => {
     expect(press("select")).toBe(true);
     expect(video.paused).toBe(false);
     expect(shown()).toBe("hidden");
+  });
+
+  it("neither pauses at OK nor seeks at Left for a Watch Together guest whose link gives neither, as neither button is drawn (D557 §6)", async () => {
+    const video = playingVideo();
+    Object.defineProperty(video, "duration", { value: 600 });
+    video.currentTime = 100;
+    shownRights = { canPlayPause: false, canSeek: false };
+    await drawn(video);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    press("back"); // hidden, where OK pauses and Left seeks
+    press("select");
+    press("left");
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowLeft" }));
+      vi.advanceTimersByTime(seekRestMs);
+    });
+    expect(video.paused).toBe(false);
+    expect(video.currentTime).toBe(100);
   });
 
   it("hides the pause sign 3 s after the last press, the film still paused", async () => {

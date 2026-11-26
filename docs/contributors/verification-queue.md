@@ -4252,3 +4252,16 @@ An item is ticked only by the person who did it, and only with what they saw.
      line `WebRTC: offer sent with …` names what the phone gathered, and a line `gathered nothing
      past this device; gathering again` says the second try was made.
   3. Tell the lead the time of day. The lead reads the server's log for that connection.
+- [ ] **VQ410** — A Watch Together guest's keys do what its buttons do (D557 §6): only a real
+  remote, and a real keyboard's media keys, show it. Host a session on a computer, play a film,
+  and make two links: one that gives play and pause and seeking, one that gives neither.
+  1. Open the first link on the Fire TV. With the overlay hidden, press OK, then Left and Right,
+     then the remote's play/pause. Report whether each pauses, plays or steps the film for
+     everyone, as on the host's own player.
+  2. Open the second link on the Fire TV. Press the same keys. Report whether the film goes on
+     for everyone with nothing moved, and whether Back still leaves full screen.
+  3. On a computer, open the first link. Press Space, Left, Right, −, +, M and F, and a
+     keyboard's media play/pause key. Report whether each does what its button does: the group
+     pauses, plays and steps; the volume and mute are this page's own; F puts the film full screen.
+  4. Open the second link on the computer and press the same keys. Report whether only −, +, M
+     and F do anything.

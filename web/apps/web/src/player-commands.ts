@@ -25,6 +25,7 @@ import { arrowsAreCommandsAttribute, caretOf } from "./focus-engine.ts";
 import { isMeantToPlay, isPausedAsAsked } from "./film-waits.tsx";
 import { useLatest } from "./latest.ts";
 import type { PlaybackTarget } from "./playback-target.ts";
+import type { CommandRights } from "./player-controls.tsx";
 import { remoteVolumeStep, volumeAfter } from "./volume-step.ts";
 import { useCommands, useMediaPlayPause, useMediaSeeks } from "./input-layer.tsx";
 import type { Command } from "./input-buttons.ts";
@@ -140,6 +141,12 @@ export interface PlayerStage {
   readonly isPaused: boolean;
   /** Whether it takes play, seeks and sound now: the video always, a castee while heard. */
   readonly isReady: boolean;
+  /**
+   * Whether its play and pause, and its seeks, are taken: false only for a Watch Together guest whose
+   * link does not give them (CommandRights, D271 §4), whose keys then do what its buttons do, none
+   * of those buttons drawn (D557 §6).
+   */
+  readonly rights: CommandRights;
   readonly playPause: () => void;
   /** Seeks by seekByMs, the video by a step its press names (asked), a target by seekByMs itself. */
   readonly seekBy: (seekByMs: number, asked: AskedCommand) => void;
@@ -149,17 +156,31 @@ export interface PlayerStage {
   readonly toggleMute: () => boolean;
 }
 
-/** The video as the stage the player's commands work on (PlayerStage). */
-export function stageOfVideo(video: HTMLVideoElement): PlayerStage {
+/** Every right a player's commands can have: any page's video's but a Watch Together guest's. */
+const everyRight: CommandRights = { canPlayPause: true, canSeek: true };
+
+/**
+ * The video as the stage the player's commands work on (PlayerStage), its play and pause and its
+ * seeks taken as far as rights give them: a Watch Together guest's as far as their link's (D557 §6).
+ */
+export function stageOfVideo(
+  video: HTMLVideoElement,
+  rights: CommandRights = everyRight,
+): PlayerStage {
   return {
     picture: video,
     isPaused: isPausedAsAsked(video),
     isReady: true,
+    rights,
     playPause: () => {
-      playOrPause(video);
+      if (rights.canPlayPause) {
+        playOrPause(video);
+      }
     },
     seekBy: (seekByMs, asked) => {
-      seekBy(video, seekByMs < 0 ? -1 : 1, asked);
+      if (rights.canSeek) {
+        seekBy(video, seekByMs < 0 ? -1 : 1, asked);
+      }
     },
     stepVolume: (direction) => stepVolume(video, direction),
     toggleMute: () => {
@@ -178,10 +199,12 @@ export function stageOfVideo(video: HTMLVideoElement): PlayerStage {
  */
 export function stageOfTarget(target: PlaybackTarget, picture: HTMLElement): PlayerStage {
   const { sound, isReady } = target;
+  const rights = { canPlayPause: target.canPlayPause !== false, canSeek: target.canSeek !== false };
   return {
     picture,
     isPaused: target.isPaused,
     isReady,
+    rights,
     playPause: () => {
       if (isReady) {
         target.playOrPause();
@@ -235,20 +258,27 @@ function stepVolume(video: HTMLVideoElement, direction: -1 | 1): boolean {
   return true;
 }
 
-/** Plays or pauses stage where it is ready; whether it did. */
-function playsOrPauses(stage: PlayerStage): boolean {
-  if (stage.isReady) {
-    stage.playPause();
-  }
-  return stage.isReady;
+/** Whether stage takes play and pause now: it is ready, and its rights give them. */
+function takesPlayPause(stage: PlayerStage): boolean {
+  return stage.isReady && stage.rights.canPlayPause;
 }
 
-/** Seeks stage a step towards direction where it is ready; whether it did. */
+/** Plays or pauses stage where it takes play and pause (takesPlayPause); whether it did. */
+function playsOrPauses(stage: PlayerStage): boolean {
+  const isTaken = takesPlayPause(stage);
+  if (isTaken) {
+    stage.playPause();
+  }
+  return isTaken;
+}
+
+/** Seeks stage a step towards direction where it is ready and its rights give seeks; whether it did. */
 function seeks(stage: PlayerStage, direction: -1 | 1, asked: AskedCommand): boolean {
-  if (stage.isReady) {
+  const isTaken = stage.isReady && stage.rights.canSeek;
+  if (isTaken) {
     stage.seekBy(direction * seekStepMs, asked);
   }
-  return stage.isReady;
+  return isTaken;
 }
 
 /**
@@ -346,7 +376,7 @@ function playersKeyOf(event: KeyboardEvent): PlayersKey | undefined {
  */
 function answerPlayersKey(stage: PlayerStage, key: PlayersKey, isRepeat: boolean): boolean {
   if (key === "space") {
-    const isTaken = stage.isReady && isSpaceThePlayers(stage.picture);
+    const isTaken = takesPlayPause(stage) && isSpaceThePlayers(stage.picture);
     if (isTaken && !isRepeat) {
       stage.playPause();
     }
@@ -463,10 +493,18 @@ export function useStageCommands(stageNow: () => PlayerStage | undefined): void 
  * Answers the commands for video while it is shown (useStageCommands), the browser's media controls'
  * play, pause and seeking too, and their previous and next track where tracks has them, and Space, F
  * and M wherever focus is in the player. The media controls' last play or pause is kept for the
- * video's reports to say (keepMediaActionsOf).
+ * video's reports to say (keepMediaActionsOf). Its play and pause and its seeks are taken as far as
+ * rights give them, a Watch Together guest's keys doing what its buttons do (D557 §6).
  */
-export function usePlayerCommands(video: HTMLVideoElement | null, tracks?: MediaTracks): void {
-  const stageNow = useCallback(() => (video === null ? undefined : stageOfVideo(video)), [video]);
+export function usePlayerCommands(
+  video: HTMLVideoElement | null,
+  tracks?: MediaTracks,
+  rights: CommandRights = everyRight,
+): void {
+  const stageNow = useCallback(
+    () => (video === null ? undefined : stageOfVideo(video, rights)),
+    [video, rights],
+  );
   useStageCommands(stageNow);
   useFocusStaysOnTheVideo(video);
   useMediaSeeks(tracks);

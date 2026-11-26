@@ -206,7 +206,8 @@ function useOverlay(
   const isCovered = state.shown === "hidden" || state.shown === "convenience";
   const videoTarget = useVideoTarget(refs.videoRef, isCovered);
   const source = target ?? videoTarget;
-  const stageNow = useStageNow(refs, target);
+  // A Watch Together guest's presses do what its drawn controls do, and no more (D557 §6).
+  const stageNow = useStageNow(refs, target, use(CommandRightsContext));
   const notePress = useOverlayHiding({
     state,
     setState,
