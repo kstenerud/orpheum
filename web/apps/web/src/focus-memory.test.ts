@@ -131,4 +131,34 @@ describe("focus memory", () => {
       stop();
     }
   });
+
+  // The top bar's places are drawn inert until the shell's first read (app-shell.tsx): the Home mark
+  // the app opens on is in the tree already, and only its inert going away lets it take focus.
+  it("looks again when what in the tree is inert changes, with no element added", async () => {
+    const bar = document.createElement("nav");
+    bar.inert = true;
+    const home = document.createElement("a");
+    home.href = "/";
+    bar.append(home);
+    document.body.append(bar);
+    const focused: HTMLElement[] = [];
+    const stop = watchWhileDrawn(document.body, (give) => {
+      if (bar.inert) {
+        return false;
+      }
+      give(home, (element) => {
+        focused.push(element);
+      });
+      return true;
+    });
+    try {
+      await observed();
+      expect(focused).toEqual([]);
+      bar.inert = false;
+      await observed();
+      expect(focused).toEqual([home]);
+    } finally {
+      stop();
+    }
+  });
 });
