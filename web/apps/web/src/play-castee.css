@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/* The Play page while its device casts (play-castee.tsx, D555 §8), laid out as the remote was at
-   e5cbff686 (D548 §1, §7, §8; the owner, 2026-11-26), upright, on its side and on a computer alike,
+/* The Play page while its device casts (play-castee.tsx, D555 §8), laid out as the remote was before
+   the D555 rework (D548 §1, §7, §8; the owner, 2026-11-26), upright, on its side and on a computer alike,
    full screen or not: the window under the top bar, its size what the page's rows fit to, scrolling
    where they cannot. */
 .castee-play {

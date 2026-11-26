@@ -1,5 +1,7 @@
-/* The remote's layout's pieces (remote-pad.tsx; D548 §4–§7), as the cast remote drew them at
-   e5cbff686 (the owner, 2026-11-26): where each page lays them is its own sheet's
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The remote's layout's pieces (remote-pad.tsx; D548 §4–§7), as the cast remote drew them before
+   the D555 rework (the owner, 2026-11-26): where each page lays them is its own sheet's
    (play-castee.css, page-controls.css). */
 
 /* The timeline the whole width, the time under it at its start (D548 §4). */
