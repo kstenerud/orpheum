@@ -89,7 +89,6 @@ import {
   GuestTopBar,
   useGuestsMoves,
 } from "./together-guest-controls.tsx";
-import { OnlyOnThePanelsPage } from "./together-panel-place.tsx";
 import { SessionVoiceContext, useVoice, VoiceControls } from "./together-voice.tsx";
 import {
   forgetEndedHere,
@@ -98,7 +97,6 @@ import {
   type Membership,
 } from "./together-storage.ts";
 import { monotonicMs, useTogether, useToldCannotKeepUp, useToldStanding } from "./use-together.ts";
-import { ViewersVolumeSlider } from "./film-volume-slider.tsx";
 
 /**
  * A Watch Together viewer's page (D246 §3, §5, §6), for someone who need not be signed in: they
@@ -265,7 +263,6 @@ function ViewerSession(props: {
   /** Told each film the group plays, on a page that follows it to that film's Play page. */
   readonly onGroupFilm?: ((fileId: number) => void) | undefined;
 }): JSX.Element {
-  const [volume, setVolume] = useState(1);
   const { connection, snapshot } = useTogether({ credential: props.membership.credential });
   const { onOver, kept, membership } = props;
   const isConnected = snapshot?.status === "connected";
@@ -299,7 +296,7 @@ function ViewerSession(props: {
       <ViewerPage className="together-viewer" inShellClassName="together-viewer--in-shell">
         <GuestTopBar {...entries} />
         <ViewingArea
-          {...{ kept, connection, snapshot, volume, guestCast }}
+          {...{ kept, connection, snapshot, guestCast }}
           isVoiceWaiting={voice.tap.isWaiting}
           credential={props.membership.credential}
         />
@@ -310,9 +307,6 @@ function ViewerSession(props: {
           <GuestsEntries place="panel" {...entries} />
           {/* The voices' tap is asked for over the stage, with the film's (ViewingArea). */}
           <VoiceControls {...voice} tap={{ ...voice.tap, isWaiting: false }} />
-          <OnlyOnThePanelsPage>
-            <ViewersVolumeSlider volume={volume} onChange={setVolume} />
-          </OnlyOnThePanelsPage>
         </TogetherPanel>
       </ViewerPage>
     </SessionVoiceContext>
@@ -366,7 +360,6 @@ export function FollowsTheGroupHere(props: { readonly credential: string }): JSX
       credential={props.credential}
       connection={connection}
       snapshot={snapshot}
-      volume={1}
     />
   );
 }
@@ -384,7 +377,6 @@ function ViewingArea(props: {
   readonly credential: string;
   readonly connection: (TogetherConnection & TellsCannotKeepUp) | undefined;
   readonly snapshot: TogetherSnapshot | undefined;
-  readonly volume: number;
   /** A guest by link's cast to a Chromecast, which takes their part (D518), and their AirPlay. */
   readonly guestCast?: GuestsCast | undefined;
 }): JSX.Element {
@@ -413,7 +405,7 @@ function ViewingArea(props: {
             isVoiceWaiting={props.isVoiceWaiting}
             fileId={fileId}
             credential={props.credential}
-            following={{ connection, volume: props.volume }}
+            following={{ connection }}
             isOfferedToAirPlay={airPlayGrants === undefined ? undefined : true}
           />
         </AirPlayGrantsContext>
@@ -447,10 +439,12 @@ function NothingPlays(props: {
   );
 }
 
-/** What a viewer's video follows: the session's connection, at the viewer's own volume. */
+/**
+ * What a viewer's video follows: the session's connection. Its volume is the video's own, which the
+ * player's 🔈 sets (D440 §2).
+ */
 interface Following {
   readonly connection: TogetherConnection & TellsCannotKeepUp;
-  readonly volume: number;
 }
 
 /**
@@ -695,8 +689,8 @@ interface MutedFilm {
 }
 
 /**
- * Makes the video follow the group while it plays fileId, at the viewer's volume, and says when it
- * plays muted: a browser refuses a film's sound that no recent tap started, and a guest's starts
+ * Makes the video follow the group while it plays fileId, and says when it plays
+ * muted: a browser refuses a film's sound that no recent tap started, and a guest's starts
  * long after their Join (playedMutedEvent).
  */
 function useFollowing(
@@ -704,7 +698,7 @@ function useFollowing(
   fileId: number,
   following: Following,
 ): MutedFilm {
-  const { connection, volume } = following;
+  const { connection } = following;
   const [isMuted, setIsMuted] = useState(false);
   // The rights the welcome gave, known by the time a film is on: a link's never change.
   const { canPlayPause, canSeek } = connection.snapshot().rights;
@@ -732,12 +726,6 @@ function useFollowing(
       video.removeEventListener(playedMutedEvent, onPlayedMuted);
     };
   }, [videoRef, connection, fileId, canPlayPause, canSeek]);
-  useEffect(() => {
-    const video = videoRef.current;
-    if (video !== null) {
-      video.volume = volume;
-    }
-  }, [videoRef, volume]);
   const turnSoundOn = useCallback(() => {
     const video = videoRef.current;
     if (video !== null) {

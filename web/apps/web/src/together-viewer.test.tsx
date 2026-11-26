@@ -125,6 +125,10 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     expect(mounted.container.querySelector(".together-panel")?.textContent).toContain(
       "Here: Karl and Gran",
     );
+    // No volume under the stage: the player's 🔈 holds the film's and the people's (the owner,
+    // 2026-11-26: "merged into the volume button in the bottom bar").
+    expect(mounted.container.querySelector('.together-panel input[type="range"]')).toBeNull();
+    expect(mounted.container.querySelector(".together-panel .film-volume__buttons")).toBeNull();
     expect(mounted.container.textContent).not.toContain("Sign out");
     mounted.unmount();
   });

@@ -34,7 +34,6 @@ import { ModalDialog } from "./modal-dialog.tsx";
 import { volumeAfter } from "./volume-step.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
-import { OnlyOnThePanelsPage } from "./together-panel-place.tsx";
 import { useHostsSessionOver } from "./together-session-end.ts";
 import { membershipHeaders, type Membership } from "./together-storage.ts";
 import { monotonicMs, useReloadsForProtocolVersion } from "./use-together.ts";
@@ -452,23 +451,6 @@ export function PersonVoiceVolume(
   );
 }
 
-/** Each other person's voice volume, one per person whatever their devices. */
-export function VoiceVolumes(props: VoiceInUse): JSX.Element | null {
-  const { t } = useTranslation();
-  const people = peopleOf(props.snapshot);
-  if (people.length === 0) {
-    return null;
-  }
-  return (
-    <fieldset className="together-voice__volumes">
-      <legend>{t("together.voice.volumes")}</legend>
-      {people.map(({ memberId, name }) => (
-        <PersonVoiceVolume key={memberId} {...props} memberId={memberId} name={name} />
-      ))}
-    </fieldset>
-  );
-}
-
 /**
  * Whether this browser's sound goes to the earpiece while its microphone is open: an iPhone's or an
  * iPad's, told by a touch screen and Safari's audio session (feature, never the User-Agent). Its
@@ -484,11 +466,12 @@ export function movesSoundToTheEarpiece(
 /**
  * Voice in a Watch Together session, for the host and every viewer (watch-together.md, Voice;
  * D281): everyone is heard from the start; Talk, one toggle, opens the microphone and closes it
- * again; and each person's volume, apart from the film's. A call that fails is said,
- * with a button to connect again. Headphones are the supported way to keep the film out of the
- * microphone (D63), so the controls say so, and an iPhone's first Talk warns that only they carry
- * the film and the voices together: no one is asked whether theirs are on (D336 §4). A microphone
- * that cannot open says why.
+ * again; each person's volume, apart from the film's, is set in the player's 🔈 (D440 §2) and in
+ * their dialog on Watch Together's page, not here. A call that fails is said, with a button to
+ * connect again. Headphones are the supported way to keep the film out of the microphone (D63), so
+ * the controls say so, and an iPhone's first Talk warns that only they carry the film and the
+ * voices together: no one is asked whether theirs are on (D336 §4). A microphone that cannot open
+ * says why.
  */
 export function VoiceControls(props: VoiceInUse): JSX.Element {
   const { t } = useTranslation();
@@ -529,9 +512,6 @@ export function VoiceControls(props: VoiceInUse): JSX.Element {
         <output className="together-voice__talking">{t("together.voice.talking")}</output>
       ) : null}
       {snapshot.status === "starting" ? <output>{t("together.voice.starting")}</output> : null}
-      <OnlyOnThePanelsPage>
-        <VoiceVolumes voice={voice} snapshot={snapshot} tap={props.tap} />
-      </OnlyOnThePanelsPage>
       <p className="together-voice__hint">{t("together.voice.headphones")}</p>
     </section>
   );

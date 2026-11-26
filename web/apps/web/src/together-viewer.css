@@ -70,16 +70,6 @@
   min-height: 60dvh;
 }
 
-.together-viewer__volume {
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
-}
-
-.together-viewer__volume input {
-  flex: 1;
-}
-
 /* The film's name, above the stage: over the picture it hid its top on Safari (the owner, 2026-10-11). */
 .together-viewer__title {
   margin: 0;

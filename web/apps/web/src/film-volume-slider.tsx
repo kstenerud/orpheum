@@ -47,22 +47,3 @@ export function FilmVolumeSlider(): JSX.Element {
     </label>
   );
 }
-
-/**
- * A Watch Together viewer's own volume, which no one else hears (watch-together.md: per person);
- * where the page cannot set it, a word that the phone's buttons do.
- */
-export function ViewersVolumeSlider(props: {
-  readonly volume: number;
-  readonly onChange: (volume: number) => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  if (!useIsVolumeSettable()) {
-    return <VolumeButtonsNote />;
-  }
-  return (
-    <label className="together-viewer__volume">
-      {t("together.volume")} <VolumeRange value={props.volume} most={1} onChange={props.onChange} />
-    </label>
-  );
-}

@@ -27,7 +27,6 @@ import { useHostsSessionOver } from "./together-session-end.ts";
 import type { Membership } from "./together-storage.ts";
 import { followFilmVolume } from "./film-volume.ts";
 import { isPausedAsAsked } from "./film-waits.tsx";
-import { FilmVolumeSlider } from "./film-volume-slider.tsx";
 import { ComingAndGoing, onTheFilmsStage, TogetherPanel } from "./together-over-the-film.tsx";
 import { OnlyOnThePanelsPage } from "./together-panel-place.tsx";
 import { useHostVoice, VoiceControls } from "./together-voice.tsx";
@@ -228,9 +227,6 @@ function HostLeading(
         </OnlyOnThePanelsPage>
         <TogetherNews snapshot={snapshot} />
         {hostVoice === undefined ? null : <VoiceControls {...hostVoice} />}
-        <OnlyOnThePanelsPage>
-          <FilmVolumeSlider />
-        </OnlyOnThePanelsPage>
       </TogetherPanel>
     </div>
   );

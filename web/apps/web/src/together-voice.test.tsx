@@ -16,7 +16,17 @@ import { act, useState, type JSX } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { currentNotice, dismissNotice } from "./notice.ts";
-import { buttonWithText, click, enter, mount, servedBy, type Heard } from "./test-dom.tsx";
+import type { PlayerSound } from "./playback-target.ts";
+import { VolumeMenu } from "./player-menus.tsx";
+import {
+  buttonNamed,
+  buttonWithText,
+  click,
+  enter,
+  mount,
+  servedBy,
+  type Heard,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
 import { HostPlaysTogether } from "./together-host.tsx";
@@ -25,6 +35,7 @@ import { TogetherViewer } from "./together-viewer.tsx";
 import {
   HostVoiceProvider,
   movesSoundToTheEarpiece,
+  SessionVoiceContext,
   talkRingEveryMs,
   talkRingOf,
   useHostVoice,
@@ -171,6 +182,26 @@ function Voice(): JSX.Element {
   return <VoiceControls {...voice} />;
 }
 
+/** The film's sound as 🔈 reads it, set nowhere: a test of the voices beside it. */
+const unsetSound: PlayerSound = {
+  volume: 1,
+  isMuted: false,
+  canSetVolume: true,
+  setVolume: () => undefined,
+  setMuted: () => undefined,
+};
+
+/** The voice controls, and the player's 🔈 beside them, which holds each person's volume (D440 §2). */
+function VoiceBesideTheVolume(): JSX.Element {
+  const voice = useVoice(membership, undefined);
+  return (
+    <SessionVoiceContext value={voice}>
+      <VoiceControls {...voice} />
+      <VolumeMenu sound={unsetSound} onOpenChange={() => undefined} />
+    </SessionVoiceContext>
+  );
+}
+
 beforeEach(() => {
   window.sessionStorage.clear();
   window.localStorage.clear();
@@ -273,7 +304,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
   it("talks by one toggle, closing the microphone and opening it again, still hearing, and sets each person's voice volume", async () => {
     const devices = fakeDevices();
     const { services, server } = voiceServices(devices);
-    const mounted = await mount(withServices(<Voice />, services));
+    const mounted = await mount(withServices(<VoiceBesideTheVolume />, services));
     await server.accept();
     await server.say(welcome);
     const talk = (): Element | undefined =>
@@ -289,10 +320,12 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
       await new Promise((resolve) => setTimeout(resolve, talkRingEveryMs + 50));
     });
     expect((talk() as HTMLElement | undefined)?.style.getPropertyValue("--level")).toBe("1");
-    const karl = [...mounted.container.querySelectorAll("label")].find((label) =>
-      label.textContent.startsWith("Karl's voice"),
-    );
-    await enter(karl?.querySelector("input"), "40");
+    // Each person's volume is in 🔈 alone, not under the stage with Talk (the owner, 2026-11-26).
+    const voiceSlider = 'input[aria-label="Karl\'s voice"]';
+    expect(mounted.container.querySelector(`.together-voice ${voiceSlider}`)).toBeNull();
+    expect(mounted.container.textContent).not.toContain("Karl's voice");
+    await click(buttonNamed(mounted.container, "Volume"));
+    await enter(document.querySelector(voiceSlider), "40");
     expect(devices.calls[0]!.gain).toBe(0.4);
     // The second press closes the microphone, rather than muting it, and the call stays up.
     await click(talk());

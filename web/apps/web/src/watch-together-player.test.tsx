@@ -75,8 +75,9 @@ describe("the host's player in a session (D246 §5)", () => {
     expect(mounted.container.querySelector(".together-panel")?.textContent).toContain(
       "Watch Together is on",
     );
-    // The film's volume beside each person's voice, on the host's player too (the owner, 2026-10-12).
-    expect(mounted.container.querySelector(".film-volume input")).not.toBeNull();
+    // The film's volume is the player's 🔈's, beside each person's voice, never under the stage (the
+    // owner, 2026-11-26: "merged into the volume button in the bottom bar").
+    expect(mounted.container.querySelector(".film-volume")).toBeNull();
     mounted.unmount();
     // Leaving the player stops nothing for the group: Stop, or another film, does (D246 §5 withdrawn).
     expect(server.heard.filter((message) => message["command"] === "stop")).toEqual([]);
@@ -145,7 +146,8 @@ describe("the host's player in a session (D246 §5)", () => {
       group: { state: "idle", positionMs: 0, rate: 1, fileId: 0 },
       roster: [{ ...karl, devices: [{ id: 9, role: "video" }] }],
     });
-    expect(mounted.container.querySelector(".together-panel .film-volume input")).not.toBeNull();
+    // Nor on its page under the stage: 🔈 carries it there too (the owner, 2026-11-26).
+    expect(mounted.container.querySelector(".together-panel .film-volume")).toBeNull();
     const hostLine = "this plays for everyone in your session";
     expect(mounted.container.querySelector(".together-panel")?.textContent).toContain(hostLine);
     await click(
