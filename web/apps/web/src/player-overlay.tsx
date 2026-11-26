@@ -22,8 +22,7 @@ import type { FilmParts } from "./film-player.tsx";
 import { levelRowAttribute } from "./focus-engine.ts";
 import { isThisHandheld } from "./handheld.ts";
 import { useHeldDown } from "./held-down.ts";
-import type { CommandSource } from "./input-commands.ts";
-import { useCommands, useLastSource } from "./input-layer.tsx";
+import { useCommands } from "./input-layer.tsx";
 import { useLatest } from "./latest.ts";
 import { OverlayUp, PlayUpwardContext } from "./play-up.tsx";
 import { usePlayersControls, type PlayerStage } from "./player-commands.ts";
@@ -489,7 +488,7 @@ function useOverlayPresses({
       if (answer.isVolumeShown === true) {
         onVolumeShown();
       }
-      moveFocus(answer.focus, askFocusToScrub, { picture: stage.picture, source: detail.source });
+      moveFocus(answer.focus, askFocusToScrub, stage.picture);
       if (answer.isTaken) {
         event.preventDefault();
       }
@@ -505,7 +504,7 @@ function useOverlayPresses({
 function moveFocus(
   focus: OverlayAnswer["focus"],
   askFocusToScrub: (isAtOnce?: boolean) => void,
-  pressed: { readonly picture: HTMLElement; readonly source: CommandSource },
+  picture: HTMLElement,
 ): void {
   if (focus === "scrub") {
     askFocusToScrub();
@@ -514,7 +513,7 @@ function moveFocus(
   } else if (focus === "video") {
     // Down from the buttons (Q14), once the press is through.
     queueMicrotask(() => {
-      focusThePicture(pressed.picture, pressed.source);
+      focusThePicture(picture);
     });
   }
 }
@@ -554,7 +553,6 @@ function usePlayingLeavesPlay(
   isTv: boolean,
 ): void {
   const stageNowRef = useLatest(stageNow);
-  const lastSource = useLastSource();
   useEffect(() => {
     const play = playRef.current;
     if (isTv || play === null) {
@@ -564,7 +562,7 @@ function usePlayingLeavesPlay(
       const stage = stageNowRef.current();
       if (stage?.isPaused === true) {
         queueMicrotask(() => {
-          focusThePicture(stage.picture, lastSource());
+          focusThePicture(stage.picture);
         });
       }
     };
@@ -572,7 +570,7 @@ function usePlayingLeavesPlay(
     return () => {
       play.removeEventListener("click", pressed, true);
     };
-  }, [playRef, stageNowRef, isTv, lastSource]);
+  }, [playRef, stageNowRef, isTv]);
 }
 
 /**
@@ -727,7 +725,6 @@ function useFocusLeavesWhatHides(
   refs: Pick<OverlayRefs, "overlayRef" | "pictureRef" | "convenienceRef">,
 ): void {
   const { overlayRef, pictureRef, convenienceRef } = refs;
-  const lastSource = useLastSource();
   useLayoutEffect(() => {
     const picture = pictureRef.current;
     const focused = document.activeElement;
@@ -738,10 +735,10 @@ function useFocusLeavesWhatHides(
     if (focused === document.body || overlayRef.current?.contains(focused) === true) {
       const offer = offerOf(convenienceRef.current);
       if (offer === null) {
-        focusThePicture(picture, lastSource());
+        focusThePicture(picture);
       } else {
         offer.focus();
       }
     }
-  }, [state.shown, overlayRef, pictureRef, convenienceRef, lastSource]);
+  }, [state.shown, overlayRef, pictureRef, convenienceRef]);
 }

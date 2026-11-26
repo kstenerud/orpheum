@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { focusAfterNoPress } from "./focus-navigation.ts";
-import type { CommandSource } from "./input-commands.ts";
 import { useLatest } from "./latest.ts";
 import { stageOfTarget, stageOfVideo, type PlayerStage } from "./player-commands.ts";
 import type { PlaybackTarget } from "./playback-target.ts";
@@ -40,16 +38,12 @@ export function useStageNow(
 
 /**
  * Moves focus to the picture, the video or a target's, which takes it from a script alone where it
- * is no stop of its own: shown as the browser shows a script's focus after the key or controller
- * source names, and with no ring where none has pressed (focusAfterNoPress).
+ * is no stop of its own, so the keys of the player reach it. The picture never shows the ring (the
+ * owner, 2026-11-26): the ring says where a press would land, and the picture is the whole stage.
  */
-export function focusThePicture(picture: HTMLElement, source: CommandSource | undefined): void {
+export function focusThePicture(picture: HTMLElement): void {
   if (!picture.hasAttribute("tabindex")) {
     picture.setAttribute("tabindex", "-1");
   }
-  if (source === undefined) {
-    focusAfterNoPress(picture);
-  } else {
-    picture.focus();
-  }
+  picture.focus({ focusVisible: false });
 }

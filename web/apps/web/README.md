@@ -1026,8 +1026,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   (ui-audit-2026-11-04.md R3–R6; the owner, 2026-11-04). *Arrival* (R3): a page or dialog marks
   its main action with `arrivalMark` and focus goes there as it is drawn (`arriveWhenDrawn`,
   `src/focus-navigation.ts`; a dialog's by `src/modal-layer.tsx`), shown with a ring after a key or
-  a controller and none after a pointer or before any press (`focusAfterNoPress`, as the picture's
-  focus too; but on a television, whose remote is its only input), and taken only from nothing or from what opened it, never
+  a controller and none after a pointer or before any press (`focusAfterNoPress`; but on a
+  television, whose remote is its only input; the picture, which holds focus for the player's keys,
+  never shows one: `focusThePicture`), and taken only from nothing or from what opened it, never
   once the person has moved on; `src/arrival.browser.test.tsx`, its "focus a script gives before any
   key or controller has pressed" for the ring. As the app opens, before any press, focus goes in
   the page's arrival's place to the top bar's Home mark (`openingMark`, `openingArrivalIn`; the

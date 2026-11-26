@@ -457,4 +457,23 @@ describe("focus a script gives before any key or controller has pressed", () => 
     await expect.poll(() => document.activeElement === picture, { message: focused() }).toBe(true);
     expect(drawsRing(picture)).toBe(false);
   });
+
+  it("leaves no ring on the picture of the film a key opened", async () => {
+    await page.viewport(1280, 800);
+    await asAtFirstLoad();
+    walking = await mountApp(walkServices(watchingOne, "/"));
+    await expect.poll(() => isDrawn(".continue-watching .poster-card__link")).toBe(true);
+    await expect.poll(isOnHomeMark, { message: focused() }).toBe(true);
+    const poster = document.querySelector<HTMLElement>(".continue-watching .poster-card__link");
+    poster?.focus({ focusVisible: true });
+    expect(drawsRing(poster)).toBe(true);
+    await userEvent.keyboard("{Enter}");
+    await expect.poll(() => document.querySelector("video")?.error?.code).toBeDefined();
+    const picture = document.querySelector(".film-player__stage video");
+    await expect.poll(() => document.activeElement === picture, { message: focused() }).toBe(true);
+    expect(drawsRing(picture)).toBe(false);
+    await userEvent.keyboard("{Shift}");
+    expect(document.activeElement).toBe(picture);
+    expect(drawsRing(picture)).toBe(false);
+  });
 });

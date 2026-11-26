@@ -461,16 +461,3 @@ export function useListDrawsToFocusNoted<T>(pages: Pages<T>, hrefOf: (item: T) =
     }
   }, [held, drawThrough, hrefOf, navigation]);
 }
-
-/** Where nothing tells it: no press. */
-function noPress(): CommandSource | undefined {
-  return undefined;
-}
-
-/**
- * Where the last command came from (Input's lastSource), read when asked: undefined where none has
- * or no input layer runs (a screen rendered alone in a test).
- */
-export function useLastSource(): () => CommandSource | undefined {
-  return use(InputContext)?.lastSource ?? noPress;
-}
