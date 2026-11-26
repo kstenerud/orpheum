@@ -23,8 +23,8 @@ import (
 type Config struct {
 	// Name is the relay's DNS name, which the discovery names it by and its certificate is for.
 	Name string
-	// PublicAddress is the IPv4 address the relay's clients reach it at, and the one address any
-	// allocation may hold a permission for (D558 §4).
+	// PublicAddress is the IPv4 address the relay's clients reach it at, and the one address a
+	// relayed datagram may go to or come from (D558 §4, D560).
 	PublicAddress net.IP
 	// Listen is where TURN is served over UDP and TCP on one port, ":3478".
 	Listen string
@@ -91,7 +91,10 @@ func Start(ctx context.Context, config Config, parts Parts) (*Relay, error) {
 			MinPort: config.RelayPortMin, MaxPort: config.RelayPortMax,
 		}}
 	}
-	permit := func(_ net.Addr, peer net.IP) bool { return peer.Equal(config.PublicAddress) }
+	// Every permission is granted, and the relayed sockets alone keep the relay closed (D560):
+	// pion refuses one with no error code, which Firefox takes as the relay having failed, and
+	// a browser asks one for each of the core's candidates.
+	permit := func(net.Addr, net.IP) bool { return true }
 	tlsStreams := tls.NewListener(secured, &tls.Config{
 		MinVersion: tls.VersionTLS12, GetCertificate: certificate.get,
 	})

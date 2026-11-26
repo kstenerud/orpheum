@@ -367,15 +367,45 @@ func TestRelay_ReachesNoOtherHouseholdNoOtherClientAndNothingNotAnAllocation(t *
 	}
 }
 
-func TestRelay_RefusesAPermissionForAnyOtherAddress(t *testing.T) {
+// Firefox asks a permission for each of the core's candidates and drops its relayed candidates
+// when one is refused (D560), so each is granted; the relayed socket still carries nothing there.
+func TestRelay_GrantsAPermissionForAnyAddressAndCarriesNothingThere(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
 	client := stage.mustAllocate(t, "udp", relaycred.RoleClient, "household-1", 100_000)
-	for _, other := range []net.IP{net.IPv4(192, 0, 2, 1), net.IPv4(127, 0, 0, 2), net.IPv4(10, 0, 0, 1)} {
-		if err := client.client.CreatePermission(&net.UDPAddr{IP: other, Port: 9}); err == nil {
-			t.Errorf("a permission for %v was granted", other)
+	core := stage.mustAllocate(t, "udp", relaycred.RoleCore, "household-1", 100_000)
+	outside, err := (&net.ListenConfig{}).ListenPacket(t.Context(), "udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = outside.Close() }) //nolint:errcheck // the test's end
+	others := []net.Addr{
+		&net.UDPAddr{IP: net.IPv4(192, 0, 2, 1), Port: 9}, &net.UDPAddr{IP: net.IPv4(10, 0, 0, 1), Port: 9},
+		outside.LocalAddr(),
+	}
+	for _, other := range others {
+		if err := client.client.CreatePermission(other); err != nil {
+			t.Errorf("a permission for %v was refused: %v", other, err)
 		}
 	}
+	if _, err := client.relayed.WriteTo([]byte("to a permitted address"), outside.LocalAddr()); err != nil {
+		t.Fatal(err)
+	}
+	if reason := stage.awaitDrop(t); reason != dropNotTheOtherEnd {
+		t.Errorf("to an address the client holds a permission for: dropped as %s", reason)
+	}
+	relayedAddress, isUDP := client.relayed.LocalAddr().(*net.UDPAddr)
+	if !isUDP {
+		t.Fatalf("a relayed address %v", client.relayed.LocalAddr())
+	}
+	straight := &net.UDPAddr{IP: public, Port: relayedAddress.Port}
+	if _, err := outside.WriteTo([]byte("from a permitted address"), straight); err != nil {
+		t.Fatal(err)
+	}
+	if reason := stage.awaitDrop(t); reason != dropNotTheOtherEnd {
+		t.Errorf("from an address the client holds a permission for: dropped as %s", reason)
+	}
+	exchange(t, client, core)
 }
 
 func TestRelay_AdmitsACredentialUnderAnyOfItsSecretsAndRefusesAnyOther(t *testing.T) {

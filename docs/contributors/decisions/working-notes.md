@@ -32171,3 +32171,33 @@ test the relay when we're on good footing for it").
    range and the limits stay. The owner changed it the same day ("I've made the firewall change").
    A source address's limit goes from 50 to 128 with them, a core's allocations all coming from its
    one address (the lead's figure; the owner's to confirm).
+
+## D560 — The hosted relay grants every permission, and its relayed sockets alone keep it closed
+
+**Decided** (2026-11-26), by the lead under the owner's go to bring the relay to production ("Go
+ahead with the restart"), on the owner's own failed connection through it; the owner's to
+overturn. **Amends** D558 §4's clause that an allocation's permissions are for the relay's own
+public address alone. It keeps D558 §4's rule itself: a household's two ends reach each other
+through the relay and nothing else.
+
+**Status:** decided. The relay on the edge VPS runs it.
+
+**What was wrong.** The owner's phone (Firefox for Android 160) on a network that passes nothing
+direct gathered six relayed candidates, the core answered, and no pair ever connected. Firefox held
+to relayed candidates failed the same way on staging, where Chromium had played. A capture on the
+relay showed why. A browser asks the relay a permission for each of the core's candidates in turn:
+its private address, its public one, and last its relayed one. The relay refused the first two,
+and the library it is built on (pion/turn) refuses with an error that carries no error code.
+Chromium goes on to the next. Firefox takes any refusal but a 403 as the relay itself having
+failed, drops every relayed candidate, and never asks for the one address that would have worked.
+
+1. **The relay grants a permission for any address.** A permission opens nothing by itself.
+2. **The relayed sockets keep the relay closed, as they already did both ways:** a datagram leaves
+   one only for the relayed address of a live allocation of the same household and the other
+   role, and enters one only from such an allocation; anything else is dropped and counted. The
+   refusal of a permission was a second lock on the same door.
+
+**Not chosen:** answering a refusal with a 403, which Firefox accepts. The library builds the
+refusal, and adding the code means signing its answer again outside it; the second lock was not
+worth that.
+

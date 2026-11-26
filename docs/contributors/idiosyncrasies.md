@@ -372,6 +372,25 @@ User-Agent (D263; the User-Agent is logged only).
   The gate at a client origin takes it as the path's loss: the page says it is waiting for the
   network and tries again by itself (5 s, doubling to a minute), instead of "Connecting" forever.
 
+### Firefox drops every relayed candidate when a TURN server refuses one permission without a 403
+
+- **Symptom:** Firefox for Android 160 on a network that passes nothing direct, and desktop
+  Firefox held to relayed candidates (`media.peerconnection.ice.relay_only`), gathered relayed
+  candidates from the hosted relay, got the core's answer, and never connected: "ICE checking,
+  no pair selected" (2026-11-26). Chromium on the same relay played. The relay's lines showed the
+  core's checks delivered to the browser's allocations and not one byte sent back through them.
+- **Cause:** a browser asks a permission (TURN CreatePermission) for each remote candidate's
+  address as it first sends there. The relay refused all but its own address, and pion/turn's
+  refusal is an error response with no ERROR-CODE attribute. A capture showed Firefox ask for the
+  core's private address, then its public one, be refused twice, and never ask for the core's
+  relayed address. Chromium asks on. That Firefox treats any refusal but a 403 as the server's
+  failure is the lead's recollection of its ICE library's source, not looked up; the capture and
+  the fix agree with it.
+- **What we do:** the relay grants every permission, and its relayed sockets alone decide what a
+  datagram may reach (D560; `internal/relay`,
+  `TestRelay_GrantsAPermissionForAnyAddressAndCarriesNothingThere`). Walk the relay in Firefox as
+  well as Chromium.
+
 ### Firefox fails a public page's requests to a LAN name until its local-network prompt is answered, and again after a grant not remembered
 
 - **Symptom:** at app.orpheum-app.com at home, the page signed in by realm and then sat there:

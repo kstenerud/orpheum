@@ -7,8 +7,9 @@
 - **Status:** IN PROGRESS — begun 2026-11-26 on the owner's go ("Yes do the relay first"). §1 (the
   credential, `discovery/relaycred`), §2 (the relay, `internal/relay` and `orpheum relay
   --config <file>`) and §3 (orpheum-connect's `internal/hostedrelay`) have code, and §4 runs on the
-  edge VPS as `relay.orpheum.cc`, for staging's realm alone; production's discovery does not name
-  it yet. §5's items 1 to 3 have code, and so has D559, which changed who asks the relay and when.
+  edge VPS as `relay.orpheum.cc`.
+  §5's items 1 to 3 have code, and so has D559, which changed who asks the relay and when.
+  Production's discovery names it since 2026-11-26, for the owner's realm.
   What the staging walk found is at the end.
 - **Depends on:** D558; the design is
   [the research's §4](../research/official-relay-2026-11-26.md#4-the-proposed-design), and this
@@ -58,7 +59,8 @@ served after, as the embedded relay's is.
    server's 443 is the relay's alone.
 2. **Closed to all but a household's own two ends** (D558 §4):
    - an allocation is admitted on a credential that is whole, unexpired and under a known secret;
-   - an allocation's permissions are for the relay's own public address alone;
+   - a permission is granted for any address and opens nothing (D560: Firefox drops its relayed
+     candidates when one is refused);
    - a datagram leaves a relayed socket only for the relayed address of a live allocation of the
      same household and the other role; anything else is dropped and counted.
 3. **The household's rate** (D558 §1): one token bucket per household at the credential's `kbps`,
@@ -141,3 +143,8 @@ the log says whether a device took the relay needlessly (the owner, 2026-11-26):
 5. **A relay that does not answer holds the core's answer** to an offer with a relayed candidate
    until the core has a reflexive candidate, or for five seconds and then fails it where it has no
    STUN server (seen in D559 §2's test, 2026-11-26). Before D559 §2 that was every offer. Open.
+6. **Firefox never connected through the relay**, on the owner's phone on production and on
+   staging: the relay's refusal of a permission for the core's other candidates carries no error
+   code, and Firefox then drops every relayed candidate. Decided as D560: every permission is
+   granted, the relayed sockets alone keep the relay closed. The staging proof had been walked in
+   Chromium alone.

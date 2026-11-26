@@ -15,8 +15,9 @@
 //     same household and the other role, and enters one only from such an allocation; anything else
 //     is dropped and counted (D558 §4). Enforced by
 //     TestRelay_ReachesNoOtherHouseholdNoOtherClientAndNothingNotAnAllocation.
-//   - A permission is granted for the relay's own public address alone. Enforced by
-//     TestRelay_RefusesAPermissionForAnyOtherAddress.
+//   - A permission is granted for any address, and opens nothing: a browser asks one for each of
+//     the core's candidates, and Firefox drops its relayed candidates when one is refused (D560).
+//     Enforced by TestRelay_GrantsAPermissionForAnyAddressAndCarriesNothingThere.
 //   - An allocation is made only on a credential whole, unexpired and under one of the relay's
 //     secrets; its username changed in any part fails. Enforced by
 //     TestRelay_AdmitsACredentialUnderAnyOfItsSecretsAndRefusesAnyOther.
