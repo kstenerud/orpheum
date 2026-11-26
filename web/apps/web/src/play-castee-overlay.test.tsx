@@ -9,7 +9,7 @@ import { castingRemote, heldUpright, signOf } from "./test-castee.tsx";
 import { buttonNamed, click, settleUntil, type Mounted } from "./test-dom.tsx";
 
 // The rework plan's phase 4 items 1–2 over the castee: the one Play page whatever the target.
-describe("the Play page's controls over the castee, as over the video (D555 §8)", () => {
+describe("the Play page's controls over the castee, the remote's pad in every layout (the owner, 2026-11-26)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
     mounted?.unmount();
@@ -24,28 +24,30 @@ describe("the Play page's controls over the castee, as over the video (D555 §8)
     return drawn;
   }
 
-  it("on a computer or a device on its side, lays the video's overlay over the castee's key frame, working the castee, with no bar under it and the page's sign above", async () => {
-    const { sockets } = await casting();
-    const page = mounted!.container;
-    const overlay = page.querySelector<HTMLElement>(".castee-play__stage .player-overlay");
-    expect(overlay).not.toBeNull();
-    expect(page.querySelector(".castee-play__bar")).toBeNull();
-    expect(page.querySelector("video")).toBeNull();
-    expect(signOf(page)).toBe("On: Fire TV");
-    await settleUntil(() => overlay!.textContent.includes("1:01 / 10:00"));
-    expect(buttonNamed(overlay!, "Full screen")).toBeDefined();
-    await click(buttonNamed(overlay!, "Play"));
-    expect(sockets.session.heard.at(-1)).toMatchObject({ type: "command", command: "play" });
-    await click(buttonNamed(overlay!, "Forward 10 s"));
-    await settleUntil(() => sockets.session.heard.at(-1)?.["command"] === "seek");
-    expect(sockets.session.heard.at(-1)).toMatchObject({ command: "seek", positionMs: 71_000 });
-  });
-
-  it("held upright out of full screen, draws the bar under the key frame and no overlay over it", async () => {
-    vi.stubGlobal("matchMedia", heldUpright);
-    await casting();
-    const page = mounted!.container;
-    expect(page.querySelector(".castee-play__bar")).not.toBeNull();
-    expect(page.querySelector(".player-overlay")).toBeNull();
-  });
+  for (const [layout, isUpright] of [
+    ["on a computer or a device on its side", false],
+    ["held upright", true],
+  ] as const) {
+    it(`${layout}, draws the remote's pad under the castee's key frame, working the castee, with no overlay over it and no full screen (the owner, 2026-11-26)`, async () => {
+      if (isUpright) {
+        vi.stubGlobal("matchMedia", heldUpright);
+      }
+      const { sockets } = await casting();
+      const page = mounted!.container;
+      const pad = page.querySelector<HTMLElement>(".castee-play__page > .remote-pad");
+      expect(pad).not.toBeNull();
+      expect(page.querySelector(".player-overlay")).toBeNull();
+      expect(page.querySelector("video")).toBeNull();
+      expect(signOf(page)).toBe("On: Fire TV");
+      expect(buttonNamed(page, "Full screen")).toBeUndefined();
+      await settleUntil(
+        () => page.querySelector(".remote-pad__time")?.textContent === "1:01 / 10:00",
+      );
+      await click(buttonNamed(pad!, "Play"));
+      expect(sockets.session.heard.at(-1)).toMatchObject({ type: "command", command: "play" });
+      await click(buttonNamed(pad!, "Forward 10 s"));
+      await settleUntil(() => sockets.session.heard.at(-1)?.["command"] === "seek");
+      expect(sockets.session.heard.at(-1)).toMatchObject({ command: "seek", positionMs: 71_000 });
+    });
+  }
 });

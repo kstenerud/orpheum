@@ -35,7 +35,6 @@ import {
   buttonNamed,
   buttonWithText,
   click,
-  enter,
   mount,
   servedBy,
   settleAnswers,
@@ -336,7 +335,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     ]);
   });
 
-  it("sets the film's level on the castee from the Play page's bar, Mute and the volume, sending each move, and draws neither before the castee says its level (D555 §10)", async () => {
+  it("sets the film's level on the castee from the pad's Volume down, Mute and Volume up, sending each move, and draws neither before the castee says its level (D555 §10)", async () => {
     vi.stubGlobal("matchMedia", heldUpright);
     const { sockets } = await casting({});
     const page = mounted!.container;
@@ -350,31 +349,18 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
           channels: film === undefined ? undefined : [{ channel: "film", ...film }],
         },
       });
-    const volume = (): HTMLInputElement | null =>
-      page.querySelector<HTMLInputElement>(
-        '.castee-play__bar input[type="range"][aria-label="Volume"]',
-      );
-    /** Moves the volume to level, as a drag of it does. */
-    const slide = async (level: number): Promise<void> => {
-      const input = volume();
-      expect(input).not.toBeNull();
-      await enter(input, String(Math.round(level * Number(input?.max))));
-    };
     await said(undefined);
-    // No level said: neither Mute nor the volume.
+    // No level said: no volume's row.
     expect(buttonNamed(page, "Mute")).toBeUndefined();
-    expect(volume()).toBeNull();
+    expect(buttonNamed(page, "Volume up")).toBeUndefined();
     await said({ level: 0.6 });
-    expect(volume()?.value).toBe("60");
-    await slide(0.7);
-    expect(volume()?.value).toBe("70");
+    expect(buttonNamed(page, "Mute")?.getAttribute("aria-pressed")).toBe("false");
+    await click(buttonNamed(page, "Volume up"));
     await click(buttonNamed(page, "Mute"));
-    expect(buttonNamed(page, "Mute")).toBeUndefined();
-    expect(volume()?.value).toBe("0");
-    // The receiver says it is muted; the volume moved up turns its sound on with the level.
+    // The receiver says it is muted; the volume stepped up turns its sound on with the level.
     await said({ level: 0.7, isMuted: true });
-    await slide(0.8);
-    expect(buttonNamed(page, "Mute")).not.toBeUndefined();
+    expect(buttonNamed(page, "Mute")?.getAttribute("aria-pressed")).toBe("true");
+    await click(buttonNamed(page, "Volume up"));
     const channel = (level: number, isMuted: boolean): Record<string, unknown> => ({
       v: 3,
       type: "sound",
@@ -383,7 +369,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(server.heard.filter((each) => each["type"] === "sound")).toEqual([
       channel(0.7, false),
       channel(0.7, true),
-      channel(0.8, true),
+      channel(0.7, false),
       channel(0.8, false),
     ]);
   });
@@ -399,7 +385,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     const pill = (): string | undefined =>
       page.querySelector(".castee-play__centre .pill")?.textContent ?? undefined;
     expect(pill()).toBeUndefined();
-    expect(buttonNamed(page, "Play")?.hasAttribute("disabled")).toBe(false);
+    expect(buttonNamed(page, "Play")?.hasAttribute("aria-disabled")).toBe(false);
     // The page's own waits (a turn of the event loop) run as real time does; the 15 s is stepped.
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
     try {
@@ -407,7 +393,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
       // connection dropping, which says it can't reach the server (D553 §4).
       await sockets.session.say({ type: "roster", roster: [] });
       expect(pill()).toBe("Reaching Fire TV…");
-      expect(buttonNamed(page, "Play")?.hasAttribute("disabled")).toBe(true);
+      expect(buttonNamed(page, "Play")?.getAttribute("aria-disabled")).toBe("true");
       expect(page.querySelector(".cast-remote__buttons")?.getAttribute("aria-disabled")).toBe(
         "true",
       );
@@ -426,7 +412,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     }
   });
 
-  it("keeps full screen as a film shows on the castee, its key frame filling the screen under the overlay with where it plays, and leaves it with nothing playing there (D555 §8–9, D440 §5)", async () => {
+  it("leaves full screen as a film shows on the castee, drawing the remote's pad as out of it, and leaves it with nothing playing there: casting is never full screen (the owner, 2026-11-26)", async () => {
     // The Play page's player put the whole page full screen, which outlives the player.
     Object.defineProperty(document, "fullscreenElement", {
       configurable: true,
@@ -440,14 +426,11 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     try {
       await casting({});
       const page = mounted!.container;
-      expect(exitFullscreen).not.toHaveBeenCalled();
-      const stage = page.querySelector(".castee-play__stage");
-      expect(stage?.classList.contains("film-player__stage--fills-window")).toBe(true);
-      expect(stage?.querySelector(".player-overlay")).not.toBeNull();
-      // The page's sign above is hidden under the stage: the stage says where it plays itself.
-      expect(stage?.querySelector(".castee-play__where--over")?.textContent).toContain(
-        "On: Fire TV",
-      );
+      expect(exitFullscreen).toHaveBeenCalledOnce();
+      expect(page.querySelector(".castee-play__page > .remote-pad")).not.toBeNull();
+      expect(page.querySelector(".player-overlay")).toBeNull();
+      expect(buttonNamed(page, "Full screen")).toBeUndefined();
+      exitFullscreen.mockClear();
       mounted?.unmount();
       mounted = undefined;
       // Ready on, nothing plays there: a page and no picture.

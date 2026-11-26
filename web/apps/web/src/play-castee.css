@@ -1,37 +1,79 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/* The Play page while its device casts (play-castee.tsx, D555 §8): the way up and the cast's sign,
-   the castee's key frame where the video would be, the Play page's bar under it (page-controls.css). */
+/* The Play page while its device casts (play-castee.tsx, D555 §8), laid out as the remote was at
+   e5cbff686 (D548 §1, §7, §8; the owner, 2026-11-26), upright, on its side and on a computer alike,
+   full screen or not: the window under the top bar, its size what the page's rows fit to, scrolling
+   where they cannot. */
 .castee-play {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding-block: var(--space-2);
+  position: fixed;
+  container: castee-play / size;
+  inset: var(--banner-height, 0) 0 0;
+  overflow: auto;
+  background: var(--color-surface);
 }
 
+/* The page under it scrolls no more: the castee's page is all there is. */
+html:has(.castee-play) {
+  overflow: hidden;
+}
+
+/* One column (D548 §1): the bar, the offer area taking what is left, the timeline, the pad and the
+   menus' row, in a thumb's reach at the bottom. */
+.castee-play__page {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+  block-size: 100%;
+  max-inline-size: 28rem;
+  margin-inline: auto;
+  padding-block-end: env(safe-area-inset-bottom, 0px);
+}
+
+/* The bar: the way up, and under it "On: ‹TV›" and when the film ends. */
 .castee-play__top {
   display: grid;
   gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+}
+
+.castee-play__heading {
+  display: flex;
+  min-width: 0;
 }
 
 .castee-play__where {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-1) var(--space-3);
+  column-gap: var(--space-4);
+  min-width: 0;
+  margin-block-start: calc(-1 * var(--space-2));
 }
 
 .castee-play__sign {
+  overflow: hidden;
   margin: 0;
-  overflow-wrap: anywhere;
+  font-size: var(--font-size-small);
+  font-weight: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* The stage: the video's black box (film-player.css's empty stage), the key frame filling it. */
+/* The offer area (D548 §2): the key frame 16:9, as large as its cell lets it. */
+.castee-play__offer-cell {
+  display: grid;
+  min-block-size: 0;
+  min-inline-size: 0;
+  place-items: center;
+  align-self: stretch;
+  container-type: size;
+}
+
 .castee-play__stage {
   position: relative;
   overflow: hidden;
+  container: castee-play-offer / inline-size;
+  inline-size: min(100% - 2 * var(--space-4), 100cqh * 16 / 9);
   aspect-ratio: 16 / 9;
-  max-height: 80vh;
   border-radius: var(--radius-card);
   background: var(--color-video-background);
   color: var(--color-on-video);
@@ -52,6 +94,13 @@
   max-inline-size: calc(100% - 2 * var(--space-3));
 }
 
+/* A small picture shows the offer's words alone, its still too small to read. */
+@container castee-play-offer (inline-size < 30rem) {
+  .castee-play__offers .offer-card__still {
+    display: none;
+  }
+}
+
 /* The reconnecting sign in the picture's centre. */
 .castee-play__centre {
   position: absolute;
@@ -59,6 +108,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: none;
+}
+
+.castee-play__page > .remote-pad__timeline {
+  margin: 0 var(--space-4);
 }
 
 .castee-play [aria-disabled="true"] {
@@ -66,23 +120,92 @@
   cursor: default;
 }
 
-/* Filling the screen in full screen (film-fullscreen.ts), as the video's stage does: the box's own
-   ratio, height and corners give way to the screen's (player-overlay.css's fills-window). */
-.castee-play__stage.film-player__stage--fills-window {
-  aspect-ratio: auto;
-  max-height: none;
-  border-radius: 0;
+/* Two columns on its side and short, or a wide window (D548 §7, §8): the bar across the top, the
+   offer area beside the pad, the timeline under the picture and the menus under the pad. */
+@container castee-play ((orientation: landscape) and (height < 32rem)) or (width >= 60rem) {
+  .castee-play__page {
+    --pad-column: 22rem;
+
+    grid-template-areas:
+      "bar bar"
+      "offer pad"
+      "timeline buttons";
+    grid-template-columns: minmax(0, 1fr) var(--pad-column);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    align-items: end;
+    max-inline-size: 80rem;
+  }
+
+  .castee-play__top {
+    grid-area: bar;
+  }
+
+  .castee-play__offer-cell {
+    grid-area: offer;
+  }
+
+  .castee-play__page > .remote-pad__timeline {
+    grid-area: timeline;
+    margin-block-end: var(--space-2);
+  }
+
+  .castee-play__page > .remote-pad {
+    grid-area: pad;
+    align-self: end;
+  }
+
+  .castee-play__page > .remote-pad__menus {
+    grid-area: buttons;
+    padding-block: var(--space-2);
+  }
 }
 
-/* Where the film plays and when it ends, over the stage filling the screen, shown throughout: the
-   page's sign above it is hidden then. At the top's centre, clear of the way up and the offers. */
-.castee-play__where--over {
-  position: absolute;
-  z-index: var(--layer-raised);
-  inset-block-start: var(--space-3);
-  inset-inline: 0;
-  justify-content: center;
-  margin: 0;
-  pointer-events: none;
-  text-shadow: 0 0 var(--space-1) var(--color-video-scrim);
+/* A short window: the pad closer set and smaller, so it all fits (D548 §11). */
+@container castee-play (height < 46rem) {
+  .castee-play .remote-pad {
+    row-gap: var(--space-2);
+    padding-block: var(--space-2);
+  }
+
+  .castee-play .icon-button--remote-64,
+  .castee-play .icon-button--remote-72 {
+    --remote-size: 3.5rem;
+  }
+
+  .castee-play .icon-button--remote-96 {
+    --remote-size: 4.5rem;
+  }
+
+  .castee-play .remote-pad__menus {
+    padding-block: var(--space-1);
+  }
+}
+
+/* A phone on its side: the bar one line, the way up then where it plays; the pad's column narrower. */
+@container castee-play (orientation: landscape) and (height < 32rem) {
+  .castee-play__page {
+    --pad-column: 15rem;
+  }
+
+  .castee-play__top {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-4);
+    padding-block: var(--space-1);
+  }
+
+  .castee-play__heading {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  .castee-play__where {
+    flex: 1 0 auto;
+    margin: 0;
+  }
+
+  .castee-play .remote-pad {
+    row-gap: var(--space-2);
+    padding-block: 0;
+  }
 }

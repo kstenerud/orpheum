@@ -18,11 +18,11 @@ import { FullScreenIcon, LeaveFullScreenIcon } from "./player-icons.tsx";
  * (player-controls.tsx): out of full screen it puts the player's stage full screen, from the press
  * the Fullscreen API needs, filling the window where the browser refuses; in full screen it leaves,
  * as the page's own asking, so a cast's receiver keeps its cast (toggleFullScreen). A Fire TV whose player opened out of full screen, its request made with no press, offered no
- * way into it (the owner, 2026-10-27). The stage is the one videoRef's video is in, as the bar under
- * the film lies outside it (D407 §9); with none given, the one the button is in.
+ * way into it (the owner, 2026-10-27). The stage is the one inStageRef holds or is in, as the bar
+ * and the pad under the film lie outside it (D407 §9); with none given, the one the button is in.
  */
 export function FullScreenButton(props: {
-  readonly videoRef?: RefObject<HTMLVideoElement | null> | undefined;
+  readonly inStageRef?: RefObject<HTMLElement | null> | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -34,7 +34,7 @@ export function FullScreenButton(props: {
       label={isFullScreen ? t("playerControls.leaveFullScreen") : t("playerControls.fullScreen")}
       icon={isFullScreen ? <LeaveFullScreenIcon /> : <FullScreenIcon />}
       onClick={() => {
-        const inStage = props.videoRef?.current ?? buttonRef.current;
+        const inStage = props.inStageRef?.current ?? buttonRef.current;
         toggleFullScreen(inStage?.closest(".film-player__stage"), document);
       }}
     />

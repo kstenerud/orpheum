@@ -74,6 +74,11 @@ export const enCast = {
     serverLost: "Can't reach the server",
     /** The castee's Up next put away on this device (D548 §3). */
     dismissUpNext: "Dismiss",
+    /** The remote pad's volume steps (D548 §6), on the castee's Play page (remote-pad.tsx). */
+    pad: {
+      volumeDown: "Volume down",
+      volumeUp: "Volume up",
+    },
   },
   remote: {
     playing: "Playing",

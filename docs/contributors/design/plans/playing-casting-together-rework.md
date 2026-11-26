@@ -306,6 +306,26 @@ top bar and the Play page keep their own, and every page opened later arrives as
 now always shows the ring: where it lands, and on the focus it leaves where it cannot move (Right on
 a row of one poster showed none). `web/apps/web/src/arrival.browser.test.tsx`.
 
+**The remote's layout put back (the owner, 2026-11-26).** "Yes I meant the one with the
+remote-control looking layout (3x3 pad). That should be the layout for portrait and landscape
+mode when casting, and the layout in portrait for local playback. The others should have the
+overlay on top of the video, and the video frame taking most of the real estate. In phone
+landscape mode there's not enough room for that, so it's OK if it has to scroll." And on the
+buttons: "The general rules for the buttons are: Only display if they can actually do something.
+For the bottom button row, always right-aligned and only displayed if they can actually do
+something (for submenus, only if there's at least one submenu item that can do something). Cast
+and watch together buttons only show once (top bar if it's visible, bottom bar otherwise). Never
+offer the fullscreen mode button when casting. If they do enable fullscreen mode through their
+browser's controls while casting, we present a similar display layout to the non-fullscreen
+one." Put back: the castee's Play page laid out as the remote was before D555 (the bar with *On:
+‹TV›* and the end, the key frame with its offers and centre pill, the timeline with the time
+under it, the 3×3 pad, the menus' row end-aligned), one column upright and two on its side or
+wide, in and out of full screen, with no overlay and no ⤢, F doing nothing and the page leaving
+full screen as it opens (`src/remote-pad.tsx`, `src/play-castee.tsx`); D555's one Play page, its
+end and swap back, the reaching sign and its keys stay. Held upright, the video's controls under
+the film are the same pad with no volume's row and ⤢ last in the menus' row, and `OverlayHeld` is
+gone: the film's choices are the menus' in every layout.
+
 **Next batch (found on these walks):**
 
 - The sound timing clip does not play on staging: the Play page says it is no longer there

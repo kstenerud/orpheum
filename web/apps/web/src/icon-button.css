@@ -47,8 +47,8 @@
   background: var(--color-video-card);
 }
 
-/* The cast remote's pad's sizes (D548 §5, §11): round, larger than a fingertip, a 2rem icon, 2.5rem
-   in the 96 px Play. The remote's page sets --remote-size smaller on a phone on its side (cast.css). */
+/* The remote pad's sizes (D548 §5, §11): round, larger than a fingertip, a 2rem icon, 2.5rem
+   in the 96 px Play. The pad sets --remote-size smaller on a short screen (remote-pad.css, play-castee.css). */
 .icon-button--remote-56 {
   --remote-size: 3.5rem;
 }

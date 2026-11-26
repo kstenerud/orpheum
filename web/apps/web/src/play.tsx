@@ -18,7 +18,6 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { PlayTop } from "./play-up.tsx";
-import { AudioChoiceMenu } from "./audio-tracks.tsx";
 import {
   FilmPlayer,
   type FilmComposition,
@@ -40,14 +39,8 @@ import { isBrowserFullscreen, isOnTelevision, thisBrowserWindow } from "./input-
 import { useFullScreenLeftAsBack } from "./input-layer.tsx";
 import { useServices } from "./services.tsx";
 import { BarePlayer } from "./bare-player.tsx";
-import { useIsWithinCap, useWhenTheCapFallsUnder } from "./data-cap-choices.tsx";
-import { OriginalWaits, PlayOriginal } from "./play-original.tsx";
-import {
-  isWaitingForTheOriginal,
-  OriginalTries,
-  OriginalTriesContext,
-  useMovesUpToTheOriginal,
-} from "./original-waits.ts";
+import { useWhenTheCapFallsUnder } from "./data-cap-choices.tsx";
+import { OriginalTries, OriginalTriesContext, useMovesUpToTheOriginal } from "./original-waits.ts";
 import {
   ForTesters,
   ForTestersContext,
@@ -55,16 +48,11 @@ import {
   useForTestersPanel,
 } from "./for-testers.tsx";
 import { FrameTimingNote } from "./frame-timing-note.tsx";
-import { BoostBox } from "./sound.tsx";
-import { FilmTiming, soundOffsetsOf } from "./file-sound-offset.tsx";
-import { FindSubtitles } from "./subtitle-search.tsx";
-import { SubtitleControls } from "./subtitles.tsx";
-import { LevellingControl } from "./levelling.tsx";
-import { LadderTracks, OwnFileTracks, usePlayerTracks } from "./player-tracks.tsx";
+import { soundOffsetsOf } from "./file-sound-offset.tsx";
+import { LadderTracks, OwnFileTracks } from "./player-tracks.tsx";
 import { LinkDebugTools } from "./link-debug-tools.tsx";
 import { useIsFullScreen } from "./full-screen-button.tsx";
-import { OverlayHeld } from "./overlay-held.tsx";
-import { PlayerMenusContext, StartOver, type PlayerMenusWays } from "./player-menus.tsx";
+import { PlayerMenusContext, type PlayerMenusWays } from "./player-menus.tsx";
 import { usePlaybackHere } from "./how-it-plays.tsx";
 import {
   newPicturePanel,
@@ -455,11 +443,11 @@ function useReportedPlayState(
 }
 
 /**
- * What sits under a playing video: the alerts that the playback was stopped or its place not kept,
- * always; then "Start over", the subtitle menu and offset, finding subtitles, the audio track,
- * levelling and the sound's offset, the choices held in PlayerTracksContext, shown only on a device
- * held upright out of full screen, the overlay's menus holding them elsewhere (OverlayHeld). It
- * keeps the playback's play state on the server, starting where the person left the file.
+ * What sits under a playing video: the alerts that the playback was stopped or its place not kept.
+ * Its choices, the subtitles, the sound track, the levelling and the timings, are the menus' in
+ * every layout (player-menus.tsx), the bar's under the film held upright, the overlay's elsewhere
+ * (the owner, 2026-11-26). It keeps the playback's play state on the server, starting where the
+ * person left the file.
  */
 function UnderTheVideo(
   props: PlayProps & {
@@ -471,7 +459,6 @@ function UnderTheVideo(
   },
 ): JSX.Element {
   const { t } = useTranslation();
-  const tracks = usePlayerTracks();
   const { refusal: reportRefusal, stopMessage } = useReportedPlayState(props);
   const { onVideo, videoRef } = props;
   // A cast's remote that fetched a subtitle for the film has the tracks read again, as this page's
@@ -491,18 +478,6 @@ function UnderTheVideo(
       {reportRefusal === undefined || stopMessage !== undefined ? null : (
         <p role="alert">{t("play.positionNotKept", { reason: problemText(t, reportRefusal) })}</p>
       )}
-      <OverlayHeld>
-        <StartOver videoRef={props.videoRef} />
-        <SubtitleControls choice={tracks.subtitles} />
-        <FindSubtitles fileId={props.fileId} onFetched={decideAgainFor(props, "subtitleFetched")} />
-        <AudioChoiceMenu choice={tracks.audio} />
-        <LevellingControl
-          level={tracks.level}
-          measuring={tracks.measuring}
-          state={tracks.levelling}
-        />
-        <FilmTiming videoRef={props.videoRef} fileId={props.fileId} decision={props.decision} />
-      </OverlayHeld>
     </>
   );
 }
@@ -625,13 +600,11 @@ function menusWaysOf(
 }
 
 /**
- * What the Play page draws under the film, by the way it plays: what sits under every video, the
- * dialogue boost's switch where the sound offers it, and on a ladder the original's offer, and word
- * that it cannot keep up, which a host's session tells everyone (D247 §8); the switch and the offer
- * shown only where the overlay's menus are not drawn (OverlayHeld).
+ * What the Play page draws under the film, by the way it plays: what sits under every video, and on
+ * a ladder what is heard of it (LadderHeard). The dialogue boost and the original's offer are the
+ * menus' in every layout (player-menus.tsx; the owner, 2026-11-26).
  */
 function PlayUnder(props: PlayProps & FilmParts): JSX.Element {
-  const { boost } = usePlayerTracks();
   const { ladder } = props;
   const decision =
     ladder === undefined
@@ -640,27 +613,22 @@ function PlayUnder(props: PlayProps & FilmParts): JSX.Element {
   return (
     <>
       <UnderTheVideo {...props} decision={decision} />
-      <OverlayHeld>
-        {boost === undefined ? null : <BoostBox state={boost} />}
-        {ladder === undefined ? null : (
-          <LadderUnder {...props} ladder={ladder} decision={decision} />
-        )}
-      </OverlayHeld>
+      {ladder === undefined ? null : <LadderHeard {...props} ladder={ladder} />}
     </>
   );
 }
 
 /**
- * Under the film on its ladder: the original's offer, where the data cap lets its file play (D491),
- * or word that the original chosen waits for the link, and its lowest quality's word that it cannot
- * keep up, which goes to a host's session (D247 §8).
+ * What is heard of the film on its ladder: its lowest quality's word that it cannot keep up, which
+ * goes to a host's session (D247 §8), and a cast's remote's choice of the original, carried out here
+ * (D440 §5). Nothing is drawn: the original's offer is ⁝'s Quality's (player-menus.tsx).
  */
-function LadderUnder(
+function LadderHeard(
   props: PlayProps &
     FilmParts & {
       readonly ladder: NonNullable<FilmParts["ladder"]>;
     },
-): JSX.Element | null {
+): null {
   const { ladder, onCannotKeepUp } = props;
   useEffect(() => {
     onCannotKeepUp(ladder.cannotKeepUp);
@@ -668,21 +636,8 @@ function LadderUnder(
       onCannotKeepUp(undefined);
     };
   }, [ladder.cannotKeepUp, onCannotKeepUp]);
-  const playOriginal = decideAgainFor(props, "originalChosen");
-  // A cast's remote offers the original too, carried out here as this offer's press (D440 §5).
-  useOriginalOfferedToARemote(playOriginal);
-  // A device under a data cap plays its own file only where the cap is at or above its rate (D491).
-  const isOffered = useIsWithinCap(props.decision.fileBitRateKbps);
-  const tries = use(OriginalTriesContext);
-  if (!isOffered) {
-    return null;
-  }
-  // The original chosen on a link short of it waits for the link here (useOriginalOnceTheLinkCarries).
-  return isWaitingForTheOriginal(props.decision, tries) ? (
-    <OriginalWaits height={heightOf(ladder)} />
-  ) : (
-    <PlayOriginal onChosen={playOriginal} />
-  );
+  useOriginalOfferedToARemote(decideAgainFor(props, "originalChosen"));
+  return null;
 }
 
 /**

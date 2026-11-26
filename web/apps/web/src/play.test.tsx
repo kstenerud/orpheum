@@ -86,9 +86,9 @@ describe("playing a file", () => {
     // Its tracks say it plays as it is, each the original (the owner, 2026-10-20).
     expect(markup).toContain("Video: H.264 1920×1080, 2.4 Mb/s (original)");
     expect(markup).toContain("Sound: AAC stereo (original)");
-    // Levelling sits under the video, on as the person left it, and says what it does (D226).
-    expect(markup).toContain("Level loudness");
-    expect(markup).toContain("Its loudness is not measured yet, so it plays as it is.");
+    // Levelling is the Sound menu's in every layout, nothing of it under the video (the owner,
+    // 2026-11-26; sound-menu.test.tsx).
+    expect(markup).not.toContain("Level loudness");
   });
 
   it("names the film above the picture, and nothing where the file is filed as no title", () => {
@@ -228,7 +228,7 @@ describe("playing a file", () => {
     expect(soundChoiceCause({ audioTrackIndex: 0, isBoosted: false })).toBe("boostOff");
   });
 
-  it("offers the file's audio tracks, starting with the one the playback starts with", () => {
+  it("draws no audio track's chooser under the video, the Sound menu's in every layout (the owner, 2026-11-26)", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <PlayView
@@ -244,10 +244,8 @@ describe("playing a file", () => {
         />,
       ),
     );
-    expect(markup).toContain("Sound");
-    // Its chooser, showing the track it starts with, not a native select (plans/toolkit.md step 6).
     expect(markup).not.toContain("<select");
-    expect(markup).toMatch(/class="route-chooser__button"[^>]*>French · commentary</u);
+    expect(markup).not.toMatch(/class="route-chooser__button"[^>]*>French · commentary</u);
   });
 
   it("words every playback failure by the player's code, never the browser's text", () => {

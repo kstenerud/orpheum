@@ -156,7 +156,7 @@ function ControlButtons(props: ButtonsParts): JSX.Element {
     ) : null;
   const ending = (
     <>
-      {has("fullScreen") ? <FullScreenButton videoRef={props.videoRef} /> : null}
+      {has("fullScreen") ? <FullScreenButton inStageRef={props.videoRef} /> : null}
       {has("sound") && source.sound !== undefined ? (
         <SoundControls sound={source.sound} isOverVideo={isOverVideo} />
       ) : null}

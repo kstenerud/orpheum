@@ -141,19 +141,19 @@ describe("the player's controls under the film outside full screen (D369 §2, D4
     return mounted?.container.querySelector<HTMLElement>(".page-controls");
   }
 
-  it("is the player's bar under the film, nothing over it: the timeline, ⏪ ▶ ⏩, sound and full screen, a stop for the arrows", async () => {
+  it("is the remote's pad under the film, nothing over it: the timeline, ⏪ ▶ ⏩ in the pad, no volume's row, and the menus' row end-aligned with ⤢ last, a stop for the arrows (the owner, 2026-11-26)", async () => {
     const { video, videoRef } = stagedVideo(() => false);
     const stage = await drawn(video, videoRef);
     expect([...stage.children]).toEqual([video]);
     expect(stage.contains(bar() ?? null)).toBe(false);
     expect(bar()?.hasAttribute(playerControlsAttribute)).toBe(true);
-    expect(buttonNames(bar())).toEqual([
+    expect(buttonNames(bar()?.querySelector(".remote-pad"))).toEqual([
       "Back 10 s",
       "Play",
       "Forward 10 s",
-      "Volume",
-      "Full screen",
     ]);
+    expect(bar()?.querySelector(".remote-pad")?.children).toHaveLength(6); // two rows of three cells
+    expect(buttonNames(bar()?.querySelector(".remote-pad__menus")).at(-1)).toBe("Full screen");
     const timeline = bar()?.querySelector('input[aria-label="Where the film stands"]');
     expect(timeline?.hasAttribute(arrowsAreCommandsAttribute)).toBe(true);
     expect(video.tabIndex).toBe(0);

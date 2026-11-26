@@ -103,7 +103,7 @@ function SeekFeedbackShown(props: {
  * is none. Its place stays while it is hidden, the Pill drawn only while it shows, so a page's own
  * line over the film is the one status there meanwhile.
  */
-function VolumeShown(props: {
+export function VolumeShown(props: {
   readonly sound: PlayerSound | undefined;
   readonly isShown: boolean;
 }): JSX.Element | null {

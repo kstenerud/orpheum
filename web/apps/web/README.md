@@ -373,8 +373,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   **The page cast from stays where it is** (D384 §2): a Play page whose film goes to the receiver,
   sent on or taken by a cast started over it, is the same Play page with the castee as its target
   (`CasteePlay`, `src/play-castee.tsx`, D555 §8): the castee's key frame where the video would be,
-  under Up next or a skip at its top-right (`src/cast-remote-offer.tsx`), the Play page's bar under
-  it upright and its overlay over it otherwise, `TargetMenus` over the castee
+  under Up next or a skip at its top-right (`src/cast-remote-offer.tsx`), laid out as the remote was
+  in every layout, upright, on its side, on a computer and in the browser's full screen alike (the
+  owner, 2026-11-26; `src/remote-pad.tsx`, `src/play-castee.css`): the way up with *On: ‹Device›* and
+  when it ends, the key frame, the timeline with the time under it, the 3×3 pad (⏮ · ⏭, ⏪ ▶ ⏩,
+  Volume down, Mute, Volume up where the castee says a level), a button there only where it can do
+  something, its cell kept so Play does not move, and the menus' row end-aligned with no ⤢: casting
+  is never full screen, the page leaving it as it opens (`src/play-castee-overlay.test.tsx`,
+  `src/play-castee-layout.browser.test.tsx`), `TargetMenus` over the castee
   (`src/cast-remote-choices.tsx`'s `RemoteMenus`). While the receiver is not heard it says *Reaching
   ‹Device›…*, the controls, the menus and the keys taking no press (D548 §9;
   `src/cast-remote-heard.ts`'s `useReceiverHeard`), and ends nothing itself: the server ends a
@@ -389,8 +395,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   player's own ⁝ shows of this device's playback too). The Play page's keys work the castee as its
   buttons do, by the one handler the video's are (`useStageCommands`, its `PlayerStage` the castee's
   with its stage as the picture, the overlay's too): Space plays or pauses, Left and Right step
-  10 s, + and − step the castee's level 10 % (D548 §6) and M mutes it where it says one, F puts its
-  stage full screen (`src/play-castee-keys.test.tsx`). Watch Together's dialog is the session's
+  10 s, + and − step the castee's level 10 % (D548 §6) and M mutes it where it says one, F does
+  nothing (`src/play-castee-keys.test.tsx`). Watch Together's dialog is the session's
   panel tuned to the role (the guest's Leave; the host's people, grants and End,
   `TogetherBehindTheRemote`), the voice the page's and so unbroken as the page turns to the remote;
   full screen stays with a film on the castee, its key frame filling the screen (D555 §9); with
@@ -972,9 +978,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   §1, §5, D555 §8), its play and pause larger than the rest: its rows, Up and the
   convenience area (Up next, Still watching, when the film ends), the timeline, whose arrows are
   commands (`data-focus-arrows-are-commands`), and the buttons, ⏮ ⏪ ▶ ⏩ ⏭ and 🔈 💬 🎧 ⁝ ⤢, with
-  the subtitle, audio and more menus (`src/player-menus.tsx`, D407 §8), which hold what lies under the
-  film upright, so that is hidden wherever they are drawn, kept mounted (`src/overlay-held.tsx`; the
-  owner, 2026-11-26: a computer showed it twice; `src/play-layout.browser.test.tsx`); a press of play that plays or
+  the subtitle, audio and more menus (`src/player-menus.tsx`, D407 §8), which hold the film's
+  choices in every layout, nothing of them under the film (the owner, 2026-11-26). Held upright out
+  of full screen, the controls under the film are the remote's pad (`src/page-controls.tsx`'s
+  `ControlsBar`, `src/remote-pad.tsx`): the timeline, the pad with no volume's row, and the menus'
+  row end-aligned with ⤢ last (`src/page-controls.test.tsx`); a press of play that plays or
   Down from the buttons puts focus on the video so the overlay hides (D407 §6), and + and − show the
   volume they leave a moment (D407 §10). 🔈 shows where there is mixing to do (`controlsShown`'s
   `hasVoicesToMix`): always on a computer with no touch screen, and on a television, a touch screen

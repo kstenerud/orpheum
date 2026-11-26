@@ -1,0 +1,70 @@
+/* The remote's layout's pieces (remote-pad.tsx; D548 §4–§7), as the cast remote drew them at
+   e5cbff686 (the owner, 2026-11-26): where each page lays them is its own sheet's
+   (play-castee.css, page-controls.css). */
+
+/* The timeline the whole width, the time under it at its start (D548 §4). */
+.remote-pad__timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.remote-pad__time {
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Three equal columns, each button centred in its cell (D548 §5). */
+.remote-pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4) 0;
+  padding: var(--space-4);
+}
+
+.remote-pad__cell {
+  display: grid;
+  place-items: center;
+}
+
+/* Mute pressed: the status ground, so it reads as on (D548 §6). */
+.remote-pad .icon-button[aria-pressed="true"] {
+  background: var(--color-status);
+}
+
+/* Not yet reached (D548 §9): every button faint, its press doing nothing. */
+.remote-pad .icon-button[aria-disabled="true"] {
+  opacity: 0.4;
+}
+
+/* The menus' row at the end, ⤢ last (D548 §7). */
+.remote-pad__menus {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+
+/* A short screen: the pad closer set and its buttons smaller, so the page fits (D548 §5). */
+@media (height < 46rem) {
+  .remote-pad {
+    row-gap: var(--space-2);
+    padding-block: var(--space-2);
+  }
+
+  .remote-pad .icon-button--remote-64,
+  .remote-pad .icon-button--remote-72 {
+    --remote-size: 3.5rem;
+  }
+
+  .remote-pad .icon-button--remote-96 {
+    --remote-size: 4.5rem;
+  }
+
+  .remote-pad__menus {
+    padding-block: var(--space-1);
+  }
+}

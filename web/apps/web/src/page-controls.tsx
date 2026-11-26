@@ -5,7 +5,6 @@ import "./play-words.ts";
 
 import type { SkippedStretch } from "@orpheum/player";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
-import { useTranslation } from "react-i18next";
 
 import { ConvenienceArea, leftMsOf, type OfferPiece } from "./convenience-area.tsx";
 import { fillTheScreen, toggleFullScreen } from "./film-fullscreen.ts";
@@ -15,12 +14,11 @@ import { useCommands } from "./input-layer.tsx";
 import { OverlayUp } from "./play-up.tsx";
 import { answerPlayerCommand, usePlayersControls } from "./player-commands.ts";
 import { TargetMenus } from "./target-menus.tsx";
-import { isSeekable } from "./target-timeline.tsx";
-import { PlayerControls, useVideoTarget, type SequenceMoves } from "./player-controls.tsx";
-import { barControlsOf, PlayerOverlay, useControlsShown } from "./player-overlay.tsx";
+import { useVideoTarget, type SequenceMoves } from "./player-controls.tsx";
+import { PlayerOverlay, useControlsShown } from "./player-overlay.tsx";
 import { isAMousesClick, TouchClock, touchClockEvents } from "./player-taps.ts";
 import { SkippedPopUp, SkippedSign, useSkippedStretches } from "./skipped-parts.tsx";
-import { Timeline } from "./timeline.tsx";
+import { PadMenus, PadTimeline, RemotePad } from "./remote-pad.tsx";
 import { isOnTelevision } from "./input-mode.ts";
 import { useHasControlsOverThePicture } from "./upright.ts";
 
@@ -99,13 +97,14 @@ function usePlayFocusedAsFullScreenEnds(
 const noMenuHeld = (): void => undefined;
 
 /**
- * The bar under the film (D407 §9): the timeline; the buttons, those the device shows
- * (controlsShown), ⏮ ⏪ ▶ ⏩ ⏭ leading and 🔈 ⤢ trailing; then the offers as ordinary buttons, Up next
- * or Still watching, or when the film ends while nothing is on offer (convenience-area.tsx), after
- * a television's ‹, its one way up (PlayTrail draws none there). Always shown. The subtitle and
- * audio menus and the rest stay under it on the page, as before D407 (play.tsx). The video is a
+ * The controls under the film held upright (the owner, 2026-11-26: "the layout in portrait for local
+ * playback" is the remote's 3×3 pad): the timeline with the time under it; the pad, its buttons those
+ * the device shows (controlsShown) and can press now, no volume's row, a phone's level its own
+ * (D555 §10); the menus' row, end-aligned, its menus those the device shows and ⤢ last; then the
+ * offers as ordinary buttons, Up next or Still watching, or when the film ends while nothing is on
+ * offer (convenience-area.tsx), after a television's ‹, its one way up. Always shown. The video is a
  * stop for the arrows and Tab, where Left and Right seek and OK and Space play and pause
- * (player-commands.ts), and Down goes into the bar, to play.
+ * (player-commands.ts), and Down goes into the pad, to play.
  */
 function ControlsBar(props: {
   readonly film: FilmParts;
@@ -115,7 +114,6 @@ function ControlsBar(props: {
   /** The stretches the player stepped over in this viewing, told by a sign in the bar. */
   readonly skipped: readonly SkippedStretch[];
 }): JSX.Element {
-  const { t } = useTranslation();
   const { film, offer, moves, playRef, skipped } = props;
   const { videoRef } = film;
   const barRef = useRef<HTMLDivElement>(null);
@@ -126,29 +124,18 @@ function ControlsBar(props: {
   useDownFromTheFilm(videoRef, playRef);
   return (
     <div ref={barRef} className="page-controls" data-focus-container="" data-player-controls="">
-      <Timeline
-        label={t("playerControls.where")}
-        atMs={source.atMs}
-        durationMs={source.durationMs}
-        isDisabled={!isSeekable(source)}
-        hasArrowsAsCommands
-        onSeek={source.seekTo}
-      />
-      <PlayerControls
+      <PadTimeline source={source} hasArrowsAsCommands />
+      <RemotePad
         source={source}
-        controls={barControlsOf(shown)}
-        isOverVideo
-        isOverlayRow
-        playRef={playRef}
         moves={moves}
-        videoRef={videoRef}
-        menus={
-          <TargetMenus
-            target={source}
-            shown={shown.filter((control) => control === "sound")}
-            onOpenChange={noMenuHeld}
-          />
-        }
+        shown={shown}
+        sound={undefined}
+        isDisabled={false}
+        playRef={playRef}
+      />
+      <PadMenus
+        menus={<TargetMenus target={source} shown={shown} onOpenChange={noMenuHeld} />}
+        fullScreenOf={shown.includes("fullScreen") ? videoRef : undefined}
       />
       <BarOffers
         film={film}

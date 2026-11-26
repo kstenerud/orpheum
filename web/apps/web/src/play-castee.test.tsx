@@ -58,14 +58,14 @@ describe("the Play page over the castee (D555 §5, §8)", () => {
   const pill = (): string | undefined =>
     page().querySelector(".castee-play__centre .pill")?.textContent ?? undefined;
 
-  it("draws the Play page's own bar over the castee, its sign where the film plays, and not the cast remote's page", async () => {
+  it("draws the remote's pad under the castee, its sign where the film plays, held upright (the owner, 2026-11-26)", async () => {
     vi.stubGlobal("matchMedia", heldUpright);
     await casting();
     expect(page().querySelector(".castee-play h2")?.textContent).toBe("On: Fire TV");
-    const bar = page().querySelector<HTMLElement>(".castee-play__bar.page-controls");
-    expect(bar).not.toBeNull();
-    expect(buttonNamed(bar!, "Play")?.hasAttribute("disabled")).toBe(false);
-    expect(bar!.querySelector(".timeline__range")).not.toBeNull();
+    const pad = page().querySelector<HTMLElement>(".castee-play__page > .remote-pad");
+    expect(pad).not.toBeNull();
+    expect(buttonNamed(pad!, "Play")?.hasAttribute("aria-disabled")).toBe(false);
+    expect(page().querySelector(".castee-play__page .timeline__range")).not.toBeNull();
     expect(page().querySelector(".castee-play__stage")).not.toBeNull();
     expect(page().querySelector(".cast-remote")).toBeNull();
     expect(pill()).toBeUndefined();
@@ -113,11 +113,11 @@ describe("the Play page over the castee (D555 §5, §8)", () => {
     expect(page().querySelector(".castee-play h2")?.textContent).toBe("On: Fire TV");
   });
 
-  it("shows the reconnecting sign over the key frame, the bar taking no press, while the castee is not heard, and leaves the end to the server", async () => {
+  it("shows the reconnecting sign over the key frame, the pad taking no press, while the castee is not heard, and leaves the end to the server", async () => {
     const { sockets, onPlayHere } = await casting();
     await sockets.live.say(receiverGone);
     expect(pill()).toBe("Reaching Fire TV…");
-    expect(buttonNamed(page(), "Play")?.hasAttribute("disabled")).toBe(true);
+    expect(buttonNamed(page(), "Play")?.getAttribute("aria-disabled")).toBe("true");
     expect(onPlayHere).not.toHaveBeenCalled();
     await sockets.live.say(bothConnected);
     expect(pill()).toBeUndefined();

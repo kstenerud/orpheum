@@ -167,35 +167,38 @@ describe("the Play page upright and on its side (D555 §8)", () => {
   });
 });
 
-/**
- * What the overlay's menus hold (overlay-held.tsx) as the film's page draws it: each block of it,
- * mounted, and whether any is shown.
- */
-function overlayHeld(): { readonly isMounted: boolean; readonly isShown: boolean } {
-  const blocks = [...document.querySelectorAll<HTMLElement>(".play__overlay-held")];
-  return {
-    isMounted: blocks.some((block) => block.textContent.includes("Level loudness")),
-    isShown: blocks.some((block) => block.getClientRects().length > 0),
-  };
+/** Whether the page shows any of the film's choices the menus hold (Level loudness is the Sound menu's). */
+function isAChoiceShown(): boolean {
+  return document.body.textContent.includes("Level loudness");
 }
 
-// The owner, 2026-11-26, on a computer: the overlay's menus hold these, so under the film they
-// showed twice.
-describe("what the overlay's menus hold, under the film (D555 §8, D407 §8)", () => {
-  it("is hidden on a computer, whose overlay's menus hold it, and kept mounted", async () => {
+// The owner, 2026-11-26: the overlay's menus hold the film's choices, so under the film they showed
+// twice; held upright, the controls under the film are the remote's pad.
+describe("the film's choices, the menus' in every layout (the owner, 2026-11-26)", () => {
+  it("are not under the film on a computer, whose overlay's menus hold them", async () => {
     await playPageAt(1280, 800);
-    expect(overlayHeld()).toEqual({ isMounted: true, isShown: false });
+    expect(isAChoiceShown()).toBe(false);
   });
 
-  it("is hidden on a phone on its side, whose controls lie over the picture", async () => {
+  it("are not under the film on a phone on its side, whose controls lie over the picture", async () => {
     heldByAFinger();
     await playPageAt(844, 390);
-    expect(overlayHeld()).toEqual({ isMounted: true, isShown: false });
+    expect(isAChoiceShown()).toBe(false);
   });
 
-  it("shows under the film on a phone held upright out of full screen", async () => {
+  it("are not under the film on a phone held upright, whose pad's menus' row holds them, end-aligned, its ⤢ last", async () => {
     heldByAFinger();
     await playPageAt(390, 844);
-    expect(overlayHeld()).toEqual({ isMounted: true, isShown: true });
+    expect(isAChoiceShown()).toBe(false);
+    await expect
+      .poll(() => document.querySelector(".page-controls .remote-pad__menus"))
+      .not.toBeNull();
+    expect(document.querySelector(".page-controls .remote-pad")).not.toBeNull();
+    const menus = document.querySelector<HTMLElement>(".page-controls .remote-pad__menus")!;
+    const last = [...menus.querySelectorAll<HTMLElement>("button")].at(-1)!;
+    expect(last.getAttribute("aria-label")).toBe("Full screen");
+    const end =
+      menus.getBoundingClientRect().right - Number.parseFloat(getComputedStyle(menus).paddingRight);
+    expect(Math.abs(last.getBoundingClientRect().right - end)).toBeLessThan(1.5);
   });
 });

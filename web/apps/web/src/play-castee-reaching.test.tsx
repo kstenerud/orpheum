@@ -66,10 +66,10 @@ describe("the cast remote reaches for a receiver the server no longer hears (D55
   const pill = (): string | undefined =>
     mounted?.container.querySelector(".castee-play__centre .pill")?.textContent ?? undefined;
   const time = (): string | undefined =>
-    mounted?.container.querySelector<HTMLInputElement>(".castee-play__bar .timeline__range")
+    mounted?.container.querySelector<HTMLInputElement>(".castee-play__page .timeline__range")
       ?.value ?? undefined;
   const isPadDisabled = (): boolean =>
-    buttonNamed(mounted!.container, "Pause")?.hasAttribute("disabled") === true;
+    buttonNamed(mounted!.container, "Pause")?.getAttribute("aria-disabled") === "true";
   const step = (ms: number): void => {
     act(() => {
       vi.advanceTimersByTime(ms);

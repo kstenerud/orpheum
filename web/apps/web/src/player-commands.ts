@@ -339,8 +339,9 @@ function playersKeyOf(event: KeyboardEvent): PlayersKey | undefined {
 
 /**
  * Answers the player's own key for stage, where it is the player's; whether it is taken. Space plays
- * and pauses a stage that is ready, a held one once; F puts the stage full screen or leaves it, as the
- * bar's full screen does (toggleFullScreen); M mutes or unmutes a stage that has sound, neither
+ * and pauses a stage that is ready, a held one once; F puts the film's stage full screen or leaves it,
+ * as the bar's full screen does (toggleFullScreen), and is not taken over a castee's picture, which
+ * is in none; M mutes or unmutes a stage that has sound, neither
  * repeating while held.
  */
 function answerPlayersKey(stage: PlayerStage, key: PlayersKey, isRepeat: boolean): boolean {
@@ -357,7 +358,12 @@ function answerPlayersKey(stage: PlayerStage, key: PlayersKey, isRepeat: boolean
   if (key === "mute") {
     return stage.toggleMute();
   }
-  toggleFullScreen(stage.picture.closest(".film-player__stage"), document);
+  // A castee's picture is in no film's stage: casting is never full screen (the owner, 2026-11-26).
+  const filmStage = stage.picture.closest(".film-player__stage");
+  if (filmStage === null) {
+    return false;
+  }
+  toggleFullScreen(filmStage, document);
   return true;
 }
 

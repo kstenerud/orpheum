@@ -85,7 +85,7 @@ describe("the Play page's keys over the castee, as over the video (D555 §8)", (
     expect(sentOf(server, "sound")).toHaveLength(sounds);
   });
 
-  it("over the overlay, plays at Space, and puts the castee's stage full screen at F", async () => {
+  it("plays at Space, and puts nothing full screen at F: casting is never full screen (the owner, 2026-11-26)", async () => {
     const { sockets } = await casting();
     const page = mounted!.container;
     const requestFullscreen = vi.fn(() => Promise.resolve());
@@ -97,8 +97,8 @@ describe("the Play page's keys over the castee, as over the video (D555 §8)", (
       press(" ");
       expect(sockets.session.heard.at(-1)).toMatchObject({ type: "command", command: "play" });
       press("f");
-      expect(requestFullscreen).toHaveBeenCalledTimes(1);
-      expect(page.querySelector(".castee-play__stage .player-overlay")).not.toBeNull();
+      expect(requestFullscreen).not.toHaveBeenCalled();
+      expect(page.querySelector(".player-overlay")).toBeNull();
     } finally {
       Reflect.deleteProperty(document.documentElement, "requestFullscreen");
     }
