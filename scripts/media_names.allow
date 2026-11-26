@@ -629,6 +629,7 @@ web/apps/web/README.md | the client's episode labels described
 web/apps/web/src/arrival.browser.test.tsx | the episode label the client renders
 web/apps/web/src/cast-remote.test.tsx | the episode label the client renders
 web/apps/web/src/cast-remote.tsx | the episode label the client renders
+web/apps/web/src/play-castee-controls.test.tsx | the episode label the client renders
 web/apps/web/src/episode-orderings.test.tsx | the episode label the client renders
 web/apps/web/src/episode-place.ts | the episode label the client renders
 web/apps/web/src/episode-reached.ts | the episode label the client renders

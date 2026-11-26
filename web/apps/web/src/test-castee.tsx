@@ -72,7 +72,7 @@ export const catTitle = {
 };
 
 /** The cast moved on to Cat, file 5, as GET /me/casts lists it. */
-const castOnCat: typeof cast = {
+export const castOnCat: typeof cast = {
   ...cast,
   fileId: 5,
   itemId: 3,
@@ -148,6 +148,22 @@ export const catNext: {
 } = {
   upNext: { episode: { ...catEpisode, isPartway: false }, ordering: "aired" },
 };
+
+/** The receiver's file 4 paused at positionMs, as a seek leaves it. */
+export const pausedAt = (positionMs: number): Readonly<Record<string, unknown>> => ({
+  state: "paused",
+  positionMs,
+  rate: 1,
+  fileId: 4,
+  event: "seeked",
+});
+
+/** The Up next card's own button whose offer says words: the card holds its still and "Play now" too. */
+export function upNextCard(container: HTMLElement, words: string): HTMLElement | undefined {
+  return [...container.querySelectorAll<HTMLElement>("button.offer-card__take")].find(
+    (each) => each.querySelector(".offer-card__offer")?.textContent === words,
+  );
+}
 
 /** How a test draws the remote beyond its answers: what was sent, the Cast sign and the way up. */
 export interface RemoteShown {
