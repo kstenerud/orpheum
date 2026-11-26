@@ -281,6 +281,12 @@ Together session with a guest in a headless browser, the phone cast the session'
 and Silk was stopped: the guest played on throughout, and 20 s later the phone played the film
 itself, in step with the guest, with no dialog.
 
+**Walked (keys over the castee, staging, 2026-11-26, Pixel 3a casting to the lead's Fire TV, keys
+sent to the phone's page):** Space played and paused the Fire TV's film; Right moved it on 10 s and
+Left back 10 s, twice; M muted it and M again gave the sound back; F took the stage into full screen
+and out. + and - were pressed and nothing on the page showed whether the level moved. Not walked: a
+real keyboard on a computer's page.
+
 **Next batch (found on these walks):**
 
 - The sound timing clip does not play on staging: the Play page says it is no longer there
