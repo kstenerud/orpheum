@@ -149,7 +149,7 @@ func (current *session) playingState() GroupState {
 // the lead on (filmChanged).
 func (current *session) changeItem(now time.Time, sender *member, from *device, on Played, position time.Duration) {
 	current.group.fileID, current.group.itemID = on.FileID, on.ItemID
-	current.group.position, current.group.rate = position, 1
+	current.group.position, current.group.at, current.group.rate = position, now, 1
 	if sender.isHost && from.role.plays() {
 		from.playerFileID = on.FileID
 		if current.contends(from) {

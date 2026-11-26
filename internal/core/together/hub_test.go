@@ -539,3 +539,24 @@ func TestHub_EachLinkAdmitsOnePersonOnce(t *testing.T) {
 		t.Errorf("a join by a withdrawn link = %v; want ErrNoSession", err)
 	}
 }
+
+// A film put on for everyone starts where it is put on, however long the film before played since
+// the group last stood still: a guest's next, the host's player half a minute into its film and gone
+// from the lead with it, puts the next episode on from where the host is partway through it, not half
+// a minute past that (D471 §2). The group kept the time it last stood still at, and a film put on
+// while it played on moved on from there.
+func TestHub_AFilmPutOnStartsWhereItIsPutOn(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	stage.hub.MovesAlongBy(neighbourOneAlong(stage.owner.UserID))
+	host, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+	stage.command(t, host, CommandChangeItem, 7)
+	stage.ready(t, host, false)
+	stage.clock.Advance(30 * time.Second)
+	given, _ := stage.guestWith(t, Rights{CanNext: true})
+	stage.command(t, given, CommandNext, 0)
+	if film, at := stage.filmOn(stage.opened.SessionID), stage.groupPositionMs(stage.opened.SessionID); film != 8 ||
+		at != 0 {
+		t.Errorf("a guest's next put on %d at %d ms; want 8 at 0, where it was put on", film, at)
+	}
+}
