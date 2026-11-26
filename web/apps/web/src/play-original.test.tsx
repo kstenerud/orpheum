@@ -3,7 +3,8 @@
 
 import "./i18n.ts";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { heldUpright } from "./test-castee.tsx";
 
 import type { JSX } from "react";
 
@@ -20,6 +21,7 @@ let mounted: Mounted | undefined;
 afterEach(() => {
   mounted?.unmount();
   mounted = undefined;
+  vi.unstubAllGlobals();
 });
 
 const onLadder = {
@@ -78,6 +80,8 @@ async function onItsLadder(
 
 describe("the original file, chosen over the ladder (web-client.md: playback is never a black box)", () => {
   it("is offered under a film on its ladder, and asks how the film plays again when pressed", async () => {
+    // Held upright, where it lies under the film: elsewhere ⁝ holds it.
+    vi.stubGlobal("matchMedia", heldUpright);
     const asked: string[] = [];
     mounted = await onItsLadder(true, asked);
     const button = [...mounted.container.querySelectorAll("button")].find(
@@ -174,6 +178,8 @@ describe("the original chosen, waiting on the ladder for a link short of it", ()
   });
 
   it("offers the original again once the playback's try at it failed (D501 §2)", async () => {
+    // Held upright, where it lies under the film: elsewhere ⁝ holds it.
+    vi.stubGlobal("matchMedia", heldUpright);
     const tries = new OriginalTries();
     tries.movedUp();
     tries.movedDown(); // within its two minutes

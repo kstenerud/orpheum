@@ -287,6 +287,16 @@ Left back 10 s, twice; M muted it and M again gave the sound back; F took the st
 and out. + and - were pressed and nothing on the page showed whether the level moved. Not walked: a
 real keyboard on a computer's page.
 
+**Found by the owner (Firefox on a Mac, with a mouse, 2026-11-26), and built:** a page's arrival,
+focused before any key or controller had pressed, showed the focus ring, and so did the picture of
+a film the mouse had opened; and the Play page showed under the film what the overlay's menus hold
+(Start over, subtitles, sound, levelling, the timing, the dialogue boost), twice on a computer.
+Now a focus the page gives before any press, or after a pointer's, shows no ring on a device that
+is not a television (`focusAfterNoPress`), the first key moving on from it with the ring; a
+television rings it at first load, its remote being its only input. What the menus hold is
+hidden, kept mounted, wherever the overlay lies over the picture, and shows under the film only
+on a device held upright out of full screen (`OverlayHeld`); the alerts above it stay.
+
 **Next batch (found on these walks):**
 
 - The sound timing clip does not play on staging: the Play page says it is no longer there

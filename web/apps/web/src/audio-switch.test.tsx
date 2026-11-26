@@ -4,7 +4,8 @@
 import "./i18n.ts";
 
 import type { SoundChoiceCause } from "@orpheum/player";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { heldUpright } from "./test-castee.tsx";
 
 import { chooseSoundInPlace, ladderSoundLevelOf, playTrackChosen } from "./ladder-sound.ts";
 import { PlayView } from "./play.tsx";
@@ -148,6 +149,13 @@ describe("the gain of a sound switched to in place (audio-switch-and-retiming-20
 });
 
 describe("another audio track chosen in a file played as it is (the owner's answers of 2026-10-31)", () => {
+  // Held upright, where these controls lie under the film: elsewhere the overlay's menus hold them.
+  beforeEach(() => {
+    vi.stubGlobal("matchMedia", heldUpright);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
   let mounted: Mounted | undefined;
   afterEach(() => {
     mounted?.unmount();

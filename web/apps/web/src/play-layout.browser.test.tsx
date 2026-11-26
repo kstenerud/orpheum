@@ -166,3 +166,36 @@ describe("the Play page upright and on its side (D555 §8)", () => {
     expect(document.querySelector(".page-controls")).toBeNull();
   });
 });
+
+/**
+ * What the overlay's menus hold (overlay-held.tsx) as the film's page draws it: each block of it,
+ * mounted, and whether any is shown.
+ */
+function overlayHeld(): { readonly isMounted: boolean; readonly isShown: boolean } {
+  const blocks = [...document.querySelectorAll<HTMLElement>(".play__overlay-held")];
+  return {
+    isMounted: blocks.some((block) => block.textContent.includes("Level loudness")),
+    isShown: blocks.some((block) => block.getClientRects().length > 0),
+  };
+}
+
+// The owner, 2026-11-26, on a computer: the overlay's menus hold these, so under the film they
+// showed twice.
+describe("what the overlay's menus hold, under the film (D555 §8, D407 §8)", () => {
+  it("is hidden on a computer, whose overlay's menus hold it, and kept mounted", async () => {
+    await playPageAt(1280, 800);
+    expect(overlayHeld()).toEqual({ isMounted: true, isShown: false });
+  });
+
+  it("is hidden on a phone on its side, whose controls lie over the picture", async () => {
+    heldByAFinger();
+    await playPageAt(844, 390);
+    expect(overlayHeld()).toEqual({ isMounted: true, isShown: false });
+  });
+
+  it("shows under the film on a phone held upright out of full screen", async () => {
+    heldByAFinger();
+    await playPageAt(390, 844);
+    expect(overlayHeld()).toEqual({ isMounted: true, isShown: true });
+  });
+});

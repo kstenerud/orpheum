@@ -455,8 +455,10 @@ function useReportedPlayState(
 }
 
 /**
- * What sits under a playing video: "Start over", the subtitle menu and offset, finding subtitles,
- * the audio track, levelling and the sound's offset, the choices held in PlayerTracksContext. It
+ * What sits under a playing video: the alerts that the playback was stopped or its place not kept,
+ * always; then "Start over", the subtitle menu and offset, finding subtitles, the audio track,
+ * levelling and the sound's offset, the choices held in PlayerTracksContext, shown only on a device
+ * held upright out of full screen, the overlay's menus holding them elsewhere (OverlayHeld). It
  * keeps the playback's play state on the server, starting where the person left the file.
  */
 function UnderTheVideo(
@@ -625,7 +627,8 @@ function menusWaysOf(
 /**
  * What the Play page draws under the film, by the way it plays: what sits under every video, the
  * dialogue boost's switch where the sound offers it, and on a ladder the original's offer, and word
- * that it cannot keep up, which a host's session tells everyone (D247 §8).
+ * that it cannot keep up, which a host's session tells everyone (D247 §8); the switch and the offer
+ * shown only where the overlay's menus are not drawn (OverlayHeld).
  */
 function PlayUnder(props: PlayProps & FilmParts): JSX.Element {
   const { boost } = usePlayerTracks();

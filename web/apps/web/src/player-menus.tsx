@@ -86,7 +86,8 @@ type OpenMenu = "volume" | "subtitles" | "audio" | "more" | "find" | "testers" |
  * the row of volume sliders, where the overlay shows it (D407 §10, D440 §2); Talk beside it in a
  * Watch Together session, on a device with a microphone (SessionTalk, D440 §3); Subtitles, Off, the film's
  * subtitle tracks and Find subtitles; Sound track, the audio tracks, where there are more than one; ⁝
- * (Settings), the rest of what lies under the film outside full screen. Subtitles and Sound track are two
+ * (Settings), the rest of what lies under the film on a device held upright out of full screen, hidden
+ * there wherever these menus are drawn (overlay-held.tsx). Subtitles and Sound track are two
  * menus, each a button of its own, not one panel (the owner, 2026-11-04), and each opens on its
  * current choice with a choice either side in view where there are (DropDown, D408 §3). Each reads and writes the film's choices in
  * PlayerTracksContext, so a choice here is the one under the film. onOpenChange is told whether one

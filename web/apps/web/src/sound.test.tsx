@@ -3,7 +3,8 @@
 
 import "./i18n.ts";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { heldUpright } from "./test-castee.tsx";
 
 import type { PlaybackDecision } from "./watching.ts";
 import { Play, PlayView } from "./play.tsx";
@@ -99,6 +100,13 @@ describe("how a device makes sound, asked of no one (D336 §4)", () => {
 });
 
 describe("the dialogue boost over the original (D336 §3)", () => {
+  // Held upright, where these controls lie under the film: elsewhere the overlay's menus hold them.
+  beforeEach(() => {
+    vi.stubGlobal("matchMedia", heldUpright);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
   it("is offered where the track has a centre to raise, and turned on asks again from where the video stands", async () => {
     const heard: Heard[] = [];
     const asked: { cause: string; at: unknown }[] = [];
@@ -252,6 +260,13 @@ describe("the dialogue boost's switch", () => {
 });
 
 describe("the dialogue boost on a film's ladder", () => {
+  // Held upright, where these controls lie under the film: elsewhere the overlay's menus hold them.
+  beforeEach(() => {
+    vi.stubGlobal("matchMedia", heldUpright);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
   /** A film on its ladder: its surround track's standard mix and boosted one. */
   function onLadder(isDialogueBoostOn: boolean): PlaybackDecision {
     const converted = {
@@ -383,6 +398,13 @@ function standVideoAt(positionS: number): void {
 }
 
 describe("another audio track, chosen mid-film (D230 §5)", () => {
+  // Held upright, where these controls lie under the film: elsewhere the overlay's menus hold them.
+  beforeEach(() => {
+    vi.stubGlobal("matchMedia", heldUpright);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
   it("asks how the film plays again from where the video stands, not from its beginning", async () => {
     const asked: { cause: string; at: unknown }[] = [];
     mounted = await mount(

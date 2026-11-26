@@ -971,7 +971,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   §1, §5, D555 §8), its play and pause larger than the rest: its rows, Up and the
   convenience area (Up next, Still watching, when the film ends), the timeline, whose arrows are
   commands (`data-focus-arrows-are-commands`), and the buttons, ⏮ ⏪ ▶ ⏩ ⏭ and 🔈 💬 🎧 ⁝ ⤢, with
-  the subtitle, audio and more menus (`src/player-menus.tsx`, D407 §8); a press of play that plays or
+  the subtitle, audio and more menus (`src/player-menus.tsx`, D407 §8), which hold what lies under the
+  film upright, so that is hidden wherever they are drawn, kept mounted (`src/overlay-held.tsx`; the
+  owner, 2026-11-26: a computer showed it twice; `src/play-layout.browser.test.tsx`); a press of play that plays or
   Down from the buttons puts focus on the video so the overlay hides (D407 §6), and + and − show the
   volume they leave a moment (D407 §10). 🔈 shows where there is mixing to do (`controlsShown`'s
   `hasVoicesToMix`): always on a computer with no touch screen, and on a television, a touch screen
