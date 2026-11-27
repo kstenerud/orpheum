@@ -237,6 +237,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | schema_meta, schema_step | persistent.db | runner record | yes | — |
 | job | cache.db | T4 | no | correct (D231 §3): level-triggered by the queue's six sweeps (§1) |
 | node_attempt | cache.db | T4 (each job given to a node, by attempt token; D234 §7) | no | lost with cache.db: the node's later word is for no attempt, and the job runs again |
+| node_run_speed | cache.db | T4 (each fair run of a quality a node made, the last five of a kind and quality) | no | since cache schema 58 (start-quality-by-node-speed.md §3); lost with cache.db: a start is judged by its node's trials until three fair runs are kept again |
 | resource_use | cache.db | TO (measured each minute, kept a month) | no | in cache.db since step 0070 (D426 §9), so the hourly backup can skip an unchanged persistent.db; lost with cache.db: the System page's hours start over |
 | own_picture_given_up (the films whose own picture each device could not play) | persistent.db | TO (a player's report) | yes | in persistent.db (step 0088, D493), so a restart keeps it, where the core's memory lost it; its rows deleted with the device or the file |
 | unknown_failure (each failure of unknown cause, with its error and output whole, the version, when and how many times) | persistent.db | TO (the work's own report of its failure) | yes | in persistent.db (step 0090, D511), so a restart tries each once more and the failures can be taken out of a server; a row is deleted when its work succeeds |

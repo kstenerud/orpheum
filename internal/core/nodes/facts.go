@@ -6,6 +6,8 @@ import (
 	"cmp"
 	"context"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -114,6 +116,23 @@ func (service *Service) SpeedTrials(nodeID int64) []nodeproto.SpeedTrial {
 		return nil
 	}
 	return slices.Clone(node.status.SpeedTrials)
+}
+
+// SpeedKey is what a node's speed is measured under, as its last hello said: its FFmpeg's version and
+// SHA-256, its chosen encoder and the quality recipe, which its speed trials are kept under too
+// (internal/node/speedtrial's Key), so a node whose one changed starts its runs' figures over
+// (start-quality-by-node-speed.md §3); empty when it has not said hello since the core started.
+func (service *Service) SpeedKey(nodeID int64) string {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	node, found := service.nodesHeardSinceStart[nodeID]
+	if !found {
+		return ""
+	}
+	hello := node.hello
+	return strings.Join([]string{
+		hello.FFmpegVersion, hello.FFmpegSha256, hello.Hardware.ChosenEncoder, strconv.Itoa(nodeproto.QualityRecipe),
+	}, " ")
 }
 
 // keepStatus keeps what a node's status says about it. A prepared directory whose disk is within

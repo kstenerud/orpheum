@@ -39,12 +39,12 @@ func (service *Service) StartOnLadder(
 	}
 	chosen, isBelowTheLowest := film.startingPicture(offered.pictures, linkKbps, sharePercent)
 	held := film.heldByUpload(offered, playback, chosen)
-	fast, expectedSpeedPercent := service.heldByNodeSpeed(film, offered, held)
+	fast, expectedSpeedPercent, expectedSpeedFrom := service.heldByNodeSpeed(ctx, film, offered, held)
 	return service.startAt(ctx, playback, film, offered, chosenPicture{
 		stream: offered.pictures[fast], isBelowTheLowest: isBelowTheLowest, chunk: film.grid.chunkAt(positionMs),
 		isHeldByUpload: held != chosen, sharePercent: sharePercent,
 		uploadCeiling: offered.pictures[held], bound: startBoundOf(linkKbps, chosen, held, fast),
-		expectedSpeedPercent: expectedSpeedPercent,
+		expectedSpeedPercent: expectedSpeedPercent, expectedSpeedFrom: expectedSpeedFrom,
 	})
 }
 

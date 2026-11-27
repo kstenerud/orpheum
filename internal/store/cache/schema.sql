@@ -6,7 +6,7 @@
 -- A job's kind is checked in Go where a job is written (internal/core/jobs' Enqueue, against
 -- jobs.Kinds()), not by a CHECK here, since version 54: a new kind changes nothing here, so it
 -- discards no cache (the code audit of 2026-11-21, finding 2).
--- cache schema version 57
+-- cache schema version 58
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -264,3 +264,31 @@ CREATE TABLE trickplay_sheet (                             -- trickplay.md secti
 CREATE INDEX trickplay_sheet_file ON trickplay_sheet(sheet_sha256_hex);
 -- The sweep's read of the runs ended at the current version (ListTrickplaysEnded).
 CREATE INDEX trickplay_version ON trickplay(version);
+
+-- Each fair run of a quality a node made, alone on it, at least half a minute of film
+-- (start-quality-by-node-speed.md section 3): once three of a node's runs of a kind of film and a
+-- quality are kept, their middle one is what the core expects of the node there, over its start-up
+-- trials' (internal/core/chunks). Kept under the node's FFmpeg, encoder and quality recipe
+-- (speed_key), so a node whose one changed starts them over, as its trials do; only the last
+-- chunks.runSpeedsKept of a kind and quality are kept. Since cache schema version 58. A discarded
+-- cache forgets them: the trials judge again until runs are counted anew.
+CREATE TABLE node_run_speed (                              -- start-quality-by-node-speed.md section 3
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,  -- the order they ended in
+  node_id        INTEGER NOT NULL,       -- persistent.db's node that made it
+  -- Its FFmpeg's version and SHA-256, its chosen encoder and the quality recipe, as its hello said.
+  speed_key      TEXT NOT NULL CHECK (speed_key <> ''),
+  -- The kind of film: its picture's codec as the probe names it, its bit depth and its height.
+  codec          TEXT NOT NULL CHECK (codec <> ''),
+  bit_depth      INTEGER NOT NULL CHECK (bit_depth >= 0),
+  height         INTEGER NOT NULL CHECK (height >= 0),
+  -- The quality made: its bit rate and height.
+  quality_kbps   INTEGER NOT NULL CHECK (quality_kbps > 0),
+  quality_height INTEGER NOT NULL CHECK (quality_height > 0),
+  speed_percent  INTEGER NOT NULL CHECK (speed_percent > 0),  -- the film made over the run's time
+  film_made_ms   INTEGER NOT NULL CHECK (film_made_ms > 0),
+  decoded_on     TEXT NOT NULL CHECK (decoded_on IN ('gpu', 'cpu')),
+  made_at        INTEGER NOT NULL
+) STRICT;
+-- A start's read of a node's runs of a kind (ListNodeRunSpeedsOfKind), and the trim to the last kept.
+CREATE INDEX node_run_speed_kind ON node_run_speed(node_id, codec, bit_depth, height, quality_kbps,
+  quality_height);

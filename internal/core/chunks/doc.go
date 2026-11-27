@@ -35,6 +35,15 @@
 //     TestStartOnLadder_AStartIsHeldToAQualityItsNodeMakesFast and
 //     TestTrialLineFor_TakesTheNearestKindNoEasierElseTheSlowest.
 //
+//   - A node's fair runs of a quality, finished, alone on it and of fairRunFilmMs of film or more, are
+//     kept in cache.db's node_run_speed under its speed key, the film's kind and the quality, the
+//     last runSpeedsKept; once runsToTakeOver of a kind and quality are kept their median judges that
+//     quality at a start, over the trials', which judge the rest; a run under another key starts
+//     them over; the start's log line says which judged it (start-quality-by-node-speed.md §3).
+//     Enforced by TestStartOnLadder_ANodesFairRunsTakeOverFromItsTrials,
+//     TestKeepRunSpeed_KeepsOnlyTheLastRuns and
+//     TestKeepRunSpeed_FiguresOutlastAReopenedCacheAndStartOverOnANewKey.
+//
 //   - A film whose node encodes the lowest quality slower than chunkRunSlowestSpeedPercent
 //     offers only its own picture, copied; a player that cannot decode it is ErrTooSlowToEncode
 //     (D457). A node whose speed is not known offers its whole ladder. Enforced by

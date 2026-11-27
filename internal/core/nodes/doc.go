@@ -11,6 +11,9 @@
 //     core-boundary and TestArch_CoreNeverExecs.
 //   - A node's speed trials are kept from its last status, in memory, for the start's choice of quality
 //     (start-quality-by-node-speed.md §1). TestSpeedTrials_AreKeptFromTheNodesLastStatus.
+//   - A node's speed key, which its runs' figures are kept under, changes with its FFmpeg's version or
+//     build, its chosen encoder and the quality recipe (start-quality-by-node-speed.md §3).
+//     TestSpeedKey_ChangesWithTheNodesFFmpegAndEncoder.
 //   - A node is enrolled once per name (D207), and its hello asks for a scan of each of its roots a
 //     library covers, and no other, when shouldScanOnNodeHello says so: a folder is scanned only
 //     once it is in a library, which says what kind of thing it holds (the owner, 2026-10-02).

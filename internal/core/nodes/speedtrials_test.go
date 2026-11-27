@@ -37,3 +37,40 @@ func TestSpeedTrials_AreKeptFromTheNodesLastStatus(t *testing.T) {
 		t.Errorf("a node never heard has trials %+v; want none", got)
 	}
 }
+
+// A node's speed key changes with its FFmpeg's version or build and with its chosen encoder, as its
+// hello says them, so its runs' figures start over (start-quality-by-node-speed.md §3); a node not
+// heard has none.
+func TestSpeedKey_ChangesWithTheNodesFFmpegAndEncoder(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	hello := nodeproto.Hello{
+		Name: "local", RootPaths: []string{"/media"}, FFmpegVersion: "7.1", FFmpegSha256: "ab12",
+		Hardware: nodeproto.Hardware{ChosenEncoder: nodeproto.EncoderX264},
+	}
+	reply := harness.hello(t, hello)
+	first := harness.service.SpeedKey(reply.NodeID)
+	if first == "" {
+		t.Fatal("a node heard has no speed key")
+	}
+	if got := harness.service.SpeedKey(reply.NodeID + 1); got != "" {
+		t.Errorf("a node never heard has the speed key %q; want none", got)
+	}
+	keys := map[string]string{"first": first}
+	for name, changed := range map[string]func(*nodeproto.Hello){
+		"FFmpeg's version": func(hello *nodeproto.Hello) { hello.FFmpegVersion = "7.2" },
+		"FFmpeg's build":   func(hello *nodeproto.Hello) { hello.FFmpegSha256 = "cd34" },
+		"the encoder":      func(hello *nodeproto.Hello) { hello.Hardware.ChosenEncoder = nodeproto.EncoderVAAPI },
+	} {
+		next := hello
+		changed(&next)
+		again := harness.hello(t, next)
+		key := harness.service.SpeedKey(again.NodeID)
+		for before, earlier := range keys {
+			if key == earlier {
+				t.Errorf("a changed %s leaves the speed key %q as %s's", name, key, before)
+			}
+		}
+		keys[name] = key
+	}
+}

@@ -252,6 +252,7 @@ func CacheTablesInADiscard() map[string]TableInADiscard {
 		"rematch":         {OutsideADiscard, "", "the rescan's own list to match again (D357)", ""},
 		"node_attempt":    {OutsideADiscard, "", "work given to a node, in progress (D234 §7)", ""},
 		"resource_use":    {OutsideADiscard, "", "telemetry, of no video", ""},
+		"node_run_speed":  {OutsideADiscard, "", "a node's speed, of no video's own", ""},
 		"art_served":      {OutsideADiscard, "", "when an image was last served (D212 §6), for its eviction", ""},
 	}
 }

@@ -1601,6 +1601,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `chunk_store` | cache.db | `internal/core/chunks` | made on a store's first run; its make_chunks jobs target it (D247 §10) |
 | `job` | cache.db | `internal/store` | the job queue's storage, `JobStorage`, which `internal/platform/jobqueue` drives and `internal/core/jobs` uses (D231 §2) |
 | `match_candidate` | cache.db | `internal/core/identify` | |
+| `node_run_speed` | cache.db | `internal/core/chunks` | each node's last fair runs of a quality, by its FFmpeg, encoder and recipe, the film's kind and the quality, which judge a start once three are kept (start-quality-by-node-speed.md §3) |
 | `node_attempt` | cache.db | `internal/core/nodes` | each job given to a node, by its attempt token (D234 §7) |
 | `rescan` | cache.db | `internal/core/identify` | an admin's rescan in progress, from its request to its end (D357) |
 | `rematch` | cache.db | `internal/core/identify` | each film and series a rescan matches again, with what its files say (D357) |

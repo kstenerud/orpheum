@@ -3,8 +3,10 @@
 package chunks
 
 import (
+	"context"
 	"slices"
 
+	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -130,35 +132,67 @@ func trialLineFor(trials []nodeproto.SpeedTrial, picture nodeproto.ProbeStream) 
 }
 
 // heldByNodeSpeed is the place among the offered pictures, highest first, a start at from takes so
-// its node is expected to make it at startSpeedPercent or faster (plan §2), and the speed expected of
-// it: from or lower, the film's own picture copied passing, as nothing is made of it; the lowest when
-// none passes; from, at speed 0, where the node's trials measured nothing, as before they did.
-func (service *Service) heldByNodeSpeed(film cutFilm, offered offer, from int) (place, speedPercent int) {
+// its node is expected to make it at startSpeedPercent or faster (plan §2), the speed expected of it
+// and where that came from: from or lower, the film's own picture copied passing, as nothing is made
+// of it; the lowest judged when none passes; from, at speed 0, where nothing was measured, as before.
+// A quality is judged by its node's fair runs of the film's kind and it where they took over, else by
+// the trials' line (nodeSpeeds.of, plan §3).
+func (service *Service) heldByNodeSpeed(
+	ctx context.Context, film cutFilm, offered offer, from int,
+) (place, speedPercent int, source SpeedFrom) {
 	if service.encoders == nil {
-		return from, 0
+		return from, 0, ""
 	}
-	line, isMeasured := trialLineFor(service.encoders.SpeedTrials(film.file.NodeID), film.picture)
-	if !isMeasured {
-		return from, 0
-	}
-	width, height := film.picture.Video.Width, film.picture.Video.Height
-	speedOf := func(picture Stream) float64 {
-		quality := float64(picture.Quality.Height)
-		pixels := quality * quality * trialPictureWidth / trialPictureHeight
-		if width > 0 && height > 0 {
-			pixels = quality * quality * float64(width) / float64(height)
-		}
-		return line.speedPercentAt(pixels)
-	}
+	speeds := service.nodeSpeedsFor(ctx, film)
 	last := len(offered.pictures) - 1
 	for index := from; index <= last; index++ {
 		picture := offered.pictures[index]
 		if picture.Kind != nodeproto.StreamQuality {
-			return index, 0
+			return index, 0, ""
 		}
-		if speed := speedOf(picture); speed >= startSpeedPercent || index == last {
-			return index, int(speed)
+		speed, source, isJudged := speeds.of(picture.Quality)
+		if !isJudged {
+			continue
+		}
+		if speed >= startSpeedPercent || index == last {
+			return index, int(speed), source
 		}
 	}
-	return from, 0
+	return from, 0, ""
+}
+
+// nodeSpeeds is what a film's node is expected to make its qualities at: its fair runs' figure of
+// each quality they took over at, and its trials' line for the rest (plan §3).
+type nodeSpeeds struct {
+	ran                         map[qualities.Quality]int
+	line                        trialLine
+	isTried                     bool
+	pictureWidth, pictureHeight int
+}
+
+// nodeSpeedsFor are the speeds film's node is expected to make its qualities at.
+func (service *Service) nodeSpeedsFor(ctx context.Context, film cutFilm) nodeSpeeds {
+	nodeID := film.file.NodeID
+	line, isTried := trialLineFor(service.encoders.SpeedTrials(nodeID), film.picture)
+	return nodeSpeeds{
+		ran: service.runSpeedsOf(ctx, nodeID, kindOf(film.picture)), line: line, isTried: isTried,
+		pictureWidth: film.picture.Video.Width, pictureHeight: film.picture.Video.Height,
+	}
+}
+
+// of is the speed quality is expected to be made at and where it came from: the runs' figure where
+// they took over, else the trials' line at its pixels in the film's shape; false with neither.
+func (speeds nodeSpeeds) of(quality qualities.Quality) (float64, SpeedFrom, bool) {
+	if speed, hasRuns := speeds.ran[quality]; hasRuns {
+		return float64(speed), SpeedFromRuns, true
+	}
+	if !speeds.isTried {
+		return 0, "", false
+	}
+	height := float64(quality.Height)
+	pixels := height * height * trialPictureWidth / trialPictureHeight
+	if speeds.pictureWidth > 0 && speeds.pictureHeight > 0 {
+		pixels = height * height * float64(speeds.pictureWidth) / float64(speeds.pictureHeight)
+	}
+	return speeds.line.speedPercentAt(pixels), SpeedFromTrial, true
 }

@@ -58,9 +58,11 @@ type Offer struct {
 	// StartBound is what bounded the start on a ladder, and ExpectedSpeedPercent how fast its node is
 	// expected to make the quality, in percent of real time, by its speed trials: 0 for the film's own
 	// picture copied, a node whose trials measured nothing, or a start not on a ladder's own
-	// (start-quality-by-node-speed.md §2).
+	// (start-quality-by-node-speed.md §2); ExpectedSpeedFrom whether it came from the trials or the
+	// node's fair runs of the film's kind and the quality (§3), empty with no speed.
 	StartBound           StartBound
 	ExpectedSpeedPercent int
+	ExpectedSpeedFrom    SpeedFrom
 	// SoundStreamName is the stream of the sound playing (playingSoundOf), empty for a film with
 	// none, and FromMs where in the film both are made from: what the playback wants until its player
 	// says (D309 §1).
@@ -164,10 +166,12 @@ type chosenPicture struct {
 	sharePercent int64
 	// uploadCeiling is the highest picture within the playback's StartAtMostKbps, stream or higher;
 	// bound what held the start where it is, and expectedSpeedPercent how fast its node is expected
-	// to make it, 0 when not judged: the start on a ladder's alone (StartOnLadder).
+	// to make it, 0 when not judged, and expectedSpeedFrom where that came from: the start on a
+	// ladder's alone (StartOnLadder).
 	uploadCeiling        Stream
 	bound                StartBound
 	expectedSpeedPercent int
+	expectedSpeedFrom    SpeedFrom
 }
 
 // startAt starts the runs of the chosen picture of the film's and the playback's starting sound from
@@ -199,6 +203,7 @@ func (service *Service) startAt(
 		IsHeldByUpload:       chosen.isHeldByUpload,
 		StartBound:           chosen.bound,
 		ExpectedSpeedPercent: chosen.expectedSpeedPercent,
+		ExpectedSpeedFrom:    chosen.expectedSpeedFrom,
 		FromMs:               film.grid.StartsMs[chunk],
 		LinkSharePercent:     chosen.sharePercent,
 		IsOnTime:             film.kind == OnTime,

@@ -319,6 +319,9 @@ func (nodes *fakeNodes) SpeedTrials(nodeID int64) []nodeproto.SpeedTrial {
 	return nodes.speedTrials
 }
 
+// SpeedKey is none: no node's runs are kept.
+func (*fakeNodes) SpeedKey(int64) string { return "" }
+
 // SelfUses are what the connected nodes said they use, as the test set them.
 func (nodes *fakeNodes) SelfUses(context.Context) []corenodes.NodeSelfUse { return nodes.selfUses }
 

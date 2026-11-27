@@ -18,6 +18,12 @@ func (triedAt) EncodeSpeedPercent(int64) int { return 0 }
 
 func (trials triedAt) SpeedTrials(int64) []nodeproto.SpeedTrial { return trials }
 
+// SpeedKey is one key for every node: its runs are kept under it.
+func (triedAt) SpeedKey(int64) string { return testSpeedKey }
+
+// testSpeedKey is the key every node's speed is measured under in a test.
+const testSpeedKey = "7.1 ab12 libx264 1"
+
 // kindTried is a kind's two trials, its top quality, 8 Mb/s at its own height, made at topPercent
 // of real time, and the lowest, 400k at 360p, at lowestPercent, as a node's trials say them.
 func kindTried(codec string, bitDepth, height, topPercent, lowestPercent int) []nodeproto.SpeedTrial {

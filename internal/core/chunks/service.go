@@ -112,11 +112,13 @@ type HoldBack interface {
 
 // Encoders say whether a node encodes on a GPU, how fast it encodes the lowest quality, in percent
 // of real time, zero for unmeasured (D457), and its start-up speed trials, none before they end
-// (start-quality-by-node-speed.md §1): nodes.Service.
+// (start-quality-by-node-speed.md §1), and the key its speed is measured under, its FFmpeg, encoder
+// and quality recipe, empty for a node not heard since the core started (§3): nodes.Service.
 type Encoders interface {
 	EncodesOnAGPU(nodeID int64) bool
 	EncodeSpeedPercent(nodeID int64) int
 	SpeedTrials(nodeID int64) []nodeproto.SpeedTrial
+	SpeedKey(nodeID int64) string
 }
 
 // Service cuts films into chunks made on request (D247 §10): the grid each is cut on, the

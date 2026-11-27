@@ -198,6 +198,8 @@ func (onAGPU) EncodeSpeedPercent(int64) int { return 0 }
 
 func (onAGPU) SpeedTrials(int64) []nodeproto.SpeedTrial { return nil }
 
+func (onAGPU) SpeedKey(int64) string { return "" }
+
 // A film whose node encodes on a GPU is cut at chunkQualitiesHardware's qualities, one encoding in
 // software at chunkQualities' (D323 §3).
 func TestOffered_TheLadderFollowsTheFilmsNodesEncoder(t *testing.T) {
@@ -268,6 +270,8 @@ func (encodesAt) EncodesOnAGPU(int64) bool { return false }
 func (speed encodesAt) EncodeSpeedPercent(int64) int { return int(speed) }
 
 func (encodesAt) SpeedTrials(int64) []nodeproto.SpeedTrial { return nil }
+
+func (encodesAt) SpeedKey(int64) string { return "" }
 
 // A film whose node encodes the lowest quality slower than chunkRunSlowestSpeedPercent offers
 // only its own picture, copied, so a player that decodes it plays it with no encode, and one that

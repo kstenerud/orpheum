@@ -414,6 +414,7 @@ func (service *Service) takeEnd(
 	switch report.State {
 	case nodeproto.RunDone:
 		service.runs.forget(command.StoreDir, command.FirstChunk)
+		service.keepRunSpeed(ctx, nodeID, command, report)
 		return nil
 	case nodeproto.RunFailed:
 		service.recordFailure(ctx, command.StoreDir, max(report.LastChunk+1, command.FirstChunk), report.Failure)
