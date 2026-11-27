@@ -90,7 +90,8 @@ same day: *"those sound fine"*.
 
 ## Questions for the owner
 
-1. **Is three times real time the mark?** On the J3455 it starts a CPU-decoded HEVC Main 10 film
+1. **Is three times real time the mark?** Answered (the owner, 2026-11-27): *"3x sounds fine. If
+   it becomes a problem we can change it"*. On the J3455 it starts a CPU-decoded HEVC Main 10 film
    at 432p (3.09) and not 1080p (2.65).
 2. **How a player started low gets up.** Answered (the owner, 2026-11-27): *"We try jumping to
    the link's quality. If that fails, we drop back down and climb slowly."* A player capped by
