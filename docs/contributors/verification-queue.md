@@ -4388,6 +4388,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   phone stood as the cast was made (a few seconds past the resume position), with no `paused` group
   change after it. Then cast a film paused here mid-film: report what the TV shows (the standing
   picture, or black) while it waits paused, and whether the phone's remote plays it.
+  *First half passed (the owner, staging, 2026-11-27: "the chromecast starts playing almost
+  immediately now"); the cast made paused is still to walk.*
 - [ ] **VQ423** — The scrub bar shows the picture of the place a remote's arrows step to, or a
   finger drags to, above its time (trickplay.md phase F3, for F4): only a real Fire TV and phone
   show whether the picture follows the press and drag, stays on the screen at both ends, and costs
