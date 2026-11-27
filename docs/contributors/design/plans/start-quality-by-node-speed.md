@@ -95,6 +95,13 @@ those to fine-tune what we believe the hardware is capable of."*
   Another run is one that makes a picture, another quality's or the scrub-bar pictures': a
   sound's or a copied picture's run costs little and goes beside every playback's picture, so
   counting it would leave no run fair (the lead's reading, 2026-11-27; the owner's to change).
+  **Found on staging, 2026-11-27:** while the scrub-bar pictures' sweep of a library runs, hours on
+  the NUC7 and longer on a slower node, it goes beside every quality's run, so none is fair and the
+  trial judges alone until the sweep ends: four finished runs of five minutes of film each said
+  they went beside another, and none was kept. The sweep runs at idle priority, so its cost to a
+  run beside it may be small, but it is not measured: the four made their film at 12, 28, 28 and
+  28 times real time, with no run alone to compare. Whether a run beside the sweep alone should count is the owner's
+  question; nothing is changed.
 - **The real figure takes over from the trial's as runs are counted:** the trial alone until
   three fair runs, then the middle one of the last several. A kind the trials never tried gets a
   figure of its own this way, and no longer borrows its neighbour's.

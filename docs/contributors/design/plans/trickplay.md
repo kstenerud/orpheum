@@ -9,7 +9,8 @@
   owner's answer to question 17 the same day: *every file, at idle priority, with a bump on
   interest*. The owner answered its five questions the same day (at the end). F1 is built (the
   node, node protocol 74, 2026-11-27), F2 too (the core), and F3 (the API and the scrub bar, node
-  protocol 76, cache schema 57, VQ423, 2026-11-27); F4, the walk on devices, is next.
+  protocol 76, cache schema 57, VQ423, 2026-11-27). F4's walk was done on the lead's own devices on
+  staging the same day (its findings under §6); the owner's run of VQ423 is what is left.
 - **Depends on:** [b1.md](b1.md), [work-scheduling.md](work-scheduling.md) (D329),
   [artwork.md](artwork.md) (D212)
 
@@ -158,6 +159,23 @@ Each phase ends green, with tests that fail when reverted (D190).
 | F2 | **The core:** the job, the sweep, the table, interest's raise, the store, D530's eviction for every cache entry, forgetting | A swept library queues every video once; a page shown raises its film's job; FFmpeg's failure is not asked again |
 | F3 | **The API and the scrub bar** | Hovering, dragging and arrow keys show the right picture of a made film; an unmade film shows the time alone (vitest and a Playwright run) |
 | F4 | **On devices:** a VQ item for the Fire TV and a phone, and the staging library swept start to end with playback unaffected | The owner's run |
+
+### What the lead's walk of F4 found (2026-11-27)
+
+On staging, on the lead's Fire TV and phone (VQ423's steps, before the owner's run): the picture
+shows within about 100 ms of a press on the Fire TV and about 200 ms of a touch on the phone, stays
+wholly on the screen at the film's first and last minutes, and vanishes about two seconds after the
+last press; a film with no pictures made shows its time alone. The film's start was no slower.
+
+Not checked, for the owner's run to judge: a key truly held down on the Fire TV (the walk's presses
+were single ones), and a drag of the cast remote's bar.
+
+For the next batch, not built:
+
+- **A Right after the Fire TV's controls hid themselves seeks with no picture.** The film steps ten
+  seconds on, and the picture shows again only once Down has brought the controls back.
+- **The phone's video stood paused after the walk's drag.** The drag was a made one, not a finger's,
+  so whether a real drag leaves it paused is not known.
 
 ## 7. Tests (the main ones)
 
