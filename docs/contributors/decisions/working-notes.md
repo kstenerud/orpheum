@@ -32211,7 +32211,8 @@ owner's phone was refused allocations on production ("I'd rather we find the roo
 trying quick fixes"). It adds to D558 §4 and D559 §1, and amends neither.
 
 **Status:** decided. §1 has code and runs on the edge VPS; §2 has code and runs on staging,
-reaching production with its next Connect package; §3's figure is proposed to the owner.
+reaching production with its next Connect package; §3's figure stays 16 allocations a client
+credential (the owner, 2026-11-27: "16 is fine"), which the relay already has.
 
 **What the relay's lines showed.** The phone, with three local addresses, made six allocations a
 connection: one for each address and each of the relay's two URLs. The page grew to four

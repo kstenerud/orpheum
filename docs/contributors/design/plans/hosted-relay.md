@@ -138,12 +138,20 @@ the log says whether a device took the relay needlessly (the owner, 2026-11-26):
    offer that carries a relayed candidate, and the ports and limits grow once the owner has
    widened the firewall. Production's discovery names the relay after that.
 3. **A core has no relay credential for up to five minutes after the discovery restarts**: it
-   takes one with its heartbeat alone. Open.
+   takes one with its heartbeat alone. Open; proposed to the owner, 2026-11-27, who asked how
+   others handle it: the core asks how it stands as soon as its signalling connection to the
+   discovery is dialled again, which a restart always causes within about a second (what a
+   Tailscale node does when its control connection returns), and also when an offer carries a
+   relayed candidate while it holds no relay credential or one near its end (what a Matrix or
+   Twilio client does: fetch by need, before the expiry).
 4. **The relay says nothing of an allocation it refuses.** A line for each refusal, with which
    limit, would have named finding 1 at once. It now does (§5 item 2).
 5. **A relay that does not answer holds the core's answer** to an offer with a relayed candidate
    until the core has a reflexive candidate, or for five seconds and then fails it where it has no
-   STUN server (seen in D559 §2's test, 2026-11-26). Before D559 §2 that was every offer. Open.
+   STUN server (seen in D559 §2's test, 2026-11-26). Before D559 §2 that was every offer. Open;
+   proposed to the owner, 2026-11-27: the core answers with the candidates it has once a relay
+   has had two seconds, STUN's bound, failing only with none at all; and a relay that did not
+   answer is left out of the next offers for a minute, so one dead relay costs one wait.
 6. **Firefox never connected through the relay**, on the owner's phone on production and on
    staging: the relay's refusal of a permission for the core's other candidates carries no error
    code, and Firefox then drops every relayed candidate. Decided as D560: every permission is
