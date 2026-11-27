@@ -71,6 +71,7 @@ async function onItsLadder(
         "GET /files/2/waits": [200, {}],
         "GET /files/2/availability": [200, {}],
         "GET /files/2/up-next": [200, {}],
+        "GET /files/2/trickplay": [404, {}],
         "POST /playback/t/report": [200, {}],
         "DELETE /playback/t": [204, null],
       }),
@@ -128,6 +129,7 @@ describe("the original file, chosen over the ladder (web-client.md: playback is 
         servedBy({
           "GET /files/2/waits": [200, {}],
           "GET /files/2/up-next": [200, {}],
+          "GET /files/2/trickplay": [404, {}],
           "DELETE /playback/t": [204, null],
         }),
       ),

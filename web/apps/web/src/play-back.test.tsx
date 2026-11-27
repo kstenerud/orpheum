@@ -32,6 +32,7 @@ describe("a Play page the browser's Back returns to (D383 §1)", () => {
       ],
       "GET /files/2/waits": [200, {}],
       "GET /files/2/up-next": [200, {}],
+      "GET /files/2/trickplay": [404, {}],
       "DELETE /playback/t": [204, null],
     });
     services.session.signIn("token", { deviceId: 5 });

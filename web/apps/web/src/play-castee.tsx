@@ -31,6 +31,7 @@ import {
   type PlaysHereFrom,
 } from "./castee-session.tsx";
 import { isCasteeWaitingForOKIn, useCasteeTarget, type WorkedSession } from "./castee-target.ts";
+import { ScrubPicturesContext, useScrubPictures } from "./scrub-pictures.tsx";
 import { EndsAt, leftMsOf } from "./convenience-area.tsx";
 import { useLeavesFullScreen } from "./film-fullscreen.ts";
 import { useShowsARemote } from "./hidden-need.ts";
@@ -270,7 +271,7 @@ function CasteePlaying(props: {
             </CasteeCentre>
           }
         />
-        <PadTimeline source={target} isDisabled={isDisabled} hasArrowsAsCommands={false} />
+        <CasteeTimeline fileId={sent.fileId} source={target} isDisabled={isDisabled} />
         <RemotePad
           source={target}
           moves={moves}
@@ -287,6 +288,27 @@ function CasteePlaying(props: {
         />
       </div>
     </PlayUpwardContext>
+  );
+}
+
+/**
+ * The remote's timeline, with the film's scrub-bar pictures (scrub-pictures.tsx), loaded at once, as
+ * the film plays on the television, not here.
+ */
+function CasteeTimeline(props: {
+  readonly fileId: number;
+  readonly source: Parameters<typeof PadTimeline>[0]["source"];
+  readonly isDisabled: boolean;
+}): JSX.Element {
+  const pictures = useScrubPictures(props.fileId, "elsewhere");
+  return (
+    <ScrubPicturesContext value={pictures}>
+      <PadTimeline
+        source={props.source}
+        isDisabled={props.isDisabled}
+        hasArrowsAsCommands={false}
+      />
+    </ScrubPicturesContext>
   );
 }
 

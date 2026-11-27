@@ -116,6 +116,7 @@ async function openedFromTheFilmsPage(token: string): Promise<HTMLVideoElement> 
         [`POST /playback/${token}/report`]: [204, undefined],
         "GET /files/2/waits": [200, {}],
         "GET /files/2/up-next": [200, {}],
+        "GET /files/2/trickplay": [404, {}],
         "GET /files/2/availability": [200, {}], // a failed load asks why
         [`PUT /playback/${token}/wants`]: [204, null],
         [`DELETE /playback/${token}`]: [204, null],

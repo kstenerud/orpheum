@@ -10,7 +10,9 @@
  * connection and a player following its group (plans/cut-a.md §3, §5).
  */
 
-export { apiPrefix, artPathPrefix, artUrl, createApi } from "./client.ts";
+export { apiPrefix, artPathPrefix, artUrl, createApi, trickplayPathPrefix } from "./client.ts";
+export { readScrubPictures } from "./trickplay.ts";
+export type { ScrubPictures, ScrubSheet } from "./trickplay.ts";
 export type { Api, ApiOptions, ArtSize } from "./client.ts";
 export type { components, operations, paths } from "./gen/api.ts";
 export { allPages, pageLimitMax } from "./pages.ts";

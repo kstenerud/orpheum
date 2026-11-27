@@ -76,6 +76,7 @@ async function playedToItsEnd(
       "POST /playback": [200, decision],
       "GET /files/2/waits": [200, {}],
       "GET /files/2/up-next": around,
+      "GET /files/2/trickplay": [404, {}],
       "POST /playback/t/report": [204, null],
       "PUT /playback/t/wants": [204, null],
       "DELETE /playback/t": [204, null],

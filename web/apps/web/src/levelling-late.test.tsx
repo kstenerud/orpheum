@@ -50,6 +50,7 @@ async function playedCauses(fileId: number, decision: PlaybackDecision): Promise
       "POST /playback": [200, decision],
       [`GET /files/${String(fileId)}/waits`]: [200, {}],
       [`GET /files/${String(fileId)}/up-next`]: [200, {}],
+      [`GET /files/${String(fileId)}/trickplay`]: [404, {}],
       [`GET /files/${String(fileId)}/availability`]: [200, {}],
       "POST /playback/t/report": [200, {}],
       "DELETE /playback/t": [204, null],

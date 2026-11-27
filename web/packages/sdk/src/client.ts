@@ -116,6 +116,13 @@ export type ArtSize =
 export const artPathPrefix: "/api/v1/bytes/art/" = `${apiPrefix}/bytes/art/`;
 
 /**
+ * Where every sheet of a film's scrub-bar pictures begins (GET /files/{id}/trickplay's addresses,
+ * trickplay.md), which the WebRTC transport ranks below a read as an image (D479): a sheet never
+ * holds back the film's bytes.
+ */
+export const trickplayPathPrefix: "/api/v1/bytes/trickplay/" = `${apiPrefix}/bytes/trickplay/`;
+
+/**
  * The address of one size of an image, by the source SHA-256 a title's artwork names. An <img> sends the
  * media cookie sign-in set, never a token in the address (D154).
  */

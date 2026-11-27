@@ -4388,3 +4388,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   phone stood as the cast was made (a few seconds past the resume position), with no `paused` group
   change after it. Then cast a film paused here mid-film: report what the TV shows (the standing
   picture, or black) while it waits paused, and whether the phone's remote plays it.
+- [ ] **VQ423** — The scrub bar shows the picture of the place a remote's arrows step to, or a
+  finger drags to, above its time (trickplay.md phase F3, for F4): only a real Fire TV and phone
+  show whether the picture follows the press and drag, stays on the screen at both ends, and costs
+  the film's start nothing. On staging, once a film's scrub-bar pictures are made (its
+  `GET /files/{id}/trickplay` answers, not 404), open it on the Fire TV and let it start: report
+  how soon it plays, as before. Show the controls, focus the timeline and press Right a few times,
+  then hold Left: report whether each step's picture shows above the bar with its time, matches the
+  place the film then plays from, and vanishes a moment after the last press; and whether at the
+  film's first and last minutes the picture stays wholly on the screen. On a phone's Chrome, open
+  the same film and drag the bar's marker slowly end to end: report whether the picture follows
+  the finger without lag, and whether it is above the finger, not under it. Then cast the film from
+  the phone and drag the remote's bar: report the same. Last, open a film whose pictures are not
+  made yet: report that the bar shows the time alone, as before.

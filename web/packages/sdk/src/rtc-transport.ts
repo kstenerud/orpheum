@@ -9,7 +9,7 @@
  * sends each request on the one with the fewest under way; making them is rtc-connect.ts.
  */
 
-import { apiPrefix, artPathPrefix } from "./client.ts";
+import { apiPrefix, artPathPrefix, trickplayPathPrefix } from "./client.ts";
 import { reportFailure } from "./problem.ts";
 import type { CandidatePairSeen } from "./rtc-pairs.ts";
 import {
@@ -74,10 +74,14 @@ const rungsHighestFirst: readonly Rung[] = ["waited-on", "cosmetic"];
 
 /**
  * Where a cosmetic request's path begins: an image's (artUrl, the service worker's loads of an
- * <img>), and the notes of what the person is looking at (PUT and DELETE /interest/tiles and
- * /interest/page), which tell the core what to ready and are never waited on.
+ * <img>), a sheet of a film's scrub-bar pictures (trickplayPathPrefix), and the notes of what the
+ * person is looking at (PUT and DELETE /interest/tiles and /interest/page), which tell the core what to ready and are never waited on.
  */
-const cosmeticPaths: readonly string[] = [artPathPrefix, `${apiPrefix}/interest/`];
+const cosmeticPaths: readonly string[] = [
+  artPathPrefix,
+  trickplayPathPrefix,
+  `${apiPrefix}/interest/`,
+];
 
 /** The rung the request for url waits on, read from its path. */
 export function rungOf(url: string): Rung {

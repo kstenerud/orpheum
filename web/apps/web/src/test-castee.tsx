@@ -214,6 +214,7 @@ export async function castingRemote(
     {
       "GET /me/casts": [200, { casts: [cast] }],
       "GET /files/4/up-next": [200, {}],
+      "GET /files/4/trickplay": [404, {}],
       ...filmReads,
       ...answers,
     },

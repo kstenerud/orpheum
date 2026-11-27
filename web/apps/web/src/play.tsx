@@ -68,6 +68,7 @@ import { PlayOrSendOn, type PlayedHereFrom } from "./cast-to.tsx";
 import { WhoseFilm } from "./together-guest-play.tsx";
 import { useIsOpenedOverAFilm, WindowHeldForTheFilm } from "./play-window-held.tsx";
 import { useNotesPlayingHere } from "./playing-here.ts";
+import { ScrubPicturesContext, useScrubPictures } from "./scrub-pictures.tsx";
 import type { CopyGivenUpCause, Opened } from "./play-start-timing.ts";
 import {
   shownOf,
@@ -221,7 +222,7 @@ function PlayerView(
       <PlayTop plays={decision.plays} titleName={titleName} isOwn={isOwn}>
         <LeavesAtTheEnd video={video} isNothingNext={isNothingNext} />
         <PlayContext value={ways}>
-          <PlayArea isOwn={isOwn}>
+          <PlayArea isOwn={isOwn} fileId={fileId} video={video}>
             <FilmPlayer
               decision={props.decision}
               moved={moved}
@@ -248,15 +249,22 @@ function PlayerView(
 /**
  * The player and its notes, with the player's For testers (for-testers.tsx): the notes and tools for
  * testing, which the film filling the window hides (D418 §1), kept in ⁝'s For testers. A cast's
- * receiver has none, its notes in place.
+ * receiver has none, its notes in place; nor the film's scrub-bar pictures (scrub-pictures.tsx),
+ * which the player's timeline shows where the film plays here.
  */
-function PlayArea(props: { readonly isOwn: boolean; readonly children: ReactNode }): JSX.Element {
+function PlayArea(props: {
+  readonly isOwn: boolean;
+  readonly fileId: number;
+  readonly video: HTMLVideoElement | null;
+  readonly children: ReactNode;
+}): JSX.Element {
   const panel = useForTestersPanel();
+  const pictures = useScrubPictures(props.isOwn ? props.fileId : undefined, props.video);
   return (
     // A remote's first arrow starts on the video, not the trail above it (focus-navigation.ts).
     <div className="play" data-focus-container="" data-focus-start="">
       <ForTestersContext value={props.isOwn ? panel : undefined}>
-        {props.children}
+        <ScrubPicturesContext value={pictures}>{props.children}</ScrubPicturesContext>
         <ForTestersHome />
       </ForTestersContext>
     </div>

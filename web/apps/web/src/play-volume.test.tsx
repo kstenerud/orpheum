@@ -27,6 +27,7 @@ async function videoOfFilePlayedAlone(fileId: number): Promise<HTMLVideoElement>
     "POST /playback": [200, directDecision({ resumePositionMs: 0 })],
     [`GET /files/${String(fileId)}/waits`]: [200, {}],
     [`GET /files/${String(fileId)}/up-next`]: [200, {}],
+    [`GET /files/${String(fileId)}/trickplay`]: [404, {}],
     "POST /playback/t/report": [204, null],
     "PUT /playback/t/wants": [204, null],
     "DELETE /playback/t": [204, null],

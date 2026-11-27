@@ -81,7 +81,7 @@ describe("the cast remote's Stop, where the film resumes (D549)", () => {
 
   it("opens another film's Play page with no position, not 0, where none is known, as the cast ends (D555 §5)", async () => {
     const { services, sockets } = await casting(
-      { "GET /files/5/up-next": [200, {}], ...catReads },
+      { "GET /files/5/up-next": [200, {}], "GET /files/5/trickplay": [404, {}], ...catReads },
       { welcome: welcomeWithNoPlace },
     );
     await sockets.live.say({

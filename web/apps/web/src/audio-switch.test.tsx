@@ -197,6 +197,7 @@ describe("another audio track chosen in a file played as it is (the owner's answ
     "PUT /playback/t/wants": [204, null],
     "GET /files/2/waits": [200, {}],
     "GET /files/2/up-next": [200, {}],
+    "GET /files/2/trickplay": [404, {}],
     "DELETE /playback/t": [204, null],
   } as const;
 

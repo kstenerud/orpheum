@@ -126,6 +126,7 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
       {
         "GET /me/casts": [200, { casts: [cast] }],
         "GET /files/4/up-next": [200, {}],
+        "GET /files/4/trickplay": [404, {}],
         "GET /items/2": [200, metropolis],
         "GET /files/4/segments": [200, { segments: [] }],
         ...answers,
@@ -346,6 +347,7 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
     await casting(
       {
         "GET /files/4/up-next": [200, { previous: pilot }],
+        "GET /files/4/trickplay": [404, {}],
         "POST /me/casts/9/play": [200, { ...cast, fileId: 3, itemName: "Pilot" }],
       },
       heard,

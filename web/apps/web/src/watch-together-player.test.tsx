@@ -284,6 +284,7 @@ describe("the host's player in a session (D246 §5)", () => {
           "POST /playback/t/report": [200, { lowerQuality: offer }],
           "GET /files/5/waits": [200, {}],
           "GET /files/5/up-next": [200, {}],
+          "GET /files/5/trickplay": [404, {}],
           "GET /files/5/availability": [200, {}],
           "PUT /playback/t/wants": [204, null],
           "DELETE /playback/t": [204, null],
@@ -338,6 +339,7 @@ describe("the host's player in a session (D246 §5)", () => {
         {
           "GET /files/2/waits": [200, {}],
           "GET /files/2/up-next": [200, {}],
+          "GET /files/2/trickplay": [404, {}],
           "DELETE /playback/t": [204, null],
         },
         [],

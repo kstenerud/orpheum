@@ -1,13 +1,31 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
-import { act } from "react";
+import { act, useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { useSeekAhead } from "./seek-ahead.ts";
 import { enter, fire, mount, settleUntil, type Mounted } from "./test-dom.tsx";
 import { clockText } from "./date-time-text.ts";
+import type { ScrubPictures } from "./scrub-pictures.tsx";
 import { Timeline } from "./timeline.tsx";
+
+/**
+ * A 10-minute film's pictures every 10 s, 60 of them, 4 × 5 to a sheet of 160 × 90 px pictures:
+ * sheets 0 and 2 made, sheet 1, of 3:20 to 6:40, not yet.
+ */
+const pictures: ScrubPictures = {
+  intervalMs: 10_000,
+  pictureWidth: 160,
+  pictureHeight: 90,
+  columns: 4,
+  rows: 5,
+  pictureCount: 60,
+  sheets: [
+    { index: 0, url: "/api/v1/bytes/trickplay/1/a.webp" },
+    { index: 2, url: "/api/v1/bytes/trickplay/1/c.webp" },
+  ],
+};
 
 /**
  * A timeline whose seeks wait for its moves to rest restMs, as a remote's (session-remote.tsx), its
@@ -27,6 +45,14 @@ function RestingTimeline(props: {
         ahead.aim(atMs, props.restMs);
       }}
     />
+  );
+}
+
+/** The timeline of the 10-minute film with pictures, whose seeks the film makes at once. */
+function SeekingTimeline(): React.JSX.Element {
+  const [atMs, setAtMs] = useState(0);
+  return (
+    <Timeline label="Where" atMs={atMs} durationMs={600_000} pictures={pictures} onSeek={setAtMs} />
   );
 }
 
@@ -169,5 +195,82 @@ describe("a film's timeline (D369 §1)", () => {
     expect(clockText(0, "en")).toBe("0:00");
     expect(clockText(61_999, "en")).toBe("1:01");
     expect(clockText(3_725_000, "en")).toBe("1:02:05");
+  });
+
+  describe("with the film's scrub-bar pictures (trickplay.md §5)", () => {
+    /** The timeline of the 10-minute film with pictures, its slider 400 px wide from x 100. */
+    async function pictured(): Promise<HTMLInputElement> {
+      const range = await drawn(
+        <Timeline
+          label="Where"
+          atMs={0}
+          durationMs={600_000}
+          pictures={pictures}
+          onSeek={() => undefined}
+        />,
+      );
+      range.getBoundingClientRect = () => new DOMRect(100, 0, 400, 44);
+      return range;
+    }
+    const shown = (): HTMLElement | null =>
+      mounted?.container.querySelector<HTMLElement>(".timeline__pointed") ?? null;
+    const picture = (): HTMLElement | null =>
+      mounted?.container.querySelector<HTMLElement>(".timeline__picture") ?? null;
+
+    it("shows a mouse's place's picture from its sheet's cell, above its time", async () => {
+      const range = await pictured();
+      // 450 s: picture 45, sheet 2's sixth, its second row's second.
+      await fire(range, pointerAt("pointermove", 400, "mouse"));
+      expect(shown()?.textContent).toBe("7:30");
+      expect(picture()?.style.backgroundImage).toContain("/api/v1/bytes/trickplay/1/c.webp");
+      expect(picture()?.style.backgroundPosition).toBe("-160px -90px");
+      expect(picture()?.style.width).toBe("160px");
+      expect(picture()?.style.height).toBe("90px");
+      expect(shown()?.style.insetInlineStart).toBe("300px");
+      // 15 s: picture 1, sheet 0's second.
+      await fire(range, pointerAt("pointermove", 110, "mouse"));
+      expect(picture()?.style.backgroundImage).toContain("a.webp");
+      expect(picture()?.style.backgroundPosition).toBe("-160px 0px");
+    });
+
+    it("keeps the picture inside the slider at the film's start and its end", async () => {
+      const range = await pictured();
+      await fire(range, pointerAt("pointermove", 100, "mouse"));
+      expect(shown()?.style.insetInlineStart).toBe("80px");
+      await fire(range, pointerAt("pointermove", 500, "mouse"));
+      expect(shown()?.style.insetInlineStart).toBe("320px");
+      // Past the last picture's place, the last picture: 59, sheet 2's twentieth, its last cell.
+      expect(picture()?.style.backgroundPosition).toBe("-480px -360px");
+    });
+
+    it("shows the time alone where the stretch's sheet is not made, as without pictures", async () => {
+      const range = await pictured();
+      await fire(range, pointerAt("pointermove", 300, "mouse")); // 5:00, sheet 1
+      expect(shown()?.textContent).toBe("5:00");
+      expect(shown()?.style.insetInlineStart).toBe("50%");
+      expect(picture()).toBeNull();
+    });
+
+    it("shows the marker's picture while a finger drags or an arrow steps it, for a while after", async () => {
+      const range = await drawn(<SeekingTimeline />);
+      range.getBoundingClientRect = () => new DOMRect(100, 0, 400, 44);
+      const start = touchAt("touchstart", 400);
+      await fire(range, start);
+      expect(picture()?.style.backgroundPosition).toBe("-160px -90px");
+      await settleUntil(() => picture() === null);
+      await fire(range, new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+      expect(shown()?.textContent).toBe("7:30");
+      expect(picture()?.style.backgroundPosition).toBe("-160px -90px");
+    });
+
+    it("shows nothing above itself as a finger or an arrow moves it, with no pictures, as before", async () => {
+      const range = await drawn(
+        <Timeline label="Where" atMs={0} durationMs={600_000} onSeek={() => undefined} />,
+      );
+      range.getBoundingClientRect = () => new DOMRect(100, 0, 400, 44);
+      await fire(range, touchAt("touchstart", 400));
+      await fire(range, new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+      expect(shown()).toBeNull();
+    });
   });
 });

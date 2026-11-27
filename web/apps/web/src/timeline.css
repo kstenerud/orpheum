@@ -50,3 +50,25 @@
 .timeline--alone {
   grid-template-columns: minmax(0, 1fr);
 }
+
+/* The picture of the place above its time (scrub-pictures.tsx), centred on it but kept inside the
+   slider's ends (pictureCentrePx), the time under the picture. */
+.timeline__pointed--pictured {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+}
+
+/* One picture cut from its sheet by its background's position, the surface's colour while its
+   sheet loads. */
+.timeline__picture {
+  display: block;
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  background-repeat: no-repeat;
+}
+
+.timeline__picture-time {
+  padding-inline: var(--space-1);
+}

@@ -8,7 +8,8 @@
 - **Status:** AGREED — written 2026-11-21 by the agent for [b1.md](b1.md) phase F, from the
   owner's answer to question 17 the same day: *every file, at idle priority, with a bump on
   interest*. The owner answered its five questions the same day (at the end). F1 is built (the
-  node, node protocol 74, 2026-11-27); F2 is next.
+  node, node protocol 74, 2026-11-27), F2 too (the core), and F3 (the API and the scrub bar, node
+  protocol 76, cache schema 57, VQ423, 2026-11-27); F4, the walk on devices, is next.
 - **Depends on:** [b1.md](b1.md), [work-scheduling.md](work-scheduling.md) (D329),
   [artwork.md](artwork.md) (D212)
 

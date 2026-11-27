@@ -42,6 +42,7 @@ describe("a connection too slow for the lowest quality", () => {
     const services = servedBy({
       "GET /files/2/waits": [200, {}],
       "GET /files/2/up-next": [200, {}],
+      "GET /files/2/trickplay": [404, {}],
       "GET /files/2/availability": [200, {}],
       "POST /playback/t/report": [200, {}],
       "DELETE /playback/t": [204, null],
@@ -79,6 +80,7 @@ describe("a playback that fails (D241 §7)", () => {
     const services = servedBy({
       "GET /files/2/waits": [200, {}],
       "GET /files/2/up-next": [200, {}],
+      "GET /files/2/trickplay": [404, {}],
       "GET /files/2/availability": [
         200,
         { unavailable: { reason: "rootMissing", nodeName: "devnas", path: "/media/films" } },
@@ -102,6 +104,7 @@ describe("a playback that fails (D241 §7)", () => {
     const services = servedBy({
       "GET /files/2/waits": [200, {}],
       "GET /files/2/up-next": [200, {}],
+      "GET /files/2/trickplay": [404, {}],
       "GET /files/2/availability": [200, {}],
       "POST /playback/t/report": [200, {}],
       "DELETE /playback/t": [204, null],
@@ -140,6 +143,7 @@ describe("a playback that fails (D241 §7)", () => {
     const services = servedBy({
       "GET /files/2/waits": [200, {}],
       "GET /files/2/up-next": [200, {}],
+      "GET /files/2/trickplay": [404, {}],
       "GET /files/2/availability": [200, {}],
       "POST /playback/t/report": [200, {}],
       "DELETE /playback/t": [204, null],
@@ -181,6 +185,7 @@ describe("a playback that fails (D241 §7)", () => {
     const services = servedBy({
       "GET /files/2/waits": [200, {}],
       "GET /files/2/up-next": [200, {}],
+      "GET /files/2/trickplay": [404, {}],
       "GET /files/2/availability": [200, {}],
       "POST /playback/t/report": [200, {}],
       "DELETE /playback/t": [204, null],
@@ -214,6 +219,7 @@ describe("a playback its film's being unreachable stopped (the owner, 2026-10-21
         {
           "GET /files/2/waits": [200, {}],
           "GET /files/2/up-next": [200, {}],
+          "GET /files/2/trickplay": [404, {}],
           "GET /files/2/availability": [
             [200, unavailable],
             [200, unavailable],
@@ -274,6 +280,7 @@ describe("a playback its film's being unreachable stopped (the owner, 2026-10-21
         {
           "GET /files/2/waits": [200, {}],
           "GET /files/2/up-next": [200, {}],
+          "GET /files/2/trickplay": [404, {}],
           "POST /playback": [
             [200, directDecision()],
             [200, directDecision({ mediaToken: "again" })],
@@ -330,6 +337,7 @@ describe("a page that failed reports no stalls (D533 §3)", () => {
       {
         "GET /files/2/waits": [200, {}],
         "GET /files/2/up-next": [200, {}],
+        "GET /files/2/trickplay": [404, {}],
         "GET /files/2/availability": [200, {}],
         "POST /playback/t/report": [200, {}],
         "DELETE /playback/t": [204, null],

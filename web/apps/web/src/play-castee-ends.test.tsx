@@ -58,7 +58,11 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
   }
 
   it("plays the film of another page on that page, in this one's place, where the cast moved on to it, paused as the receiver had it, as the cast ends (D555 §5)", async () => {
-    const { services, sockets } = await casting({ "GET /files/5/up-next": [200, {}], ...catReads });
+    const { services, sockets } = await casting({
+      "GET /files/5/up-next": [200, {}],
+      "GET /files/5/trickplay": [404, {}],
+      ...catReads,
+    });
     await sockets.live.say({
       type: "sending",
       sending: { ...sending, fileId: 5, itemName: "Cat" },
@@ -170,7 +174,9 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
     const { services, sockets } = await casting(
       {
         "GET /files/4/up-next": [200, catNext],
+        "GET /files/4/trickplay": [404, {}],
         "GET /files/5/up-next": [200, {}],
+        "GET /files/5/trickplay": [404, {}],
         ...catReads,
       },
       heard,
@@ -190,7 +196,12 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
   it("has its address follow the cast to the episode it moves on to, in its page's place, so the page loaded again sends the old one nowhere (the lead's walk, 2026-11-26)", async () => {
     const heard: Heard[] = [];
     const { services, sockets } = await casting(
-      { "GET /files/4/up-next": [200, catNext], "GET /files/5/up-next": [200, {}], ...catReads },
+      {
+        "GET /files/4/up-next": [200, catNext],
+        "GET /files/5/up-next": [200, {}],
+        "GET /files/5/trickplay": [404, {}],
+        ...catReads,
+      },
       heard,
       { upward: filmsPage },
     );
@@ -267,6 +278,7 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
       {
         "GET /me/casts": [200, { casts: [] }],
         "GET /files/4/up-next": [200, {}],
+        "GET /files/4/trickplay": [404, {}],
         "GET /files/4/segments": [200, { segments: [] }],
       },
       [],
@@ -312,6 +324,7 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
       {
         "GET /me/casts": [200, { casts: [cast] }],
         "GET /files/4/up-next": [200, {}],
+        "GET /files/4/trickplay": [404, {}],
         "POST /me/casts/9/end": [200, { positionMs: 61_000, isPlaying: false }],
         ...filmReads,
       },

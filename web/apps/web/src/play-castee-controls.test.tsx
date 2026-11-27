@@ -95,7 +95,12 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
   it("opens on what starting the cast answered, asking for this device's casts no more (D478)", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
-      { "POST /me/casts": [200, cast], "GET /files/4/up-next": [200, {}], ...filmReads },
+      {
+        "POST /me/casts": [200, cast],
+        "GET /files/4/up-next": [200, {}],
+        "GET /files/4/trickplay": [404, {}],
+        ...filmReads,
+      },
       heard,
       "token",
     );
@@ -126,7 +131,11 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
   it("marks its page as needing its connection while hidden for as long as it is up, no film playing here (D482 §3)", async () => {
     const hiddenNeed = createHiddenNeed(document);
     const services = servedBy(
-      { "GET /me/casts": [200, { casts: [cast] }], "GET /files/4/up-next": [200, {}] },
+      {
+        "GET /me/casts": [200, { casts: [cast] }],
+        "GET /files/4/up-next": [200, {}],
+        "GET /files/4/trickplay": [404, {}],
+      },
       [],
       "token",
     );
@@ -196,6 +205,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     await casting(
       {
         "GET /files/4/up-next": [200, catNext],
+        "GET /files/4/trickplay": [404, {}],
         "POST /me/casts/9/next": [200, { ...cast, fileId: 5, itemId: 3, itemName: "Cat" }],
       },
       heard,
@@ -539,7 +549,11 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
   });
 
   it("follows what plays on the receiver as the live connection says it (D364 §3)", async () => {
-    const { sockets } = await casting({ "GET /files/5/up-next": [200, {}], ...catReads });
+    const { sockets } = await casting({
+      "GET /files/5/up-next": [200, {}],
+      "GET /files/5/trickplay": [404, {}],
+      ...catReads,
+    });
     await settleUntil(() => wayUp(mounted!.container) === "Metropolis");
     await sockets.live.say({
       type: "sending",
@@ -555,7 +569,9 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     const { sockets } = await casting(
       {
         "GET /files/4/up-next": [200, catNext],
+        "GET /files/4/trickplay": [404, {}],
         "GET /files/5/up-next": [200, {}],
+        "GET /files/5/trickplay": [404, {}],
         "GET /me/casts": [200, { casts: [cast] }],
         "GET /items/3": [200, catTitle],
         "GET /files/5/segments": [200, { segments: [] }],
@@ -578,7 +594,9 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     // to; the session can say the next first, and the remote waits for the cast's own word.
     const { sockets } = await casting({
       "GET /files/4/up-next": [200, catNext],
+      "GET /files/4/trickplay": [404, {}],
       "GET /files/5/up-next": [200, {}],
+      "GET /files/5/trickplay": [404, {}],
       ...catReads,
     });
     const page = mounted!.container;
@@ -624,6 +642,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
       {
         "GET /me/casts": [200, { casts: [cast] }],
         "GET /files/4/up-next": [200, {}],
+        "GET /files/4/trickplay": [404, {}],
         ...filmReads,
       },
       [],
@@ -694,7 +713,9 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     const { sockets } = await casting(
       {
         "GET /files/4/up-next": [200, catNext],
+        "GET /files/4/trickplay": [404, {}],
         "GET /files/5/up-next": [200, {}],
+        "GET /files/5/trickplay": [404, {}],
         "POST /me/casts/9/next": [200, castOnCat],
         ...catReads,
       },
@@ -737,6 +758,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     const { sockets } = await casting(
       {
         "GET /files/4/up-next": [200, { ...catNext, previous: pilot }],
+        "GET /files/4/trickplay": [404, {}],
       },
       heard,
     );

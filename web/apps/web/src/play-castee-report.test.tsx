@@ -89,6 +89,7 @@ describe("Report a problem from the cast's remote (D524 §2)", () => {
       {
         "GET /me/casts": [200, { casts: [cast] }],
         "GET /files/4/up-next": [200, {}],
+        "GET /files/4/trickplay": [404, {}],
         "GET /items/2": [200, metropolis],
         "GET /files/4/segments": [200, { segments: [] }],
         ...answers,

@@ -2,10 +2,11 @@
 
 import "./play-words.ts";
 
-import type { JSX, RefObject } from "react";
+import { use, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { PlayerSource } from "./playback-target.ts";
+import { ScrubPicturesContext } from "./scrub-pictures.tsx";
 import { ClockTimes, shownAtMsOf, Timeline } from "./timeline.tsx";
 
 /**
@@ -13,7 +14,8 @@ import { ClockTimes, shownAtMsOf, Timeline } from "./timeline.tsx";
  * sent to the target, disabled until the target is ready (or as isDisabled says), and its times,
  * in it (the bar's) or apart in a span of timesClassName (the overlay's and the cast remote's, the
  * time under it). The Play page's bar, its overlay and the cast remote draw it, so
- * each reads the target alone.
+ * each reads the target alone, and the film's scrub-bar pictures where the page gives them
+ * (ScrubPicturesContext).
  */
 export function TargetTimeline(props: {
   readonly target: PlayerSource;
@@ -27,6 +29,7 @@ export function TargetTimeline(props: {
   const { t } = useTranslation();
   const { target, timesClassName } = props;
   const isApart = timesClassName !== undefined;
+  const pictures = use(ScrubPicturesContext);
   return (
     <>
       <Timeline
@@ -38,6 +41,7 @@ export function TargetTimeline(props: {
         hasArrowsAsCommands={props.hasArrowsAsCommands}
         onSeek={target.seekTo}
         hasTimes={!isApart}
+        pictures={pictures}
       />
       {isApart ? (
         <span className={timesClassName}>

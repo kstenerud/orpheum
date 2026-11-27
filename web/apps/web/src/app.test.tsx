@@ -727,6 +727,7 @@ describe("the play route's title", () => {
         "POST /playback": [200, directDecision({ resumePositionMs: 0 })],
         "GET /files/2/waits": [200, {}],
         "GET /files/2/up-next": [200, {}],
+        "GET /files/2/trickplay": [404, {}],
         "DELETE /playback/t": [204, null],
       },
       heard,
