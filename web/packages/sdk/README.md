@@ -192,8 +192,12 @@ device lab reported until it went, D555 §12) and a WebRTC call of a page with i
   `silentAtMostMs` (40 s, past the core's longest hold of a chunk) while it waits for its head
   (one with a body once all of it has left the browser, its buffered amount drained: a Play page's
   playback, a POST, otherwise said "Loading…" for good), for the end of a response with no body, or
-  while its reader waits for its body fails with a `SilentRequestError`, its channel closed; a
-  reader that does not read, or a body still on its way, waits unbounded. A body read whole
+  while its reader waits for its body fails with a `SilentRequestError`, its channel closed; so does
+  one whose body has not all left the browser within `silentAtMostMs` of its being made (D565: on a
+  connection stalled while it said it was connected, a guest's check of their invitation, its page's
+  only request, waited for good; the API's bodies are small JSON, so such a body is stuck, not slow;
+  `src/rtc-request-silence.test.ts`, `src/rtc-transport-carrier.test.ts`,
+  `apps/web/src/together-join-stalled.test.tsx`); a reader that does not read waits unbounded. A body read whole
   (`json()`, `text()`, `arrayBuffer()`, `blob()`) fails with the body's own failure, not the
   browser's: Chromium said "TypeError: Failed to fetch" and Firefox an AbortError of a playback whose
   head came and whose body never did, which was not asked again (the owner's Mac Chrome, staging,

@@ -73,7 +73,7 @@ afterEach(() => {
 // and the page said "Loading…" for good, its host's Watch Together player never drawn (the owner's
 // Chrome back from another site, staging, 2026-10-29).
 describe("a request with a body over WebRTC", () => {
-  it("waits for its head unbounded while its body is on its way, and fails once it has all left and nothing came", async () => {
+  it("waits for its head from when its body has left, where that is within the bound, and fails once it has all left and nothing came", async () => {
     vi.useFakeTimers();
     const channel = new SendingChannel();
     let isToldSilent = false;
@@ -83,11 +83,33 @@ describe("a request with a body over WebRTC", () => {
       () => "answered",
       (problem: unknown) => (problem instanceof Error ? problem.name : "failed"),
     );
-    await vi.advanceTimersByTimeAsync(silentAtMostMs * 2); // a slow upload, still leaving
+    await vi.advanceTimersByTimeAsync(silentAtMostMs - 1); // its body still leaving
     expect(channel.isClosed).toBe(false);
     channel.drain();
     await vi.advanceTimersByTimeAsync(silentAtMostMs - 1);
     expect(channel.isClosed).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await outcome).toBe("SilentRequestError");
+    expect(channel.isClosed).toBe(true);
+    expect(isToldSilent).toBe(true); // its transport takes its connection for gone if nothing else came
+  });
+
+  // A guest's check of their invitation, a POST and its page's only request, waited for good at
+  // "Checking your invitation…": on a connection stalled while it still said it was connected, its
+  // body never left, and its wait was bounded only once it had (staging, 2026-11-27; D565).
+  it("fails as a silence where its body has not left within the bound of its being made", async () => {
+    vi.useFakeTimers();
+    const channel = new SendingChannel(); // open, its buffered amount never drained
+    let isToldSilent = false;
+    const outcome = sendOnChannel(channel, playbackRequest(), () => {
+      isToldSilent = true;
+    }).then(
+      () => "answered",
+      (problem: unknown) => (problem instanceof Error ? problem.name : "failed"),
+    );
+    await vi.advanceTimersByTimeAsync(silentAtMostMs - 1);
+    expect(channel.isClosed).toBe(false);
+    expect(isToldSilent).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
     expect(await outcome).toBe("SilentRequestError");
     expect(channel.isClosed).toBe(true);

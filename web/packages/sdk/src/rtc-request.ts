@@ -197,11 +197,15 @@ export function abortReason(signal: AbortSignal): Error {
  * than the core holds a chunk being made at most (chunkHoldMs, 30 s). Unbounded, a chunk whose
  * body stopped after 19 bytes, and every request after it on the same connection, waited for good:
  * the owner's Chrome, throttled until its film stalled and unthrottled, never loaded again
- * (staging, 2026-10-29). A request with a body waits for its head unbounded while its body is on its
- * way, since the core answers only once it has read it all, however slowly it travels, and bounded
- * once all of it has left the browser: unbounded until then, the Play page's playback, a POST, heard
- * nothing over a channel that had stopped, and the page said "Loading…" for good, its host's player
- * never drawn (the owner's Chrome back from another site, staging, 2026-10-29).
+ * (staging, 2026-10-29). A request with a body is bounded once all of it has left the browser:
+ * unbounded after that, the Play page's playback, a POST, heard nothing over a channel that had
+ * stopped, and the page said "Loading…" for good, its host's player never drawn (the owner's Chrome
+ * back from another site, staging, 2026-10-29). Its body, too, must have left within silentAtMostMs
+ * of the request being made (D565): on a connection stalled while it still said it was connected,
+ * the body never left, and a guest's check of their invitation, its page's only request, waited for
+ * good at "Checking your invitation…" (staging, 2026-11-27). The API's bodies are small JSON (the
+ * core takes at most rtcapi.MaxRequestBodyBytes, 1 MiB; a problem report, the largest, some
+ * kilobytes), so a body still leaving after silentAtMostMs is one that is not moving, not a slow one.
  */
 export const silentAtMostMs = 40_000;
 
@@ -239,7 +243,8 @@ export class ChannelClosedError extends Error {
  * reason, and the core, its channel closed, ends the request's work (rtcapi's
  * TestChannel_AChannelTheClientClosesEndsItsRequest). One that hears nothing for silentAtMostMs while
  * it waits on the core fails, or its body does, with a SilentRequestError, its channel closed, and
- * tells silent first; so does one whose channel is not open within silentAtMostMs.
+ * tells silent first; so does one whose channel is not open within silentAtMostMs, and one whose
+ * body has not all left the browser within silentAtMostMs of its being made (D565).
  */
 export async function sendOnChannel(
   channel: ChannelLike,
@@ -334,7 +339,8 @@ const onceOpen = new WeakMap<ChannelLike, () => void>();
 /**
  * The wait for a response's head: bounded at once for a request with no body, and for one with a body
  * once all of it has left the browser, bound then starting the watch on the core's silence its
- * response named (watchWith).
+ * response named (watchWith). Until then the same watch, started as the request is made, bounds its
+ * body's leaving (D565).
  */
 class HeadWait {
   private start: (() => void) | undefined;
@@ -460,7 +466,8 @@ class BodyQueue {
 /**
  * The response a channel carries: resolved at its head, its body streamed until the empty end; failed
  * once it hears nothing for silentAtMostMs while it waits on the core: for its head once headWait is
- * bound, for the end of a response with no body, and while its reader waits for its body.
+ * bound, for the end of a response with no body, and while its reader waits for its body; and once
+ * silentAtMostMs pass from its making before headWait is bound, its body not all gone (D565).
  */
 function receiveResponse(
   channel: ChannelLike,
@@ -479,6 +486,9 @@ function receiveResponse(
       request.silent?.();
       end(new SilentRequestError(path));
     });
+    // From the request's making: a body that has not left within it fails the request as an
+    // unanswered one does (D565); the body gone, or with none, the wait for the head starts anew.
+    silence.start();
     request.headWait.watchWith(() => {
       if (!isEnded && !isHeadHeard) {
         silence.start();

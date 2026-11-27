@@ -581,6 +581,18 @@ Added by the owner, 2026-11-26, from the same walk's unfixed observations:
    checked. Options for the owner: (a) a limit on the check in the page; (b) a limit in the sdk on
    a request whose body does not leave (the lead recommends it: the cause, for every request);
    (c) a ping on idle connections; (d) a "still trying" note for the guest.
+   **Built, 2026-11-27 (D565, option b):** the sdk's silence watch now runs from a request's
+   making, so a body that has not all left the browser within `silentAtMostMs` (40 s) fails the
+   request with a `SilentRequestError`, as an unanswered one does: the transport replaces a
+   connection nothing came over for as long, and the app asks again where it asks an unanswered
+   request again. The limit is on the body's whole leaving, not on its progress: the API's bodies
+   are small JSON (the core takes at most 1 MiB; a problem report, the largest, some kilobytes).
+   After the body has left, the wait for the answer starts anew, as before. The guest's page asks
+   its check once and, on any failure, shows the form (`useLinkState`), so it leaves "Checking
+   your invitation…" for the form at 40 s, whose Join goes on the new connection. Proved by
+   `rtc-request-silence.test.ts`, `rtc-transport-carrier.test.ts` and
+   `apps/web/src/together-join-stalled.test.tsx`. The second route (no connection works at all)
+   is not changed.
 5. **A TV's cast that started late put its own film back on over the group's**, once, before the
    batch's fixes; not checked since.
 6. **Stopping a Chromecast's cast left the phone's film paused.**

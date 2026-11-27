@@ -83,6 +83,23 @@ class FakePeer implements PeerLike {
   }
 }
 
+/** A data channel whose bytes never leave the browser: its buffered amount never drains. */
+class StalledChannel extends FakeChannel {
+  readonly whenSent = (): void => {
+    // the browser's bufferedamountlow never comes
+  };
+}
+
+/** A connection stalled while it still says it is connected: what it is sent never leaves. */
+class StalledPeer extends FakePeer {
+  override createDataChannel(): ChannelLike {
+    const channel = new StalledChannel();
+    channel.readyState = "open";
+    this.channels.push(channel);
+    return channel;
+  }
+}
+
 /** The reader of a response's body, which must have one. */
 function readerOf(response: Response): ReadableStreamDefaultReader<Uint8Array> {
   if (response.body === null) {
@@ -169,6 +186,39 @@ describe("a request that hears nothing for silentAtMostMs", () => {
     const again = transport.fetch(new Request(url));
     await vi.advanceTimersByTimeAsync(0);
     expect(transport.carrierOf(url)?.ended).toBeUndefined();
+    opened[0]?.channels[0]?.answer(JSON.stringify({ status: 204 }));
+    opened[0]?.channels[0]?.answer(new ArrayBuffer(0));
+    expect((await again).status).toBe(204);
+  });
+
+  // A guest's check of their invitation, a POST and its page's only request, waited for good at
+  // "Checking your invitation…": its body never left a connection stalled while it still said it
+  // was connected, so nothing ever took that connection for gone (staging, 2026-11-27; D565).
+  it("fails where its body has not left within it, and its silent connection is replaced", async () => {
+    vi.useFakeTimers();
+    const first = new StalledPeer();
+    const { transport, opened } = growing(first);
+    await vi.advanceTimersByTimeAsync(settledAfterMs);
+    const url = "https://app.example/api/v1/together/join/check";
+    const check = (): Request =>
+      new Request(url, { method: "POST", body: JSON.stringify({ secret: "s" }) });
+    const outcome = transport.fetch(check()).then(
+      () => "answered",
+      (problem: unknown) => (problem instanceof Error ? problem.name : "failed"),
+    );
+    await vi.advanceTimersByTimeAsync(silentAtMostMs - 1);
+    expect(first.isClosed).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await outcome).toBe("SilentRequestError");
+    expect(first.channels[0]?.isClosed).toBe(true);
+    expect(first.isClosed).toBe(true);
+    expect(opened).toHaveLength(1);
+    expect(transport.carrierOf(url)?.ended).toBe(
+      `nothing came for ${String(silentAtMostMs)} ms, nor over its connection, which was replaced`,
+    );
+    // Asked again, it goes on the new connection, which answers.
+    const again = transport.fetch(check());
+    await vi.advanceTimersByTimeAsync(0);
     opened[0]?.channels[0]?.answer(JSON.stringify({ status: 204 }));
     opened[0]?.channels[0]?.answer(new ArrayBuffer(0));
     expect((await again).status).toBe(204);
