@@ -556,7 +556,15 @@ Watch Together volumes and a guest's tracks and timing went into the bar's menus
    film then never played (`cast.spec.ts`, the remote left at "Ready on"): the remote's page opens
    before it hears its session, the session says the second film before the server hands the cast
    again, and the remote showed that film with no length. The rule needs to know the cast is a
-   guest's in a Watch Together session, not only that the two films differ. Open.
+   guest's in a Watch Together session, not only that the two films differ. **Built again**
+   (2026-11-27), narrowly: the cast's session's welcome already says it. A cast alone is in its own
+   session of one, its caster that session's host, and a host's cast is in their Watch Together
+   session as its host; a guest's cast takes the guest's part there, so its welcome says it is not
+   the host's. Only a cast whose session has welcomed it as no host's (`filmOn`'s
+   `isAGuestsCast`, `castee-session.tsx`) shows the session's film where it differs from the one
+   sent; every other cast shows the film sent, as before. `play-castee-controls.test.tsx` holds
+   both: the guest's remote names the film the session moved to, and a cast of one's own stays on
+   the film sent, with its length, while its session says the next film first. No server change.
 3. **Mute is not kept between films** (the owner: "No, mute doesn't stick"): as built, nothing to do.
 
 Added by the owner, 2026-11-26, from the same walk's unfixed observations:
