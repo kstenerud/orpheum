@@ -357,13 +357,20 @@ function watchForLoss(
 
 /**
  * Whether the person paused video, as against its never having played or having failed, emptied or
- * ended, none of which a person asks for: a pause of one holding media, until it plays again.
+ * ended, none of which a person asks for: a pause of one holding media, until it plays again (D375
+ * §2, a person's pause). isPausedAtFirst is a pause the person made before this video, carried to it:
+ * a film opened paused where its cast's receiver had it paused (D564 §1), or the video before it of
+ * the same playback; it holds until the video plays. A cast started from the film keeps this pause,
+ * the caster's, and no other (the owner, 2026-11-08; play.tsx's useNotesWhereItPlays).
  */
-function watchPersonsPause(video: HTMLVideoElement): {
+export function watchPersonsPause(
+  video: HTMLVideoElement,
+  isPausedAtFirst = false,
+): {
   readonly isPaused: () => boolean;
   readonly stop: () => void;
 } {
-  let isPaused = false;
+  let isPaused = isPausedAtFirst;
   const played = (): void => {
     isPaused = false;
   };

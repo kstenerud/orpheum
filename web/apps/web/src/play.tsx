@@ -10,6 +10,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type JSX,
   type ReactNode,
@@ -30,7 +31,7 @@ import { problemText } from "./problem.ts";
 import { ReopeningNote } from "./reopening-note.tsx";
 import type { ReopenAt } from "./reopen.ts";
 import type { LadderOffer } from "./moving-down.ts";
-import { usePlayState } from "./play-state.ts";
+import { usePlayState, watchPersonsPause } from "./play-state.ts";
 import { usePlayerCommands } from "./player-commands.ts";
 import { fillTheScreen, useStageFillingAsTheDeviceHasIt } from "./film-fullscreen.ts";
 import { followFilmVolume } from "./film-volume.ts";
@@ -189,7 +190,7 @@ function PlayerView(
   const [video, setVideo] = useState<HTMLVideoElement | null>(null);
   // Whether its lowest quality cannot keep up, which a host's session tells everyone (D247 §8).
   const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);
-  const { fileId, decision, receiving, onBare } = props;
+  const { fileId, decision, receiving, onBare, isStartPaused } = props;
   const { onDecideAgain, onPlaybackGone, onCopyGivenUp } = props;
   const pressedVideo = useVideoPressedForPlay();
   const offered = useUpNextOffered(fileId, video, { ...decision.preferences, receiving });
@@ -216,7 +217,7 @@ function PlayerView(
   const { titleName, resumePositionMs } = props.decision;
   // A cast's receiver shows the film and nothing else (D337 §3).
   const isOwn = receiving === undefined;
-  useNotesWhereItPlays(isOwn, { fileId, video, startPositionMs: resumePositionMs });
+  useNotesWhereItPlays(isOwn, { fileId, video, startPositionMs: resumePositionMs }, isStartPaused);
   return (
     <PlaysOffered offered={offered} segments={decision.segments} video={video}>
       <PlayTop plays={decision.plays} titleName={titleName} isOwn={isOwn}>
@@ -397,14 +398,36 @@ function useNotesWhereItPlays(
     readonly video: HTMLVideoElement | null;
     readonly startPositionMs: number;
   },
+  /** Whether the film was opened paused, a pause carried from its cast's receiver (D564 §1). */
+  isStartPaused: boolean | undefined,
 ): void {
   const { fileId, video, startPositionMs } = played;
   const positionNow = useCallback(
     () => positionToMoveFrom(video, startPositionMs),
     [video, startPositionMs],
   );
-  const isPausedNow = useCallback(() => video?.paused === true, [video]);
+  const isPausedNow = usePersonsPause(video, isStartPaused === true);
   useNotesPlayingHere(isOwn, fileId, { positionMs: positionNow, isPaused: isPausedNow });
+}
+
+/**
+ * Whether the person has the film paused (watchPersonsPause), read as it is asked: a cast started
+ * from it keeps the caster's pause and no other (the owner, 2026-11-08). A video still loading reads
+ * paused, and a cast made before the film started went to the TV paused though no one paused it.
+ * The film opened paused is the person's pause carried (isStartPaused); a video made in place of
+ * another, as a move to a lower quality makes one, carries the pause of the one before.
+ */
+function usePersonsPause(video: HTMLVideoElement | null, isStartPaused: boolean): () => boolean {
+  const pausedRef = useRef<() => boolean>(() => isStartPaused);
+  useEffect(() => {
+    if (video === null) {
+      return undefined;
+    }
+    const pause = watchPersonsPause(video, pausedRef.current());
+    pausedRef.current = pause.isPaused;
+    return pause.stop; // the pause read as the page goes stays as it was
+  }, [video]);
+  return useCallback(() => pausedRef.current(), []);
 }
 
 /**
