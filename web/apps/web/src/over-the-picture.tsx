@@ -2,9 +2,10 @@
 
 import "./play-words.ts";
 
-import { useEffect, useState, type JSX } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useLatest } from "./latest.ts";
 import { Pill } from "./pill.tsx";
 import { PauseIcon } from "./player-icons.tsx";
 import type { PlayerSound, PlayerSource } from "./playback-target.ts";
@@ -69,6 +70,26 @@ export function useVolumeShown(): { readonly isShown: boolean; readonly show: ()
       setPressCount((count) => count + 1);
     },
   };
+}
+
+/**
+ * Shows the volume as a castee's changes with no press here: its TV's own remote moved it, which
+ * the caster's pad showed nothing of (the owner, 2026-11-27). The first volume heard is no change.
+ */
+export function useShowsACasteesVolume(sound: PlayerSound | undefined, show: () => void): void {
+  const level = sound?.volume;
+  const isMuted = sound?.isMuted;
+  const heardRef = useRef({ level, isMuted });
+  const showRef = useLatest(show);
+  useEffect(() => {
+    const heard = heardRef.current;
+    heardRef.current = { level, isMuted };
+    if (heard.level !== undefined && level !== undefined) {
+      if (heard.level !== level || heard.isMuted !== isMuted) {
+        showRef.current();
+      }
+    }
+  }, [level, isMuted, showRef]);
 }
 
 /**

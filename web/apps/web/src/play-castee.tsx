@@ -34,7 +34,7 @@ import { useLeavesFullScreen } from "./film-fullscreen.ts";
 import { useShowsARemote } from "./hidden-need.ts";
 import { isOnTelevision } from "./input-mode.ts";
 import { useLatest } from "./latest.ts";
-import { useVolumeShown, VolumeShown } from "./over-the-picture.tsx";
+import { useShowsACasteesVolume, useVolumeShown, VolumeShown } from "./over-the-picture.tsx";
 import { Pill } from "./pill.tsx";
 import { OverlayUp, PlayUpwardContext } from "./play-up.tsx";
 import type { PlaybackTarget } from "./playback-target.ts";
@@ -239,6 +239,7 @@ function CasteePlaying(props: {
   const pageRef = useRef<HTMLDivElement>(null);
   usePlayersControls(pageRef, stageRef);
   const volume = useVolumeShown();
+  useShowsACasteesVolume(target.sound, volume.show);
   const shown = useControlsShown(isOnTelevision(), moves);
   return (
     <PlayUpwardContext value={title.upward}>

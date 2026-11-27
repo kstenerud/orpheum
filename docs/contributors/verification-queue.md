@@ -4275,3 +4275,8 @@ An item is ticked only by the person who did it, and only with what they saw.
      again.
   3. Turn the volume with the TV's own remote, then press Volume up on the pad. Report whether the
      number starts from the level the TV's remote left.
+- [ ] **VQ412** — The caster's pad shows a Chromecast's volume as the TV's own remote changes it
+  (the owner, 2026-11-27): only a real Cast session says a change made at the TV. On the phone's
+  Chrome, cast a film to the Chromecast, the pad upright, and press nothing on the pad. Turn the
+  volume up and down with the TV's remote. Report whether "Volume ‹n› %" shows on the phone at
+  each change and goes a moment after the last.
