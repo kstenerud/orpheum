@@ -571,6 +571,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D563](working-notes.md#d563--a-chromecasts-volume-has-one-route-the-casts-session-to-the-receiver) A Chromecast's volume has one route: the cast's session to the receiver
 - [D564](working-notes.md#d564--a-cast-stopped-comes-back-as-it-was-a-tv-waiting-for-ok-is-said-on-the-casters-page-a-page-that-lost-the-server-says-it-is-reconnecting) A cast stopped comes back as it was; a TV waiting for OK is said on the caster's page; a page that lost the server says it is reconnecting
 - [D565](working-notes.md#d565--a-request-whose-body-does-not-leave-the-browser-is-given-up-on-in-the-answers-time) A request whose body does not leave the browser is given up on in the answer's time
+- [D566](working-notes.md#d566--a-phones-keyboard-resizes-the-page) A phone's keyboard resizes the page
 
 ## Archived
 

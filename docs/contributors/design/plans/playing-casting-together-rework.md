@@ -585,7 +585,8 @@ Added by the owner, 2026-11-26, from the same walk's unfixed observations:
    batch's fixes; not checked since.
 6. **Stopping a Chromecast's cast left the phone's film paused.**
 7. **A sleeping Fire TV shows as a silent cast waiting for OK.**
-8. **The Invite dialog's "Make a link" button sits under a phone's keyboard.**
+8. **The Invite dialog's "Make a link" button sits under a phone's keyboard.** **Built** (2026-11-27, D566):
+   the page asks the browser to resize it under a keyboard, so every dialog fits the room above it.
 9. **The Fire TV's own volume across films is walked on the device**: kept per device by the
    batch, and not yet walked there.
 10. **A phone whose network changed could not reach the server for two minutes** (production, the

@@ -32311,3 +32311,19 @@ proposal from the look into a guest's page stuck at "Checking your invitation…
    that cannot carry, and the request tried again where its kind is.
 2. Not chosen: a limit on the invitation check alone in the page (the fault is every request's),
    a ping on idle connections, and a "still trying" note for the guest, which may still come.
+
+## D566 — A phone's keyboard resizes the page
+
+**Decided** (2026-11-27), by the project owner ("Yes"), on the lead's proposal for the rework
+plan's next batch, item 8 ([plan](../design/plans/playing-casting-together-rework.md)).
+
+**Status:** decided. It has code.
+
+1. **The web client's page asks the browser to resize it when a keyboard opens**
+   (`interactive-widget=resizes-content` in `web/apps/web/index.html`'s viewport). Chrome on
+   Android otherwise leaves the page's height as it was and lays the keyboard over it, and every
+   dialog is sized by that height (`dvh`): the Invite dialog's "Make a link" sat under the
+   keyboard on the owner's phone, and on the test phone its fields were pushed off the top.
+2. It holds for the whole client, every page and dialog with a field, not the Invite dialog alone:
+   the others are sized the same way. Not chosen: a fix for that one dialog.
+3. Proved by `web/apps/web/src/page-viewport.test.ts`; how it looks on a phone is walked.
