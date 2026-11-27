@@ -4334,4 +4334,5 @@ An item is ticked only by the person who did it, and only with what they saw.
   Report whether it says "Reconnecting to the server…" with the Fire TV still listed and not
   pressable, whether the Fire TV becomes pressable once the page has connected again, and, if the
   page has not connected within thirty seconds, whether it then says the server could not be
-  reached.
+  reached (by the clock alone, D564 §4 as amended 2026-11-27: on the first walk, with no read
+  failed, it still said "Reconnecting…" at 38 s).

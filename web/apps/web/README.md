@@ -320,7 +320,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   session the person is in (D384 §3, the server's `isInYourWatchTogether`); while the live connection
   is down (`useLive().isConnected`) the list is as last told, so it says "Reconnecting to the
   server…" and offers no device, keeping the devices it listed though a read of them fails, until
-  it has been down `reconnectingSaidForMs` (30 s; D564 §4) (`CastTargets`, `src/cast-to.test.tsx`,
+  it has been down `reconnectingSaidForMs` (30 s; D564 §4), when it says the server could not be
+  reached in their place, whether or not a read failed (`CastTargets`, `src/cast-to.test.tsx`,
   `src/cast-to-live.test.tsx`); one chosen starts a session, moving the film of
   the Play page under it at its position (`src/playing-here.ts`). There is no casting page (D384 §2):
   an old `/casting` address goes to the Play page of the film the cast plays, else home

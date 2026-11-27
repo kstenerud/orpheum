@@ -74,8 +74,9 @@ export function CastTargets(props: CastTargetsProps): JSX.Element {
 }
 
 /**
- * How long Cast's menu says it is reconnecting to the server, the devices it listed kept, before a
- * read of them that failed says so (D564 §4): a page whose network changed makes new connections
+ * How long Cast's menu says it is reconnecting to the server, the devices it listed kept, before it
+ * says the server could not be reached, whether or not a read of them failed (D564 §4, amended by
+ * the owner, 2026-11-27: the clock alone): a page whose network changed makes new connections
  * for some seconds (the owner's phone, production, 2026-11-26, where it said the server could not
  * be reached while it did). A justified constant.
  */
@@ -84,7 +85,8 @@ export const reconnectingSaidForMs = 30_000;
 /**
  * Cast's menu with no AirPlay on: the devices, Chromecast and AirPlay (CastTargets). While the live
  * connection is down it says it is reconnecting, offering nothing; for reconnectingSaidForMs of it
- * the devices it listed last stay in place, though a read of them fails meanwhile (D564 §4).
+ * the devices it listed last stay in place, though a read of them fails meanwhile, and after it,
+ * in their place, that the server could not be reached (D564 §4).
  */
 function CastTargetsOffered(props: CastTargetsProps): JSX.Element {
   const { t } = useTranslation();
@@ -127,6 +129,7 @@ function CastTargetsOffered(props: CastTargetsProps): JSX.Element {
         <Targets
           devices={devices}
           isStale={!isConnected}
+          isUnreached={isUnreachedLong}
           states={{ inFrontDeviceIds, receivingDeviceIds }}
           onCast={castTo}
         />
@@ -513,11 +516,16 @@ function Targets(props: {
   readonly states: TargetStates;
   /** The live connection is down, so the devices are as last told: none is offered. */
   readonly isStale: boolean;
+  /** It has been down reconnectingSaidForMs: the server could not be reached, read or not (D564 §4). */
+  readonly isUnreached: boolean;
   readonly onCast: (device: Device) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const castingHereId = useLive().receiving?.fromDeviceId;
   const { inFrontDeviceIds, receivingDeviceIds } = props.states;
+  if (props.isUnreached) {
+    return <StatusNote told={{ kind: "problem", text: t("problem.unreachable") }} />;
+  }
   return (
     <Loaded
       resource={props.devices}

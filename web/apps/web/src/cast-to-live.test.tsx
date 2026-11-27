@@ -38,6 +38,7 @@ describe("the device list as the live connection says what is open", () => {
   afterEach(() => {
     mounted?.unmount();
     mounted = undefined;
+    vi.useRealTimers();
   });
 
   it("offers no device, saying it reconnects, while the live connection is down (stale lists)", async () => {
@@ -62,6 +63,41 @@ describe("the device list as the live connection says what is open", () => {
     await server.drop();
     expect(buttonWithText(mounted.container, "Fire TV")?.matches(":disabled")).toBe(true);
     expect(mounted.container.textContent).toContain("Reconnecting to the server…");
+  });
+
+  it("says the server could not be reached once down thirty seconds, no read having failed (D564 §4, the clock alone)", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+    const services = servedBy(
+      { "GET /me/devices": [200, { devices: [device(1, "Phone", true), device(3, "Fire TV")] }] },
+      [],
+      "token",
+    );
+    const server = fakeTogetherServer();
+    const shown = await mount(
+      withServices(
+        <LiveProvider>
+          <CastTargets film={() => undefined} />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: server.openSocket },
+      ),
+    );
+    mounted = shown;
+    await server.accept();
+    await server.say({ type: "devices", deviceIds: [1, 3], inFrontDeviceIds: [1, 3] });
+    await server.drop();
+    const text = (): string => shown.container.textContent;
+    await act(async () => {
+      vi.advanceTimersByTime(reconnectingSaidForMs - 1_000);
+      await Promise.resolve();
+    });
+    expect(text()).not.toContain("The server could not be reached");
+    expect(buttonWithText(shown.container, "Fire TV")?.matches(":disabled")).toBe(true);
+    await act(async () => {
+      vi.advanceTimersByTime(1_000);
+      await Promise.resolve();
+    });
+    expect(text()).toContain("The server could not be reached");
+    expect(buttonWithText(shown.container, "Fire TV")).toBeUndefined();
   });
 
   it("lists a device signed in while the list is open, as it connects (the owner, staging, 2026-11-07)", async () => {

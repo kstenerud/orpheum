@@ -32293,7 +32293,11 @@ bring it back to the phone in the same state it was in. So paused if paused, pla
    be reached** (item 10, option C). The words and the wait are the lead's proposal, which the
    owner took ("Go with your recommendations"): "Reconnecting to the server…" while the page makes new connections, the
    devices listed before left in place, and the present message only once thirty seconds have
-   passed without a connection.
+   passed without a connection. *Amended by the owner, 2026-11-27: the clock alone.* As first
+   built, the message came after thirty seconds only if a read of the devices had failed, and on
+   the owner's phone with Wi-Fi off none had, so at 38 s it still said it was reconnecting; once
+   the connection has been down thirty seconds the panel says the server could not be reached,
+   whether or not a read failed, and the normal list comes back with the connection.
 
 ## D565 — A request whose body does not leave the browser is given up on in the answer's time
 
