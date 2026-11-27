@@ -574,7 +574,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D566](working-notes.md#d566--a-phones-keyboard-resizes-the-page) A phone's keyboard resizes the page
 - [D567](working-notes.md#d567--the-hosted-relay-announces-that-it-works-and-is-not-offered-when-it-does-not) The hosted relay announces that it works, and is not offered when it does not
 - [D568](working-notes.md#d568--a-vaapi-node-decodes-and-scales-on-the-card-and-a-playback-asked-ahead-for-up-next-replaces-nothing) A VAAPI node decodes and scales on the card, and a playback asked ahead for Up next replaces nothing
-- [D569](working-notes.md#d569--a-cast-being-started-says-so-on-the-casts-page-with-cancel-and-its-controls-wait-for-the-tvs-first-picture) A cast being started says so on the cast's page, with Cancel, and its controls wait for the TV's first picture
+- [D569](working-notes.md#d569--a-cast-being-started-says-so-on-the-casts-page-with-cancel-and-its-controls-wait-for-the-tvs-first-picture) A cast being started says so on the cast's page, with Cancel, and its controls wait for the TV's first picture — *revisited by D570*
 - [D570](working-notes.md#d570--a-chromecast-being-connected-says-so-on-the-films-page-with-cancel-from-the-pick-in-chromes-picker) A Chromecast being connected says so on the film's page, with Cancel, from the pick in Chrome's picker
 - [D571](working-notes.md#d571--a-casts-remote-shows-the-films-scrub-bar-picture-of-the-tvs-place-and-no-key-frame-is-made-on-demand) A cast's remote shows the film's scrub-bar picture of the TV's place, and no key frame is made on demand
 

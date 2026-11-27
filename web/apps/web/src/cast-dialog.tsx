@@ -44,7 +44,12 @@ export function CastDialog(props: { readonly onClose: () => void }): JSX.Element
   return (
     <ModalDialog label={t("cast.page")} heading={t("cast.page")} onClose={props.onClose}>
       {isSendingKnown ? (
-        <CastTargets film={film} onAirPlayPressed={props.onClose} />
+        <CastTargets
+          film={film}
+          onAirPlayPressed={props.onClose}
+          // Over a film's page, which says the connect from the pick, with its Cancel (D570 §2).
+          onChromecastPicked={fileId === undefined ? undefined : props.onClose}
+        />
       ) : (
         <p>{t("common.loading")}</p>
       )}

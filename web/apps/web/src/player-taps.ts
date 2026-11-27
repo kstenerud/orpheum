@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState, type RefObject } from "react";
 
+import { isChromecastConnecting } from "./google-cast-connecting.ts";
 import { useLatest } from "./latest.ts";
 import { overlayShieldClass } from "./overlay-shield.tsx";
 import { tapSlopPx } from "./range-touch.ts";
@@ -315,6 +316,14 @@ export function useAnswersPictureTaps(
     },
     [],
   );
+  /** Seeks the film a tap's step, said as seconds; nowhere while it goes to a TV (D570 §2). */
+  const seekHere = (direction: -1 | 1, seconds: number): void => {
+    const video = videoRef.current;
+    if (video !== null && !isChromecastConnecting()) {
+      seekByTap(video, direction);
+      noteSeek(direction, seconds);
+    }
+  };
   const onPictureTap = (tap: PictureTap): void => {
     const video = videoRef.current;
     const width = video?.getBoundingClientRect().width ?? 0;
@@ -328,9 +337,8 @@ export function useAnswersPictureTaps(
       toggleRef.current(); // a tap that does not go on a run: the one waiting was a lone tap
     }
     if (answer.action === "seek") {
-      if (video !== null && answer.direction !== undefined) {
-        seekByTap(video, answer.direction);
-        noteSeek(answer.direction, seekedBy(answer.run));
+      if (answer.direction !== undefined) {
+        seekHere(answer.direction, seekedBy(answer.run));
       }
     } else if (answer.action === "toggle") {
       toggleRef.current();
@@ -342,11 +350,7 @@ export function useAnswersPictureTaps(
     }
   };
   const seekBySide = (direction: -1 | 1, tapsInRun: number): void => {
-    const video = videoRef.current;
-    if (video !== null) {
-      seekByTap(video, direction);
-      noteSeek(direction, (tapsInRun - 1) * (doubleTapSeekMs / 1000));
-    }
+    seekHere(direction, (tapsInRun - 1) * (doubleTapSeekMs / 1000));
   };
   return { onPictureTap, feedback, seekBySide };
 }

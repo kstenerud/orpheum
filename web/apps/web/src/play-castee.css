@@ -214,3 +214,8 @@ html:has(.castee-play) {
     padding-block: 0;
   }
 }
+
+/* The start's Cancel under the sign takes the press the sign lets through (D569 §5). */
+.castee-play__centre > .pill--action {
+  pointer-events: auto;
+}

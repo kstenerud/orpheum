@@ -32411,7 +32411,7 @@ proposed §1–4 ("Yes the above sounds good"); §5–6 are the owner's own: "Ma
 'connecting to ‹x›' and have a cancel button on the offer area of the cast page itself? Otherwise
 we'd need to bring the cast submenu back up, and I think that's worse UX".
 
-**Status:** decided. It has code: `web/apps/web/src/castee-start.tsx` (VQ424). A cast to a Chromecast shows no cast page between the press and its receiver joining: the film's own page stands under the Cast panel, busy, then "Asking ‹TV›…" with its own Cancel, until the cast is made.
+**Status:** decided. It has code: `web/apps/web/src/castee-start.tsx` (VQ424). A cast to a Chromecast shows no cast page between the pick and its receiver joining; D570 covers that stretch on the film's own page.
 
 1. **From the choice of a TV until its first picture, the caster's page states one thing**:
    "Connecting to ‹TV›…" until the TV is reached, then "Loading on ‹TV›…". It amends D548 §9,
@@ -32436,7 +32436,7 @@ walk from a phone to a Chromecast: for about four seconds after the TV was picke
 said nothing and every control stayed live, as no cast exists, and so no cast's page (D569), until
 the receiver has joined.
 
-**Status:** decided. No code yet.
+**Status:** decided. It has code: `web/apps/web/src/google-cast-connecting.ts` (VQ426).
 
 It adds to D569, for a Google Cast device, the stretch D569's Status says it does not cover.
 

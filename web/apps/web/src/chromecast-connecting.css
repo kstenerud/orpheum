@@ -1,0 +1,22 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A Google Cast device's connect over the film (chromecast-connecting.tsx, D570 §2): its notice and
+   Cancel in the picture's centre, on the film's layer for notes, over the overlay; Cancel alone
+   takes a press, the rest letting it through to the film. */
+.chromecast-connecting {
+  position: absolute;
+  z-index: var(--layer-video-note);
+  inset: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  pointer-events: none;
+}
+
+.chromecast-connecting > .pill--action {
+  pointer-events: auto;
+}

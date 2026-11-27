@@ -36,6 +36,7 @@ import { useAtTheEndWithNothingNext } from "./film-end.ts";
 import { useLatest } from "./latest.ts";
 import { OverTheFilm, PageControls } from "./page-controls.tsx";
 import { overlayUpClass, PlayUpwardContext } from "./play-up.tsx";
+import { isChromecastConnecting } from "./google-cast-connecting.ts";
 import { useVideoTarget, type SequenceMoves } from "./player-controls.tsx";
 import {
   noteAutoplayed,
@@ -253,7 +254,9 @@ export function useMovesCommands(moves: SequenceMoves): Required<MediaTracks> {
     const move = moves[detail.command];
     if (move !== undefined) {
       event.preventDefault();
-      move();
+      if (!isChromecastConnecting()) {
+        move(); // the film on its way to a TV moves nowhere here (D570 §2)
+      }
     }
   });
   const hasPrevious = moves.previous !== undefined;

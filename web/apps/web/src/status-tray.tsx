@@ -15,6 +15,7 @@ import { Link } from "./link.tsx";
 import { hasCopyWarning } from "./copy-warning.ts";
 import {
   useEndsTheCastSessionWithItsCast,
+  useEndsTheConnectingOnceTaken,
   useRejoinsTheCastSessionOfItsCast,
 } from "./google-cast.ts";
 import { useLive } from "./live.tsx";
@@ -51,6 +52,7 @@ export function StatusTray(props: {
   const isViewing = useMembership(browserStorage, "viewer") !== undefined;
   const { sending, receiving } = useLive();
   useEndsTheCastSessionWithItsCast(); // a Google Cast device's, its Cast menu closed once it took it
+  useEndsTheConnectingOnceTaken(); // a Google Cast device's connect, its cast's page taking over
   useRejoinsTheCastSessionOfItsCast(); // Chrome's own Stop ends it again, the page loaded again or resumed
   useClosesTheDialogAsThePageMoves();
   useLoadsTrayDialogsAhead();

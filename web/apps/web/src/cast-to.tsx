@@ -24,22 +24,12 @@ import {
   type Cast,
   type CastFilm,
 } from "./cast.ts";
-import { loadCastSender } from "./cast-sdk.ts";
-import { useShowsDebugTools } from "./debug-tools.tsx";
-import {
-  castToAGoogleCastDevice,
-  endCastSessionOf,
-  guestCastOf,
-  GuestCastFailure,
-  isCastLogTicked,
-  keepCastLogTicked,
-  type GuestCastWays,
-} from "./google-cast.ts";
-import { FindDevicesIcon } from "./icons.tsx";
+import { ChromecastEntry, startsCastsToChromecast, useGuestCast } from "./chromecast-entry.tsx";
+import { endCastSessionOf, GuestCastFailure, type GuestCastWays } from "./google-cast.ts";
 import { useLatest } from "./latest.ts";
 import { useLive } from "./live.tsx";
 import { problemText } from "./problem.ts";
-import { useServices, useToken, type AskGuestCastGrant } from "./services.tsx";
+import { useServices, useToken } from "./services.tsx";
 import { useOpenedAs } from "./around-file.ts";
 import { useRequest } from "./use-request.ts";
 import type { Resource } from "./use-resource.ts";
@@ -52,6 +42,11 @@ import { Loaded } from "./loaded.tsx";
 interface CastTargetsProps {
   readonly film: () => CastFilm | undefined;
   readonly onAirPlayPressed?: (() => void) | undefined;
+  /**
+   * Told as a Google Cast device is picked in Chrome's picker: the film's page under says its
+   * connect from then, with Cancel (D570 §2), which Cast's dialog over it leaves to it, closed.
+   */
+  readonly onChromecastPicked?: (() => void) | undefined;
 }
 
 /**
@@ -96,20 +91,13 @@ function CastTargetsOffered(props: CastTargetsProps): JSX.Element {
   const isUnreachedLong = useHasWaited(!isConnected, reconnectingSaidForMs);
   const isReconnecting = !isConnected && !isUnreachedLong;
   const devices = useDevicesOpen(connectedDeviceIds, isReconnecting);
-  const [asking, setAsking] = useState<Asking | undefined>(undefined);
-  const [answered, setAnswered] = useState<string | undefined>(undefined);
-  const [settledCastId, setSettledCastId] = useState<number | undefined>(undefined);
-  const settled = (castId: number, said: string): void => {
-    endCastSessionOf(castId); // a Google Cast device's, which did not take it
-    setSettledCastId(castId);
-    setAsking(undefined);
-    setAnswered(said);
-  };
+  const { asking, setAsking, answered, setAnswered, settledCastId, settled } = useAskingState();
   const { isBusy, problem, castTo, castToChromecast } = useStartsCasts(props.film, {
     onAsking: setAsking,
     onStarting: () => {
       setAnswered(undefined);
     },
+    onChromecastPicked: props.onChromecastPicked,
   });
   if (asking !== undefined || unansweredOf(sending, settledCastId) !== undefined) {
     return (
@@ -149,6 +137,30 @@ function CastTargetsOffered(props: CastTargetsProps): JSX.Element {
   );
 }
 
+/**
+ * The cast Cast's menu asks its receiver to take (asking), what was said of the last one not taken
+ * (answered) and its castId (settledCastId); settled says one not taken, its Cast session ended.
+ */
+function useAskingState(): {
+  readonly asking: Asking | undefined;
+  readonly setAsking: (asking: Asking | undefined) => void;
+  readonly answered: string | undefined;
+  readonly setAnswered: (said: string | undefined) => void;
+  readonly settledCastId: number | undefined;
+  readonly settled: (castId: number, said: string) => void;
+} {
+  const [asking, setAsking] = useState<Asking | undefined>(undefined);
+  const [answered, setAnswered] = useState<string | undefined>(undefined);
+  const [settledCastId, setSettledCastId] = useState<number | undefined>(undefined);
+  const settled = (castId: number, said: string): void => {
+    endCastSessionOf(castId); // a Google Cast device's, which did not take it
+    setSettledCastId(castId);
+    setAsking(undefined);
+    setAnswered(said);
+  };
+  return { asking, setAsking, answered, setAnswered, settledCastId, settled };
+}
+
 /** Cast's menu while the film plays on AirPlay: AirPlay alone, one cast at a time (D523 §7). */
 function OnAirPlayAlone(props: CastTargetsProps): JSX.Element {
   const { t } = useTranslation();
@@ -162,12 +174,17 @@ function OnAirPlayAlone(props: CastTargetsProps): JSX.Element {
 
 /**
  * Starting a cast from Cast's menu: to one of the person's devices (castTo), or to the Google Cast
- * device the person picks in Chrome's picker (castToChromecast, D465 §3), its failure said in a line;
- * onStarting is told as one starts, and onAsking once its receiver is asked.
+ * device the person picks in Chrome's picker (castToChromecast, D465 §3, chromecast-entry.tsx's
+ * startsCastsToChromecast), its failure said in a line; onStarting is told as one starts, and
+ * onAsking once its receiver is asked.
  */
 function useStartsCasts(
   film: () => CastFilm | undefined,
-  told: { readonly onAsking: (asking: Asking) => void; readonly onStarting: () => void },
+  told: {
+    readonly onAsking: (asking: Asking) => void;
+    readonly onStarting: () => void;
+    readonly onChromecastPicked?: (() => void) | undefined;
+  },
 ): {
   readonly isBusy: boolean;
   readonly problem: string | undefined;
@@ -178,15 +195,15 @@ function useStartsCasts(
   const services = useServices();
   const { api } = services;
   const chosenNameRef = useRef("");
-  const { isBusy, problem, runRequest } = useRequest((cause) =>
+  const failedText = (cause: unknown): string =>
     cause instanceof GuestCastFailure
       ? t("cast.chromecastFailed")
       : problemText(t, cause, {
           conflict: t("cast.notInFront", { name: chosenNameRef.current }),
           receivingACast: t("cast.receivingAnother", { name: chosenNameRef.current }),
           castingHere: t("cast.castingHere", { name: chosenNameRef.current }),
-        }),
-  );
+        });
+  const { isBusy, problem, runRequest } = useRequest(failedText);
   const castTo = (device: Device): void => {
     chosenNameRef.current = device.name;
     told.onStarting();
@@ -196,112 +213,13 @@ function useStartsCasts(
     });
   };
   const castToChromecast = (ways: GuestCastWays, showsLog: boolean): void => {
-    told.onStarting();
-    runRequest(async () => {
-      const how = { locator: services.session.locator(), film, showsLog };
-      const made = await castToAGoogleCastDevice(api, ways, how);
-      if (made !== undefined) {
-        chosenNameRef.current = made.name;
-        told.onAsking(made);
-      }
-    });
+    const onPicked = (name: string): void => {
+      chosenNameRef.current = name;
+    };
+    const starts = { api, locator: () => services.session.locator(), film, runRequest, failedText };
+    startsCastsToChromecast({ ...starts, told: { ...told, onPicked } })(ways, showsLog);
   };
   return { isBusy, problem, castTo, castToChromecast };
-}
-
-/**
- * What this page casts to a Google Cast device with, where the Cast menu offers Chromecast
- * (guestCastOf); Google's sender script is loaded then, at the menu's first opening, and not before
- * (D465 §3: the owner, 2026-11-12), so no page loads it until someone means to cast. Its grant is
- * the person's (useGuestCastAskingBy for another's).
- */
-function useGuestCast(): GuestCastWays | undefined {
-  return useGuestCastAskingBy(useServices().askGuestCastGrant);
-}
-
-/**
- * What this page casts to a Google Cast device with, as useGuestCast, its grant asked for by
- * askGrant: a Watch Together guest's by their membership (D518), or none, where none is offered.
- */
-export function useGuestCastAskingBy(
-  askGrant: AskGuestCastGrant | undefined,
-): GuestCastWays | undefined {
-  const services = useServices();
-  const guest = guestCastOf(
-    { ...services, askGuestCastGrant: askGrant },
-    globalThis.location.origin,
-  );
-  const isOffered = guest !== undefined;
-  useEffect(() => {
-    if (isOffered) {
-      loadCastSender().catch(() => undefined); // loaded again at the press, which says its failure
-    }
-  }, [isOffered]);
-  return guest;
-}
-
-/**
- * Show cast log, ticked or not in this browser (isTicked, kept by google-cast.ts), and
- * whether a Chromecast cast to now shows its log (showsLog): ticked while the person shows debug
- * tools, the one place the box is offered (the owner, 2026-11-12); off, it has no effect.
- */
-interface CastLogChoice {
-  readonly isOffered: boolean;
-  readonly isTicked: boolean;
-  readonly setTicked: (isTicked: boolean) => void;
-  readonly showsLog: boolean;
-}
-
-/** Show cast log, as this browser keeps it, and whether it has effect now. */
-function useCastLogChoice(): CastLogChoice {
-  const isOffered = useShowsDebugTools();
-  const [isTicked, setIsTicked] = useState(() => isCastLogTicked());
-  const setTicked = (isNowTicked: boolean): void => {
-    keepCastLogTicked(isNowTicked);
-    setIsTicked(isNowTicked);
-  };
-  return { isOffered, isTicked, setTicked, showsLog: isOffered && isTicked };
-}
-
-/**
- * After the person's devices, a separator, then a magnifying glass and Chromecast (D465 §3), which
- * opens Chrome's own picker of the Google Cast devices on the network; none is offered while the live
- * connection is down, as no device is. While the person shows debug tools, Show cast log follows it
- * (CastLogChoice); onCast is told whether the device shows its log.
- */
-export function ChromecastEntry(props: {
-  readonly isStale: boolean;
-  readonly onCast: (showsLog: boolean) => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const castLog = useCastLogChoice();
-  return (
-    <>
-      <hr className="cast-to__separator" />
-      <button
-        type="button"
-        disabled={props.isStale}
-        onClick={() => {
-          props.onCast(castLog.showsLog);
-        }}
-      >
-        <FindDevicesIcon />
-        {t("cast.chromecast")}
-      </button>
-      {castLog.isOffered ? (
-        <label>
-          <input
-            type="checkbox"
-            checked={castLog.isTicked}
-            onChange={(event) => {
-              castLog.setTicked(event.target.checked);
-            }}
-          />{" "}
-          {t("cast.showCastLog")}
-        </label>
-      ) : null}
-    </>
-  );
 }
 
 /**

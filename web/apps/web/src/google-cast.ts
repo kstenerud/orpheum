@@ -30,6 +30,7 @@ import {
   type CastChannel,
 } from "./cast-sdk.ts";
 import { tellCastSessionLinked, tellCastSessionLost } from "./cast-session-lost.ts";
+import { chromecastSendingNow } from "./google-cast-connecting.ts";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { useLive } from "./live.tsx";
 import { dataOrThrow } from "./problem.ts";
@@ -136,7 +137,10 @@ export function guestCastOf(
  * picker and the device's launch take seconds, the film playing on here meanwhile, and a film read at
  * the press, still loading, went to the TV paused at its start (the owner, staging, 2026-11-27).
  * locator is the session's, which the device reaches the core by from away; showsLog, whether the
- * device shows its log on screen (the owner, 2026-11-12).
+ * device shows its log on screen (the owner, 2026-11-12). onPicked is told the device's name once
+ * its Cast session exists, the picker closed on it (D570 §2). abandon aborted gives the cast up
+ * (D570 §3): the Cast session is ended at once, or as soon as the SDK makes it, no cast is made,
+ * and one made meanwhile is ended (endCastRetrying, "stopped"); undefined then, as for no pick.
  */
 export async function castToAGoogleCastDevice(
   api: Api,
@@ -145,21 +149,53 @@ export async function castToAGoogleCastDevice(
     readonly locator: string | undefined;
     readonly film: () => CastFilm | undefined;
     readonly showsLog: boolean;
-  },
+  } & Abandonable,
 ): Promise<{ readonly cast: Cast; readonly name: string } | undefined> {
-  const receiver = await openGuestReceiverBy(ways, how);
+  const isAbandoned = (): boolean => how.abandon?.aborted === true;
+  let receiver: GuestReceiver | undefined;
+  try {
+    receiver = await openGuestReceiverBy(ways, how);
+  } catch (cause) {
+    if (isAbandoned()) {
+      return undefined; // its session ended by the abandon, which is no failure
+    }
+    throw cause;
+  }
   if (receiver === undefined) {
     return undefined;
   }
   const { channel, deviceId } = receiver;
   try {
+    if (isAbandoned()) {
+      endQuietly(channel);
+      return undefined;
+    }
     const cast = await startCast(api, deviceId, how.film());
+    if (isAbandoned()) {
+      endQuietly(channel);
+      // Failing twice, the core ends it itself once its receiver is gone.
+      endCastRetrying(api, cast.castId, "stopped").catch(() => undefined);
+      return undefined;
+    }
     linkCastSession(api, channel, cast.castId);
     return { cast, name: channel.receiverName };
   } catch (cause) {
     endQuietly(channel);
+    if (isAbandoned()) {
+      return undefined;
+    }
     throw cause;
   }
+}
+
+/**
+ * How a Google Cast device being opened is given up (castToAGoogleCastDevice, D570): onPicked told
+ * its name once its Cast session exists; abandon, aborted, ending that session at once, or the one
+ * the SDK is making as soon as it exists.
+ */
+interface Abandonable {
+  readonly onPicked?: ((name: string) => void) | undefined;
+  readonly abandon?: AbortSignal | undefined;
 }
 
 /**
@@ -170,7 +206,7 @@ export async function castToAGoogleCastDevice(
  */
 export async function openGuestReceiverBy(
   ways: GuestCastWays,
-  how: { readonly locator: string | undefined; readonly showsLog: boolean },
+  how: { readonly locator: string | undefined; readonly showsLog: boolean } & Abandonable,
 ): Promise<GuestReceiver | undefined> {
   const reach = receiverReachOf(ways.discovery, how.locator);
   if (reach === undefined || !(await loadCastSender())) {
@@ -180,6 +216,8 @@ export async function openGuestReceiverBy(
     askGrant: ways.askGrant,
     reach,
     showsLog: how.showsLog,
+    onPicked: how.onPicked,
+    abandon: how.abandon,
   });
 }
 
@@ -224,6 +262,7 @@ export async function openGuestReceiver(
   if (first === undefined) {
     return undefined;
   }
+  ways.onPicked?.(first.receiverName);
   // Heard from the start: the failure below ends the session before it can be waited on.
   const firstEnded = endedOf(first);
   try {
@@ -234,6 +273,20 @@ export async function openGuestReceiver(
     }
   }
   await Promise.race([firstEnded, waitMs(receiverStopsWithinMs)]);
+  if (ways.abandon?.aborted === true) {
+    return undefined; // given up before it was launched again
+  }
+  return await launchedAgain(appId, ways);
+}
+
+/**
+ * The receiver launched again on the device picked, its older one stopped (openGuestReceiver), and
+ * handed the grant; undefined where the person picks none this time.
+ */
+async function launchedAgain(
+  appId: string,
+  ways: GrantHandOver,
+): Promise<GuestReceiver | undefined> {
   let again: CastChannel | undefined;
   try {
     again = await openSessionWith(appId);
@@ -271,16 +324,31 @@ async function openSessionWith(appId: string): Promise<CastChannel | undefined> 
  * whether it shows its log on screen, said only where it does: a receiver hearing nothing of it, as
  * from an older sender, hides it, and an older receiver ignores it.
  */
-interface GrantHandOver {
+interface GrantHandOver extends Abandonable {
   readonly askGrant: AskGuestCastGrant;
   readonly reach: ReceiverReach;
   readonly showsLog: boolean;
 }
 
-/** Hands channel's device its grant; answers it once it is ready, its session ended where it fails. */
+/**
+ * Hands channel's device its grant; answers it once it is ready, its session ended where it fails,
+ * and as ways' abandon is aborted, at once, or here where it was before the session existed.
+ */
 async function handGrant(channel: CastChannel, ways: GrantHandOver): Promise<GuestReceiver> {
   const ready = readyHeard(channel);
+  const { abandon } = ways;
+  abandon?.addEventListener(
+    "abort",
+    () => {
+      ready.stop(); // waited on no longer, though the SDK says nothing of the session's end
+      endQuietly(channel);
+    },
+    { once: true },
+  );
   try {
+    if (abandon?.aborted === true) {
+      throw new GuestCastFailure("given up on before its session existed");
+    }
     const grant = await ways.askGrant(channel.receiverName);
     const log = ways.showsLog ? { showsLog: true } : {};
     await channel.send({ type: "guest", grant, reach: ways.reach, ...log });
@@ -492,4 +560,19 @@ export function useEndsTheCastSessionWithItsCast(): void {
   useEffect(() => {
     castSentNow(castId);
   }, [castId]);
+}
+
+/**
+ * Ends a Google Cast device's connect (google-cast-connecting.ts, D570) as the live connection says
+ * its cast is taken, the cast's page taking over in that render, or over untaken
+ * (chromecastSendingNow); mounted where the page always has it, the status tray, since the Cast
+ * menu closes at the pick.
+ */
+export function useEndsTheConnectingOnceTaken(): void {
+  const sending = useLive().sending;
+  const castId = sending?.castId;
+  const isAccepted = sending?.isAccepted === true;
+  useEffect(() => {
+    chromecastSendingNow(castId, isAccepted);
+  }, [castId, isAccepted]);
 }

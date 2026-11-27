@@ -612,7 +612,10 @@ func (hub *Hub) noSessionFor(credential string) error {
 
 // CastPosition is where the cast castID that userID cast stands now, in milliseconds, and whether it
 // plays, in the session it is in, its own or the Watch Together session: where a remote offers to
-// play from once the cast ends (§9 Q5).
+// play from once the cast ends (§9 Q5). A cast standing to play for its receiver (Waiting, as a
+// Google Cast receiver that put the film on stands until its first picture) plays: Cancel during the
+// start brought the film back here paused, though it was playing as it was cast (the lead's walk on
+// a Chromecast, 2026-11-27).
 func (hub *Hub) CastPosition(castID, userID int64) (positionMs int64, isPlaying bool, err error) {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
@@ -620,7 +623,9 @@ func (hub *Hub) CastPosition(castID, userID int64) (positionMs int64, isPlaying 
 	if err != nil {
 		return 0, false, err
 	}
-	return place.where.positionAt(hub.clock.Now()).Milliseconds(), place.where.group.state == GroupPlaying, nil
+	state := place.where.group.state
+	isPlaying = state == GroupPlaying || state == GroupWaiting
+	return place.where.positionAt(hub.clock.Now()).Milliseconds(), isPlaying, nil
 }
 
 // CastStateOf is what state the cast castID that userID cast is in, as its castee last said, for a

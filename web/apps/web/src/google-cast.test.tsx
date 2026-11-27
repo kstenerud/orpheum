@@ -27,7 +27,6 @@ import {
   linkCastSession,
 } from "./google-cast.ts";
 import { LiveProvider } from "./live.tsx";
-import type { Services } from "./services.tsx";
 import { StatusTray } from "./status-tray.tsx";
 import {
   bodyField,
@@ -37,159 +36,18 @@ import {
   mount,
   servedBy,
   settleUntil,
-  type Answers,
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
+import {
+  chromeHints,
+  givenCastSdk,
+  givenHints,
+  grant,
+  underTheLoader,
+} from "./test-google-cast.ts";
 import { withServices } from "./test-services.tsx";
-import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
-
-/** Chrome's client hints, as Chrome on a computer or on Android gives them. */
-const chromeHints = {
-  brands: [
-    { brand: "Chromium", version: "142" },
-    { brand: "Google Chrome", version: "142" },
-  ],
-};
-
-/** Has the page's browser give hints, or none where undefined (Safari, Firefox, iOS). */
-function givenHints(hints: unknown): void {
-  Object.defineProperty(navigator, "userAgentData", { configurable: true, value: hints });
-}
-
-/** The grant the core mints for one cast: a secret. */
-const grant = "grant-secret-7f3a";
-
-/** A Google Cast device's session in Chrome's sender SDK, the receiver's answers given by the test. */
-interface FakeCastDevice {
-  readonly sent: (readonly [unknown, unknown])[];
-  readonly say: (message: unknown) => void;
-  /** The person's Stop in Chrome's own Cast control: the SDK says the session ending, then ended. */
-  readonly endFromChrome: () => void;
-  /** The device switched off or lost: the SDK says the session ended alone (D552 §5). */
-  readonly vanish: () => void;
-  readonly endings: () => number;
-  /** How many sessions the page has asked Chrome for. */
-  readonly requests: () => number;
-}
-
-/**
- * Puts a sender SDK on the page's globals whose picker picks the device named "Living room TV";
- * isOlderFirst, its first session joins a receiver page older than the sender's, left running, which
- * does not listen on the grant's namespace, and its ending stopping that page.
- */
-function givenCastSdk(isOlderFirst = false): FakeCastDevice {
-  const sent: (readonly [unknown, unknown])[] = [];
-  const listeners: ((namespace: unknown, text: unknown) => void)[] = [];
-  const stateListeners: ((event: unknown) => void)[] = [];
-  let endings = 0;
-  let requests = 0;
-  const session = {
-    getCastDevice: () => ({ friendlyName: "Living room TV" }),
-    sendMessage: async (namespace: unknown, message: unknown) => {
-      await Promise.resolve();
-      if (isOlderFirst && requests === 1) {
-        // The SDK's own answer, a bare code, to a namespace the receiver does not listen on.
-        // eslint-disable-next-line @typescript-eslint/only-throw-error -- the SDK rejects with a string
-        throw "invalid_parameter";
-      }
-      sent.push([namespace, message]);
-    },
-    addMessageListener: (
-      _namespace: unknown,
-      listener: (namespace: unknown, text: unknown) => void,
-    ) => {
-      listeners.push(listener);
-    },
-    endSession: () => {
-      endings += 1;
-      if (isOlderFirst && requests === 1) {
-        current = null;
-        for (const listener of stateListeners) {
-          listener({ sessionState: "SESSION_ENDED" });
-        }
-      }
-    },
-  };
-  let current: unknown = null;
-  const context = {
-    setOptions: () => undefined,
-    requestSession: async () => {
-      requests += 1;
-      current = session;
-      await Promise.resolve();
-    },
-    getCurrentSession: () => current,
-    addEventListener: (_type: unknown, listener: (event: unknown) => void) => {
-      stateListeners.push(listener);
-    },
-    removeEventListener: () => undefined,
-  };
-  vi.stubGlobal("cast", {
-    framework: {
-      // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
-      CastContext: { getInstance: () => context },
-      // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
-      CastContextEventType: { SESSION_STATE_CHANGED: "sessionstatechanged" },
-      // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
-      SessionState: { SESSION_ENDING: "SESSION_ENDING", SESSION_ENDED: "SESSION_ENDED" },
-    },
-  });
-  // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
-  vi.stubGlobal("chrome", { cast: { AutoJoinPolicy: { ORIGIN_SCOPED: "origin_scoped" } } });
-  return {
-    sent,
-    say: (message) => {
-      for (const listener of listeners) {
-        listener(guestCastNamespace, JSON.stringify(message));
-      }
-    },
-    endFromChrome: () => {
-      for (const listener of stateListeners) {
-        listener({ sessionState: "SESSION_ENDING" });
-      }
-      current = null;
-      for (const listener of stateListeners) {
-        listener({ sessionState: "SESSION_ENDED" });
-      }
-    },
-    vanish: () => {
-      current = null;
-      for (const listener of stateListeners) {
-        listener({ sessionState: "SESSION_ENDED" });
-      }
-    },
-    endings: () => endings,
-    requests: () => requests,
-  };
-}
-
-/** The services of a page under a discovery's loader that names its receiver application. */
-function underTheLoader(
-  answers: Answers,
-  heard: Heard[],
-  server: FakeTogetherServer,
-): Services & { readonly asked: string[] } {
-  const served = servedBy(answers, heard, "token");
-  const asked: string[] = [];
-  return {
-    ...served,
-    openTogetherSocket: server.openSocket,
-    session: { ...served.session, locator: () => "locator-1" },
-    throughDiscovery: {
-      clientApi: "https://discovery.example/api",
-      coreId: "core-1",
-      fingerprint: "fp-1",
-    },
-    castReceiverAppId: "ABCD1234",
-    askGuestCastGrant: async (receiverName) => {
-      asked.push(receiverName);
-      await Promise.resolve();
-      return grant;
-    },
-    asked,
-  };
-}
+import { fakeTogetherServer } from "./test-together.ts";
 
 /** A device of the person's, as GET /me/devices lists it. */
 const thisLaptop = {
@@ -253,7 +111,7 @@ describe("the Cast menu's Chromecast (D465 §3)", () => {
       [],
       server,
     );
-    givenCastSdk(); // loaded already, so the page's one load is left for the next test to see
+    givenCastSdk(vi.stubGlobal); // loaded already, so the page's one load is left for the next test to see
     const menu = withServices(
       <LiveProvider>
         <CastTargets film={() => undefined} />
@@ -325,7 +183,7 @@ describe("the Cast menu's Chromecast (D465 §3)", () => {
       server,
     );
     givenHints(chromeHints);
-    const device = givenCastSdk();
+    const device = givenCastSdk(vi.stubGlobal);
     const printed: unknown[] = [];
     for (const method of ["log", "info", "warn", "error", "debug"] as const) {
       vi.spyOn(console, method).mockImplementation((...said: unknown[]) => {
@@ -407,7 +265,7 @@ describe("the Cast menu's Chromecast (D465 §3)", () => {
       server,
     );
     givenHints(chromeHints);
-    const device = givenCastSdk();
+    const device = givenCastSdk(vi.stubGlobal);
     // Still loading at the press: its video stands paused at the film's start.
     const here = { positionMs: 85_403, isPaused: true };
     mounted = await mount(
@@ -451,7 +309,7 @@ describe("the Cast menu's Chromecast (D465 §3)", () => {
       server,
     );
     givenHints(chromeHints);
-    const device = givenCastSdk();
+    const device = givenCastSdk(vi.stubGlobal);
     mounted = await mount(
       withServices(
         <LiveProvider>
@@ -495,7 +353,7 @@ describe("the Cast menu's Chromecast (D465 §3)", () => {
       server,
     );
     givenHints(chromeHints);
-    const device = givenCastSdk(true);
+    const device = givenCastSdk(vi.stubGlobal, true);
     mounted = await mount(
       withServices(
         <LiveProvider>
@@ -584,7 +442,7 @@ describe("the Cast menu's Show cast log (the owner, 2026-11-12)", () => {
       server,
     );
     givenHints(chromeHints);
-    const device = givenCastSdk();
+    const device = givenCastSdk(vi.stubGlobal);
     // The device's failure below, which ends the cast the test does not want, is said on the console.
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     mounted?.unmount();
@@ -671,7 +529,7 @@ describe("a Watch Together guest by link's Chromecast (D518)", () => {
 
   it("asks its grant by the guest's membership, signed in as no one, hands it over with the membership's locator, and asks for no route a guest is refused", async () => {
     givenHints(chromeHints);
-    const device = givenCastSdk();
+    const device = givenCastSdk(vi.stubGlobal);
     const routes = membersRoutes();
     const asked: string[] = [];
     const refused: string[] = [];

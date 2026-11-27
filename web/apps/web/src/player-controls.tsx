@@ -19,6 +19,7 @@ import { useTranslation } from "react-i18next";
 
 import { FullScreenButton } from "./full-screen-button.tsx";
 import { isPausedAsAsked } from "./film-waits.tsx";
+import { isChromecastConnecting, useChromecastConnecting } from "./google-cast-connecting.ts";
 import { useIsVolumeSettable } from "./film-volume-slider.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { useSideTapsOf } from "./phone-side-taps.tsx";
@@ -130,6 +131,34 @@ interface ButtonsParts {
 }
 
 /**
+ * A move to the previous or next title (go), waiting while its source is not ready; where there is
+ * none, the overlay's row keeps its place, so the others stand where they stand with both: "The
+ * center buttons should always behave in placement as if all 5 were always available" (the owner,
+ * 2026-11-23).
+ */
+function MoveOrPlace(props: {
+  readonly go: (() => void) | undefined;
+  readonly source: PlayerSource;
+  readonly isOverVideo: boolean;
+  readonly isForward: boolean;
+  readonly isOverlayRow: boolean;
+}): JSX.Element | null {
+  if (props.go !== undefined) {
+    return (
+      <SequenceMoveButton
+        isOverVideo={props.isOverVideo}
+        isForward={props.isForward}
+        isDisabled={!props.source.isReady}
+        onMove={props.go}
+      />
+    );
+  }
+  return props.isOverlayRow ? (
+    <span className="player-controls__move-place" aria-hidden="true" />
+  ) : null;
+}
+
+/**
  * The bar's buttons among the controls given (PlayerControls): in the bar's order, or as the
  * overlay's row, previous, the steps with play between them and next in a leading group (a move
  * there is none of keeping its place), and full screen and the sound trailing.
@@ -139,15 +168,15 @@ function ControlButtons(props: ButtonsParts): JSX.Element {
   const has = (control: PlayerControl): boolean => controls.includes(control);
   const move = (isForward: boolean): JSX.Element | null => {
     const go = isForward ? moves?.next : moves?.previous;
-    if (has(isForward ? "next" : "previous") && go !== undefined) {
-      return <SequenceMoveButton isOverVideo={isOverVideo} isForward={isForward} onMove={go} />;
-    }
-    // The overlay's row keeps a move's place where there is none, so the others stand where they
-    // stand with both: "The center buttons should always behave in placement as if all 5 were
-    // always available" (the owner, 2026-11-23).
-    return isOverlayRow === true ? (
-      <span className="player-controls__move-place" aria-hidden="true" />
-    ) : null;
+    return (
+      <MoveOrPlace
+        go={has(isForward ? "next" : "previous") ? go : undefined}
+        source={source}
+        isOverVideo={isOverVideo === true}
+        isForward={isForward}
+        isOverlayRow={isOverlayRow === true}
+      />
+    );
   };
   const play = has("play") ? <PlayButton {...props} /> : null;
   const step = (isForward: boolean): JSX.Element | null =>
@@ -261,6 +290,8 @@ export function seekStepped(source: PlayerSource, byMs: number): void {
 function SequenceMoveButton(props: {
   readonly isOverVideo: boolean | undefined;
   readonly isForward: boolean;
+  /** Whether it takes no press now, its source not ready (PlayerSource's isReady). */
+  readonly isDisabled: boolean;
   readonly onMove: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -269,6 +300,7 @@ function SequenceMoveButton(props: {
     <IconButton
       ref={buttonRef}
       isOverVideo={props.isOverVideo}
+      isDisabled={props.isDisabled}
       label={props.isForward ? t("playerControls.next") : t("playerControls.previous")}
       icon={props.isForward ? <NextIcon /> : <PreviousIcon />}
       onClick={onClick}
@@ -358,7 +390,8 @@ export const CommandRightsContext: Context<CommandRights> = createContext<Comman
  * The video in videoRef as the playback target here (PlaybackTarget, D555 §8): where it stands, read
  * at its own events, and at each timeupdate only while the bar shows (isHidden false), or where a
  * seek chosen on it sends it (seekAheadOf); play or pause and seeks made on it at once; its sound;
- * and its choices, the film's tracks around its stage (HereChoices).
+ * and its choices, the film's tracks around its stage (HereChoices). While a Google Cast device is
+ * being connected it is not ready (D570 §2): its play, seeks and moves wait, its sound does not.
  */
 export function useVideoTarget(
   videoRef: RefObject<HTMLVideoElement | null>,
@@ -367,23 +400,24 @@ export function useVideoTarget(
   const stand = useStanding(videoRef, isHidden);
   const sound = useVideoSound(videoRef);
   const rights = use(CommandRightsContext);
+  const isReady = useChromecastConnecting() === undefined;
   return {
     ...stand,
     kind: "here",
     choices: { kind: "here", videoRef },
-    isReady: true,
+    isReady,
     canSeek: rights.canSeek,
     canPlayPause: rights.canPlayPause,
     sound,
     playOrPause: () => {
       const video = videoRef.current;
       if (video !== null && rights.canPlayPause) {
-        answerPlayerCommand(video, "playPause");
+        answerPlayerCommand(video, "playPause"); // waits while connecting (stageOfVideo)
       }
     },
     seekTo: (atMs) => {
       const video = videoRef.current;
-      if (video !== null && rights.canSeek) {
+      if (video !== null && rights.canSeek && !isChromecastConnecting()) {
         seekAheadOf(video).aim(atMs, 0, askedByOf("timeline", "bar"));
       }
     },

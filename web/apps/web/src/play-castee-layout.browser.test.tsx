@@ -16,7 +16,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 
 import { CasteePlay } from "./play-castee.tsx";
-import { castingRemote, receiverSays } from "./test-castee.tsx";
+import { castingRemote, receiverSays, welcome } from "./test-castee.tsx";
 import type { Mounted } from "./test-dom.tsx";
 
 let mounted: Mounted | undefined;
@@ -245,5 +245,27 @@ describe("the castee's Play page laid out as the remote (the owner, 2026-11-26)"
     expectSixteenByNine(bars);
     expect(padSize(bars, "Play")).toBeCloseTo(72, 0);
     expect(boxOf(bars, offer).width).toBeCloseTo(390 - 32, 0);
+  });
+
+  it("takes a press on the start's Cancel, though its sign over the picture takes none (D569 §5)", async () => {
+    await page.viewport(390, 844);
+    const drawn = await castingRemote({}, [], {
+      remote: CasteePlay,
+      onPlayHere: vi.fn(),
+      welcome: { ...welcome, group: { ...welcome.group, state: "playing" } },
+    });
+    mounted = drawn.mounted;
+    await drawn.sockets.live.say({ type: "devices", deviceIds: [1], receivingDeviceIds: [] });
+    const cancel = (): HTMLElement | undefined =>
+      [
+        ...drawn.mounted.container.querySelectorAll<HTMLElement>(".castee-play__centre button"),
+      ].find((each) => each.textContent === "Cancel");
+    await expect.poll(cancel).toBeDefined();
+    const box = cancel()?.getBoundingClientRect();
+    const hit =
+      box === undefined
+        ? null
+        : document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    expect(hit !== null && cancel()?.contains(hit) === true).toBe(true);
   });
 });

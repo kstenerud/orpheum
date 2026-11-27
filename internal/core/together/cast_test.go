@@ -737,3 +737,27 @@ func casteeStateIn(roster []MemberView) CastState {
 	}
 	return ""
 }
+
+// A cast whose receiver put the film on and stands to play it, Waiting until its first picture, as a
+// Google Cast receiver does through its start, plays where the remote reads it: Cancel then brought
+// the film back here paused, though it was playing as it was cast (the lead's walk on a Chromecast,
+// 2026-11-27).
+func TestCastPosition_PlaysWhileItsReceiverStandsToPlay(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	cast, err := stage.hub.OpenCast(alone, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	receiver, receiverBox := stage.attach(t, cast.ReceiverCredential, RoleVideo)
+	stage.attach(t, cast.SenderCredential, RolePanel)
+	stage.hub.Handle(t.Context(), receiver, Inbound{
+		Type: MessageCommand, Command: CommandChangeItem, FileID: 12,
+	})
+	if group := receiverBox.last(MessageGroup).Group; group.State != GroupWaiting {
+		t.Fatalf("the cast stands %q once its film is put on; want %q", group.State, GroupWaiting)
+	}
+	if _, isPlaying, err := stage.hub.CastPosition(cast.CastID, alone.UserID); err != nil || !isPlaying {
+		t.Errorf("the cast standing to play reads playing %v (%v); want playing", isPlaying, err)
+	}
+}

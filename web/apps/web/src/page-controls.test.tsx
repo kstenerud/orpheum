@@ -17,6 +17,7 @@ import {
 } from "./input-commands.ts";
 import { uprightQuery } from "./input-mode.ts";
 import { EndsUnderTheHeading } from "./ends-place.tsx";
+import { startChromecastConnecting } from "./google-cast-connecting.ts";
 import { OverTheFilm, PageControls } from "./page-controls.tsx";
 import { PlayUpwardContext } from "./play-up.tsx";
 import {
@@ -169,6 +170,50 @@ describe("the player's controls under the film outside full screen (D369 §2, D4
     expect(timeline?.hasAttribute(arrowsAreCommandsAttribute)).toBe(true);
     expect(video.tabIndex).toBe(0);
     expect(bar()?.querySelector(".player-overlay__up")).toBeNull(); // a computer's trail is the page's
+  });
+
+  it("says a Chromecast picked is being connected over the film, with Cancel, play/pause and seeking waiting, keys too, and the volume not (D570 §2)", async () => {
+    const cancelled = vi.fn();
+    const connect = startChromecastConnecting("Living room TV", cancelled);
+    try {
+      const { video, videoRef } = stagedVideo(() => false);
+      const stage = await drawn(video, videoRef);
+      const notice = stage.querySelector(".chromecast-connecting");
+      expect(notice?.querySelector(".pill")?.textContent).toBe("Connecting to Living room TV…");
+      const isDisabled = (name: string): boolean =>
+        bar()?.querySelector(`[aria-label="${name}"]`)?.getAttribute("aria-disabled") === "true";
+      /** Whether a button named name is there to press: a seek's is not drawn while not ready. */
+      const isPressable = (name: string): boolean =>
+        (bar()?.querySelector(`[aria-label="${name}"]:not([aria-disabled="true"])`) ?? null) !==
+        null;
+      expect(isDisabled("Play")).toBe(true);
+      expect(isPressable("Back 10 s")).toBe(false);
+      expect(isPressable("Forward 10 s")).toBe(false);
+      const timeline = bar()?.querySelector<HTMLInputElement>(
+        'input[aria-label="Where the film stands"]',
+      );
+      expect(timeline?.disabled).toBe(true);
+      const played = vi.spyOn(HTMLMediaElement.prototype, "play");
+      expect(answerPlayerCommand(video, "playPause")).toBe(false);
+      expect(answerPlayerCommand(video, "seekForward")).toBe(false);
+      expect(played).not.toHaveBeenCalled();
+      video.volume = 0.5;
+      expect(answerPlayerCommand(video, "volumeUp")).toBe(true);
+      expect(video.volume).toBeGreaterThan(0.5);
+      const cancel = [...(notice?.querySelectorAll("button") ?? [])].find(
+        (each) => each.textContent === "Cancel",
+      );
+      act(() => {
+        cancel?.click();
+      });
+      expect(cancelled).toHaveBeenCalledOnce();
+      expect(stage.querySelector(".chromecast-connecting")).toBeNull();
+      expect(isDisabled("Play")).toBe(false);
+    } finally {
+      act(() => {
+        connect.end();
+      });
+    }
   });
 
   it("puts the video's stage full screen by its ⤢, though the bar lies outside the stage", async () => {

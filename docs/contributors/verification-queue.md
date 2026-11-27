@@ -4433,3 +4433,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   picture is drawn largest, and report sharp enough or too soft. Then cast a film just added, whose
   pictures are not made yet: report whether its still shows, and whether the picture replaces it as
   they are made during the cast.
+- [ ] **VQ426** — A Chromecast being connected says so on the film's page, with Cancel, from the
+  pick in Chrome's picker (D570). On a computer in Chrome, play a film, press Cast, then Chromecast,
+  and close Chrome's picker with no TV picked: report whether the page changes at all. Press
+  Chromecast again and pick the Chromecast: report whether "Connecting to ‹TV›…" shows over the
+  film with Cancel at once, whether play/pause, the seeks, Next and their keys take no press
+  meanwhile while the volume still steps, and whether the cast's page then takes over with no
+  moment of the film's page alone. Cast again and press Cancel before the TV shows anything:
+  report whether the TV's Orpheum app closes, no cast starts, and the film plays on here where it
+  stood. Cast once more and, once the page says "Loading on ‹TV›…", click its Cancel with the
+  mouse: report whether it takes the click and the film comes back here playing where it stood.

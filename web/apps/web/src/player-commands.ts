@@ -23,6 +23,7 @@ import { useCallback, useEffect, useMemo, type RefObject } from "react";
 import { leaveFullScreenAsked, toggleFullScreen } from "./film-fullscreen.ts";
 import { arrowsAreCommandsAttribute, caretOf } from "./focus-engine.ts";
 import { isMeantToPlay, isPausedAsAsked } from "./film-waits.tsx";
+import { isChromecastConnecting } from "./google-cast-connecting.ts";
 import { useLatest } from "./latest.ts";
 import type { PlaybackTarget } from "./playback-target.ts";
 import { stepSound, volumeAfter } from "./volume-step.ts";
@@ -172,6 +173,8 @@ const everyRight: CommandRights = { canPlayPause: true, canSeek: true };
 /**
  * The video as the stage the player's commands work on (PlayerStage), its play and pause and its
  * seeks taken as far as rights give them: a Watch Together guest's as far as their link's (D557 §6).
+ * While a Google Cast device is being connected it plays and seeks nothing, its volume its own
+ * (D570 §2): the film is on its way to the TV.
  */
 export function stageOfVideo(
   video: HTMLVideoElement,
@@ -180,7 +183,7 @@ export function stageOfVideo(
   return {
     picture: video,
     isPaused: isPausedAsAsked(video),
-    isReady: true,
+    isReady: !isChromecastConnecting(),
     rights,
     playPause: () => {
       if (rights.canPlayPause) {

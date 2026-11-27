@@ -7,6 +7,7 @@ import type { SkippedStretch } from "@orpheum/player";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { createPortal } from "react-dom";
 
+import { ChromecastConnectingOverTheFilm } from "./chromecast-connecting.tsx";
 import { ConvenienceArea, EndsAt, leftMsOf, type OfferPiece } from "./convenience-area.tsx";
 import { useEndsPlace } from "./ends-place.tsx";
 import { fillTheScreen, toggleFullScreen } from "./film-fullscreen.ts";
@@ -41,7 +42,7 @@ interface ControlsGiven {
  * play or pause it and its double click put it full screen or leave (the two clicks' play and pause
  * undoing each other), a finger's never (usePressesOnTheFilm). Over the film too, in and out of
  * full screen, the Pill that tells a long stretch skipped, or the dialog that the film cannot go on
- * (SkippedPopUp). The switch is made in the Play page's pieces, not in the film player's stage,
+ * (SkippedPopUp), and a Google Cast device being connected, with Cancel (D570 §2). The switch is made in the Play page's pieces, not in the film player's stage,
  * which Watch Together's guest shares (the plan's §6 audit).
  */
 export function OverTheFilm(
@@ -59,6 +60,7 @@ export function OverTheFilm(
     <>
       {isOver ? <PlayerOverlay {...film} offer={offer} moves={moves} /> : null}
       <SkippedPopUp videoRef={film.videoRef} />
+      <ChromecastConnectingOverTheFilm />
     </>
   );
 }
@@ -128,13 +130,14 @@ function ControlsBar(props: {
   const endsPlace = useEndsPlace();
   return (
     <div ref={barRef} className="page-controls" data-focus-container="" data-player-controls="">
-      <PadTimeline source={source} hasArrowsAsCommands />
+      <PadTimeline source={source} isDisabled={!source.isReady} hasArrowsAsCommands />
       <RemotePad
         source={source}
         moves={moves}
         shown={shown}
         sound={undefined}
-        isDisabled={false}
+        isDisabled={!source.isReady}
+        isSoundDisabled={false}
         playRef={playRef}
       />
       <PadMenus
