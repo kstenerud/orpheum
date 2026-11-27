@@ -407,10 +407,10 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
       sound: { kind: "channel", channel: "film", level, isMuted },
     });
     expect(server.heard.filter((each) => each["type"] === "sound")).toEqual([
+      channel(0.65, false),
+      channel(0.65, true),
       channel(0.7, false),
-      channel(0.7, true),
-      channel(0.7, false),
-      channel(0.8, false),
+      channel(0.75, false),
     ]);
   });
 
@@ -457,7 +457,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
         page.querySelector(".player-overlay-volume .pill")?.textContent ?? undefined;
       expect(number()).toBeUndefined();
       await click(buttonNamed(page, "Volume up"));
-      await settleUntil(() => number() === "Volume 50 %");
+      await settleUntil(() => number() === "Volume 45 %");
       // The TV's own remote turns it down: the number shown follows.
       await act(async () => {
         changeTo(0.3, false);

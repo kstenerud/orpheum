@@ -72,7 +72,7 @@ describe("the Play page's keys over the castee, as over the video (D555 §8)", (
     );
     expect(server.heard.at(-1)).toMatchObject({ command: "seek", positionMs: 61_000 });
     press("+");
-    expect(sentOf(server, "sound").at(-1)).toEqual(channel(0.7, false));
+    expect(sentOf(server, "sound").at(-1)).toEqual(channel(0.65, false));
     press("-");
     expect(sentOf(server, "sound").at(-1)).toEqual(channel(0.6, false));
     press("m");

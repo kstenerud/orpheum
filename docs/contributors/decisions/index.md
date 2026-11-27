@@ -553,7 +553,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D545](working-notes.md#d545--a-casts-remote-shows-the-films-key-frame-at-the-receivers-place-every-3-s-while-it-moves) A cast's remote shows the film's key frame at the receiver's place, every 3 s while it moves
 - [D546](working-notes.md#d546--casting-offers-the-skips-and-up-next-from-the-credits-as-the-player-does-locally) Casting offers the skips, and Up next from the credits, as the player does locally — *revisited by D547*
 - [D547](working-notes.md#d547--the-core-makes-one-plan-per-play-and-keeps-one-live-state-and-every-device-draws-its-own-part) The core makes one plan per play and keeps one live state, and every device draws its own part
-- [D548](working-notes.md#d548--the-cast-remote-has-its-own-layout-the-picture-in-a-card-a-pad-of-round-buttons-and-the-players-buttons-row) The cast remote has its own layout: the picture in a card, a pad of round buttons, and the player's buttons row — *revisited by D550*
+- [D548](working-notes.md#d548--the-cast-remote-has-its-own-layout-the-picture-in-a-card-a-pad-of-round-buttons-and-the-players-buttons-row) The cast remote has its own layout: the picture in a card, a pad of round buttons, and the player's buttons row — *revisited by D550, D562*
 - [D549](working-notes.md#d549--after-stop-the-casting-device-resumes-where-the-receiver-last-stood-home-only-where-nothing-was-on) After Stop, the casting device resumes where the receiver last stood; home only where nothing was on
 - [D550](working-notes.md#d550--the-cast-remote-reaches-for-a-receiver-the-server-no-longer-hears-and-offers-to-play-the-film-here) The cast remote reaches for a receiver the server no longer hears, and offers to play the film here — *revisited by D552*
 - [D551](working-notes.md#d551--a-discovery-request-is-bounded-one-never-answered-ends-as-the-paths-loss-waited-out-with-the-retries) A discovery request is bounded: one never answered ends as the path's loss, waited out with the retries
@@ -567,6 +567,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D559](working-notes.md#d559--a-connection-asks-a-relay-only-once-it-has-not-connected-without-it-the-core-only-for-an-offer-that-carries-a-relayed-candidate-and-the-relays-ports-and-limits-grow) A connection asks a relay only once it has not connected without it, the core only for an offer that carries a relayed candidate, and the relay's ports and limits grow
 - [D560](working-notes.md#d560--the-hosted-relay-grants-every-permission-and-its-relayed-sockets-alone-keep-it-closed) The hosted relay grants every permission, and its relayed sockets alone keep it closed
 - [D561](working-notes.md#d561--the-relay-ends-an-allocation-its-owner-sends-nothing-through-for-a-minute-and-a-connection-asks-a-relays-udp-address-before-its-tls-one) The relay ends an allocation its owner sends nothing through for a minute, and a connection asks a relay's UDP address before its TLS one
+- [D562](working-notes.md#d562--the-cast-remotes-volume-moves-5--a-press-as-the-players-does) The cast remote's volume moves 5 % a press, as the player's does
 
 ## Archived
 

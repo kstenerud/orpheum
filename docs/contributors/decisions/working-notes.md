@@ -31452,7 +31452,7 @@ plays here; the darkened frame was hard to read; the transport buttons stood mid
 thumb's reach; the volume had a slider alone; and nothing said the TV was being reached.
 
 **Status:** decided; not built. Its code is `web/apps/web/src/cast-remote.tsx` and the files
-beside it.
+beside it. §6's 10 % a press is amended by D562: 5 %.
 
 **Amended by D555** (2026-11-25, built by 2026-11-26): what this says of a cast's place on the
 server, of its ends and of its remote is D555's now. The cast remote's page is gone, and the
@@ -32233,3 +32233,16 @@ while: a few reloads would have filled the household.
 3. **A credential's limit is then set from what a connection can take**, not from one device's
    count. The figure waits for §1 and §2 to be measured on staging.
 
+## D562 — The cast remote's volume moves 5 % a press, as the player's does
+
+**Decided** (2026-11-27), by the project owner ("stepping should be 5% instead of 10"), after
+working a Chromecast's volume from the phone on production. It amends D548 §6, whose step was
+10 %, and nothing else of it.
+
+**Status:** decided. It has code.
+
+1. **The pad's Volume down and up, and + and − over a castee, move the level 5 %**, the step D407
+   §10 gave the player's own keys: one step for every volume in the web client (`volumeStep`).
+   Twenty presses go from silence to full; a held button repeats as before.
+2. Proved by the pad's tests, which fail at 10 %: `play-castee-controls.test.tsx`,
+   `play-castee-keys.test.tsx` and `play-castee-volume.test.tsx`.
