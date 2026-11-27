@@ -3925,7 +3925,8 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   `decodedOn=gpu|cpu` (the owner, 2026-11-27).
 - **Evidence:** FFmpeg 8.1.3's source, read 2026-11-27; the speed on production's Celeron J3455,
   HEVC Main 10 at 1080p, 2.65 times real time decoded on the CPU and 5.94 on the GPU, at 432p 3.09
-  and 11.4, on a tenth of the CPU (2026-11-27). No card here to see the failure line itself: VQ421.
+  and 11.4, on a tenth of the CPU (2026-11-27). On staging's NUC7 an H.264 High 10 film
+  played decoded on the CPU, its failed try unseen; the node logs it since (`gpuDecodeFailed`): VQ421.
 
 
 ### FFmpeg takes any protocol it doesn't know as local for a network one, and reads forward rather than seek

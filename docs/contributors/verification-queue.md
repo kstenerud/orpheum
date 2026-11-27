@@ -4368,4 +4368,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   no VAAPI decoder for, such as MPEG-1 or Theora), and an H.264 High 10 film (a profile the card's
   decoder lacks), each at the ladder quality: report that each plays and that its runs say
   `decodedOn` `cpu`, and, for the High 10 film, how long its first chunk took (its first run fails on
-  the GPU at its first picture and is made again on the CPU).
+  the GPU at its first picture and is made again on the CPU, logging `gpuDecodeFailed` with what
+  FFmpeg said: report that line's `why`).
+  **Walked on staging's NUC7 in headless Chromium (the lead, 2026-11-27):** HEVC Main (file 289)
+  and Main 10 (file 279) ran `decodedOn=gpu` at 11 to 14 times real time from the start and after
+  a seek, first chunks in 1.1 to 2.3 s, FFmpeg using 30 to 75 % of one core of four; the Main 10
+  picture was clean and rightly coloured. H.264 High 10 (file 3131), RealVideo (17525) and MPEG-1
+  (18253) ran `cpu` and played. Left for a hand: stepping between Original and a ladder quality,
+  and the `gpuDecodeFailed` line, which the node did not yet log.

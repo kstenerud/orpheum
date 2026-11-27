@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/encode"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // InitName is a store's initialisation segment, which every chunk of it follows.
@@ -79,6 +81,7 @@ type Maker struct {
 	keeper    Keeper
 	directory string
 	encoder   encode.Encoder
+	logger    *slog.Logger
 
 	mutex sync.Mutex
 	// decodedOnCPU are the videos, by root and path, a run decoding on the GPU failed on: every later
@@ -86,10 +89,14 @@ type Maker struct {
 	decodedOnCPU map[string]bool
 }
 
-// NewMaker returns a maker writing under directory, the prepared directory, encoding with encoder.
-func NewMaker(runner Runner, keeper Keeper, directory string, encoder encode.Encoder) *Maker {
+// NewMaker returns a maker writing under directory, the prepared directory, encoding with encoder,
+// and telling logger each video the card could not decode.
+func NewMaker(
+	runner Runner, keeper Keeper, directory string, encoder encode.Encoder, logger *slog.Logger,
+) *Maker {
 	return &Maker{
-		runner: runner, keeper: keeper, directory: directory, encoder: encoder, decodedOnCPU: map[string]bool{},
+		runner: runner, keeper: keeper, directory: directory, encoder: encoder, logger: logger,
+		decodedOnCPU: map[string]bool{},
 	}
 }
 
@@ -148,7 +155,8 @@ func mayBeLedIn(kind nodeproto.ChunkStreamKind) bool {
 // When FFmpeg fails on it, as it does at the first picture of one the card cannot decode
 // (encode.Encoder.DecodeArguments), the video is decoded on the CPU from then on, and a run that made
 // no chunk is made again at once, decoded on the CPU exactly as every quality was before. A stall is
-// not retried: it is the film's or the disk's, not the decoder's.
+// not retried: it is the film's or the disk's, not the decoder's. Each such failure is logged
+// (gpuDecodeFailed), since the run made again says only that it decoded on the CPU.
 func (maker *Maker) Make(
 	ctx context.Context, source execx.Film, command nodeproto.MakeChunks, onChunk func(n int),
 ) (int, encode.Decoding, error) {
@@ -164,6 +172,9 @@ func (maker *Maker) Make(
 	last, err := maker.makeRun(ctx, source, command, onChunk, decoding)
 	if decoding == encode.DecodedOnGPU && isDecodeFailure(ctx, err) {
 		maker.decodeOnCPU(command)
+		maker.logger.WarnContext(ctx, "a run decoding on the GPU failed; its video is decoded on the CPU from now",
+			slogx.EventKey, "gpuDecodeFailed", "storeDir", command.StoreDir, "videoCodec", command.VideoCodec,
+			"isMadeAgain", last < 0, "why", err.Error())
 		if last < 0 {
 			decoding = encode.DecodedOnCPU
 			last, err = maker.makeRun(ctx, source, command, onChunk, decoding)

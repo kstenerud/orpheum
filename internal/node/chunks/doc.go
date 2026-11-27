@@ -160,7 +160,9 @@
 //     are. When FFmpeg itself fails on it, as at the first picture of one the card cannot decode, the
 //     video decodes on the CPU for the node's life, and a run that made no chunk is made again at once
 //     on the CPU, exactly as before; a stall or a stop is not. Every run of a quality says where it
-//     was decoded. Enforced by TestArguments_AQualityDecodedOnTheGPUDiffersOnlyInItsDecodeAndItsFilter,
+//     was decoded, and each failure on the GPU is logged with what FFmpeg said (D568). Enforced by
+//     TestMake_AFailedDecodeOnTheGPUIsLoggedWithWhatFFmpegSaid,
+//     TestArguments_AQualityDecodedOnTheGPUDiffersOnlyInItsDecodeAndItsFilter,
 //     TestMake_AQualityTheCardCannotDecodeIsMadeAgainDecodedOnTheCPU,
 //     TestMake_ARunDecodedOnTheGPUThatFailedAfterAChunkIsNotMadeAgain,
 //     TestMake_AStoppedOrStalledRunOnTheGPUIsNotMadeAgain and TestMake_WhereARunsPictureIsDecoded.

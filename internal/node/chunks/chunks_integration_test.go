@@ -216,7 +216,7 @@ func TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes(t *testing.T) {
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264, slog.New(slog.DiscardHandler))
 	matroska := inMatroska(t, source)
 	openGOP := openGOPFilm(t)
 	transport := remuxed(t, source, "a film (2020).ts")
@@ -350,7 +350,7 @@ func TestMake_ACopiedSoundIsTheFilmsOwnPacketsBitForBitAtTheirTimes(t *testing.T
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 10, 27, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264, slog.New(slog.DiscardHandler))
 	offset := float64(chunks.TimelineOffsetMs) / 1000
 	for fileID, sound := range map[int]struct {
 		codec    string
@@ -424,7 +424,7 @@ func TestMake_AnMPEGTSWhoseOnlyKeyframeIsItsFirstIsOneChunkMadeWhole(t *testing.
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 10, 27, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264, slog.New(slog.DiscardHandler))
 	storeDir := "1/chunks-picture/0123456789abcdef"
 	command := nodeproto.MakeChunks{
 		VideoStreamIndex: 0, VideoCodec: "h264", Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
@@ -494,7 +494,7 @@ func TestMake_ACopiedSoundOfAFilmWhoseGridStartsPastItsStartIsCutAtItsFirstChunk
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264, slog.New(slog.DiscardHandler))
 	storeDir := "1/chunks-sound0-own/0123456789abcdef"
 	stream := nodeproto.ChunkStream{Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 6}}
 	for _, command := range []nodeproto.MakeChunks{
@@ -565,7 +565,7 @@ func TestMake_AFilmWhoseFirstKeyframeIsBeforeItsStartIsCutFromItsStart(t *testin
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264, slog.New(slog.DiscardHandler))
 	storeDir := "1/chunks-picture/0123456789abcdef"
 	makeInTwoRuns(t, maker, source, storeDir, grid, nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
 	stored := packetSizes(t, runner, joined(t, filepath.Join(directory, storeDir), len(grid)-1), "0")
@@ -610,7 +610,7 @@ func TestMake_AnEncodeOfAFilmWithAGapAfterItsFirstPictureIsCutAtItsBounds(t *tes
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 11, 16, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264, slog.New(slog.DiscardHandler))
 	storeDir := "1/chunks-q400k360p/0123456789abcdef"
 	command := nodeproto.MakeChunks{
 		VideoStreamIndex: 0, VideoCodec: "h264", StoreDir: storeDir, FirstChunk: 0, BoundsMs: grid[:4],
@@ -668,7 +668,7 @@ func TestMake_AnEncodeOfAFilmWhosePictureStartsAfterItsSoundIsCutAtItsBounds(t *
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 11, 26, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264, slog.New(slog.DiscardHandler))
 	storeDir := "1/chunks-q400k360p/0123456789abcdef"
 	command := nodeproto.MakeChunks{
 		VideoStreamIndex: 0, VideoCodec: "h264", StoreDir: storeDir, FirstChunk: 0, BoundsMs: grid,
@@ -712,7 +712,7 @@ func TestMake_AnEncodeOfAFilmWithAGapAfterItsFirstPictureDecodesItAtItsShownTime
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264, slog.New(slog.DiscardHandler))
 	storeDir := "1/chunks-q400k360p/0123456789abcdef"
 	command := nodeproto.MakeChunks{
 		VideoStreamIndex: 0, VideoCodec: "h264", StoreDir: storeDir, FirstChunk: 0, BoundsMs: grid[:3],

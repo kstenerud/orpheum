@@ -123,7 +123,7 @@ func TestMake_ACopiedPictureOfAnAVIIndexingEveryFrameAKeyframeStartsAtItsKeyfram
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 11, 16, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264, slog.New(slog.DiscardHandler))
 	storeDir := "17/chunks-picture/0123456789abcdef"
 	makeInTwoRuns(t, maker, source, storeDir, grid, nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
 	stored := packetSizes(t, runner, joined(t, filepath.Join(directory, storeDir), len(grid)-1), "0")
@@ -189,7 +189,7 @@ func TestMake_AnAVIsSoundInterleavedAheadOfItsPictureIsAtItsTimesFromTheFilmsSta
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264, slog.New(slog.DiscardHandler))
 	storeDir := "1/chunks-sound0/0123456789abcdef"
 	command := nodeproto.MakeChunks{
 		VideoStreamIndex: 0, VideoCodec: "mpeg4", StoreDir: storeDir, FirstChunk: 0,

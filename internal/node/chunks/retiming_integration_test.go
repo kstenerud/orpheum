@@ -128,7 +128,7 @@ func TestMake_APictureWhoseBFramesCarryNoDisplayTimesIsReTimedWhenMarked(t *test
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264, slog.New(slog.DiscardHandler))
 	picture := nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}
 	quality := nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 300, Height: 96}
 	for fileID, codec := range []string{"h264", "hevc"} {
@@ -230,7 +230,7 @@ func TestMake_ARetimedCopyIsCutAtAKeyframeShownSoonerThanItsFirst(t *testing.T) 
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264, slog.New(slog.DiscardHandler))
 	command := nodeproto.MakeChunks{
 		VideoStreamIndex: 0, VideoCodec: "hevc", Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
 		StoreDir: "1/chunks-picture/0123456789abcdef", FirstChunk: 1, BoundsMs: grid[1:5],

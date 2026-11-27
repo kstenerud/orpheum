@@ -32371,3 +32371,31 @@ findings 3 and D558 §7's admission.
    operator console and on for a new account during the beta ("a checkbox to enable/disable it
    per-user… per-household (via connectd)"). It replaces the hand-kept list of realms and amends
    D558 §7.
+
+## D568 — A VAAPI node decodes and scales on the card, and a playback asked ahead for Up next replaces nothing
+
+**Decided** (2026-11-27), by the project owner, on the lead's plan for a Chromecast that took 10 to
+20 seconds to start on production's Celeron J3455 ("Yes go ahead with taht plan, starting with the
+measurement. We should be using the hardware available to us for as much as we can"), and, for §3,
+on the finding the lead filed the same day ("yes go ahead"). The measurement is in
+[the navigation answers](../design/plans/navigation-and-widgets-answers-2026-10-27.md).
+
+**Status:** decided. It has code.
+
+1. **Where a node encodes by VAAPI, a quality's picture is decoded and scaled on the card too**,
+   for the codecs FFmpeg decodes through VAAPI. Measured on production, an HEVC Main 10 film at
+   1080p went from 2.65 to 5.94 times real time, and at 432p from 3.09 to 11.4, on a tenth of the
+   CPU. Quick Sync's, NVENC's and x264's encodes decode on the CPU as before: nothing is measured
+   for them.
+2. **A film the card cannot decode is found by trying.** A run that fails on the card is logged
+   (`gpuDecodeFailed`, with what FFmpeg said), its film is decoded on the CPU for the node's life,
+   and a run that had made no chunk is made again at once. The node keeps no list of profiles a
+   card decodes: the card is asked, at the cost of one failed start a film a node's run. Each
+   finished run says where it was decoded (`decodedOn`).
+3. **A playback asked ahead for Up next replaces nothing.** D309 §7 has a player's new playback
+   stop the runs of the film it played; asked with the cause `upNext`, as the offer shows, the
+   playing film's runs go on, and the player lets go of that film when it moves on. This amends
+   D309 §7. A Chromecast asks ahead as a browser does.
+4. **Not decided here:** the quality a cast starts on, and a node measuring its own decode speed a
+   codec; both wait for §1's figures from nodes in use.
+

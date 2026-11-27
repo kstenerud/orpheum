@@ -76,7 +76,7 @@ func makerOver(t *testing.T, fake *fakeFFmpeg) (*Maker, *prepared.Shelf, string)
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	return NewMaker(fake, shelf, directory, encode.EncoderX264), shelf, directory
+	return NewMaker(fake, shelf, directory, encode.EncoderX264, slog.New(slog.DiscardHandler)), shelf, directory
 }
 
 // storedDecodeTime is the first decode time of chunk n in the store.

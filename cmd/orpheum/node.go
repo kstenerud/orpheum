@@ -406,7 +406,7 @@ func openPreparedDirectory(
 		return preparedDirectory{}, err
 	}
 	shelf := prepared.New(root.Path(), preparedBudget(config), clock.System{}, logger)
-	chunkMaker := chunks.NewMaker(runner, shelf, root.Path(), encoder)
+	chunkMaker := chunks.NewMaker(runner, shelf, root.Path(), encoder, logger)
 	return preparedDirectory{root: root, chunkMaker: chunkMaker, shelf: shelf}, nil
 }
 

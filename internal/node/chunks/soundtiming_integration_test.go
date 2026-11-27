@@ -82,7 +82,7 @@ func TestMake_AMadeSoundOfAStretchedFirstPacketStartsWithThePicture(t *testing.T
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 11, 22, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264, slog.New(slog.DiscardHandler))
 	storeDir := "1/chunks-sound0/0123456789abcdef"
 	makeInTwoRunsOf(t, maker, source, grid, nodeproto.MakeChunks{
 		Stream: nodeproto.ChunkStream{
@@ -154,7 +154,7 @@ func TestMake_AMadeSoundFillsAGapInTheFilmsSoundWithSilence(t *testing.T) {
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 11, 22, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264, slog.New(slog.DiscardHandler))
 	storeDir := "1/chunks-sound0/0123456789abcdef"
 	// The first run reads past the gap; the second, led in from 4 s, seeks to 2 s, inside it.
 	makeInTwoRuns(t, maker, source, storeDir, grid, nodeproto.ChunkStream{

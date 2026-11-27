@@ -3,10 +3,12 @@
 package chunks
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"log/slog"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,10 +51,16 @@ func (ffmpeg *gpuFailingFFmpeg) RunWatched(ctx context.Context, run execx.Watche
 // vaapiMakerOver is a maker encoding on VAAPI into a fresh prepared directory, with FFmpeg faked.
 func vaapiMakerOver(t *testing.T, runner Runner) *Maker {
 	t.Helper()
+	return vaapiMakerLoggingTo(t, runner, slog.New(slog.DiscardHandler))
+}
+
+// vaapiMakerLoggingTo is vaapiMakerOver's maker, logging to logger.
+func vaapiMakerLoggingTo(t *testing.T, runner Runner, logger *slog.Logger) *Maker {
+	t.Helper()
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 11, 27, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	return NewMaker(runner, shelf, directory, encode.EncoderVAAPI)
+	return NewMaker(runner, shelf, directory, encode.EncoderVAAPI, logger)
 }
 
 // hevcQuality is a run of a quality of an HEVC film.
@@ -221,4 +229,29 @@ func retimedQuality() nodeproto.MakeChunks {
 	command := hevcQuality("a.mkv")
 	command.NeedsPictureRetiming = true
 	return command
+}
+
+// The run made again says only that it decoded on the CPU, so the failed try is logged with what
+// FFmpeg said: without it nobody can tell a card that cannot decode a film from one never asked.
+func TestMake_AFailedDecodeOnTheGPUIsLoggedWithWhatFFmpegSaid(t *testing.T) {
+	t.Parallel()
+	var logged bytes.Buffer
+	maker := vaapiMakerLoggingTo(t, &gpuFailingFFmpeg{fake: &fakeFFmpeg{}},
+		slog.New(slog.NewTextHandler(&logged, nil)))
+	command := hevcQuality("a.mkv")
+	for range 2 {
+		if _, _, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mkv"}, command, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	lines := strings.Split(strings.TrimSpace(logged.String()), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("logged %q; want one line, for the one run that failed on the GPU", lines)
+	}
+	wants := []string{"logEvent=gpuDecodeFailed", "videoCodec=hevc", "isMadeAgain=true", "Impossible to convert"}
+	for _, want := range wants {
+		if !strings.Contains(lines[0], want) {
+			t.Errorf("logged %q; want %q in it", lines[0], want)
+		}
+	}
 }

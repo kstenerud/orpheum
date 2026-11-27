@@ -671,3 +671,10 @@ Added by the owner, 2026-11-26, from the same walk's unfixed observations:
 11. **`make check-pr` runs past its budget** (the owner, 2026-11-27: "Look for savings, but do it
     in the next batch"): its median on the sandbox's machine is 316 s against 300 s. Find what can
     be cut before the budget is raised.
+12. **Join with no name does nothing and says nothing** (found walking a guest-led film's end,
+    2026-11-27): a guest who presses Join on an empty name field gets no message.
+13. **A group shows "playing" for about half a minute while nobody plays** (the same walk): the
+    host had stalled near the film's end.
+14. **A guest's page logs a 425 again and again after a seek** (the same walk); nothing was seen
+    wrong on the page.
+

@@ -125,7 +125,7 @@ func TestFilmOf_AFilmServedCutDownMakesTheChunksOfTheWholeFilm(t *testing.T) {
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264, slog.New(slog.DiscardHandler))
 	sound := &nodeproto.SoundTrack{ChannelCount: 2}
 	for name, stream := range map[string]nodeproto.ChunkStream{
 		"picture":    {Kind: nodeproto.StreamPicture},

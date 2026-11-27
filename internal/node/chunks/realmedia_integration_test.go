@@ -39,7 +39,7 @@ func TestMake_AnInterleavedRealMediaSoundIsWholeAndAtItsTimesInEveryRun(t *testi
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 10, 27, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264, slog.New(slog.DiscardHandler))
 	storeDir := "1/chunks-sound0-96k-raw/0123456789abcdef"
 	stream := nodeproto.ChunkStream{
 		Kind: nodeproto.StreamSound, SoundKbps: 96, Sound: &nodeproto.SoundTrack{ChannelCount: 1},
