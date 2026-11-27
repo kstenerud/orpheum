@@ -297,7 +297,7 @@ func TestStop_EndsTheTrialGoingAndWaitsForIt(t *testing.T) {
 	trials := newTrials(t, fake, t.TempDir(), testKey(), encode.EncoderX264, nil)
 	trials.config.Kinds = trials.config.Kinds[:1]
 	trials.Start(t.Context())
-	<-fake.started
+	testutil.Receive(t, fake.started, "the trial to start")
 	trials.Stop()
 	fake.mutex.Lock()
 	stopped := fake.stopped
