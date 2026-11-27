@@ -56,9 +56,38 @@ describe("the pad's volume over a Chromecast (D557 §5)", () => {
       {
         v: 3,
         type: "sound",
-        sound: { kind: "channel", channel: "film", level: 0.2, isMuted: false },
+        sound: { kind: "channel", channel: "film", level: 0.25, isMuted: false },
       },
     ]);
     expect(throughThePhone).toEqual([]);
+  });
+  // A press here was shown again whenever the receiver came back to the volume it had said before
+  // the press: 50 %, pressed down to 45 %, the TV's remote putting it back to 50 % showed 45 %, and
+  // as no change at all (the owner, 2026-11-27: "it doesn't show up on the caster side").
+  it("shows the volume the TV's remote puts back to what it was before a press here, not the press's", async () => {
+    vi.stubGlobal("matchMedia", heldUpright);
+    const drawn = await castingRemote({}, [], { remote: CasteePlay, onPlayHere: vi.fn() });
+    mounted = drawn.mounted;
+    const page = drawn.mounted.container;
+    const says = (level: number): Promise<void> =>
+      receiverSays(drawn.sockets.session, {
+        delivery: "direct",
+        sound: { isLevellingOn: false, audioTracks: [], channels: [{ channel: "film", level }] },
+      });
+    const number = (): string | undefined =>
+      page.querySelector(".player-overlay-volume .pill")?.textContent ?? undefined;
+    await says(0.5);
+    await click(buttonNamed(page, "Volume down"));
+    await settleUntil(() => number() === "Volume 45 %");
+    await says(0.45);
+    await says(0.5);
+    await settleUntil(() => number() === "Volume 50 %");
+    // And a press after it steps from where the receiver is.
+    await click(buttonNamed(page, "Volume down"));
+    expect(drawn.sockets.session.heard.filter((each) => each["type"] === "sound").at(-1)).toEqual({
+      v: 3,
+      type: "sound",
+      sound: { kind: "channel", channel: "film", level: 0.45, isMuted: false },
+    });
   });
 });

@@ -4298,3 +4298,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   Chromecast): each press changed the level the receiver says, none went through the phone's Cast
   session, and after the Wi-Fi was back, that session gone, Volume down, Volume up and Mute still
   did. The TV's remote is the owner's to press.
+  The owner, on production, 2026-11-27: the presses and the reconnection pass ("I can reconnect the
+  session and control the volume"); the remote's change did not show unless the number was already
+  up. One cause found and fixed: a press here was shown again whenever the receiver came back to
+  the volume it had said before the press. Owed again: press Volume down on the pad, wait for the
+  number to go, then turn the volume up and down with the TV's remote: the number shows at each
+  change, the TV's own. The steps on the pad are now 5 % (D562).

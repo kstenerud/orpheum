@@ -12,7 +12,7 @@ import type {
   PlaybackSound,
   SoundChannel,
 } from "@orpheum/sdk";
-import { useRef, useState, type JSX } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { audioTrackLabel } from "./audio-tracks.tsx";
@@ -393,14 +393,25 @@ export function useReceiverFilmSound(
 ): PlayerSound | undefined {
   // What was chosen here, with what the receiver said when it was: shown until the receiver says
   // anything else. The ref is read by a move made in the same press as another (a drag up from
-  // muted sets the level, then sound on), before the render that shows the first.
+  // muted sets the level, then sound on), before the render that shows the first; it ends with the
+  // choice.
   const [chosen, setChosen] = useState<ChosenChannel>();
   const chosenRef = useRef<ChosenChannel | undefined>(undefined);
+  useEffect(() => {
+    if (chosen === undefined) {
+      chosenRef.current = undefined;
+    }
+  }, [chosen]);
   if (film === undefined || connection === undefined) {
     return undefined;
   }
   const isStill = (made: ChosenChannel | undefined): made is ChosenChannel =>
     made?.said.level === film.level && made.said.isMuted === film.isMuted;
+  if (chosen !== undefined && !isStill(chosen)) {
+    // The receiver has said something else: the choice is over, and is not shown again when the
+    // receiver comes back to what it said then (its TV's own remote putting the volume back).
+    setChosen(undefined);
+  }
   const shown = isStill(chosen) ? chosen.next : film;
   const choose = (change: Partial<Pick<SoundChannel, "level" | "isMuted">>): void => {
     const latest = chosenRef.current;
