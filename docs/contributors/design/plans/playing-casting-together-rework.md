@@ -565,6 +565,10 @@ Watch Together volumes and a guest's tracks and timing went into the bar's menus
    sent; every other cast shows the film sent, as before. `play-castee-controls.test.tsx` holds
    both: the guest's remote names the film the session moved to, and a cast of one's own stays on
    the film sent, with its length, while its session says the next film first. No server change.
+   **Walked on staging, 2026-11-27:** the Pixel joined a second account's session by link as a
+   guest and cast to the Chromecast; at the host's Next and Previous the guest's remote went to
+   the other episode each time (its address and its position), the TV with it. Its label did not
+   change, the two episodes being of one series.
 3. **Mute is not kept between films** (the owner: "No, mute doesn't stick"): as built, nothing to do.
 
 Added by the owner, 2026-11-26, from the same walk's unfixed observations:
