@@ -37,7 +37,15 @@ class Build(unittest.TestCase):
         (self.checkout / "deploy" / "release").mkdir(parents=True)
         shutil.copy(SCRIPT, self.checkout / "deploy" / "release" / "build.sh")
         (self.checkout / "internal" / "deployment" / "templates").mkdir(parents=True)
-        shutil.copy(INSTALL, self.checkout / "internal" / "deployment" / "templates" / "install.sh")
+        # The machine's own NVIDIA driver is kept out of it, as test_install_script.py keeps it: where
+        # the host has one, the script tries the GPU on the image first and says how it is handed over,
+        # and this test failed on such a host alone (the sandbox's, 2026-11-27).
+        installed = self.checkout / "internal" / "deployment" / "templates" / "install.sh"
+        control = "nvidiaControl=/dev/nvidiactl"
+        script = INSTALL.read_text(encoding="utf-8")
+        assert control in script, "install.sh names its NVIDIA control device otherwise now"
+        installed.write_text(script.replace(control, f"nvidiaControl={self.root / 'nvidiactl'}"), encoding="utf-8")
+        shutil.copymode(INSTALL, installed)
         git = ["git", "-C", str(self.checkout), "-c", "user.name=t", "-c", "user.email=t@t"]
         subprocess.run(["git", "init", "-q", str(self.checkout)], check=True)
         subprocess.run([*git, "add", "-A"], check=True)
