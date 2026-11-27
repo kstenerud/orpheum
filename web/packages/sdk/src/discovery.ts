@@ -428,7 +428,7 @@ async function offerUnder(
     }),
   );
   if (!response.ok) {
-    throw new Error(`the discovery answered ${String(response.status)}`);
+    throw new Error(`the discovery answered ${String(response.status)}${await reasonOf(response)}`);
   }
   const answered = firstAnswer(await response.json());
   if (answered === coreNotConnectedRefusal) {
@@ -474,6 +474,23 @@ export class TooMany extends Error {
     super(`the discovery refused one request too many (${code})`);
     this.name = "TooMany";
     this.code = code;
+  }
+}
+
+/** The most of a refusal's own words an error carries. */
+const reasonMost = 200;
+
+/**
+ * The discovery's own words for an offer it refused, as ": <words>" on one line, or "" where it
+ * said none: which of its rules refused the offer is in no other place a device's report reaches
+ * (a Chromecast away from home, production, 2026-11-27: "the discovery answered 400", no more).
+ */
+async function reasonOf(response: Response): Promise<string> {
+  try {
+    const words = (await response.text()).replaceAll(/\s+/gu, " ").trim().slice(0, reasonMost);
+    return words === "" ? "" : `: ${words}`;
+  } catch {
+    return "";
   }
 }
 

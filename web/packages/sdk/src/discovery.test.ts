@@ -366,6 +366,24 @@ describe("a signaller through a discovery", () => {
     expect(isKeyRefused(await busy(offer).catch((caught: unknown) => caught))).toBe(false);
   });
 
+  it("names the discovery's own reason for an offer it refused, on one line and no longer than 200 characters", async () => {
+    const refusing = (body: string) =>
+      signalling(() => Promise.resolve(new Response(body, { status: 400 })));
+    const said = async (body: string): Promise<string> => {
+      const problem: unknown = await (
+        await refusing(body)
+      )(offer).catch((caught: unknown) => caught);
+      return problem instanceof Error ? problem.message : "";
+    };
+    await expect(said("the offer is refused: 12 candidates; at most 10\n")).resolves.toBe(
+      "the discovery answered 400: the offer is refused: 12 candidates; at most 10",
+    );
+    await expect(said("")).resolves.toBe("the discovery answered 400");
+    await expect(said("x".repeat(500))).resolves.toHaveLength(
+      "the discovery answered 400: ".length + 200,
+    );
+  });
+
   it("fails an offer whose post reached no server as Unreached, and an aborted one as its abort", async () => {
     const noNetwork = await signalling(() =>
       Promise.reject(new TypeError("NetworkError when attempting to fetch resource.")),
