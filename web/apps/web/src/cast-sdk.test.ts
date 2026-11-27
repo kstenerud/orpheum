@@ -2,12 +2,7 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import {
-  channelOf,
-  isCancelledByThePerson,
-  onCastSessionJoined,
-  openCastSession,
-} from "./cast-sdk.ts";
+import { isCancelledByThePerson, onCastSessionJoined, openCastSession } from "./cast-sdk.ts";
 
 /**
  * Puts a Cast context on the page's globals whose requestSession tells its listeners each of states,
@@ -67,69 +62,6 @@ describe("a Cast session asked for", () => {
     givenARequestFailing("session_error", ["SESSION_STARTING", "SESSION_START_FAILED"]);
     const failure: unknown = await openCastSession("ABCD1234").catch((cause: unknown) => cause);
     expect(isCancelledByThePerson(failure)).toBe(false);
-  });
-});
-
-/** Waits until the session has answered what was set through it, refused or not. */
-async function answered(): Promise<void> {
-  for (let turn = 0; turn < 5; turn += 1) {
-    await Promise.resolve();
-  }
-}
-
-describe("a Cast device's own volume, through its session", () => {
-  it("is read, set and heard as the SDK's CastSession says it, kept between 0 and 1", async () => {
-    Reflect.set(globalThis, "cast", {
-      framework: {
-        // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
-        SessionEventType: { VOLUME_CHANGED: "volumechanged" },
-      },
-    });
-    const asked: string[] = [];
-    const listeners = new Map<unknown, () => void>();
-    const levels: number[] = [];
-    const session = {
-      getCastDevice: () => ({ friendlyName: "Living room TV" }),
-      getVolume: () => levels.at(-1),
-      isMute: () => true,
-      setVolume: (to: number) => {
-        asked.push(`volume ${String(to)}`);
-        return Promise.resolve();
-      },
-      setMute: (isMuted: boolean) => {
-        asked.push(`mute ${String(isMuted)}`);
-        return Promise.reject(new Error("session_error"));
-      },
-      addEventListener: (type: string, listener: () => void) => {
-        listeners.set(type, listener);
-      },
-      removeEventListener: (type: string) => {
-        listeners.delete(type);
-      },
-    };
-    const { volume } = channelOf(session, "urn:x-cast:org.orpheum.cast");
-    expect(volume.read()).toBeUndefined();
-    levels.push(0.3);
-    expect(volume.read()).toEqual({ level: 0.3, isMuted: true });
-    volume.setLevel(1.4);
-    volume.setMuted(false);
-    await answered();
-    expect(asked).toEqual(["volume 1", "mute false"]);
-    let heard = 0;
-    const unhear = volume.onChange(() => {
-      heard += 1;
-    });
-    listeners.get("volumechanged")?.();
-    expect(heard).toBe(1);
-    // A mute set through it is told as the session answers, the SDK telling no change of its own.
-    volume.setMuted(true);
-    await answered();
-    expect(heard).toBe(2);
-    unhear();
-    expect(listeners.size).toBe(0);
-    volume.setMuted(false);
-    await answered();
-    expect(heard).toBe(2);
   });
 });
 

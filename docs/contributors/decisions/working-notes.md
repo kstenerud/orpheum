@@ -32246,3 +32246,25 @@ working a Chromecast's volume from the phone on production. It amends D548 §6, 
    Twenty presses go from silence to full; a held button repeats as before.
 2. Proved by the pad's tests, which fail at 10 %: `play-castee-controls.test.tsx`,
    `play-castee-keys.test.tsx` and `play-castee-volume.test.tsx`.
+
+## D563 — A Chromecast's volume has one route: the cast's session to the receiver
+
+**Decided** (2026-11-27), by the project owner ("Yes go with your recommendations"), on the lead's
+proposal to remove the second route ("We should not have multiple components that implement the
+same thing"). It amends D557 §5's carrying-out, which kept the sender's Cast session volume as a
+fallback for a receiver that says no channel, and nothing else of it.
+
+**Status:** decided. It has code.
+
+1. **The pad works a Chromecast's volume only through the cast's session**: the receiver says the
+   device's own volume as its film's channel and sets it as the remote's channel choice says
+   (`useReceiverFilmSound`), as for every other device. The web app no longer reads or sets the
+   volume through the page's own Google Cast sender session (`cast-device-volume.ts` and
+   `cast-sdk.ts`'s `CastDeviceVolume` are removed).
+2. **The cost, accepted:** a Chromecast still running a receiver page from before it said its
+   volume shows no volume buttons on the pad until its application is closed or the device
+   restarts ([idiosyncrasies](../idiosyncrasies.md#a-chromecast-keeps-its-receiver-page-running-after-a-cast-is-stopped-so-a-new-receiver-build-does-not-load)).
+3. The sender session's rejoin on a page loaded again stays: Chrome's own Stop still ends the cast
+   through it, its loss is still a hint (D553 §5), and the cast's end ends it.
+4. Proved by `web/apps/web/src/play-castee-volume.test.tsx` and `play-castee-controls.test.tsx`,
+   the pad's volume driven by the receiver's channel alone, and `google-cast-rejoin.test.tsx`.

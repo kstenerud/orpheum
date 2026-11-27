@@ -1663,9 +1663,10 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   one event, three mutes none, and the next volume step raised two, the first still carrying the
   mute. The page read the volume only as that event came, so it held "not muted" and each press
   asked for mute again.
-- **What we do:** `cast-sdk.ts`'s `deviceVolumeOf` tells its hearers once the session has answered
-  each `setVolume` and `setMute` of its own, and they read it afresh. Test: `cast-sdk.test.ts`, "a
-  Cast device's own volume, through its session". VQ407 step 1.
+- **What we did:** `cast-sdk.ts`'s `deviceVolumeOf` told its hearers once the session had answered
+  each `setVolume` and `setMute` of its own, and they read it afresh. Since D563 the web app sets no
+  volume through the sender's session: the receiver says and sets the device's volume (the entry
+  after the next), so nothing of ours meets this any longer.
 - **Sources:** Google's
   [CastSession reference](https://developers.google.com/cast/docs/reference/web_sender/cast.framework.CastSession)
   says only that `VOLUME_CHANGED` is the event for volume changes. No report of the missing event
@@ -1689,12 +1690,11 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   only as it casts (google-cast.ts's `linkCastSession`), so a page loaded again holds none for the
   cast it found playing, even where the SDK joins the device's session again on its own
   (`ORIGIN_SCOPED`).
-- **What we do:** `web/apps/web/src/cast-sdk.ts`'s `CastDeviceVolume` wraps the session's volume;
-  `cast-device-volume.ts` holds the linked one, and the castee's target shows it on the pad where the
-  castee says no film channel. After a reload the pad shows no volume until the person casts again,
-  and the TV's own remote still works. Tests: `cast-sdk.test.ts`, "a Cast device's own volume,
-  through its session"; `castee-target.test.tsx`, "takes a Google Cast device's own volume where
-  the castee says no film channel". VQ407 checks it on the Chromecast.
+- **What we do:** not the sender's session any longer (D563): the receiver says the device's own
+  volume as its film's channel and sets it as the remote chooses, through the cast's session (the
+  next entry). The sender route, `cast-sdk.ts`'s `CastDeviceVolume` and `cast-device-volume.ts`, was
+  removed; a receiver page from before it said its volume shows no volume on the pad until its
+  application is closed or the device restarts.
 - **Evidence:** Google's `cast.framework.CastSession` reference and the Web Sender design checklist
   (developers.google.com/cast/docs/reference/web_sender/cast.framework.CastSession,
   developers.google.com/cast/docs/design_checklist/sender), read 2026-11-26.
@@ -1721,7 +1721,7 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   film's channel in its state, again at each change (the TV's remote's too), and sets it as the
   remote's channel choice says (`web/apps/cast-receiver/src/caf.ts`'s `systemVolumeOf`,
   `sound-panel.ts`); the pad then works it through the cast's session as every other control
-  (D557 §5). The sender's Cast session volume stays only for a receiver that says no channel.
+  (D557 §5). The sender's Cast session volume is not used at all (D563).
   Tests: the receiver's `device-follow.test.ts`, "says the Cast device's own volume as its film's
   channel"; the web app's `play-castee-volume.test.tsx`, "works a Chromecast's volume through the
   cast's session". VQ414 checks it on the phone and the Chromecast.
@@ -1747,8 +1747,7 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   page stays loaded on the device while a sender's session holds it, and the next cast goes to the
   same page. The page is fetched again only when the application is launched anew.
 - **What we do:** nothing in the product: a receiver from before a change is one the app must
-  already work with (the pad falls back to the sender's Cast session for a receiver that says no
-  volume). Testing a receiver change, close the application first: from the sender's page,
+  already work with (a receiver from before it said its volume shows no volume on the pad, D563). Testing a receiver change, close the application first: from the sender's page,
   `cast.framework.CastContext.getInstance().endCurrentSession(true)`, then reload and cast again.
   The receiver is served by the discovery's site (`/cast/`), so staging needs
   orpheum-connect's `deploy/staging/up.sh`, not the core's deploy alone.

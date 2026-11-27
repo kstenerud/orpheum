@@ -28,9 +28,10 @@ reached there through the person's devices (D465 §4).
 Google's sender script loads only in Chrome, at the menu's first opening (the owner, 2026-11-12), so
 no page loads it until someone means to cast; the Chromecast entry shows in Chrome from the start.
 A page whose device already sends a cast to a Chromecast, loaded again, loads it too, to rejoin that
-cast's Cast session without the picker, so Chrome's own Stop still ends it and a receiver that says
-no volume of its own has the pad set the device's volume again (the owner, 2026-11-27: the volume
-buttons did nothing after leaving the browser and coming back).
+cast's Cast session without the picker, so Chrome's own Stop still ends it, its loss is a hint
+(D553 §5) and the cast's end ends it. It was added for the volume (the owner, 2026-11-27: the volume
+buttons did nothing after leaving the browser and coming back), which no longer goes through it
+(D563).
 
 **2026-11-27, the lead's change for the owner to confirm (D557 §5): a Chromecast's volume goes
 through the cast's session.** On the owner's phone and Chromecast the lead found the sender's Cast
@@ -41,8 +42,8 @@ after a rejoin its volume read a step behind the device's. Every other button wo
 through the core's session to the receiver. So the receiver now says the device's own volume (CAF's
 system volume) as its film's channel, again at each change, the TV's remote's too, and sets it as
 the remote chooses; the pad works it as it works a Fire TV's film channel, with no Chromecast-only
-path. The sender's Cast session volume stays as the fallback for a receiver from before, which says
-no channel. No change to the wire or the core: the channel is the existing `film` one.
+path. The sender's Cast session volume, kept at first as the fallback for a receiver from before,
+was removed (D563): such a receiver shows no volume on the pad until its application is closed. No change to the wire or the core: the channel is the existing `film` one.
 The Cast icon is Material Symbols' `cast` (Apache-2.0), inlined as the client's other icons are, so
 no package is added.
 

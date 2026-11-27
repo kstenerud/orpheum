@@ -3,18 +3,15 @@
 
 import "./i18n.ts";
 
-import { act, type JSX } from "react";
+import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { useCastDeviceVolume } from "./cast-device-volume.ts";
 import { isCastSessionLost } from "./cast-session-lost.ts";
 import { endCastSessionOf } from "./google-cast.ts";
 import { LiveProvider } from "./live.tsx";
 import { StatusTray } from "./status-tray.tsx";
 import {
   bodyField,
-  buttonWithText,
-  click,
   mount,
   servedBy,
   settleUntil,
@@ -41,37 +38,35 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** A CastSession of the SDK's on the Chromecast, its volume level and the levels set through it. */
+/** A CastSession of the SDK's on the Chromecast: whether a page linked it, and its ends asked. */
 interface FakeRunningSession {
   readonly session: object;
-  readonly set: number[];
+  /** Whether a page has read its device, as linking it does (cast-sdk.ts's channelOf). */
+  readonly isLinked: () => boolean;
+  /** How many times a page ended it. */
+  readonly ends: () => number;
 }
 
-/** A running session on "Living room TV", its device's volume at level. */
-function runningSession(level: number): FakeRunningSession {
-  const set: number[] = [];
-  let now = level;
+/** A running session on "Living room TV". */
+function runningSession(): FakeRunningSession {
+  let isLinked = false;
+  let ends = 0;
   const session = {
-    getCastDevice: () => ({ friendlyName: "Living room TV" }),
+    getCastDevice: () => {
+      isLinked = true;
+      return { friendlyName: "Living room TV" };
+    },
     sendMessage: async () => {
       await Promise.resolve();
     },
     addMessageListener: () => undefined,
-    endSession: () => undefined,
-    getVolume: () => now,
-    isMute: () => false,
-    setVolume: async (to: number) => {
-      set.push(to);
-      now = to;
-      await Promise.resolve();
-    },
-    setMute: async () => {
-      await Promise.resolve();
+    endSession: () => {
+      ends += 1;
     },
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
   };
-  return { session, set };
+  return { session, isLinked: () => isLinked, ends: () => ends };
 }
 
 /**
@@ -125,8 +120,6 @@ function givenRunningCastSdk(first: FakeRunningSession): {
       // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
       CastContextEventType: { SESSION_STATE_CHANGED: "sessionstatechanged" },
       // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
-      SessionEventType: { VOLUME_CHANGED: "volumechanged" },
-      // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
       SessionState: {
         // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
         SESSION_STARTED: "SESSION_STARTED",
@@ -160,23 +153,6 @@ function givenRunningCastSdk(first: FakeRunningSession): {
   };
 }
 
-/** The pad's Volume up as the castee's target gives it the device's volume, a tenth a press. */
-function DeviceVolumeUp(): JSX.Element {
-  const sound = useCastDeviceVolume(9);
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        sound?.setVolume(sound.volume + 0.1);
-      }}
-    >
-      {sound === undefined
-        ? "No device volume"
-        : `Device volume ${String(Math.round(sound.volume * 100))} %`}
-    </button>
-  );
-}
-
 /** The cast this device sends to the Chromecast, as the live connection says it. */
 const sentToTheChromecast = {
   castId: 9,
@@ -197,17 +173,13 @@ describe("the Cast session of a cast this device sends, rejoined (the owner, 202
   });
 
   /** A page of the loader's, loaded again, the live connection saying it sends the Chromecast's cast. */
-  async function loadedAgain(
-    answers: Answers,
-    heard: Heard[] = [],
-  ): Promise<{ readonly page: HTMLElement }> {
+  async function loadedAgain(answers: Answers, heard: Heard[] = []): Promise<void> {
     const server = fakeTogetherServer();
     givenChrome();
     mounted = await mount(
       withServices(
         <LiveProvider>
           <StatusTray isAdmin={false} canHostWatchTogether={false} />
-          <DeviceVolumeUp />
         </LiveProvider>,
         {
           ...servedBy(answers, heard, "token"),
@@ -219,82 +191,83 @@ describe("the Cast session of a cast this device sends, rejoined (the owner, 202
     );
     await server.accept();
     await server.say({ type: "sending", sending: sentToTheChromecast });
-    return { page: mounted.container };
   }
 
-  const shown = (page: HTMLElement): string => page.textContent;
+  /** Ends the linked session as a cast its device did not take does: the linked one is ended. */
+  function endTheLinked(): void {
+    act(() => {
+      endCastSessionOf(9);
+    });
+  }
 
-  it("gives the pad the Chromecast's volume again on a page loaded again, and Volume up sets it, opening no picker", async () => {
-    const first = runningSession(0.4);
+  it("links the Chromecast's session again on a page loaded again, opening no picker", async () => {
+    const first = runningSession();
     const sdk = givenRunningCastSdk(first);
-    const { page } = await loadedAgain({});
-    await settleUntil(() => shown(page).includes("Device volume 40 %"));
+    await loadedAgain({});
+    await settleUntil(first.isLinked);
     expect(sdk.appIds).toEqual(["ABCD1234"]);
-    await click(buttonWithText(page, "Device volume 40 %"));
-    await settleUntil(() => shown(page).includes("Device volume 50 %"));
-    expect(first.set[0]).toBeCloseTo(0.5);
     expect(sdk.requests()).toBe(0);
+    endTheLinked();
+    expect(first.ends()).toBe(1);
   });
 
-  it("follows the session Chrome hands back as a new object, its volume the pad's, ending no cast and saying no session lost", async () => {
+  it("follows the session Chrome hands back as a new object, ending no cast and saying no session lost", async () => {
     const heard: Heard[] = [];
-    const first = runningSession(0.4);
+    const first = runningSession();
     const sdk = givenRunningCastSdk(first);
-    const { page } = await loadedAgain({}, heard);
-    await settleUntil(() => shown(page).includes("Device volume 40 %"));
-    const second = runningSession(0.6);
+    await loadedAgain({}, heard);
+    await settleUntil(first.isLinked);
+    const second = runningSession();
     await act(async () => {
       sdk.resume(second);
       await Promise.resolve();
     });
-    await settleUntil(() => shown(page).includes("Device volume 60 %"));
-    await click(buttonWithText(page, "Device volume 60 %"));
-    await settleUntil(() => shown(page).includes("Device volume 70 %"));
-    expect(second.set[0]).toBeCloseTo(0.7);
-    expect(first.set).toEqual([]);
+    await settleUntil(second.isLinked);
     expect(isCastSessionLost(9)).toBe(false);
     expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/end")).toBe(false);
+    endTheLinked();
+    expect(second.ends()).toBe(1);
+    expect(first.ends()).toBe(0);
   });
 
   it("rejoins a session lost and resumed, the loss a hint only until then (D553 §5)", async () => {
     const heard: Heard[] = [];
-    const first = runningSession(0.4);
+    const first = runningSession();
     const sdk = givenRunningCastSdk(first);
-    const { page } = await loadedAgain({}, heard);
-    await settleUntil(() => shown(page).includes("Device volume 40 %"));
+    await loadedAgain({}, heard);
+    await settleUntil(first.isLinked);
     await act(async () => {
       sdk.vanish();
       await Promise.resolve();
     });
-    await settleUntil(() => shown(page).includes("No device volume"));
-    expect(isCastSessionLost(9)).toBe(true);
-    const second = runningSession(0.3);
+    await settleUntil(() => isCastSessionLost(9));
+    const second = runningSession();
     await act(async () => {
       sdk.resume(second);
       await Promise.resolve();
     });
-    await settleUntil(() => shown(page).includes("Device volume 30 %"));
+    await settleUntil(second.isLinked);
     expect(isCastSessionLost(9)).toBe(false);
-    await click(buttonWithText(page, "Device volume 30 %"));
-    await settleUntil(() => shown(page).includes("Device volume 40 %"));
     expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/end")).toBe(false);
+    endTheLinked();
+    expect(second.ends()).toBe(1);
   });
 
   it("still ends the cast as stopped when the rejoined session is stopped from Chrome's own Cast control (D553 §1)", async () => {
     const heard: Heard[] = [];
-    const first = runningSession(0.4);
+    const first = runningSession();
     const sdk = givenRunningCastSdk(first);
-    const { page } = await loadedAgain(
+    await loadedAgain(
       { "POST /me/casts/9/end": [200, { positionMs: 0, isPlaying: false }] },
       heard,
     );
-    await settleUntil(() => shown(page).includes("Device volume 40 %"));
-    const second = runningSession(0.6);
+    await settleUntil(first.isLinked);
+    const second = runningSession();
     await act(async () => {
       sdk.resume(second);
       await Promise.resolve();
     });
-    await settleUntil(() => shown(page).includes("Device volume 60 %"));
+    await settleUntil(second.isLinked);
     await act(async () => {
       sdk.endFromChrome();
       await Promise.resolve();

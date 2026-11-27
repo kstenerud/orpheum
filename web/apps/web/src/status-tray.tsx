@@ -51,7 +51,7 @@ export function StatusTray(props: {
   const isViewing = useMembership(browserStorage, "viewer") !== undefined;
   const { sending, receiving } = useLive();
   useEndsTheCastSessionWithItsCast(); // a Google Cast device's, its Cast menu closed once it took it
-  useRejoinsTheCastSessionOfItsCast(); // its volume the pad's again, the page loaded again or resumed
+  useRejoinsTheCastSessionOfItsCast(); // Chrome's own Stop ends it again, the page loaded again or resumed
   useClosesTheDialogAsThePageMoves();
   useLoadsTrayDialogsAhead();
   return (

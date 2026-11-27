@@ -7,8 +7,6 @@ import { everyRight, startingTuning, type TogetherSnapshot } from "@orpheum/sdk"
 import { act, type JSX } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { forgetCastDeviceVolume, tellCastDeviceVolume } from "./cast-device-volume.ts";
-import type { CastDeviceVolume } from "./cast-sdk.ts";
 import {
   useCasteeTarget,
   type CasteeOf,
@@ -90,36 +88,7 @@ let mounted: Mounted | undefined;
 afterEach(() => {
   mounted?.unmount();
   mounted = undefined;
-  forgetCastDeviceVolume(9);
 });
-
-/** A Google Cast device's volume, as its Cast session says it, keeping what was set on it. */
-function deviceVolume(): CastDeviceVolume & {
-  readonly set: string[];
-  readonly changeTo: (level: number, isMuted: boolean) => void;
-} {
-  let level = 0.4;
-  let isMuted = false;
-  const set: string[] = [];
-  const listeners = new Set<() => void>();
-  return {
-    set,
-    read: () => ({ level, isMuted }),
-    setLevel: (to) => set.push(`level ${String(to)}`),
-    setMuted: (isMutedNow) => set.push(`muted ${String(isMutedNow)}`),
-    onChange: (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    changeTo: (toLevel, isMutedNow) => {
-      level = toLevel;
-      isMuted = isMutedNow;
-      for (const listener of listeners) {
-        listener();
-      }
-    },
-  };
-}
 
 /** The castee's target as made of castee, read after each render. */
 async function targetOf(castee: CasteeOf): Promise<() => CasteeTarget> {
@@ -144,7 +113,7 @@ describe("the castee as the playback target (D555 §8)", () => {
     const target = await targetOf({
       worked: session,
       cast: session,
-      sent: { castId: 9, fileId: 4, durationMs: 600_000 },
+      sent: { fileId: 4, durationMs: 600_000 },
       isHeard: true,
     });
     expect(target()).toMatchObject({
@@ -168,7 +137,7 @@ describe("the castee as the playback target (D555 §8)", () => {
     const target = await targetOf({
       worked: session,
       cast: session,
-      sent: { castId: 9, fileId: 4, durationMs: 600_000 },
+      sent: { fileId: 4, durationMs: 600_000 },
       isHeard: true,
     });
     await act(async () => {
@@ -185,7 +154,7 @@ describe("the castee as the playback target (D555 §8)", () => {
     const target = await targetOf({
       worked,
       cast: { snapshot, connection: castConnection },
-      sent: { castId: 9, fileId: 4, durationMs: 600_000 },
+      sent: { fileId: 4, durationMs: 600_000 },
       isHeard: true,
     });
     expect(target().sound).toMatchObject({ volume: 0.5, isMuted: false, canSetVolume: true });
@@ -206,43 +175,6 @@ describe("the castee as the playback target (D555 §8)", () => {
     });
   });
 
-  // The pad showed no volume for a Chromecast, which says no film channel of its own (the owner,
-  // 2026-11-26: "Anything it can do, I want").
-  it("takes a Google Cast device's own volume where the castee says no film channel, set through its Cast session", async () => {
-    const silent: TogetherSnapshot = {
-      ...snapshot,
-      roster: snapshot.roster.map((member) => ({
-        ...member,
-        devices: member.devices.map((device) => ({ ...device, playback: undefined })),
-      })),
-    };
-    const volume = deviceVolume();
-    tellCastDeviceVolume(9, volume);
-    const session = { snapshot: silent, connection: heardConnection() };
-    const target = await targetOf({
-      worked: session,
-      cast: session,
-      sent: { castId: 9, fileId: 4, durationMs: 600_000 },
-      isHeard: true,
-    });
-    expect(target().sound).toMatchObject({ volume: 0.4, isMuted: false, canSetVolume: true });
-    target().sound?.setVolume(0.7);
-    target().sound?.setMuted(true);
-    expect(volume.set).toEqual(["level 0.7", "muted true"]);
-    // The TV's own remote turned it down: the pad follows.
-    await act(async () => {
-      volume.changeTo(0.2, true);
-      await Promise.resolve();
-    });
-    expect(target().sound).toMatchObject({ volume: 0.2, isMuted: true });
-    // Its Cast session over, the page has no say of the device's volume.
-    await act(async () => {
-      forgetCastDeviceVolume(9);
-      await Promise.resolve();
-    });
-    expect(target().sound).toBeUndefined();
-  });
-
   it("takes no press while the castee is unheard, and says no sound where the castee says none (a Google Cast device's today)", async () => {
     const silent: TogetherSnapshot = {
       ...snapshot,
@@ -255,7 +187,7 @@ describe("the castee as the playback target (D555 §8)", () => {
     const target = await targetOf({
       worked: session,
       cast: session,
-      sent: { castId: 9, fileId: 4, durationMs: 600_000 },
+      sent: { fileId: 4, durationMs: 600_000 },
       isHeard: false,
     });
     expect(target().isReady).toBe(false);
