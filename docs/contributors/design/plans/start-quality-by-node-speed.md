@@ -106,7 +106,7 @@ same day: *"those sound fine"*.
 | S1 | **The node:** the clips, the trials, the kept results, the message | A node with a faked FFmpeg reports each kind once and nothing after a restart; no trial starts while a run goes. Built 2026-11-27 (node protocol 77) |
 | S2 | **The core:** the figures kept for a node, the cap at a start | A film whose kind measured slow starts on the highest quality measured fast; one not measured starts as today. Built 2026-11-27 |
 | S3 | **Real runs:** the run's speed and decode in its result, the kept figures, the trial's giving way | A kind with three fair runs starts by their figure and not the trial's; a run beside another counts for nothing |
-| S4 | **The player:** one jump to the link's quality, and today's climb after a jump that failed | A capped player with ten seconds buffered asks its link's quality at once; after a stall there it steps down and climbs by today's holds |
+| S4 | **The player:** one jump to the link's quality, and today's climb after a jump that failed | A capped player with ten seconds buffered asks its link's quality at once; after a stall there it steps down and climbs by today's holds. Built 2026-11-27: the link's quality is the step-up's own (its confident estimate with its headroom), the jump is spent if the link carries nothing higher at 10 s ahead, a give-up falls back as a stall does, a held start ignores the remembered link (D381), and only a playback's own start, not the page's, is held |
 | S5 | **On devices:** a VQ item on production's J3455 with the card's decode refused | The owner's run |
 
 ## Questions for the owner

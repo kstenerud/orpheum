@@ -46,7 +46,7 @@ export interface StepUpState {
  * D265 §3–§4), at once, on its measurement.
  */
 export function nextCap(state: StepUpState): number {
-  const { levels, cap } = state;
+  const { cap } = state;
   if (
     state.playing < cap ||
     state.sinceChangeMs < state.holdMs ||
@@ -54,17 +54,23 @@ export function nextCap(state: StepUpState): number {
   ) {
     return cap;
   }
+  const highest = highestCarried(state);
+  return state.isOneAtATime ? Math.min(highest, cap + 1) : highest;
+}
+
+/**
+ * The highest quality from cap up whose average rate times headroom the estimate carries, each one
+ * between carried too; cap where the one above it is not, never past the top: the step-up's own
+ * measure of what the link carries, which a start held by its node's speed jumps to (start-jump.ts).
+ */
+export function highestCarried(
+  state: Pick<StepUpState, "levels" | "cap" | "estimateBps" | "headroom">,
+): number {
   const isCarried = (index: number): boolean => {
-    const level = levels[index];
+    const level = state.levels[index];
     return level !== undefined && state.headroom * level.averageBitrate <= state.estimateBps;
   };
-  if (!isCarried(cap + 1)) {
-    return cap;
-  }
-  if (state.isOneAtATime) {
-    return cap + 1;
-  }
-  let highest = cap + 1;
+  let highest = state.cap;
   while (isCarried(highest + 1)) {
     highest += 1;
   }

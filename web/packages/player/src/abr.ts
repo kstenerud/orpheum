@@ -110,6 +110,7 @@ export class Choosing<Chunk extends FollowedChunk> {
       setInterval(() => {
         this.#ceiling.lookAtChunk();
         this.#ceiling.lookAtPlaying();
+        this.#ceiling.lookForJump();
         this.#played.look(this.#hls.media, this.#options.monotonicMs());
         this.#ceiling.endStartingWhenDone(this.#played.playedMs());
       }, lookAtChunkEveryMs),

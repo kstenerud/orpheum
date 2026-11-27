@@ -31,23 +31,38 @@ import { monotonicMs } from "./use-together.ts";
  * that says the same.
  */
 function useRememberedLink(
-  offer: Pick<LadderOffer, "rememberedLinkKbps" | "rememberedLinkSpread" | "rememberedLinkSamples">,
+  offer: Pick<
+    LadderOffer,
+    | "rememberedLinkKbps"
+    | "rememberedLinkSpread"
+    | "rememberedLinkSamples"
+    | "isStartHeldByNodeSpeed"
+  >,
   shouldStartByRememberedLink: boolean | undefined,
 ): {
   readonly rememberedLinkKbps: number | undefined;
   readonly rememberedLinkSpread: number | undefined;
   readonly rememberedLinkSamples: number | undefined;
   readonly shouldStartByRememberedLink: boolean | undefined;
+  readonly isStartHeldByNodeSpeed: boolean | undefined;
 } {
   const { rememberedLinkKbps, rememberedLinkSpread, rememberedLinkSamples } = offer;
+  const { isStartHeldByNodeSpeed } = offer;
   return useMemo(
     () => ({
       rememberedLinkKbps,
       rememberedLinkSpread,
       rememberedLinkSamples,
       shouldStartByRememberedLink,
+      isStartHeldByNodeSpeed,
     }),
-    [rememberedLinkKbps, rememberedLinkSpread, rememberedLinkSamples, shouldStartByRememberedLink],
+    [
+      rememberedLinkKbps,
+      rememberedLinkSpread,
+      rememberedLinkSamples,
+      shouldStartByRememberedLink,
+      isStartHeldByNodeSpeed,
+    ],
   );
 }
 

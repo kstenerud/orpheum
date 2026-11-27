@@ -52,6 +52,12 @@ export interface ChoosingOptions {
    * reset by the new init, showed black frames. startAtBps stays for a player that remembers nothing.
    */
   readonly shouldStartByRememberedLink?: boolean | undefined;
+  /**
+   * Whether its node's speed held its start below the quality its link carries, as its offer says
+   * (start-quality-by-node-speed.md §2): it starts within startAtBps, its remembered link
+   * notwithstanding, and jumps once to the quality its link carries (StartJump, §4); absent, not.
+   */
+  readonly isStartHeldByNodeSpeed?: boolean | undefined;
   /** The share of a link a quality may take, as the offer says; linkShareForQuality when absent. */
   readonly shareForQuality?: number | undefined;
   /**

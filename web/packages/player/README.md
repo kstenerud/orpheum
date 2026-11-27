@@ -80,6 +80,15 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   nothing, a stalled player's lower quality and a start the page chose itself start at the quality
   given (D257 §2), never probing the lowest first, whose chunks are made only for a player that needs
   them (D247 §10), `abr-start.test.ts`;
+  a start its node's speed held below its link and upload, as its offer says
+  (`isStartHeldByNodeSpeed`; start-quality-by-node-speed.md §2), starts at the quality given, its
+  remembered link notwithstanding, and, once `jumpsWithAheadS` (10 s) is loaded ahead and the link has
+  a confident estimate, starting or not, raises its ceiling once, its holds skipped, to the highest
+  quality the step-up would call the link's (`highestCarried`), under a quality unplayable here and
+  the data cap; a link carrying nothing higher then spends the jump; a stall, a chunk given up or a
+  quality found unplayable after the jump lowers the ceiling back to where it jumped from, once, the
+  jump a step up and so its failure a swing, and the step-up climbs from there a quality at a time by
+  its holds; a start not held never jumps (`src/start-jump.ts`; §4, S4), `abr-jump.test.ts`;
   while starting, until the video played 20 s and its samples settle the ceiling (it is the same
   with any one left out, P5) or four measured the link, a choice below the ceiling is the next
   chunk's alone, and only a chunk given up or a stall lowers the ceiling, which

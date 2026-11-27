@@ -11,7 +11,7 @@ import {
   linkShare,
   ownPictureLevel,
   reportsLinkFromSamples,
-  startingLevel,
+  startingCeiling,
   startingPlayedMs,
   startingSamples,
   steadyLevel,
@@ -38,7 +38,8 @@ import { resumePositionOf } from "./resume-position.ts";
 import type { StandingStill } from "./abr-video.ts";
 import type { Steadiness } from "./steadiness.ts";
 import { nextCap, stepUpBufferMs, type StepUpShown } from "./step-up.ts";
-import { busyText, type BusyPage } from "./abr-busy.ts";
+import type { BusyPage } from "./abr-busy.ts";
+import { StartJump } from "./start-jump.ts";
 
 /**
  * How much loaded ahead holds the quality loading, in seconds: while at least this much is loaded,
@@ -92,8 +93,6 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
   readonly #onItsWay: ChunkOnItsWay<Chunk>;
   readonly #still: StandingStill;
   readonly #busy: BusyPage;
-  /** The chunk on its way last excused by a long task of the page, noted once (D382 §3). */
-  #excused: Chunk | undefined;
   /** The highest quality it may choose: the start, lowered by each step down, raised by the step-up. */
   #ceiling: number | undefined;
   #changedAtMs: number;
@@ -118,6 +117,8 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
   #unplayableFrom: number | undefined;
   /** The highest rate the server lets it load, in kbit/s, with each chunk's answer (D286 §5); undefined for none. */
   #serverCeilingKbps: number | undefined;
+  /** A start its node's speed held: its one jump to its link's quality, and its fall back (S4). */
+  readonly #jump: StartJump;
 
   constructor(init: QualityCeilingInit<Chunk>) {
     this.#hls = init.hls;
@@ -130,6 +131,7 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
     this.#still = init.still;
     this.#busy = init.busy;
     this.#changedAtMs = init.options.monotonicMs();
+    this.#jump = new StartJump(init.options.isStartHeldByNodeSpeed === true);
   }
 
   /** The quality the first chunk is of. */
@@ -257,6 +259,7 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
    * what the link's estimate now chooses (§1).
    */
   stalled(): void {
+    this.#fallBack("a stall");
     this.#lower(this.#carriedNow(), () => `a stall; ${this.#stateText()}`);
     this.#noteSteadiness(this.#steadiness.dropped(this.#options.monotonicMs()));
   }
@@ -343,7 +346,7 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
   #isToGiveUp(judged: JudgedChunk<Chunk>): boolean {
     const { chunk } = judged;
     return (
-      !this.#isExcusedBusy(judged) &&
+      !this.#busy.excusesOnItsWay(judged, this.#options.monotonicMs(), this.#options.noteLink) &&
       giveUpFor({
         shareForQuality: this.#options.shareForQuality,
         levels: this.#hls.levels,
@@ -358,30 +361,6 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
         bufferAheadS: bufferAheadS(this.#hls),
       }) !== undefined
     );
-  }
-
-  /**
-   * Whether the chunk on its way arrived, from its first byte to now, while a long task of the page
-   * ran, which excuses it from being given up (D382 §3): stuck, it is still asked for again. Noted
-   * once for each chunk, with the longest task's length.
-   */
-  #isExcusedBusy(judged: JudgedChunk<Chunk>): boolean {
-    const { chunk } = judged;
-    const longestMs =
-      judged.firstByteMs === undefined
-        ? undefined
-        : this.#busy.longestWithin(chunk.stats.loading.first, this.#options.monotonicMs());
-    if (longestMs === undefined) {
-      return false;
-    }
-    if (this.#excused !== chunk) {
-      this.#excused = chunk;
-      const came = `${String(judged.loadedBytes)} B in ${String(judged.loadingMs)} ms`;
-      this.#options.noteLink?.(
-        busyText({ level: chunk.level, how: `on its way (${came})` }, longestMs),
-      );
-    }
-    return true;
   }
 
   /** What carries chunk's load, for a note of it given up or stuck (the owner, 2026-10-29). */
@@ -413,6 +392,7 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
       this.#link.measureGivenUp(sample.arrivedMs, sample.bytes);
       this.sample(sample);
     }
+    this.#fallBack(`a chunk of ${String(chunk.level)} given up`);
     const chosen = this.#givenUpLevel(chunk.level);
     const why = `gave up a chunk of ${String(chunk.level)}, ${givenUpText({
       ...judged,
@@ -482,6 +462,7 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
     }
     this.#still.forget();
     this.#onItsWay.forget();
+    this.#fallBack(`${String(level)} unplayable here`);
     this.#lower(level - 1, () => "unplayable here");
     this.#lastChosen = -1;
     this.#options.onUnplayable?.({
@@ -514,23 +495,58 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
       sinceChangeMs: nowMs - this.#changedAtMs,
       holdMs: this.#steadiness.holdMs(),
       headroom: this.#steadiness.headroom(),
-      isOneAtATime: this.#steadiness.climbsOneAtATime() || !this.#estimate.agrees(),
+      isOneAtATime:
+        this.#jump.climbsOneAtATime() ||
+        this.#steadiness.climbsOneAtATime() ||
+        !this.#estimate.agrees(),
     });
-    const allowed = Math.min(
-      raised,
-      (this.#unplayableFrom ?? Number.POSITIVE_INFINITY) - 1,
-      this.#dataCapTop(),
-    );
-    if (allowed > ceiling) {
-      this.#ceilingWhy = `stepped up; ${this.#stateText()}`;
-      this.#options.noteStep?.(
-        `ceiling ${String(ceiling)} to ${String(allowed)}: ${this.#ceilingWhy}`,
-      );
-      this.#ceiling = allowed;
-      this.#changedAtMs = nowMs;
-      this.#steadiness.steppedUp(nowMs);
-      this.#stepUpShown.steppedUp(nowMs, this.#hls.currentLevel, bufferAheadS(this.#hls));
+    this.#raise(Math.min(raised, this.#highestUp()), "stepped up");
+  }
+
+  /**
+   * Jumps the ceiling of a start its node's speed held, once, to the quality its link carries, as
+   * soon as enough is loaded ahead, starting or not (StartJump; start-quality-by-node-speed.md §4).
+   */
+  lookForJump(): void {
+    const aheadS = bufferAheadS(this.#hls);
+    const to = this.#jump.jumpTo({
+      levels: this.#hls.levels,
+      ceiling: this.#ceilingNow(),
+      top: this.#highestUp(),
+      aheadS,
+      confidentBps: this.#estimate.confidentBps(aheadS),
+      headroom: this.#steadiness.headroom(),
+    });
+    if (to !== undefined) {
+      this.#raise(to, "jumped to its link's quality, its start held by its node's speed");
     }
+  }
+
+  /** After a jump that failed, for why, lowers the ceiling back to where the jump was made from, once. */
+  #fallBack(why: string): void {
+    const to = this.#jump.fellBack();
+    if (to !== undefined) {
+      this.#lower(to, () => `back from the jump after ${why}; ${this.#stateText()}`);
+    }
+  }
+
+  /** The highest a ceiling may rise to: below any quality unplayable here, under the data cap. */
+  #highestUp(): number {
+    return Math.min((this.#unplayableFrom ?? Number.POSITIVE_INFINITY) - 1, this.#dataCapTop());
+  }
+
+  /** Raises the ceiling to level, a step up, for why; one at or below it changes nothing. */
+  #raise(level: number, why: string): void {
+    const ceiling = this.#ceiling;
+    if (ceiling === undefined || level <= ceiling) {
+      return;
+    }
+    this.#ceilingWhy = `${why}; ${this.#stateText()}`;
+    this.#options.noteStep?.(`ceiling ${String(ceiling)} to ${String(level)}: ${this.#ceilingWhy}`);
+    this.#ceiling = level;
+    this.#changedAtMs = this.#options.monotonicMs();
+    this.#steadiness.steppedUp(this.#changedAtMs);
+    this.#stepUpShown.steppedUp(this.#changedAtMs, this.#hls.currentLevel, bufferAheadS(this.#hls));
   }
 
   /**
@@ -690,20 +706,17 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
    * lands as playback begins (D381); else the start it was given (D257 §2, D260 §3).
    */
   #startingCeiling(): number {
-    const { levels } = this.#hls;
-    const remembered = this.#options.rememberedLink;
-    if (this.#options.shouldStartByRememberedLink !== true || remembered === undefined) {
-      return startingLevel(levels, this.#options.startAtBps);
-    }
-    const level = steadyLevel({
-      levels,
-      ceiling: levels.length - 1,
-      linkBps: remembered.kbps * 1000,
-      bufferAheadS: 0,
-      shareForQuality: this.#options.shareForQuality,
+    const { shouldStartByRememberedLink, rememberedLink, startAtBps, shareForQuality } =
+      this.#options;
+    // A start its node's speed held starts within it (start-quality-by-node-speed.md §2).
+    const isByLink = shouldStartByRememberedLink === true && !this.#jump.isHeld();
+    const started = startingCeiling(this.#hls.levels, {
+      startAtBps,
+      rememberedKbps: isByLink ? rememberedLink?.kbps : undefined,
+      shareForQuality,
     });
-    this.#ceilingWhy = `first by the remembered link, ${String(Math.round(remembered.kbps))} kb/s`;
-    return level;
+    this.#ceilingWhy = started.why ?? this.#ceilingWhy;
+    return started.level;
   }
 
   /** Lowers the ceiling to level, a step down, saying whether it did; one at or above it changes nothing. */

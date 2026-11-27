@@ -176,6 +176,22 @@ export interface CastDeviceOptions {
 }
 
 /** The receiver as a device of its person's: its live connection, and the cast it plays. */
+/**
+ * Where a film on the core's ladder, onLadder, starts: within the speed its offer gives, and whether
+ * its node's speed held it there, so its player jumps once to its link's quality (StartJump;
+ * start-quality-by-node-speed.md §4); at the lowest, not held, off the ladder.
+ */
+function ladderStartOf(
+  onLadder:
+    | { readonly startAtBps: number; readonly isStartHeldByNodeSpeed?: boolean | undefined }
+    | undefined,
+): { readonly startAtBps: number; readonly isStartHeldByNodeSpeed: boolean } {
+  return {
+    startAtBps: onLadder?.startAtBps ?? 0,
+    isStartHeldByNodeSpeed: onLadder?.isStartHeldByNodeSpeed === true,
+  };
+}
+
 export class CastDevice {
   private castId: number | undefined;
   private together: CastSession | undefined;
@@ -428,7 +444,7 @@ export class CastDevice {
         onFailed: (failure) => {
           note(`failed: ${failure}`);
         },
-        startAtBps: decision.onLadder?.startAtBps ?? 0,
+        ...ladderStartOf(decision.onLadder),
         startPositionS: positionMs / 1000,
         monotonicMs: () => performance.now(),
         authorization: `Bearer ${token}`,

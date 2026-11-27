@@ -204,15 +204,11 @@ export function choosingFrom(
         readonly rememberedLink?: RememberedLink;
         /** Whether its first quality is chosen from the remembered link (D381). */
         readonly shouldStartByRememberedLink?: boolean;
+        /** Whether its node's speed held its start (start-quality-by-node-speed.md §4). */
+        readonly isStartHeldByNodeSpeed?: boolean;
       },
 ): Chosen {
-  const {
-    steadiness: startSteadiness,
-    rememberedLink,
-    shouldStartByRememberedLink,
-  } = typeof started === "number"
-    ? { steadiness: started, rememberedLink: undefined, shouldStartByRememberedLink: undefined }
-    : (started ?? {});
+  const start = typeof started === "number" ? { steadiness: started } : (started ?? {});
   const hls = new FakeHls();
   const fedToHls: [number, number][] = [];
   const givenUp: FollowedChunk[] = [];
@@ -223,10 +219,11 @@ export function choosingFrom(
     hls,
     {
       startAtBps,
-      shouldStartByRememberedLink,
+      shouldStartByRememberedLink: start.shouldStartByRememberedLink,
+      isStartHeldByNodeSpeed: start.isStartHeldByNodeSpeed,
       shareForQuality,
-      startSteadiness,
-      rememberedLink,
+      startSteadiness: start.steadiness,
+      rememberedLink: start.rememberedLink,
       monotonicMs: () => scene.nowMs,
       isVoiceLive: () => scene.isVoiceLive,
       isInAGroup: () => scene.isInAGroup,

@@ -562,6 +562,11 @@ interface RememberedOffer {
    * a start of its own, as a stalled player's lower quality or a warm-up's settled one.
    */
   readonly shouldStartByRememberedLink?: boolean | undefined;
+  /**
+   * Whether its node's speed held its start below its link, as its offer says: it then starts within
+   * startAtBps and jumps once to its link's quality (start-quality-by-node-speed.md §4; StartJump).
+   */
+  readonly isStartHeldByNodeSpeed?: boolean | undefined;
 }
 
 /** The prior an offer's remembered link gives the controller's estimate; undefined for none. */
@@ -609,6 +614,7 @@ export function choosingOptionsOf(
           },
     startAtBps: options.startAtBps,
     shouldStartByRememberedLink: options.shouldStartByRememberedLink === true,
+    isStartHeldByNodeSpeed: options.isStartHeldByNodeSpeed === true,
     shareForQuality: shareForQualityOf(options.linkSharePercent),
     startSteadiness: options.startSteadiness,
     rememberedLink: rememberedLinkOf(options),

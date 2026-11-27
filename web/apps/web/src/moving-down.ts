@@ -27,6 +27,8 @@ export function startOn(
      * a playback's own start on its ladder, which no stalled player's offer nor the page's own start is.
      */
     readonly shouldStartByRememberedLink?: boolean | undefined;
+    /** Whether its node's speed held the start (start-quality-by-node-speed.md §4), as its offer says. */
+    readonly isStartHeldByNodeSpeed?: boolean | undefined;
   },
   positionMs: number,
 ): {
@@ -38,10 +40,15 @@ export function startOn(
   readonly rememberedLinkSpread?: number;
   readonly rememberedLinkSamples?: number;
   readonly shouldStartByRememberedLink?: boolean;
+  readonly isStartHeldByNodeSpeed?: boolean;
 } {
   const { rememberedLinkKbps, rememberedLinkSpread, rememberedLinkSamples } = offer;
   return {
     ...(offer.shouldStartByRememberedLink === true ? { shouldStartByRememberedLink: true } : {}),
+    // Only a playback's own start jumps: never a stalled player's lower quality nor the page's own.
+    ...(offer.shouldStartByRememberedLink === true && offer.isStartHeldByNodeSpeed === true
+      ? { isStartHeldByNodeSpeed: true }
+      : {}),
     startAtBps: offer.startAtBps,
     linkSharePercent: offer.linkSharePercent,
     startPositionS: positionMs / 1000,

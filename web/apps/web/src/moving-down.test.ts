@@ -132,6 +132,19 @@ describe("where a chunked player starts on an offer", () => {
     expect(startOn(offer, 0)).not.toHaveProperty("rememberedLinkKbps");
   });
 
+  it("tells a playback's own start that its node's speed held it, and never the page's own start (start-quality-by-node-speed.md §4)", () => {
+    const held = { ...offer, isStartHeldByNodeSpeed: true };
+    expect(startOn({ ...held, shouldStartByRememberedLink: true }, 0)).toHaveProperty(
+      "isStartHeldByNodeSpeed",
+      true,
+    );
+    // A stalled player's lower quality, or a warm-up's settled one, is the page's own start.
+    expect(startOn(held, 0)).not.toHaveProperty("isStartHeldByNodeSpeed");
+    expect(startOn({ ...offer, shouldStartByRememberedLink: true }, 0)).not.toHaveProperty(
+      "isStartHeldByNodeSpeed",
+    );
+  });
+
   it("knows the remembered link's spread and how many samples it counts as, for its estimate's prior (bandwidth-sampling P2)", () => {
     expect(
       startOn(

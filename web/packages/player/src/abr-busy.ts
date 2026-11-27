@@ -24,9 +24,22 @@ interface LongTask {
   readonly durationMs: number;
 }
 
+/** A chunk on its way as its excuse is judged: when its first byte came, and what has come since. */
+interface OnItsWay {
+  readonly chunk: {
+    readonly level: number;
+    readonly stats: { readonly loading: { readonly first: number } };
+  };
+  readonly firstByteMs: number | undefined;
+  readonly loadedBytes: number;
+  readonly loadingMs: number;
+}
+
 /** The page's recent long tasks, heard as the browser reports them. */
 export class BusyPage {
   #tasks: LongTask[] = [];
+  /** The chunk on its way last excused by a long task of the page, noted once (excusesOnItsWay). */
+  #excused: object | undefined;
   readonly #stop: () => void;
 
   /** Hears longTasks, the browser's; undefined where it reports none, and nothing is ever busy. */
@@ -51,6 +64,32 @@ export class BusyPage {
       .filter((task) => task.startMs < toMs && task.startMs + task.durationMs > fromMs)
       .map((task) => task.durationMs);
     return overlapping.length === 0 ? undefined : Math.max(...overlapping);
+  }
+
+  /**
+   * Whether the chunk on its way arrived, from its first byte to nowMs, while a long task of the page
+   * ran, which excuses it from being given up (D382 §3): stuck, it is still asked for again. Noted
+   * once for each chunk, with the longest task's length.
+   */
+  excusesOnItsWay(
+    judged: OnItsWay,
+    nowMs: number,
+    note: ((note: string) => void) | undefined,
+  ): boolean {
+    const { chunk } = judged;
+    const longestMs =
+      judged.firstByteMs === undefined
+        ? undefined
+        : this.longestWithin(chunk.stats.loading.first, nowMs);
+    if (longestMs === undefined) {
+      return false;
+    }
+    if (this.#excused !== chunk) {
+      this.#excused = chunk;
+      const came = `${String(judged.loadedBytes)} B in ${String(judged.loadingMs)} ms`;
+      note?.(busyText({ level: chunk.level, how: `on its way (${came})` }, longestMs));
+    }
+    return true;
   }
 
   /** Hears no more. */

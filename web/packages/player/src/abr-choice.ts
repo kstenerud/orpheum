@@ -126,6 +126,34 @@ export function startingLevel(levels: readonly ChoiceLevel[], startAtBps: number
 }
 
 /**
+ * Where a playback's ceiling starts, and why where it is not the start it was offered: where the link
+ * its device remembers, rememberedKbps, carries it, by the rule every later choice plays by, nothing
+ * loaded ahead yet, so the first chunk is of the quality it plays and no switch lands as playback
+ * begins (D381); else, with none to start by, within startAtBps (D257 §2, D260 §3).
+ */
+export function startingCeiling(
+  levels: readonly ChoiceLevel[],
+  start: {
+    readonly startAtBps: number;
+    readonly rememberedKbps: number | undefined;
+    readonly shareForQuality: number | undefined;
+  },
+): { readonly level: number; readonly why: string | undefined } {
+  const { rememberedKbps } = start;
+  if (rememberedKbps === undefined) {
+    return { level: startingLevel(levels, start.startAtBps), why: undefined };
+  }
+  const level = steadyLevel({
+    levels,
+    ceiling: levels.length - 1,
+    linkBps: rememberedKbps * 1000,
+    bufferAheadS: 0,
+    shareForQuality: start.shareForQuality,
+  });
+  return { level, why: `first by the remembered link, ${String(Math.round(rememberedKbps))} kb/s` };
+}
+
+/**
  * The share of the link a quality may take with bufferAheadS loaded ahead (D265 §4): rising from
  * forQuality, the share with little loaded ahead, to linkShareWhenAhead.
  */
