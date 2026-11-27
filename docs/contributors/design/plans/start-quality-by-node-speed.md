@@ -8,8 +8,8 @@
   *"We may still need to start a cast at a lower quality if no suitable hardware codec exists"*
   and *"We'd likely need to have the core choose based on what the hardware can actually provide
   (i.e. do test encodes to find out what it's capable of, before choosing the base rate to start
-  at)"*. Phase S1 (the node's trials) follows from those words; the two questions at the end are
-  open. §3 is the owner's addition of the same day.
+  at)"*. Phase S1 (the node's trials) follows from those words; question 1 at the end is open, built at its
+  proposed mark; question 2 is answered. §3 is the owner's addition of the same day.
 - **Depends on:** D568 (decode on the card), D457 (a machine too slow to convert), D257 and D381
   (the quality a playback starts on), D265 (the player's own choosing).
 
@@ -85,13 +85,15 @@ same day: *"those sound fine"*.
 | S1 | **The node:** the clips, the trials, the kept results, the message | A node with a faked FFmpeg reports each kind once and nothing after a restart; no trial starts while a run goes |
 | S2 | **The core:** the figures kept for a node, the cap at a start | A film whose kind measured slow starts on the highest quality measured fast; one not measured starts as today |
 | S3 | **Real runs:** the run's speed and decode in its result, the kept figures, the trial's giving way | A kind with three fair runs starts by their figure and not the trial's; a run beside another counts for nothing |
-| S4 | **The player** (question 2) | The owner's answer |
+| S4 | **The player:** one jump to the link's quality, and today's climb after a jump that failed | A capped player with ten seconds buffered asks its link's quality at once; after a stall there it steps down and climbs by today's holds |
 | S5 | **On devices:** a VQ item on production's J3455 with the card's decode refused | The owner's run |
 
 ## Questions for the owner
 
 1. **Is three times real time the mark?** On the J3455 it starts a CPU-decoded HEVC Main 10 film
    at 432p (3.09) and not 1080p (2.65).
-2. **How a player started low gets up.** Today it climbs a quality at a time, at least 30 seconds
-   a step, by its link alone. The lead proposes that a player capped by this plan goes straight to
-   the quality its link carries once about ten seconds are buffered.
+2. **How a player started low gets up.** Answered (the owner, 2026-11-27): *"We try jumping to
+   the link's quality. If that fails, we drop back down and climb slowly."* A player capped by
+   this plan goes straight to the quality its link carries once about ten seconds are buffered;
+   if that quality then stalls or is given up, it drops back and climbs a quality at a time by
+   the rule it has today (`step-up.ts`).
