@@ -5370,3 +5370,38 @@ To build, each with its test:
    does not, `refreshSigned` signs the document again after every change.
 5. A core says, in its discovery status, when the newest record served is under an older key list
    than it holds, instead of passing over it in silence.
+
+## A cast to the Chromecast starts in 10 to 20 seconds, next batch (the owner, 2026-11-27)
+
+The owner: the Chromecast "can sometimes take a long time (15-20 seconds) to start playing", on a
+first playback or on moving to the next of a series. Production's log of one cast (v0.8.15, file
+1738, minutes after a restart, its scans still running) shows where the time goes:
+
+- The Chromecast cannot play the file's picture as it is (`notDirectReasons` names the container
+  and the video codec), so the node makes it: `q8000k1080p`, the top quality, since a cast's
+  receiver signs in as a new device each time and has no remembered link.
+- The node made that picture at 1.3 to 2.2 times real time, and its first chunk came 2.7 to 5.6 s
+  after the run was queued (8.7 s once, for the lowest quality while another run was going). The
+  lowest quality ran no faster (0.8 to 2.1), though the node measured 471 % for encoding it at its
+  start: the encoder is not what is slow. The node never asks FFmpeg to decode on the GPU (no
+  `-hwaccel` anywhere in `internal/node`), so the four Atom cores decode the source, and that is
+  the likely limit. Not measured apart: nothing was run on production.
+- The sound's runs came at 4 to 11 times real time, first chunk in about a second.
+- A player starts once it holds enough to outlast its next chunk's loading (`readyAheadOf`). At
+  1.4 times real time and chunks of about 4 s, that took 5 s at the cast's start and 10 to 11 s
+  after each of two seeks in the log; the Chromecast said `readyState=4`, 2.2 s loaded ahead, 7 s
+  after a seek, and played 3 s later.
+- Casting cancels the phone's own run and queues the receiver's, and a seek does the same again;
+  each pays the first chunk's wait.
+
+Proposals, for the owner to choose among (none built):
+
+1. **Decode on the GPU where the node encodes on it** (VAAPI here): the whole picture stays on the
+   GPU. The largest gain, and the largest change: a matrix of sources and drivers, each to prove.
+   A measurement on the production machine comes first, with the owner's leave.
+2. **A cast starts at a quality the node can make fast**, and climbs: the receiver takes the
+   sender's remembered link, or the node's measured speed for this source caps the first quality.
+3. **Up next is made ahead on the cast as it is in a browser**: check whether the warm-up reaches
+   a cast's receiver, whose device is new each time.
+4. The node's measure of its speed is of encoding alone; measure a decode of the hard codecs too,
+   so the core knows what the machine can do before a person waits.
