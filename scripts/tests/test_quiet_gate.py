@@ -191,13 +191,20 @@ class Running(unittest.TestCase):
         self.assertEqual([t for t in threading.enumerate() if isinstance(t, threading.Timer) and t.is_alive()], [])
 
     def test_a_gate_stopped_from_outside_stops_its_steps_too(self):
+        # Shown as it runs too (VERBOSE=1, CI's way), where a gate stopped by its process id alone had
+        # left its make running (the owner, 2026-11-27).
+        for verbose in ("", "1"):
+            with self.subTest(verbose=verbose):
+                self.stopped_from_outside(verbose)
+
+    def stopped_from_outside(self, verbose: str):
         # Its make runs in a session of its own: a check-pr stopped from outside left its steps running,
         # revert-red among them, without the lock (the owner, 2026-11-24, item 9).
         root = Path(tempfile.mkdtemp(prefix="quiet-gate-"))
-        # Not the parent's VERBOSE either: CI runs `make check VERBOSE=1`, where the gate hands over to a
-        # plain make and this test, of the quiet run's stopping, failed on every push (2026-11-27).
+        # Not the parent's VERBOSE either: CI runs `make check VERBOSE=1`, and the test names its own.
         env = {k: v for k, v in os.environ.items()
                if not k.startswith(("GIT_", "MAKE", "MFLAGS")) and k != "VERBOSE"}
+        env["VERBOSE"] = verbose
         subprocess.run(["git", "init", "-q"], cwd=root, check=True, env=env)
         (root / "Makefile").write_text("gate:\n\t@sleep 60 & echo $$! > step; wait\n")
         gate = subprocess.Popen([sys.executable, str(Path(qg.__file__)), "make gate", "gate"], cwd=root, env=env,

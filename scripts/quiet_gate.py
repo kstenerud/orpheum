@@ -35,6 +35,7 @@ timing make check and make spot").
 
 from __future__ import annotations
 
+import contextlib
 import os
 import re
 import signal
@@ -42,6 +43,7 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import gate_runs
@@ -208,14 +210,10 @@ def _group_alive(group: int) -> bool:
     return True
 
 
-def run_make(make_args: list[str], fail_fast: bool, env: dict[str, str] | None = None) -> tuple[int, str, str]:
-    """Runs make: its exit code, its whole output, and the part a summary reads, which with
-    fail_fast ends at the first failed step, whose stopping ends the run."""
-    process = subprocess.Popen(
-        ["make", "--no-print-directory", *make_args], stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT, text=True, start_new_session=True, env=env,
-    )
-
+@contextlib.contextmanager
+def stopping_with_the_gate(process: subprocess.Popen) -> Iterator[Callable[[int], None]]:
+    """Yields what signals the make's whole session; while it holds, a gate stopped from outside
+    stops its make first."""
     def stop(sig: int) -> None:
         try:
             os.killpg(process.pid, sig)
@@ -230,10 +228,36 @@ def run_make(make_args: list[str], fail_fast: bool, env: dict[str, str] | None =
         raise SystemExit(128 + signum)
 
     previous = {signum: signal.signal(signum, ended) for signum in (signal.SIGTERM, signal.SIGHUP)}
+    try:
+        yield stop
+    except KeyboardInterrupt:
+        stop(signal.SIGTERM)
+        raise
+    finally:
+        for signum, handler in previous.items():
+            signal.signal(signum, handler)
+
+
+def run_make_shown(make_args: list[str]) -> int:
+    """Runs make with its output as it comes (VERBOSE=1, which CI uses): its exit code. Stopped
+    from outside it stops its make as the quiet run does: by its process id alone it had left the
+    make running (the owner, 2026-11-27)."""
+    process = subprocess.Popen(["make", "--no-print-directory", *make_args], start_new_session=True)
+    with stopping_with_the_gate(process):
+        return process.wait()
+
+
+def run_make(make_args: list[str], fail_fast: bool, env: dict[str, str] | None = None) -> tuple[int, str, str]:
+    """Runs make: its exit code, its whole output, and the part a summary reads, which with
+    fail_fast ends at the first failed step, whose stopping ends the run."""
+    process = subprocess.Popen(
+        ["make", "--no-print-directory", *make_args], stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT, text=True, start_new_session=True, env=env,
+    )
     lines: list[str] = []
     read_up_to: int | None = None
     killer: list[threading.Timer] = []
-    try:
+    with stopping_with_the_gate(process) as stop:
         assert process.stdout is not None
         for line in process.stdout:
             lines.append(line)
@@ -242,12 +266,6 @@ def run_make(make_args: list[str], fail_fast: bool, env: dict[str, str] | None =
                 stop(signal.SIGTERM)
                 killer.append(threading.Timer(STOP_GRACE_SECONDS, stop, (signal.SIGKILL,)))
                 killer[0].start()
-    except KeyboardInterrupt:
-        stop(signal.SIGTERM)
-        raise
-    finally:
-        for signum, handler in previous.items():
-            signal.signal(signum, handler)
     code = process.wait()
     # The killer is for steps that outlive the asking; when none did, it would only keep this process
     # alive for the whole grace, which held every failed make check 10 s after it said so (2026-11-20).
@@ -271,7 +289,7 @@ def main(argv: list[str]) -> int:
         return 2
     label, make_args = argv[0], argv[1:]
     if os.environ.get("VERBOSE") == "1":
-        return subprocess.run(["make", "--no-print-directory", *make_args], check=False).returncode
+        return run_make_shown(make_args)
     log = log_path(make_args[0])
     clock = log.with_name(f"{make_args[0]}.clock")
     clock.write_text("", encoding="utf-8")
