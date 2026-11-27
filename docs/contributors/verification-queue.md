@@ -4232,7 +4232,8 @@ An item is ticked only by the person who did it, and only with what they saw.
 - [ ] **VQ408** — A household behind a network that lets no direct path form plays through the
   hosted relay (D558 §7): only the two friends' own networks show it, the lead's walk having forced
   the relay in a browser on the home's network (plans/hosted-relay.md, Proof). Once a friend's
-  server is installed and its household's realm is on the discovery's `-relay-realms`:
+  server is installed and its account's "Hosted relay" mark is on, as it is from the start
+  (D567 §7):
   1. On a phone on mobile data, Wi-Fi off, sign in to the friend's household and play a film for
      two minutes. Report whether it plays, and how long the first picture took.
   2. Tell the lead the time of day it played. The lead reads the server's log for that
