@@ -49,6 +49,18 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A101 — Handed the owner a Chromecast walk the lead's own test devices could make (2026-11-27)
+
+- **What happened:** D569's cast-start state and VQ422's paused cast were built, and the lead asked
+  the owner to cast paused to the Chromecast and say what the TV showed, while walking only the
+  Fire TV itself. The test phone and the test Chromecast are the lead's to drive (the owner,
+  2026-11-03 and 2026-11-25), through the NUC7's adb.
+- **Caught by:** the owner: "You should be able to test those yourself. You have access to a phone
+  and a chromecast".
+- **Gate:** none; no check can see who a walk was handed to. The practice: before a walk goes to
+  the owner, name the device it needs and why the lead's own (the Fire TV, the phone, the
+  Chromecast) cannot make it; only then is it the owner's.
+
 ### A100 — Told the owner a release needed only signing, a day after its key list changed (2026-11-27)
 
 - **What happened:** the owner had added a second everyday key, which made version 2 of both key
