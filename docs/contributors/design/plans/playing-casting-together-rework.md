@@ -702,3 +702,13 @@ Added by the owner, 2026-11-26, from the same walk's unfixed observations:
     Forward does not bring a left cast's page back during a start; pressing another film's Play
     from Home during a start casts that film instead. Not seen: leaving and returning during a
     Chromecast's start, which lasts 2.5 to 5 s.
+18. **What the walk of D570 and D571 found** (the lead's devices, 2026-11-27, staging at "feat(player):
+    a start its node's speed held jumps once to its link's quality"): every step of VQ426 and VQ427
+    passed on the Pixel and the Chromecast. Filed, not started: Cancel is missing for 250 to 500 ms
+    as "Connecting to…" hands over to "Loading on…"; after Cancel during "Connecting to…" the
+    "Loading on…" notice flashed once and the film's video reloaded for about 0.8 s; the seek
+    buttons are hidden, not disabled, while a Chromecast connects; right after a seek the remote's
+    place steps back ten seconds and forward again, its picture flickering with it. For the owner
+    to judge (D571 §4): the remote's picture is visibly soft on the phone, 320 px drawn about
+    three times as wide. Not checked: that the volume stays through a connect, the phone's film
+    page having no volume controls.
