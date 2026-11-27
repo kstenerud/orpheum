@@ -101,6 +101,9 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  // Every connection gone here notes a step, and the files of this project share a worker: left,
+  // the steps were the first ones of rtc-connect.test.ts's, which failed make check once.
+  forgetSteps();
 });
 
 describe("a connection's states, watched for its going", () => {
