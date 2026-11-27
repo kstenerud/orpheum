@@ -32397,5 +32397,7 @@ on the finding the lead filed the same day ("yes go ahead"). The measurement is 
    playing film's runs go on, and the player lets go of that film when it moves on. This amends
    D309 §7. A Chromecast asks ahead as a browser does.
 4. **Not decided here:** the quality a cast starts on, and a node measuring its own decode speed a
-   codec; both wait for §1's figures from nodes in use.
+   codec. §1 does not make the first unneeded (the owner, 2026-11-27: "We may still need to start
+   a cast at a lower quality if no suitable hardware codec exists"): a node encoding with x264, or
+   a film its card cannot decode, starts as slowly as before. The lead proposes both next.
 
