@@ -136,6 +136,9 @@ type Server struct {
 	// iceServers are the STUN and TURN servers a connection gathers its candidates through: its
 	// discovery's (D274); none gathers only the core's own addresses.
 	iceServers atomic.Pointer[func() []webrtc.ICEServer]
+	// relayAsk asks the core's discovery for a fresh relay credential (AskForRelayCredentialWith);
+	// none asks nothing.
+	relayAsk atomic.Pointer[func(context.Context)]
 	// anyRelayedAddress lets a relayed connection check any remote address, the core's own networks'
 	// too: for a development build alone, whose browser tests put the browser, the discovery and the
 	// core on one machine (AcceptAnyRelayedAddress).
@@ -435,7 +438,11 @@ func (server *Server) Answer(ctx context.Context, offer Description) (Descriptio
 func (server *Server) answerWith(
 	ctx context.Context, api *webrtc.API, offerSDP string, onProvenAtHome func(ProvenAtHome),
 ) (Description, error) {
-	connection, err := server.open(api, onProvenAtHome, offersRelayed(offerSDP))
+	mayRelay := offersRelayed(offerSDP)
+	if mayRelay {
+		server.askForRelayCredential(ctx)
+	}
+	connection, err := server.open(api, onProvenAtHome, mayRelay)
 	if err != nil {
 		return Description{}, err
 	}

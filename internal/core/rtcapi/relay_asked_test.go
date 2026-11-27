@@ -12,8 +12,10 @@ import (
 
 	"github.com/pion/webrtc/v4"
 
+	"github.com/kstenerud/orpheum/discovery/relaycred"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi/rtcapitest"
+	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 )
 
 // askedRelay is a relay on the loopback that answers nothing and counts what it is asked; it
@@ -86,5 +88,58 @@ func awaitAsked(t *testing.T, asked *atomic.Int64) {
 			t.Fatal("the relay was not asked within 5 s for an offer with a relayed candidate")
 		case <-look.C:
 		}
+	}
+}
+
+// An offer with a relayed candidate while the core holds no relay credential, or only one within a
+// minute of its expiry, has the core ask its discovery for one at once, so the client's next try finds
+// it rather than one up to a heartbeat later (hosted-relay.md, finding 3). A fresh credential asks
+// nothing, nor does an offer with no relayed candidate. The asking offer is answered all the same.
+func TestAnswer_AnOfferThroughARelayAsksForARelayCredentialOnlyWhenTheCoreHoldsNoneFresh(t *testing.T) {
+	t.Parallel()
+	now := time.Unix(1_800_000_000, 0)
+	relay := func(expiresIn time.Duration) []webrtc.ICEServer {
+		username, err := relaycred.Credential{
+			ExpiresAt: now.Add(expiresIn), Role: relaycred.RoleCore, Household: "household1", Kbps: 8000,
+		}.Username()
+		if err != nil {
+			t.Fatal(err)
+		}
+		// A documentation address nothing answers from: the offers below are refused before any
+		// gathering, so the relay is never asked.
+		return []webrtc.ICEServer{
+			{URLs: []string{"stun:192.0.2.1:3478"}},
+			{URLs: []string{"turn:192.0.2.1:3478?transport=udp"}, Username: username, Credential: "word"},
+		}
+	}
+	const viaRelay = "v=0\r\n" + relayedCandidate + "\r\n"
+	const direct = "v=0\r\na=candidate:1 1 udp 2130706431 192.0.2.8 50000 typ host\r\n"
+	for _, held := range []struct {
+		name    string
+		servers []webrtc.ICEServer
+		offer   string
+		isAsked bool
+	}{
+		{"no server at all", nil, viaRelay, true},
+		{"STUN alone", []webrtc.ICEServer{{URLs: []string{"stun:192.0.2.1:3478"}}}, viaRelay, true},
+		{"a credential half a minute from its end", relay(30 * time.Second), viaRelay, true},
+		{"a credential an hour from its end", relay(time.Hour), viaRelay, false},
+		{"no relayed candidate, no server", nil, direct, false},
+	} {
+		t.Run(held.name, func(t *testing.T) {
+			t.Parallel()
+			server := newServer(t)
+			rtcapi.SetClock(server, clocktest.NewFake(now))
+			server.UseICEServers(func() []webrtc.ICEServer { return held.servers })
+			var asked atomic.Int64
+			server.AskForRelayCredentialWith(func(context.Context) { asked.Add(1) })
+			// The offer is no whole SDP, so its answer fails at once: the ask is what is seen.
+			offer := rtcapi.Description{Type: "offer", SDP: held.offer}
+			_, _ = server.Answer(t.Context(), offer) //nolint:errcheck // above
+			if isAsked := asked.Load() > 0; isAsked != held.isAsked {
+				t.Errorf("holding %s, the offer asked for a relay credential %t; want %t", held.name, isAsked,
+					held.isAsked)
+			}
+		})
 	}
 }

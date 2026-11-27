@@ -67,6 +67,12 @@
 //     TestUseICEServers_TheAnswerCarriesThePublicAddressSTUNFound.
 //   - A relay among those servers is asked for an address only for an offer that carries a relayed
 //     candidate (D559 §2). TestAnswer_AsksARelayOnlyForAnOfferThatCarriesARelayedCandidate.
+//   - Such an offer, while the core holds no TURN server or only credentials within
+//     relayCredentialFreshFor of their expiry (the username says when, relaycred's form), has the
+//     core ask for a fresh one at once (AskForRelayCredentialWith), not waiting on the answer: the
+//     offer is answered with what the core holds (hosted-relay.md, finding 3). A fresh credential, or
+//     an offer with no relayed candidate, asks nothing.
+//     TestAnswer_AnOfferThroughARelayAsksForARelayCredentialOnlyWhenTheCoreHoldsNoneFresh.
 //   - Each connection's path (direct, punched or relayed, by family; hairpinned; or failed) is counted
 //     and logged, told by the core's end of its selected pair (D274 §3); the log names both ends by
 //     type and address. TestAnswer_CountsThePathEachConnectionTook, TestPathOf_IsToldByTheCoresEndOfThePair,

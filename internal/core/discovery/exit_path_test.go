@@ -120,3 +120,48 @@ func TestSignal_ARefusedRedialAsksHowTheCoreStandsAtOnceAndAtMostOnceAWhile(t *t
 		}
 	}
 }
+
+// A signalling connection open again after it was lost has the core ask how it stands at once, not
+// at its next heartbeat up to five minutes later: a discovery restarted with its relay set up anew
+// names the relay's servers and a fresh credential, which the core then holds within about a second
+// of the discovery coming back (hosted-relay.md, finding 3). The first opening asks nothing more:
+// the core has just asked.
+func TestSignal_AConnectionOpenAgainAsksHowTheCoreStandsAtOnceAndTheFirstOpeningDoesNot(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	built := claimedWorld(t)
+	built.fake.mutex.Lock()
+	built.fake.dropsSignalling = true
+	built.fake.mutex.Unlock()
+	opened := func(lost *lostSignalling) (isWoken, isAsked bool) {
+		t.Helper()
+		select { // a nudge left from connecting is no opening's
+		case <-built.service.wake:
+		default:
+		}
+		built.fake.mutex.Lock()
+		sent := len(built.fake.heartbeats)
+		built.fake.mutex.Unlock()
+		if wasOpen, err := built.service.holdSignalling(ctx, built.service.Status().BaseURL, lost); !wasOpen {
+			t.Fatalf("the signalling connection did not open: %v", err)
+		}
+		select {
+		case <-built.service.wake:
+			isWoken = true
+		default:
+		}
+		built.service.step(ctx)
+		built.fake.mutex.Lock()
+		defer built.fake.mutex.Unlock()
+		return isWoken, len(built.fake.heartbeats) > sent
+	}
+
+	if isWoken, isAsked := opened(&lostSignalling{}); isWoken || isAsked {
+		t.Errorf("the first opening woke the step loop %t and asked %t; want neither", isWoken, isAsked)
+	}
+	built.clock.Advance(time.Second)
+	again := &lostSignalling{since: built.clock.Now().Add(-time.Second), dials: 1}
+	if isWoken, isAsked := opened(again); !isWoken || !isAsked {
+		t.Errorf("the connection open again woke the step loop %t and asked %t; want both", isWoken, isAsked)
+	}
+}

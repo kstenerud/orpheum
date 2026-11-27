@@ -90,6 +90,12 @@
 //   - A signalling dial the discovery refuses (403, as on a lapse) has the core ask how it stands at
 //     once, not at its next heartbeat, at most once each standingAskEvery (VQ371).
 //     TestSignal_ARefusedRedialAsksHowTheCoreStandsAtOnceAndAtMostOnceAWhile.
+//   - A signalling connection open again after one was lost asks the same way, within the same
+//     limit, so a discovery restarted with its relay set up anew is read within about a second; the
+//     first opening asks nothing more (hosted-relay.md, finding 3). A client offering a relayed
+//     candidate while the core holds no fresh relay credential asks it too (AskStandingForRelay,
+//     which rtcapi calls).
+//     TestSignal_AConnectionOpenAgainAsksHowTheCoreStandsAtOnceAndTheFirstOpeningDoesNot.
 //   - The certificate of the core's names is proven through the discovery, which sets and clears
 //     its DNS-01 record. TestSetTXT_ACertificateForTheCoresNamesIsObtainedThroughTheDiscovery.
 //   - A discovery's deprecation date is kept for the admin to see.

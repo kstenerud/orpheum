@@ -138,12 +138,15 @@ the log says whether a device took the relay needlessly (the owner, 2026-11-26):
    offer that carries a relayed candidate, and the ports and limits grow once the owner has
    widened the firewall. Production's discovery names the relay after that.
 3. **A core has no relay credential for up to five minutes after the discovery restarts**: it
-   takes one with its heartbeat alone. Open; proposed to the owner, 2026-11-27, who asked how
-   others handle it: the core asks how it stands as soon as its signalling connection to the
-   discovery is dialled again, which a restart always causes within about a second (what a
-   Tailscale node does when its control connection returns), and also when an offer carries a
-   relayed candidate while it holds no relay credential or one near its end (what a Matrix or
-   Twilio client does: fetch by need, before the expiry).
+   takes one with its heartbeat alone. Built, 2026-11-27 (the owner: "go with your
+   recommendation"): the core asks how it stands as soon as its signalling connection to the
+   discovery opens again after it was lost, which a restart always causes within about a second
+   (what a Tailscale node does when its control connection returns), and also when an offer
+   carries a relayed candidate while it holds no TURN server or only credentials within a minute
+   of their end, as the username states (what a Matrix or Twilio client does: fetch by need,
+   before the expiry). That offer is answered with what the core holds; the client's next try
+   finds the credential. Both ask the way a refused signalling dial does (VQ371), at most once
+   each 30 s whichever asked.
 4. **The relay says nothing of an allocation it refuses.** A line for each refusal, with which
    limit, would have named finding 1 at once. It now does (§5 item 2).
 5. **A relay that does not answer holds the core's answer** to an offer with a relayed candidate

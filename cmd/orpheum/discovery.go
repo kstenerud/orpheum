@@ -233,6 +233,9 @@ func openReachedFromOutside(
 	rtc.UseICEServers(func() []webrtc.ICEServer {
 		return iceServersFor(config.WebRTC.STUNServers, discovered.Status().ICEServers)
 	})
+	// An offer through a relay while the core holds no fresh relay credential has the core ask its
+	// discovery for one at once (hosted-relay.md, finding 3).
+	rtc.AskForRelayCredentialWith(discovered.AskStandingForRelay)
 	opened.discovery, opened.portMapping = discovered, mapped
 	served.discoveryParts.DNS = discovered
 	if useErr := served.useDiscoveryName(discovered.Status().CertificateName()); useErr != nil {

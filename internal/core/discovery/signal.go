@@ -167,20 +167,18 @@ func (service *Service) holdSignalling(ctx context.Context, baseURL string, lost
 		connection, err = service.dialSignalling(ctx, baseURL, token)
 	}
 	if errors.Is(err, errSignallingRefused) {
-		service.askStandingSoon(ctx)
+		if service.askStandingSoon() {
+			service.parts.Logger.InfoContext(ctx,
+				"discovery: the signalling connection was refused; asking how the core stands",
+				slogx.EventKey, "signallingRefused")
+		}
 	}
 	if err != nil {
 		return false, err
 	}
 	defer func() { _ = connection.CloseNow() }() //nolint:errcheck // closing what may be closed
 	connection.SetReadLimit(maxSignalBytes)
-	if lost.since.IsZero() {
-		service.parts.Logger.InfoContext(ctx, "discovery: the signalling connection is open")
-	} else {
-		service.parts.Logger.InfoContext(ctx, "discovery: the signalling connection is open again",
-			slogx.EventKey, "signallingReopened",
-			"lostMs", service.parts.Clock.Now().Sub(lost.since).Milliseconds(), "dials", lost.dials)
-	}
+	service.opened(ctx, lost)
 	// The pinging and the health watch end, their timers stopped, before the connection's holding
 	// does: one left running past it pinged a connection gone, and its timer was still armed as the
 	// next dial began (make check, 2026-11-12).
@@ -214,6 +212,26 @@ func (service *Service) holdSignalling(ctx context.Context, baseURL string, lost
 			defer func() { <-slots }()
 			service.answerSignal(ctx, connection, offer)
 		})
+	}
+}
+
+// opened says the signalling connection is open. One open again after one was lost says how long it
+// was lost and after how many dials, and has the core ask how it stands: the discovery may have
+// restarted with its relay set up anew, and the core reads its servers now, not at its next heartbeat
+// up to heartbeatEvery later (hosted-relay.md, finding 3). The first opening asks nothing more: the
+// core has just asked.
+func (service *Service) opened(ctx context.Context, lost *lostSignalling) {
+	if lost.since.IsZero() {
+		service.parts.Logger.InfoContext(ctx, "discovery: the signalling connection is open")
+		return
+	}
+	service.parts.Logger.InfoContext(ctx, "discovery: the signalling connection is open again",
+		slogx.EventKey, "signallingReopened",
+		"lostMs", service.parts.Clock.Now().Sub(lost.since).Milliseconds(), "dials", lost.dials)
+	if service.askStandingSoon() {
+		service.parts.Logger.InfoContext(ctx,
+			"discovery: the signalling connection is open again; asking how the core stands",
+			slogx.EventKey, "standingAskedOnReopen")
 	}
 }
 
@@ -376,12 +394,15 @@ func (service *Service) dialSignalling(ctx context.Context, baseURL, token strin
 	return nil, fmt.Errorf("dial the signalling connection: %w", err)
 }
 
-// askStandingSoon has the step loop ask the discovery at once how the core stands, after the
-// discovery refused its signalling connection: a lapsed subscription closes the connection at once
-// and refuses each redial, and the System page then says so within seconds, not at the next
-// heartbeat up to heartbeatEvery later (VQ371). A refusal under standingAskEvery after the last one
-// that asked asks nothing more.
-func (service *Service) askStandingSoon(ctx context.Context) {
+// askStandingSoon has the step loop ask the discovery at once how the core stands, saying whether it
+// will: the caller logs why. The discovery refusing the core's signalling connection asks it: a lapsed subscription
+// closes the connection at once and refuses each redial, and the System page then says so within
+// seconds, not at the next heartbeat up to heartbeatEvery later (VQ371). So do the connection open
+// again after it was lost, and a client offering a relayed candidate while the core holds no fresh
+// relay credential (AskStandingForRelay): a discovery restarted with its relay set up anew is read
+// within about a second (hosted-relay.md, finding 3). An ask under standingAskEvery after the last
+// one that asked asks nothing more, whichever asked.
+func (service *Service) askStandingSoon() bool {
 	now := service.parts.Clock.Now()
 	service.mutex.Lock()
 	isTooSoon := !service.standingAskedAt.IsZero() && now.Sub(service.standingAskedAt) < standingAskEvery
@@ -390,12 +411,22 @@ func (service *Service) askStandingSoon(ctx context.Context) {
 	}
 	service.mutex.Unlock()
 	if isTooSoon {
-		return
+		return false
 	}
-	service.parts.Logger.InfoContext(ctx,
-		"discovery: the signalling connection was refused; asking how the core stands",
-		slogx.EventKey, "signallingRefused")
 	service.nudge()
+	return true
+}
+
+// AskStandingForRelay has the core ask its discovery at once how it stands, so the relay's servers and
+// a fresh credential they name are read: the WebRTC server asks it when a client offers a relayed
+// candidate while the core holds no fresh relay credential (rtcapi's AskForRelayCredentialWith). The
+// connection that asked is answered with what the core holds; the client's next try finds the
+// credential.
+func (service *Service) AskStandingForRelay(ctx context.Context) {
+	if service.askStandingSoon() {
+		service.parts.Logger.InfoContext(ctx, "discovery: a client offered a relayed candidate and the core "+
+			"holds no fresh relay credential; asking how the core stands", slogx.EventKey, "relayCredentialAsked")
+	}
 }
 
 // answerOffer is the core's answer to an offer, or its refusal and why.
