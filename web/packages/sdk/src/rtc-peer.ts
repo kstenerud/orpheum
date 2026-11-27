@@ -68,10 +68,14 @@ export function canCarry(peer: StatesPeer): boolean {
   );
 }
 
-/** What watchGone reads the time from, and whom it tells each judging that finds a peer not gone. */
+/**
+ * What watchGone reads the time from, whom it tells each judging that finds a peer not gone, and
+ * where it hears that the browser said its network changed (peerOf's networkChanged).
+ */
 export interface WatchTold {
   readonly nowMs?: () => number;
   readonly judged?: () => void;
+  readonly onNetworkChanged?: (listener: () => void) => void;
 }
 
 /**
@@ -81,8 +85,11 @@ export interface WatchTold {
  * and the ICE's apart, since browsers do not move them together (idiosyncrasies.md, Firefox). One
  * whose page went unrun for coreHoldsSilentMs between two looks, the core having ended it meanwhile,
  * is gone too, the times read from told's nowMs. Each judging that finds it not gone is told to told's judged, so
- * one back from disconnected, told by no event, is seen within peerLookEveryMs. Returns the end of
- * watching.
+ * one back from disconnected, told by no event, is seen within peerLookEveryMs. Told that the
+ * browser's network changed (told's onNetworkChanged), it is judged at once, and one disconnected
+ * then or within disconnectedGraceMs after is gone at once, its grace cut short: the grace waits for
+ * a moment out of signal, and a connection a network change disconnected never comes back by itself
+ * (plan item 10, option D). One that stays connected is left as it was. Returns the end of watching.
  */
 export function watchGone(
   peer: StatesPeer,
@@ -105,24 +112,18 @@ export function watchGone(
       listener(why);
     }
   };
-  const isDisconnected = (): boolean =>
-    peer.connectionState === "disconnected" || peer.iceConnectionState === "disconnected";
   const judge = (): void => {
     if (isGone) {
       return;
     }
-    const { connectionState, iceConnectionState, signalingState } = peer;
-    if (signalingState === "closed") {
-      gone("its signalling closed");
-    } else if (connectionState === "failed" || connectionState === "closed") {
-      gone(`its connection ${connectionState}`);
-    } else if (iceConnectionState === "failed" || iceConnectionState === "closed") {
-      gone(`its ICE ${iceConnectionState}`);
-    } else if (isDisconnected()) {
+    const why = goneAtOnceWhy(peer, isJustChanged());
+    if (why !== undefined) {
+      gone(why);
+    } else if (isDisconnected(peer)) {
       grace ??= setTimeout(() => {
         grace = undefined;
         // Judged again as the grace ends: one back by now, told by no event yet, is not gone.
-        if (isDisconnected()) {
+        if (isDisconnected(peer)) {
           gone(`it stayed disconnected for ${String(disconnectedGraceMs)} ms`);
         } else {
           judge();
@@ -141,8 +142,51 @@ export function watchGone(
   for (const type of watchedStates) {
     peer.addEventListener(type, judge);
   }
+  const isJustChanged = heardChange(told.onNetworkChanged, nowMs, judge);
   judge();
   return stop;
+}
+
+/** Whether peer's connection or its ICE is disconnected. */
+function isDisconnected(peer: StatesPeer): boolean {
+  return peer.connectionState === "disconnected" || peer.iceConnectionState === "disconnected";
+}
+
+/**
+ * Why peer is gone at once, if it is: its signalling closed, its connection or its ICE failed or
+ * closed, or it is disconnected just after the browser's network changed (isJustChanged).
+ */
+function goneAtOnceWhy(peer: StatesPeer, isJustChanged: boolean): string | undefined {
+  const { connectionState, iceConnectionState, signalingState } = peer;
+  if (signalingState === "closed") {
+    return "its signalling closed";
+  }
+  if (connectionState === "failed" || connectionState === "closed") {
+    return `its connection ${connectionState}`;
+  }
+  if (iceConnectionState === "failed" || iceConnectionState === "closed") {
+    return `its ICE ${iceConnectionState}`;
+  }
+  return isJustChanged && isDisconnected(peer)
+    ? "it went disconnected as the browser's network changed"
+    : undefined;
+}
+
+/**
+ * Hears onNetworkChanged, where given, judging at each change, and returns whether the browser said
+ * its network changed within disconnectedGraceMs, the times read from nowMs.
+ */
+function heardChange(
+  onNetworkChanged: WatchTold["onNetworkChanged"],
+  nowMs: () => number,
+  judge: () => void,
+): () => boolean {
+  let changedAtMs: number | undefined;
+  onNetworkChanged?.(() => {
+    changedAtMs = nowMs();
+    judge();
+  });
+  return () => changedAtMs !== undefined && nowMs() - changedAtMs < disconnectedGraceMs;
 }
 
 /** How long it has been since it was last called, or made, the times read from nowMs. */
@@ -167,11 +211,12 @@ function lookAfter(unrunMs: number, judge: () => void, gone: (why: string) => vo
 /**
  * A browser's peer connection as the transport uses it: each channel delivers ArrayBuffers, it says
  * whether it can carry a request now (canCarry) and each time its states were judged, and it says
- * once when it is gone, and why (watchGone).
+ * once when it is gone, and why (watchGone), judged at once when told its network changed.
  */
 export function peerOf(peer: RTCPeerConnection): PeerLike {
   let stopWatching = (): void => undefined;
   const judgedListeners: (() => void)[] = [];
+  const changedListeners: (() => void)[] = [];
   const judged = (): void => {
     for (const listener of judgedListeners) {
       listener();
@@ -192,8 +237,18 @@ export function peerOf(peer: RTCPeerConnection): PeerLike {
     onJudged: (listener) => {
       judgedListeners.push(listener);
     },
+    networkChanged: () => {
+      for (const listener of changedListeners) {
+        listener();
+      }
+    },
     onGone: (listener) => {
-      stopWatching = watchGone(peer, listener, { judged });
+      stopWatching = watchGone(peer, listener, {
+        judged,
+        onNetworkChanged: (changed) => {
+          changedListeners.push(changed);
+        },
+      });
     },
   };
 }

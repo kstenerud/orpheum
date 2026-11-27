@@ -162,8 +162,74 @@ function onBrowserOnline(listener: () => void): () => void {
 }
 
 /**
+ * How long after a network change event later ones count as the same change: Chrome fires several
+ * together as a phone moves from Wi-Fi to mobile data, and they make one check (onNetworkChange).
+ */
+export const networkChangeBurstMs = 2000;
+
+/** What onNetworkChange needs of the browser's network information: its change event. */
+export interface ChangingNetwork {
+  addEventListener(type: "change", listener: () => void): void;
+  removeEventListener(type: "change", listener: () => void): void;
+}
+
+/**
+ * The browser's network information (navigator.connection), where it has one: Chrome on Android
+ * does; Firefox and Safari do not.
+ */
+function browserNetwork(): ChangingNetwork | undefined {
+  if (typeof navigator === "undefined") {
+    return undefined;
+  }
+  const connection: unknown = Reflect.get(navigator, "connection");
+  return isChangingNetwork(connection) ? connection : undefined;
+}
+
+/** Whether value has a change event to hear, as navigator.connection does. */
+function isChangingNetwork(value: unknown): value is ChangingNetwork {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "addEventListener" in value &&
+    typeof value.addEventListener === "function" &&
+    "removeEventListener" in value &&
+    typeof value.removeEventListener === "function"
+  );
+}
+
+/**
+ * Tells listener once for each burst of network's change events: at the first, and not again until
+ * none came for networkChangeBurstMs. Nothing is heard where there is no network. Returns the end.
+ */
+export function onNetworkChange(
+  network: ChangingNetwork | undefined,
+  listener: () => void,
+): () => void {
+  if (network === undefined) {
+    return () => undefined;
+  }
+  let burst: ReturnType<typeof setTimeout> | undefined;
+  const changed = (): void => {
+    if (burst === undefined) {
+      listener();
+    }
+    clearTimeout(burst);
+    burst = setTimeout(() => {
+      burst = undefined;
+    }, networkChangeBurstMs);
+  };
+  network.addEventListener("change", changed);
+  return () => {
+    clearTimeout(burst);
+    network.removeEventListener("change", changed);
+  };
+}
+
+/**
  * Has listener told each time a connection may open again where it could not, and why: the browser
- * came back online ("back"), or page is shown again ("shown"), where there is one. A phone hands a
+ * came back online ("back"), or page is shown again ("shown"), where there is one; and once for each
+ * burst of the browser's network change events ("changed", onNetworkChange), where network has them,
+ * the connections up then judged at once (plan item 10, option D). A phone hands a
  * page back from the background with a try to connect begun before it froze, hung on a network it no
  * longer has (the owner's phone back from another app, staging, 2026-11-14; idiosyncrasies.md, a page
  * frozen in the background); the transport gives such a try up and makes another at once once it has
@@ -171,11 +237,20 @@ function onBrowserOnline(listener: () => void): () => void {
  */
 export function onWayBack(
   page: ShownPage | undefined,
+  network: ChangingNetwork | undefined = browserNetwork(),
 ): (listener: (why: WayBack) => void) => () => void {
-  return (listener) =>
-    whenShownOrBack(page, onBrowserOnline, (why) => {
+  return (listener) => {
+    const stopShownOrBack = whenShownOrBack(page, onBrowserOnline, (why) => {
       listener(why);
     });
+    const stopChanged = onNetworkChange(network, () => {
+      listener("changed");
+    });
+    return () => {
+      stopShownOrBack();
+      stopChanged();
+    };
+  };
 }
 
 /**

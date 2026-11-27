@@ -657,7 +657,13 @@ Added by the owner, 2026-11-26, from the same walk's unfixed observations:
     devices it listed last, disabled, though a read of them fails meanwhile; once it has been down
     `reconnectingSaidForMs` (30 s, `cast-to.tsx`), it says the server could not be reached,
     whether or not a read failed (the clock alone, the owner, 2026-11-27); walked on a device by
-    VQ418.
+    VQ418. And (D) (the owner, 2026-11-27, "Do it"): where the browser has
+    `navigator.connection` (Chrome on Android), `onWayBack` (`rtc-connect.ts`) hears its
+    `change` events, one burst of them within `networkChangeBurstMs` making one sign
+    ("changed"), and the transport's `networkChanged` (`rtc-transport.ts`) has each connection
+    judged at once by its own `watchGone` (`rtc-peer.ts`), where one disconnected then or within
+    `disconnectedGraceMs` after is gone at once, its grace cut short, and replaced; one still
+    connected is left, and tries and waits under way are untouched; walked on a device by VQ419.
     The owner, 2026-11-27, on what is not known: only Tailscale runs on the phone, usually up all
     the time, though it has been known to stick down; whether it was up then, and whether the page
     was reloaded at 21:39, the owner does not remember. The cause of that night stays unknown.

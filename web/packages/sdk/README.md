@@ -278,7 +278,10 @@ device lab reported until it went, D555 §12) and a WebRTC call of a page with i
   a connection is gone when its connection's or its ICE's state is `failed` or `closed`, its
   signalling `closed`, or either state `disconnected` for `disconnectedGraceMs`, judged at each of
   their events and every `peerLookEveryMs` besides (`watchGone`), since Firefox does not move them
-  together; a try to replace it is given up after `openTryMostMs`, its signaller's post aborted;
+  together, and at once when the browser says its network changed (`navigator.connection`'s
+  `change`, where it has one; a burst within `networkChangeBurstMs` is one sign, `onWayBack`),
+  when one disconnected then or within `disconnectedGraceMs` after is gone without its grace and
+  one connected is left; a try to replace it is given up after `openTryMostMs`, its signaller's post aborted;
   failures are tried again after a wait that doubles up to `replaceMostMs` (10 s), and at once on
   the browser's `online` event, which gives up a try under way; a try whose offer reached no server
   (`Unreached`: the signaller's post failed as fetch does with no network) after `unreachedRetryMs`

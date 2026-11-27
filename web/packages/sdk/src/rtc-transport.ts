@@ -96,9 +96,11 @@ interface Waiter {
 
 /**
  * Why the way to the core may work again (whenShownOrBack): its page was shown again ("shown"), or the
- * browser came back online ("back"); a mere show keeps a try under way (D484 §2).
+ * browser came back online ("back"); a mere show keeps a try under way (D484 §2). Or why the
+ * connections up may no longer carry anything: the browser said its network changed ("changed",
+ * navigator.connection's change event, onWayBack), and each is judged at once (networkChanged).
  */
-export type WayBack = "shown" | "back";
+export type WayBack = "shown" | "back" | "changed";
 
 /**
  * How a transport keeps its connections: opening another, which gives up its try once signal aborts,
@@ -178,7 +180,11 @@ export class RtcTransport {
     }
     this.stopHearingOnline =
       growth?.onOnline?.((why) => {
-        this.backOnline(why);
+        if (why === "changed") {
+          this.networkChanged();
+        } else {
+          this.backOnline(why);
+        }
       }) ?? ((): void => undefined);
   }
 
@@ -581,7 +587,7 @@ export class RtcTransport {
    * would never connect (the slow-link war game, 2026-11-14), while one a frozen page held past its
    * deadline, its timer not yet run, is given up as on online (the owner's phone, staging, 2026-11-14).
    */
-  private backOnline(why: WayBack = "back"): void {
+  private backOnline(why: "shown" | "back" = "back"): void {
     if (this.isClosed || this.refusal !== undefined) {
       return;
     }
@@ -598,6 +604,21 @@ export class RtcTransport {
     }
     this.grow();
     this.tellBack();
+  }
+
+  /**
+   * The browser said its network changed: each connection up is judged at once (PeerLike's
+   * networkChanged), so one the change disconnected is gone, and replaced, without waiting out its
+   * grace, and one still connected carries on as it was; tries and waits under way are left as they
+   * are, for the change may be a mere estimate of a network that still works (plan item 10, D).
+   */
+  private networkChanged(): void {
+    if (this.isClosed || this.refusal !== undefined) {
+      return;
+    }
+    for (const link of [...this.links]) {
+      link.peer.networkChanged?.();
+    }
   }
 
   /** Tells each onBack listener that the way to the core may work again. */

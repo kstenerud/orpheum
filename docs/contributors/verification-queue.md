@@ -4336,3 +4336,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   page has not connected within thirty seconds, whether it then says the server could not be
   reached (by the clock alone, D564 §4 as amended 2026-11-27: on the first walk, with no read
   failed, it still said "Reconnecting…" at 38 s).
+- [ ] **VQ419** — A page told its network changed judges its connections at once (plan
+  item 10, option D; the owner's phone, production, 2026-11-26, held its dead connections for
+  seconds before making new ones): only a real phone's Chrome fires `navigator.connection`'s change
+  event and shows how soon its connections go disconnected after it. On the phone's Chrome, open a
+  film's page, start the film, then turn the Wi-Fi off so the phone moves to mobile data. Report how
+  many seconds pass before the film plays on, and before the Cast panel lists the Cast devices
+  again; and, from the page's problem report, whether its steps say a connection is gone because
+  "it went disconnected as the browser's network changed". Then, on Wi-Fi alone, let the film play
+  for a few minutes: report any stall, which a change that is no move must not cause.

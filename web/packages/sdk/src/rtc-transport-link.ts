@@ -32,6 +32,11 @@ export interface PeerLike {
   canCarry?(): boolean;
   /** Tells listener each time its states were judged (watchGone), so a change in canCarry is seen. */
   onJudged?(listener: () => void): void;
+  /**
+   * The browser said its network changed: its states are judged at once, and one disconnected then
+   * or soon after is gone without its grace (rtc-peer.ts's watchGone). A test's peer may ignore it.
+   */
+  networkChanged?(): void;
   /** Its candidate pairs as the browser sees them (rtc-pairs.ts); a test's peer may have none. */
   candidatePairs?(): Promise<CandidatePairSeen[]>;
 }
