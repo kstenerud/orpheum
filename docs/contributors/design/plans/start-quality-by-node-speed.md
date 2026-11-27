@@ -92,6 +92,9 @@ those to fine-tune what we believe the hardware is capable of."*
 - **Only a fair run counts:** one that made at least half a minute of film while no other run
   went on its node. A node made slow by its load is `keepRunsFast`'s matter (D250 §6), not what
   its hardware can do.
+  Another run is one that makes a picture, another quality's or the scrub-bar pictures': a
+  sound's or a copied picture's run costs little and goes beside every playback's picture, so
+  counting it would leave no run fair (the lead's reading, 2026-11-27; the owner's to change).
 - **The real figure takes over from the trial's as runs are counted:** the trial alone until
   three fair runs, then the middle one of the last several. A kind the trials never tried gets a
   figure of its own this way, and no longer borrows its neighbour's.

@@ -280,7 +280,12 @@ func TestAgent_ARunOfAQualityReportsItsSpeedAndWhetherAnotherRunWentBesideIt(t *
 	clock := clocktest.NewFake(time.Date(2026, 11, 27, 12, 0, 0, 0, time.UTC))
 	root, _ := startAgentWithWorkers(t, socket, Workers{
 		ChunkMaker: pacedChunkMaker{clock: clock, chunkTakes: 600 * time.Millisecond},
-	}, func(node *Agent) { node.clock = clock })
+	}, func(node *Agent) {
+		node.clock = clock
+		twoEncodes := testCapacity
+		twoEncodes.EncodeSlotCount = 2
+		node.work = newWorkList(twoEncodes, clock)
+	})
 	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -307,7 +312,7 @@ func TestAgent_ARunOfAQualityReportsItsSpeedAndWhetherAnotherRunWentBesideIt(t *
 	}) {
 		t.Errorf("a copied picture's run reported %+v; want no figures", report)
 	}
-	core.sendMakeChunks(3, run("1/chunks-waiting/0123456789abcdef", nodeproto.StreamPicture))
+	core.sendMakeChunks(3, run("1/chunks-q8000k1080p-waiting/0123456789abcdef", nodeproto.StreamQuality))
 	for {
 		if progress := testutil.Receive(t, core.progress, "job 3's first chunk"); progress.JobID == 3 &&
 			progress.ChunksMadeThrough != nil {
@@ -319,6 +324,24 @@ func TestAgent_ARunOfAQualityReportsItsSpeedAndWhetherAnotherRunWentBesideIt(t *
 		t.Errorf("a quality's run beside another reported %+v; want it beside another, at 333 %%", report)
 	}
 	core.commands <- nodeproto.Command{CommandSeq: 5, JobID: 3, Work: nodeproto.Work{Type: nodeproto.CommandCancel}}
+}
+
+// Only a run that makes a picture is another run beside a quality's: every playback has its sound's
+// run beside its picture's, and were that counted no run would be a fair measure of its node
+// (start-quality-by-node-speed.md §3).
+func TestRunStarts_ARunOfSoundIsBesideNoneAndNoneIsBesideIt(t *testing.T) {
+	t.Parallel()
+	node := &Agent{}
+	soundEnds := node.runStarts(nodeproto.StreamSound)
+	copiedEnds := node.runStarts(nodeproto.StreamSoundCopied)
+	qualityEnds := node.runStarts(nodeproto.StreamQuality)
+	if soundEnds() || copiedEnds() || qualityEnds() {
+		t.Error("a quality's run beside only its sound's runs was said beside another; want each alone")
+	}
+	firstEnds, secondEnds := node.runStarts(nodeproto.StreamQuality), node.runStarts(nodeproto.StreamQuality)
+	if !firstEnds() || !secondEnds() {
+		t.Error("two runs of a quality together were not each said beside another")
+	}
 }
 
 // Each run of chunks after a seek opens the same unchanged film; the payload hashes the node shares

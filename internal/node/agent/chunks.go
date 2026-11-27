@@ -40,7 +40,7 @@ func (agent *Agent) chunksWork(
 			ends := agent.workers.SpeedTrials.ChunksRunStarts()
 			defer ends()
 		}
-		ended := agent.runsGoing.starts()
+		ended := agent.runStarts(command.Stream.Kind)
 		defer ended() // a run that panics is beside no later one
 		times := chunksRunTimes{startedAt: agent.clock.Now()}
 		report := agent.runChunks(jobCtx, nodeID, held, command, &times)
