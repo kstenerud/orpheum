@@ -4,7 +4,7 @@
 import "./i18n.ts";
 
 import { startGateOf } from "@orpheum/sdk";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { mount, servedBy } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
@@ -17,6 +17,17 @@ beforeEach(() => {
     "orpheum.together.host",
     JSON.stringify({ sessionId: 3, credential: "host-credential" }),
   );
+});
+
+/** The start gates a test left a play waiting at, each of which looks again on a timer until given up. */
+const gatesLeftWaiting: ReturnType<typeof startGateOf>[] = [];
+
+// A gate left waiting looked again after its file's document was gone, and its telling of its wait's
+// end threw there, uncaught, failing whichever run it fell into (revert-red, 2026-11-27).
+afterEach(() => {
+  for (const gate of gatesLeftWaiting.splice(0)) {
+    gate.cancel();
+  }
 });
 
 /**
@@ -32,7 +43,9 @@ async function startedWith(
   Object.defineProperty(video, "paused", { value: isPaused, configurable: true });
   Object.defineProperty(video, "error", { value: null, configurable: true });
   if (isGettingReady) {
-    startGateOf(video).play(() => undefined);
+    const gate = startGateOf(video);
+    gate.play(() => undefined);
+    gatesLeftWaiting.push(gate);
   }
   const server = fakeTogetherServer();
   const services = { ...servedBy({}, [], "token"), openTogetherSocket: server.openSocket };
