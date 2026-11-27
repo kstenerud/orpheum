@@ -137,7 +137,7 @@ func TestHello_BringsBackTheWorkParkedOnTheNodeAndOnAnyNode(t *testing.T) {
 		jobs.NodeDestination(node), jobs.DestinationAnyNode,
 		jobs.SlotDestination(node, "encode"), jobs.SlotDestination(node, "remux"),
 		jobs.SlotDestination(node, "extract"), jobs.SlotDestination(node, "readThrough"),
-		jobs.SlotDestination(node, "artwork"),
+		jobs.SlotDestination(node, "artwork"), jobs.SlotDestination(node, "trickplay"),
 		jobs.ReaderDestination(node, "zfs:tank"),
 	}
 	if unparked := harness.destinations.all(); !slices.Equal(unparked, want) {

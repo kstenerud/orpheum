@@ -37,6 +37,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/node/subtitle"
 	"github.com/kstenerud/orpheum/internal/node/systemvideo"
+	"github.com/kstenerud/orpheum/internal/node/trickplay"
 	"github.com/kstenerud/orpheum/internal/node/watch"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -231,12 +232,12 @@ func runNodeWith(ctx context.Context, config Config, log processLog, seams nodeS
 	if seams.wrapScanner != nil {
 		activeScanner = seams.wrapScanner(scanner)
 	}
+	slowest := hello.Capacity.SlowestReadBytesPerSecond
 	workers := agent.Workers{
 		Scanner: activeScanner, Artworker: deriver, StillTaker: deriver,
-		Subtitler:          subtitle.NewExtractor(runner, hello.Capacity.SlowestReadBytesPerSecond),
-		ThroughReader:      readthrough.NewReader(runner, hello.Capacity.SlowestReadBytesPerSecond),
-		SoundFingerprinter: fingerprint.NewFingerprinter(runner),
-		HeldResults:        heldResults, Hashes: hashes, Stuck: stuckOf(runner), SetStatusEvery: setStatusEvery,
+		Subtitler: subtitle.NewExtractor(runner, slowest), ThroughReader: readthrough.NewReader(runner, slowest),
+		SoundFingerprinter: fingerprint.NewFingerprinter(runner), Trickplayer: trickplay.NewMaker(runner, slowest),
+		HeldResults: heldResults, Hashes: hashes, Stuck: stuckOf(runner), SetStatusEvery: setStatusEvery,
 		Disks: disks, Films: runner, ReadSelfUse: selfuse.Read,
 		SystemVideoMaker: systemVideoMaker(runner, systemFolder), SetLogLevel: nodeLogLevelSetter(log),
 	}

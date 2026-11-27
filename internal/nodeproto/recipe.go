@@ -9,7 +9,8 @@ package nodeproto
 // again, once, where it is next wanted. A change to the FFmpeg arguments the node builds for a fixed
 // set of commands fails until the thing's recipe is raised and its arguments recorded: the node's
 // TestChunkRecipes_AreRaisedWithAnyChangeToTheirArguments (internal/node/chunks),
-// TestFrameStillRecipe_IsRaisedWithAnyChangeToItsArguments (internal/node/artwork) and
+// TestFrameStillRecipe_IsRaisedWithAnyChangeToItsArguments (internal/node/artwork),
+// TestTrickplayRecipe_IsRaisedWithAnyChangeToItsArguments (internal/node/trickplay) and
 // TestLoudnessRecipe_IsRaisedWithAnyChangeToItsArguments (internal/node/readthrough). A change to
 // what the node does with FFmpeg's output is the review's. The wire's shape counts every recipe, so
 // a core and its nodes always make at one recipe.
@@ -34,4 +35,7 @@ const (
 	LoudnessRecipe = 1
 	// FrameStillRecipe is a frame still's (D362 §1).
 	FrameStillRecipe = 1
+	// TrickplayRecipe is a trickplay sheet's (trickplay.md §3): the core keeps it in a version's
+	// key, so sheets of another recipe are made again.
+	TrickplayRecipe = 1
 )

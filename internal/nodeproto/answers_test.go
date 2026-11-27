@@ -78,7 +78,8 @@ func TestWork_EveryCommandTypeAnswersItsSlotAndMediaFile(t *testing.T) {
 		CommandFindRepeats: {
 			Work{FindRepeats: &FindRepeats{Videos: []RepeatVideo{{Video: video}}}}, SlotReadThrough, "a.mkv",
 		},
-		CommandList: {Work{List: &List{RootPath: "/media", Path: "a.mkv"}}, "", "a.mkv"},
+		CommandMakeTrickplay: {Work{MakeTrickplay: &MakeTrickplay{Video: video}}, SlotTrickplay, "a.mkv"},
+		CommandList:          {Work{List: &List{RootPath: "/media", Path: "a.mkv"}}, "", "a.mkv"},
 		CommandExamine: {
 			Work{Examine: &Examine{RootPath: "/media", Files: []ExamineFile{{Path: Path{Text: "a.mkv"}}}}}, "", "a.mkv",
 		},

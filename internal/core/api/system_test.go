@@ -395,9 +395,9 @@ func TestSystem_ShowsWhatEachNodeIsDoing(t *testing.T) {
 		{JobID: 99, AttemptToken: "never-given", State: nodeproto.HeldRunning},
 	}, nil)
 	work := harness.system(t, admin).Body.Nodes[0].Work
-	if work == nil || work.RunningCount != 2 || work.WaitingCount != 1 || work.SlotCount != 6 ||
+	if work == nil || work.RunningCount != 2 || work.WaitingCount != 1 || work.SlotCount != 7 ||
 		work.LastMovedAt == nil || *work.LastMovedAt != 1_000_000-2000 || work.BrokenInvariantCount != 1 {
-		t.Errorf("the node's work = %+v; want two of its six slots running, one waiting, last moved 2 s "+
+		t.Errorf("the node's work = %+v; want two of its seven slots running, one waiting, last moved 2 s "+
 			"before its status, and the one broken invariant", work)
 	}
 }

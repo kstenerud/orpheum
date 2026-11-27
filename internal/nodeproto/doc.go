@@ -55,8 +55,10 @@
 //     the node's status), listing.go (a scan's list and examine commands and their answers),
 //     commands.go (the long-poll, each command naming its job), result.go (the node's word on how
 //     an attempt ended, on one path), progress.go (its word on where one is, best effort, on
-//     another), and artwork.go, chunks.go, subtitle.go, readthrough.go and repeats.go, each a command's payload
-//     and its answer's. stall.go: what a node saw of an FFmpeg run it stopped as stalled, which
+//     another), and artwork.go, chunks.go, subtitle.go, readthrough.go, repeats.go and
+//     trickplay.go, each a command's payload and its answer's; trickplay.go also posts each sheet a
+//     run finishes, a piece, on a path of its own. stall.go: what a node saw of an FFmpeg run it
+//     stopped as stalled, which
 //     those answers carry. bytes.go names a file on the node's byte socket, and frame.go asks it for a
 //     key frame (D545). probe.go: the probe
 //     record a scan reports and the core keeps.

@@ -7,7 +7,8 @@
 
 - **Status:** AGREED — written 2026-11-21 by the agent for [b1.md](b1.md) phase F, from the
   owner's answer to question 17 the same day: *every file, at idle priority, with a bump on
-  interest*. The owner answered its five questions the same day (at the end); F1 is next.
+  interest*. The owner answered its five questions the same day (at the end). F1 is built (the
+  node, node protocol 74, 2026-11-27); F2 is next.
 - **Depends on:** [b1.md](b1.md), [work-scheduling.md](work-scheduling.md) (D329),
   [artwork.md](artwork.md) (D212)
 
@@ -145,7 +146,7 @@ Each phase ends green, with tests that fail when reverted (D190).
 | Phase | What | Done when |
 | --- | --- | --- |
 | F0 | **Measure** (done 2026-11-21 on the NUC7, §2; ainas and MPEG-2 left): keyframes-only against a full decode, on the NUC7 and ainas, three codecs; the WebP quality at 320 px | The numbers are in this file and question 1 is answered |
-| F1 | **The node:** `makeTrickplay`, `SCHED_IDLE` through `execx`, one slot, sheets as pieces | A generated fixture's sheets have each picture at its mark within one keyframe gap; a run stopped mid-film resumes at the next sheet; the run's scheduling class is idle (Linux) |
+| F1 | **Built 2026-11-27 (node protocol 74).** **The node:** `makeTrickplay`, `SCHED_IDLE` through `execx`, one slot, sheets as pieces | A generated fixture's sheets have each picture at its mark within one keyframe gap; a run stopped mid-film resumes at the next sheet; the run's scheduling class is idle (Linux) |
 | F2 | **The core:** the job, the sweep, the table, interest's raise, the store, D530's eviction for every cache entry, forgetting | A swept library queues every video once; a page shown raises its film's job; FFmpeg's failure is not asked again |
 | F3 | **The API and the scrub bar** | Hovering, dragging and arrow keys show the right picture of a made film; an unmade film shows the time alone (vitest and a Playwright run) |
 | F4 | **On devices:** a VQ item for the Fire TV and a phone, and the staging library swept start to end with playback unaffected | The owner's run |

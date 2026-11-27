@@ -107,6 +107,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/node/execx` | CONTAIN | — |
 | `internal/node/fdproxy` | CONTAIN | — (D330: the node's side of fdproxy, over which FFmpeg reads its input film through the node, every frame FFmpeg sends judged and a breach, a failed read or a passed budget killing the run; execx runs a watched run's film through it (WatchedRun.Film); no run kind uses it yet, waiting on the patched FFmpeg being fetchable) |
 | `internal/node/encode` | R3 | — (the H.264 encoder a node chose by trial and a quality's arguments, and a track's stereo mixes; the whole-film prepare's until D344) |
+| `internal/node/trickplay` | trickplay.md §3 (a video's scrub-bar pictures, from keyframes, in sheets) | — (one idle FFmpeg run per video whose WebP sheets the agent posts one by one; the core names the sizes and keeps the sheets) |
 | `internal/node/fingerprint` | R3 (a season's sound, fingerprinted and compared) | — (the repeats a season's videos share at their openings and closings, D101; the core names the set and keeps the segments) |
 | `internal/node/hardware` | OPS | — |
 | `internal/node/hash` | R2 (file identity) | — |

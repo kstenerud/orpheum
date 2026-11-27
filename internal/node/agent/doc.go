@@ -39,6 +39,12 @@
 //     the core named (D100), each said in its video's own time with how many others share it of how
 //     many compared; a video changed or gone is refused and compared with none (D101).
 //     TestAgent_FindsTheStretchOfEachOfASeasonsVideosTheOthersShare.
+//   - A trickplay run of a video checked to be the one named (D100) posts each sheet as it is made,
+//     in order, again until the core takes it, then the run's end; a sheet the core refuses ends the
+//     run as a refusal, and a changed video, or a node with no maker, is refused unmade
+//     (trickplay.md §3). TestAgent_PostsEachTrickplaySheetUntilTakenThenTheRunsEnd,
+//     TestAgent_ASheetTheCoreRefusesEndsTheTrickplayRun,
+//     TestAgent_RefusesTheTrickplayOfAChangedVideoOrWithNoMaker.
 //   - Each hello evicts the makings in the prepared directory that never finished, and what a
 //     whole-film prepare left (D238 §2, D344 §1). TestAgent_EachHelloEvictsTheMakingsThatNeverFinished.
 //   - An examining checks, after reading its files, the stores of chunks of each video a full rescan

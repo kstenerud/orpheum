@@ -63,6 +63,7 @@ type Result struct {
 	WholeHash    *WholeHash          `json:"wholeHash,omitempty"`
 	SystemVideos *SystemVideosMade   `json:"systemVideos,omitempty"`
 	Repeats      *Repeats            `json:"repeats,omitempty"`
+	Trickplay    *TrickplayResult    `json:"trickplay,omitempty"`
 }
 
 // Stall is what the node saw of the work it answered as stalled, whichever kind it is, or nil. A
@@ -85,6 +86,8 @@ func (result Result) Stall() *Stall {
 		return result.WholeHash.Stall
 	case result.Repeats != nil:
 		return result.Repeats.Stall
+	case result.Trickplay != nil:
+		return result.Trickplay.Stall
 	}
 	return nil
 }

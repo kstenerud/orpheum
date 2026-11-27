@@ -191,6 +191,9 @@ var wireShapeByVersion = map[int]string{
 	// 73 raises QualityRecipe to 2, an encode's times starting at its first picture (file 1282): a
 	// node of 72 would make a quality's chunks the old way under the new recipe's key.
 	73: "e45a1cba4d5da27272e5a401139db2165f8153e3840f06f67ab97ff34b3bfd20",
+	// 74 adds the trickplay command, its result, its sheet and TrickplayRecipe (trickplay.md §3): a
+	// node of 73 would refuse the command, and a core of 73 would 404 the sheets.
+	74: "2bc5bbdeea2dbbe004f468887f9f24d9e6b7d3abcfa2d2f2f270dfe93227023d",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
@@ -214,6 +217,7 @@ func wireShape() string {
 		reflect.TypeFor[Result](), reflect.TypeFor[Progress](), reflect.TypeFor[Status](), reflect.TypeFor[Changed](),
 		reflect.TypeFor[PlaceProbe](), reflect.TypeFor[FolderListing](),
 		reflect.TypeFor[LockedReport](), reflect.TypeFor[LockedReply](), reflect.TypeFor[RecentLog](),
+		reflect.TypeFor[TrickplaySheet](),
 	} {
 		fields = append(fields, fieldsOf(message, seen)...)
 	}
@@ -225,7 +229,7 @@ func wireShape() string {
 	fields = append(fields, fmt.Sprintf("PictureRecipe %d", PictureRecipe),
 		fmt.Sprintf("QualityRecipe %d", QualityRecipe), fmt.Sprintf("SoundRecipe %d", SoundRecipe),
 		fmt.Sprintf("SoundCopiedRecipe %d", SoundCopiedRecipe), fmt.Sprintf("LoudnessRecipe %d", LoudnessRecipe),
-		fmt.Sprintf("FrameStillRecipe %d", FrameStillRecipe))
+		fmt.Sprintf("FrameStillRecipe %d", FrameStillRecipe), fmt.Sprintf("TrickplayRecipe %d", TrickplayRecipe))
 	slices.Sort(fields)
 	sum := sha256.Sum256([]byte(strings.Join(fields, "\n")))
 	return hex.EncodeToString(sum[:])
@@ -271,6 +275,16 @@ var routesByVersion = map[int][]string{
 		"PathChanged /node/v1/changed", "PathCommands /node/v1/commands", "PathHello /node/v1/hello",
 		"PathLocked /node/v1/locked", "PathProgress /node/v1/progress", "PathResult /node/v1/result",
 		"PathStatus /node/v1/status",
+	},
+	// 74 adds the sheet route, PathTrickplaySheet, each finished sheet of a run of the trickplay
+	// command (trickplay.md §3).
+	74: {
+		"PathBytesChunks /bytes/v1/chunks/", "PathBytesFile /bytes/v1/file", "PathBytesFolders /bytes/v1/folders",
+		"PathBytesFrame /bytes/v1/frame", "PathBytesProbe /bytes/v1/probe",
+		"PathBytesRecentLog /bytes/v1/recent-log", "PathBytesResult /bytes/v1/result/",
+		"PathChanged /node/v1/changed", "PathCommands /node/v1/commands", "PathHello /node/v1/hello",
+		"PathLocked /node/v1/locked", "PathProgress /node/v1/progress", "PathResult /node/v1/result",
+		"PathStatus /node/v1/status", "PathTrickplaySheet /node/v1/trickplay-sheet",
 	},
 }
 

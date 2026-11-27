@@ -46,11 +46,17 @@ type fakeCore struct {
 	wholeHashes  chan nodeproto.Result
 	systemVideos chan nodeproto.Result
 	repeats      chan nodeproto.Result
-	chunkRuns    chan nodeproto.Result
-	crashes      chan nodeproto.Result
-	refusals     chan nodeproto.Result
-	held         chan nodeproto.Result
-	scans        chan nodeproto.Result
+	trickplays   chan nodeproto.Result
+	// sheets are the trickplay sheets the node posts, past the first sheetStatuses.
+	sheets chan nodeproto.TrickplaySheet
+	// sheetStatuses are what it answers the first sheets posted, in order, before taking them.
+	// Guarded by mutex.
+	sheetStatuses []int
+	chunkRuns     chan nodeproto.Result
+	crashes       chan nodeproto.Result
+	refusals      chan nodeproto.Result
+	held          chan nodeproto.Result
+	scans         chan nodeproto.Result
 	// changes are the watcher's notices the node posts.
 	changes          chan nodeproto.Changed
 	statusesToRefuse int                // the first statuses it refuses, as a core that went away would
@@ -129,7 +135,8 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		progress: make(chan nodeproto.Progress, 64), refusedPosts: make(chan struct{}, 1),
 		subtitles: make(chan nodeproto.Result, 4), readThroughs: make(chan nodeproto.Result, 4),
 		wholeHashes: make(chan nodeproto.Result, 4), systemVideos: make(chan nodeproto.Result, 4),
-		repeats:   make(chan nodeproto.Result, 4),
+		repeats: make(chan nodeproto.Result, 4), trickplays: make(chan nodeproto.Result, 4),
+		sheets:    make(chan nodeproto.TrickplaySheet, 16),
 		chunkRuns: make(chan nodeproto.Result, 16), crashes: make(chan nodeproto.Result, 4),
 		refusals: make(chan nodeproto.Result, 4), held: make(chan nodeproto.Result, 4),
 		scans: make(chan nodeproto.Result, 4), changes: make(chan nodeproto.Changed, 4),
@@ -183,6 +190,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 	mux.HandleFunc("POST "+nodeproto.PathStatus, core.receiveStatus(t))
 	mux.HandleFunc("POST "+nodeproto.PathResult, core.receiveResult(t))
 	mux.HandleFunc("POST "+nodeproto.PathProgress, core.receiveProgress(t))
+	mux.HandleFunc("POST "+nodeproto.PathTrickplaySheet, core.receiveSheet(t))
 	mux.HandleFunc("POST "+nodeproto.PathChanged, func(writer http.ResponseWriter, request *http.Request) {
 		var changed nodeproto.Changed
 		if err := json.NewDecoder(request.Body).Decode(&changed); isMalformed(err) {
@@ -269,6 +277,7 @@ const (
 	wholeHashResult   resultKind = "whole-hash"
 	systemVideoResult resultKind = "system-videos"
 	repeatsResult     resultKind = "repeats"
+	trickplayResult   resultKind = "trickplay"
 	chunksResult      resultKind = "chunks"
 	// A listing and an examining, a scan's work, share one channel.
 	scanResult resultKind = "scan"
@@ -288,7 +297,7 @@ func kindOf(result nodeproto.Result) (resultKind, bool) {
 		artworkResult:  result.Artwork != nil,
 		subtitleResult: result.Subtitle != nil, readThroughResult: result.ReadThrough != nil,
 		wholeHashResult: result.WholeHash != nil, systemVideoResult: result.SystemVideos != nil,
-		repeatsResult: result.Repeats != nil,
+		repeatsResult: result.Repeats != nil, trickplayResult: result.Trickplay != nil,
 		chunksResult:  result.MakeChunks != nil,
 		refusalResult: result.Refusal != "", heldResult: result.Held != nil, crashedResult: result.Crashed != "",
 		scanResult: result.Listing != nil || result.Examined != nil,
@@ -336,8 +345,8 @@ func (core *fakeCore) receiveResult(t *testing.T) http.HandlerFunc {
 			artworkResult:  core.artwork,
 			subtitleResult: core.subtitles, readThroughResult: core.readThroughs, refusalResult: core.refusals,
 			wholeHashResult: core.wholeHashes, systemVideoResult: core.systemVideos,
-			repeatsResult: core.repeats,
-			chunksResult:  core.chunkRuns, crashedResult: core.crashes,
+			repeatsResult: core.repeats, trickplayResult: core.trickplays,
+			chunksResult: core.chunkRuns, crashedResult: core.crashes,
 			heldResult: core.held, scanResult: core.scans,
 		}[kind]
 		if !handOn(core, into, result) {

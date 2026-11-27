@@ -62,6 +62,8 @@ type Work struct {
 	MakeSystemVideos *MakeSystemVideos `json:"makeSystemVideos,omitempty"`
 	// FindRepeats is set for CommandFindRepeats.
 	FindRepeats *FindRepeats `json:"findRepeats,omitempty"`
+	// MakeTrickplay is set for CommandMakeTrickplay.
+	MakeTrickplay *MakeTrickplay `json:"makeTrickplay,omitempty"`
 }
 
 // Commands is the long-poll's answer: the commands after the one the node named, possibly none
@@ -100,6 +102,8 @@ func (work Work) MediaFile() (BytesFile, bool) {
 		return work.HashWhole.mediaFile()
 	case CommandFindRepeats:
 		return work.FindRepeats.mediaFile()
+	case CommandMakeTrickplay:
+		return work.MakeTrickplay.mediaFile()
 	case CommandList:
 		return work.List.mediaFile()
 	case CommandExamine:
@@ -198,6 +202,9 @@ const (
 	SlotExtract     Slot = "extract"
 	SlotReadThrough Slot = "readThrough"
 	SlotArtwork     Slot = "artwork"
+	// SlotTrickplay runs a video's trickplay pictures, one at a time, at the idle scheduling class
+	// (trickplay.md §3): it reads a whole video, but waits for every other kind of work.
+	SlotTrickplay Slot = "trickplay"
 )
 
 // Slot is the slot the work runs in, or "" for work that holds none: a listing, an examining or a
@@ -218,6 +225,8 @@ func (work Work) Slot() Slot {
 		return SlotReadThrough
 	case CommandMakeChunks:
 		return work.MakeChunks.slot()
+	case CommandMakeTrickplay:
+		return SlotTrickplay
 	case CommandEncodeArtwork, CommandMakeSystemVideos:
 		// The system videos are a few seconds' small encodes, made once, as an image's are.
 		return SlotArtwork
@@ -240,7 +249,7 @@ func (command *MakeChunks) slot() Slot {
 
 // Slots are every kind of slot a node runs work in.
 func (Capacity) Slots() []Slot {
-	return []Slot{SlotEncode, SlotRemux, SlotExtract, SlotReadThrough, SlotArtwork}
+	return []Slot{SlotEncode, SlotRemux, SlotExtract, SlotReadThrough, SlotArtwork, SlotTrickplay}
 }
 
 // SlotCount is how many of a slot's work run at once on a node of this capacity.
@@ -250,7 +259,7 @@ func (capacity Capacity) SlotCount(slot Slot) int {
 		return capacity.EncodeSlotCount
 	case SlotRemux:
 		return capacity.RemuxSlotCount
-	case SlotExtract, SlotReadThrough, SlotArtwork:
+	case SlotExtract, SlotReadThrough, SlotArtwork, SlotTrickplay:
 	}
 	return 1
 }
