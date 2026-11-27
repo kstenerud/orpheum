@@ -198,7 +198,7 @@ function useStartsCasts(
   const castToChromecast = (ways: GuestCastWays, showsLog: boolean): void => {
     told.onStarting();
     runRequest(async () => {
-      const how = { locator: services.session.locator(), film: film(), showsLog };
+      const how = { locator: services.session.locator(), film, showsLog };
       const made = await castToAGoogleCastDevice(api, ways, how);
       if (made !== undefined) {
         chosenNameRef.current = made.name;

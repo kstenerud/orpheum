@@ -4379,3 +4379,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   card as the source says ("Failed setup for format vaapi: hwaccel initialisation returned error",
   then "Impossible to convert between the formats supported by the filter…"), was made again at
   once and finished `decodedOn=cpu`.
+- [ ] **VQ422** — A film cast to a Chromecast while it was still loading here goes to the TV playing,
+  from where it stands as the TV is ready, not paused at its start (the owner, staging, 2026-11-27:
+  the TV stayed black and paused, handed the film where it stood at the press). On an Android phone
+  in Chrome, open a film from its page and press the Cast sign and Chromecast at once, before the
+  picture starts; pick the Chromecast in Chrome's picker after a few seconds. Report whether the TV
+  plays the film, and whether the core's log shows the receiver's `changeItem` at about where the
+  phone stood as the cast was made (a few seconds past the resume position), with no `paused` group
+  change after it. Then cast a film paused here mid-film: report what the TV shows (the standing
+  picture, or black) while it waits paused, and whether the phone's remote plays it.

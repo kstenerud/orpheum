@@ -132,15 +132,18 @@ export function guestCastOf(
  * Casts film to the Google Cast device the person picks in Chrome's picker (the press that asks must
  * be the person's): its device ready, the cast is made to it as to any device of the person's, and
  * its Cast session linked to it (linkCastSession); answers the cast and the device's name, or
- * undefined where the person picked none. locator is the session's, which the device reaches the core
- * by from away; showsLog, whether the device shows its log on screen (the owner, 2026-11-12).
+ * undefined where the person picked none. film is read as the cast is made, not at the press: the
+ * picker and the device's launch take seconds, the film playing on here meanwhile, and a film read at
+ * the press, still loading, went to the TV paused at its start (the owner, staging, 2026-11-27).
+ * locator is the session's, which the device reaches the core by from away; showsLog, whether the
+ * device shows its log on screen (the owner, 2026-11-12).
  */
 export async function castToAGoogleCastDevice(
   api: Api,
   ways: GuestCastWays,
   how: {
     readonly locator: string | undefined;
-    readonly film: CastFilm | undefined;
+    readonly film: () => CastFilm | undefined;
     readonly showsLog: boolean;
   },
 ): Promise<{ readonly cast: Cast; readonly name: string } | undefined> {
@@ -150,7 +153,7 @@ export async function castToAGoogleCastDevice(
   }
   const { channel, deviceId } = receiver;
   try {
-    const cast = await startCast(api, deviceId, how.film);
+    const cast = await startCast(api, deviceId, how.film());
     linkCastSession(api, channel, cast.castId);
     return { cast, name: channel.receiverName };
   } catch (cause) {

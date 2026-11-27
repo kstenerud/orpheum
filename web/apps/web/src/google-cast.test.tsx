@@ -392,6 +392,50 @@ describe("the Cast menu's Chromecast (D465 §3)", () => {
     expect(ended === undefined ? undefined : bodyField(ended, "reason")).toBe("stopped");
   });
 
+  // The owner, staging, 2026-11-27: Chromecast pressed as the film was still loading, it played on
+  // here for the seconds Chrome's picker and the device's launch took, and the TV was handed it
+  // paused at its start, where it stood at the press, and stayed black.
+  it("casts the film from where it stands as the device is ready, playing on here while Chrome's picker was open, not from where it stood at the press", async () => {
+    const heard: Heard[] = [];
+    const server = fakeTogetherServer();
+    const services = underTheLoader(
+      {
+        "GET /me/devices": [200, { devices: [thisLaptop] }],
+        "POST /me/casts": [201, { castId: 9, isSender: true, membershipCredential: "sender" }],
+      },
+      heard,
+      server,
+    );
+    givenHints(chromeHints);
+    const device = givenCastSdk();
+    // Still loading at the press: its video stands paused at the film's start.
+    const here = { positionMs: 85_403, isPaused: true };
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <CastTargets film={() => ({ fileId: 4, ...here })} />
+        </LiveProvider>,
+        services,
+      ),
+    );
+    await server.accept();
+    await server.say({ type: "devices", deviceIds: [1] });
+    await settleUntil(
+      () => buttonWithText(mounted?.container ?? document.body, "Chromecast") !== undefined,
+    );
+    await click(buttonWithText(mounted.container, "Chromecast"));
+    await settleUntil(() => device.sent.length === 1);
+    here.positionMs = 89_477; // it started, and played on as the device launched
+    here.isPaused = false;
+    await act(async () => {
+      device.say({ type: "ready", deviceId: 12 });
+      await Promise.resolve();
+    });
+    await settleUntil(() => heard.some((each) => each.methodAndPath === "POST /me/casts"));
+    const made = heard.find((each) => each.methodAndPath === "POST /me/casts");
+    expect(made?.body).toEqual({ toDeviceId: 12, fileId: 4, positionMs: 89_477 });
+  });
+
   // The owner, staging, 2026-11-25: the Chromecast switched off, the phone's Cast session ended and
   // the page ended the cast as the person's Stop, so the film played on the phone by itself.
   it("ends no cast and says its Cast session lost, as that session ends with no Stop in Chrome's control: the device switched off, lost, or the phone's Wi-Fi gone (D553 §5)", async () => {
