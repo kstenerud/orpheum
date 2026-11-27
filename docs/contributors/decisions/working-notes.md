@@ -32449,3 +32449,25 @@ It adds to D569, for a Google Cast device, the stretch D569's Status says it doe
    exists, no cast is made, and the film carries on here as it stood.
 4. **Once the cast exists, D569 takes over** on the cast's page, with no state between the two in
    which nothing is said.
+
+## D571 — A cast's remote shows the film's scrub-bar picture of the TV's place, and no key frame is made on demand
+
+**Decided** (2026-11-27), by the project owner, who asked "With trickplay in, we shouldn't need to
+be calling ffmpeg to generate casting stills, right?" and took the lead's recommendation: "yes
+let's try your recommendation. If it turns out to be too soft I'll let you know".
+
+**Status:** decided. No code yet.
+
+It amends D545 §2 and §4, which had the remote ask its node for the key frame at the TV's place
+every 3 s, an FFmpeg run each time, on a node that may be making the film being cast.
+
+1. **The remote's picture of the film is the scrub-bar picture (trickplay) of the TV's place**: the
+   one whose ten seconds hold the place, drawn where the key frame was. It is 320 px wide where
+   the key frame was 640, and changes every ten seconds.
+2. **Until the film's pictures exist, the remote shows the film's still**, as it did until the
+   first key frame loaded. A cast raises the film's pictures in the queue as any interest does
+   (D324), and the remote asks for them again as a player does, so they appear during the cast.
+3. **The on-demand key frame is removed whole**: the core's route, the node's, and the FFmpeg run
+   behind them. One way to show a place's picture.
+4. **If the picture proves too soft** (the owner's to say), the remedy is wider scrub-bar pictures,
+   at their cost in storage, not the on-demand frame back.

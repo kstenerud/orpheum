@@ -550,7 +550,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D542](working-notes.md#d542--a-node-keeps-5-gib-of-its-prepared-directorys-disk-free-not-100-mib) A node keeps 5 GiB of its prepared directory's disk free, not 100 MiB
 - [D543](working-notes.md#d543--no-room-on-a-nodes-disk-is-an-error-the-player-is-told-at-once-and-an-admin-is-told) No room on a node's disk is an error: the player is told at once, and an admin is told
 - [D544](working-notes.md#d544--a-result-the-core-refuses-for-what-it-is-fails-its-attempt-and-the-node-stops-sending-it) A result the core refuses for what it is fails its attempt, and the node stops sending it
-- [D545](working-notes.md#d545--a-casts-remote-shows-the-films-key-frame-at-the-receivers-place-every-3-s-while-it-moves) A cast's remote shows the film's key frame at the receiver's place, every 3 s while it moves
+- [D545](working-notes.md#d545--a-casts-remote-shows-the-films-key-frame-at-the-receivers-place-every-3-s-while-it-moves) A cast's remote shows the film's key frame at the receiver's place, every 3 s while it moves — *revisited by D571*
 - [D546](working-notes.md#d546--casting-offers-the-skips-and-up-next-from-the-credits-as-the-player-does-locally) Casting offers the skips, and Up next from the credits, as the player does locally — *revisited by D547*
 - [D547](working-notes.md#d547--the-core-makes-one-plan-per-play-and-keeps-one-live-state-and-every-device-draws-its-own-part) The core makes one plan per play and keeps one live state, and every device draws its own part
 - [D548](working-notes.md#d548--the-cast-remote-has-its-own-layout-the-picture-in-a-card-a-pad-of-round-buttons-and-the-players-buttons-row) The cast remote has its own layout: the picture in a card, a pad of round buttons, and the player's buttons row — *revisited by D550, D562, D569*
@@ -576,6 +576,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D568](working-notes.md#d568--a-vaapi-node-decodes-and-scales-on-the-card-and-a-playback-asked-ahead-for-up-next-replaces-nothing) A VAAPI node decodes and scales on the card, and a playback asked ahead for Up next replaces nothing
 - [D569](working-notes.md#d569--a-cast-being-started-says-so-on-the-casts-page-with-cancel-and-its-controls-wait-for-the-tvs-first-picture) A cast being started says so on the cast's page, with Cancel, and its controls wait for the TV's first picture
 - [D570](working-notes.md#d570--a-chromecast-being-connected-says-so-on-the-films-page-with-cancel-from-the-pick-in-chromes-picker) A Chromecast being connected says so on the film's page, with Cancel, from the pick in Chrome's picker
+- [D571](working-notes.md#d571--a-casts-remote-shows-the-films-scrub-bar-picture-of-the-tvs-place-and-no-key-frame-is-made-on-demand) A cast's remote shows the film's scrub-bar picture of the TV's place, and no key frame is made on demand
 
 ## Archived
 
