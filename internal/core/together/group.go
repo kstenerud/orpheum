@@ -87,6 +87,13 @@ func (each *member) rightsHeld() Rights {
 func (current *session) transport(
 	now time.Time, sender *member, from *device, message Inbound, refuse func(code string),
 ) {
+	if message.BasedOnSeq != 0 && message.BasedOnSeq < current.group.putOnSeq {
+		// Made about the film before this one: a guest's own end, its pause crossing the host's Up
+		// next on the way, paused the next episode for everyone at its start (the browser tier,
+		// 2026-11-27). A command that names no seq is not judged by it.
+		refuse(codeStale)
+		return
+	}
 	switch message.Command {
 	case CommandPlay:
 		current.change(now, current.playingState(), EventPlayed, sender.id)
@@ -159,6 +166,7 @@ func (current *session) changeItem(now time.Time, sender *member, from *device, 
 	}
 	current.filmChanged(now)
 	current.change(now, current.playingState(), EventChangedItem, sender.id)
+	current.group.putOnSeq = current.group.seq
 }
 
 // seekTarget is where a seek takes the group: where it was asked, or, for a jump of more than the

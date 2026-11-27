@@ -497,6 +497,54 @@ func TestHub_ASeekAgainstAnotherSeekIsRefusedAsStale(t *testing.T) {
 	}
 }
 
+// A play, pause, seek or rate made against the group before its film was put on was about the film
+// before, and is refused as stale: a guest's pause at their own episode's end, crossing the host's
+// Up next, paused the next episode for everyone at its start (the browser tier, 2026-11-27). The
+// same command made against the new film is taken.
+func TestHub_ACommandAboutTheFilmBeforeIsRefusedAsStale(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+	stage.command(t, host, CommandChangeItem, 7)
+	stage.ready(t, host, false)
+	made, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "Grandma",
+		Rights{CanPlayPause: true, CanSeek: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined, err := stage.hub.Join(made.Secret, "Gran", nil, Leaving{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	guest, guestBox := stage.attach(t, joined.MembershipCredential, RoleVideo)
+	aboutTheFirst := hostBox.last(MessageGroup).Seq
+	stage.command(t, host, CommandChangeItem, 9)
+	stage.ready(t, host, false)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying || group.FileID != 9 {
+		t.Fatalf("the group = %+v; want film 9 playing", group)
+	}
+	for _, command := range []Inbound{
+		{Type: MessageCommand, Command: CommandPause, BasedOnSeq: aboutTheFirst},
+		{Type: MessageCommand, Command: CommandSeek, PositionMs: 60_000, BasedOnSeq: aboutTheFirst},
+	} {
+		groupsBefore := hostBox.count(MessageGroup)
+		stage.hub.Handle(t.Context(), guest, command)
+		if refused := guestBox.last(MessageRejected); refused.Code != codeStale {
+			t.Errorf("the guest's %s about film 7 = %+v; want it refused as stale", command.Command, refused)
+		}
+		if groups := hostBox.count(MessageGroup); groups != groupsBefore {
+			t.Errorf("the guest's %s about film 7 changed the group %d times; want none",
+				command.Command, groups-groupsBefore)
+		}
+	}
+	stage.hub.Handle(t.Context(), guest, Inbound{
+		Type: MessageCommand, Command: CommandPause, BasedOnSeq: hostBox.last(MessageGroup).Seq,
+	})
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupPaused || group.FileID != 9 {
+		t.Errorf("after the guest's pause about film 9, the group = %+v; want film 9 paused", group)
+	}
+}
+
 // Each link admits the one person it was made for, once, keeping the host's note for the host
 // alone, and a withdrawn link admits no one (D246 §3).
 func TestHub_EachLinkAdmitsOnePersonOnce(t *testing.T) {

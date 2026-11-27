@@ -137,7 +137,9 @@
 //     starts with the last one's rights (D271 §4, D471 §2). A next or a previous names no film: the
 //     hub finds it in the host's ordering, one the host may play, and refuses one found from a film
 //     since changed as stale. Stopping leaves nothing on; a seek made against a group another seek
-//     has changed is refused as stale (D246 §5, §8). Enforced by TestHub_OnlyTheHostControlsPlayback,
+//     has changed is refused as stale (D246 §5, §8), and so is a play, pause, seek or rate made
+//     against the group before its film was put on, about the film before. Enforced by
+//     TestHub_OnlyTheHostControlsPlayback, TestHub_ACommandAboutTheFilmBeforeIsRefusedAsStale,
 //     TestHub_AGuestDoesToPlaybackWhatTheirLinkAllows, TestHub_ANewLinkStartsWithTheLastOnesRights,
 //     TestHub_AGuestPutsOnTheNextOrPreviousEpisodeOnlyWithTheRight,
 //     TestHub_TheHostStoppingLeavesNothingPlaying and TestHub_ASeekAgainstAnotherSeekIsRefusedAsStale.

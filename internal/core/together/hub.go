@@ -187,6 +187,9 @@ type group struct {
 	// seekedFrom is where the last event, a seek, jumped from.
 	seekedFrom time.Duration
 	lastSeek   int64 // the seq of the last seek, for a stale one's conflict
+	// putOnSeq is the seq of the change that put the film on: a play, pause, seek or rate made
+	// against an earlier seq was made about the film before it, and is stale.
+	putOnSeq int64
 	// changedAt is when the change numbered seq was announced: a player's note that it followed that
 	// change says how long after it the player moved (NoteGroupFollowed).
 	changedAt time.Time
