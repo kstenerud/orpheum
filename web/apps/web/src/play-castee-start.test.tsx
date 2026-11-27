@@ -281,6 +281,24 @@ describe("the cast's page from the choice of a TV until its first picture (D569)
     ).toEqual([]);
   });
 
+  // The lead's walk, staging, 2026-11-27, a Chromecast from an Android phone: Cancel never showed and
+  // a cast made paused said no "Paused on". A Google Cast cast is made only once its receiver joined
+  // (google-cast.ts castToAGoogleCastDevice), so the remote's welcome already names it, with no word
+  // yet of the film it is still to put on.
+  it("offers Cancel to a Google Cast receiver that joined before the remote, and says Paused on ‹TV›, Play focused, as it is ready paused (§3, §5)", async () => {
+    const joined = (tv({}) as { roster: unknown }).roster;
+    const { sockets } = await casting({}, { welcome: { ...noFilmYet, roster: joined } });
+    await sockets.live.say(bothConnected);
+    expect(pill()).toBe("Loading on Fire TV…");
+    expect(cancel()).toBeDefined();
+    await sockets.session.say(filmPutOn("paused", 11_000));
+    expect(pill()).toBe("Loading on Fire TV…");
+    expect(cancel()).toBeDefined();
+    await sockets.session.say(tv({ status: "watching" }));
+    expect(pill()).toBe("Paused on Fire TV");
+    expect(document.activeElement).toBe(buttonNamed(page(), "Play"));
+  });
+
   // The lead's walk, staging, 2026-11-27: a second cast to a TV already open said "Loading…" with no
   // Cancel, then stood paused with no "Paused on" and nothing focused.
   it("offers Cancel to a TV already open from the start, and says Paused on ‹TV›, Play focused, as it is ready paused (§3, §5)", async () => {
