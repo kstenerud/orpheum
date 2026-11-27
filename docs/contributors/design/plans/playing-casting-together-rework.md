@@ -694,3 +694,11 @@ Added by the owner, 2026-11-26, from the same walk's unfixed observations:
     page's teardown ("Failed to execute 'dispatchEvent'"), an unhandled error that fails the whole
     web test run; the file passes alone and the next run passes. **Fixed** (2026-11-27): the stage
     gives up its video's waiting play as it lets the video go (`useWaitsStopWithTheVideo`).
+17. **What the second walk of D569 found** (the lead's devices, 2026-11-27, build of "test(web): a
+    Google Cast receiver that joined before its remote…"): every step passed on the Fire TV and
+    all but one on the Chromecast. Folded into D570's build: Cancel during a Chromecast's start
+    left the film here paused though it had played. Filed, not started: on the Fire TV path the
+    volume buttons show only some seconds into a start (none while waiting for OK); the browser's
+    Forward does not bring a left cast's page back during a start; pressing another film's Play
+    from Home during a start casts that film instead. Not seen: leaving and returning during a
+    Chromecast's start, which lasts 2.5 to 5 s.
