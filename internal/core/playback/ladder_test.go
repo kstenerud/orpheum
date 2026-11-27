@@ -145,6 +145,28 @@ func TestStartOnLadder_LeavesThePlayersOtherFilmsForGood(t *testing.T) {
 	}
 }
 
+// A device that asks ahead for the film after the one it plays, as its Up next shows, is still playing
+// that one: its playback stays as it was and its runs go on (the owner, 2026-11-27).
+func TestStartOnLadder_AskedAheadForUpNextLeavesTheFilmPlaying(t *testing.T) {
+	t.Parallel()
+	clock := clocktest.NewFake(time.Date(2026, 11, 27, 20, 0, 0, 0, time.UTC))
+	fake := &stoppingChunks{}
+	playing := &tokenPlayback{deviceID: 4, fileID: 2, interest: playerInterest{disposition: Playing}}
+	service := &Service{
+		clock: clock, chunks: fake, speeds: newLinkSpeeds(storetest.OpenMigrated(t)),
+		settings: waitSettings{}, tokens: newTokens(),
+	}
+	service.tokens.playbackByToken["playing"] = playing
+	request := Request{DeviceID: 4, IsAheadForUpNext: true}
+	if _, _, err := service.startOnLadder(t.Context(), Holder{}, request, tokenPlayback{fileID: 1}, 0, 0); err != nil {
+		t.Fatal(err)
+	}
+	if playing.interest.disposition != Playing || len(fake.stopped) != 0 {
+		t.Errorf("the film playing: %q, stopped %v; want it playing still and no run stopped",
+			playing.interest.disposition, fake.stopped)
+	}
+}
+
 // A person who chose the original file on a link not measured plays it, not its film's ladder,
 // though the film is cut (web-client.md: playback is never a black box; the owner, 2026-11-15:
 // "When we haven't measured, try the original first").

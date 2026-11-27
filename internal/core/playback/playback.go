@@ -159,6 +159,11 @@ type Request struct {
 	// the core applies the device's data cap for that kind (D493). Empty where none is said, as a
 	// cast's receiver says none, which plays uncapped (D489).
 	NetworkKind auth.NetworkKind
+	// IsAheadForUpNext is whether the playback is asked ahead, for the film after the one its player
+	// plays, as its Up next offer shows: the player is still on that film, so its playbacks of
+	// other films stay as they are and their runs go on (the owner, 2026-11-27). The player lets
+	// go of the film it played when it moves on.
+	IsAheadForUpNext bool
 }
 
 // Started is a playback: its media token and the decision.
@@ -417,17 +422,21 @@ const ladderLookEvery = 100 * time.Millisecond
 // (web-client.md: playback is never a black box), but where its link is remembered short of it
 // (linkCarries): that starts on the ladder where the link calls for, as a film's own start does, and
 // its player moves to the original once its link carries it (the owner, 2026-11-15). Its player's
-// playbacks of other films are gone to this one (goneToAnother).
+// playbacks of other films are gone to this one (goneToAnother), but where it asks ahead for its Up
+// next (Request.IsAheadForUpNext): it is still playing the film before.
 func (service *Service) startOnLadder(
 	ctx context.Context, holder Holder, request Request, playback tokenPlayback, positionMs, fileKbps int64,
 ) (*chunks.Offer, string, error) {
 	if service.chunks == nil {
 		return nil, "noLadder", nil
 	}
-	if err := service.goneToAnother(ctx, playerOf(request.DeviceID, holder.SessionKey), playback.fileID); err != nil {
-		return nil, "", err
+	player := playerOf(request.DeviceID, holder.SessionKey)
+	if !request.IsAheadForUpNext {
+		if err := service.goneToAnother(ctx, player, playback.fileID); err != nil {
+			return nil, "", err
+		}
 	}
-	key := speedKey{player: playerOf(request.DeviceID, holder.SessionKey), network: clientnet.Of(request.ClientAddress)}
+	key := speedKey{player: player, network: clientnet.Of(request.ClientAddress)}
 	speed, _, err := service.speeds.fresh(ctx, key, service.clock.Now(), service.timingNow().speedFreshFor)
 	if err != nil {
 		return nil, "", err

@@ -71,3 +71,7 @@ func (server *Server) setPlaybackWants(ctx context.Context, input *PlaybackWants
 	}
 	return &struct{}{}, nil
 }
+
+// causeUpNext is the cause a player gives a playback it asks ahead, for the film after the one it
+// plays, as its Up next offer shows.
+const causeUpNext = "upNext"

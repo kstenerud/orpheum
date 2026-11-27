@@ -5830,7 +5830,7 @@ export interface components {
         };
         StartPlaybackInputBody: {
             /**
-             * @description Why the page asked for this playback, for the log
+             * @description Why the page asked for this playback, for the log; upNext, asked ahead for the film after the one playing, leaves that one's playback as it is
              * @enum {string}
              */
             cause?: "filmPage" | "upNext" | "playPage" | "warmUpStale" | "warmUpOffLadder" | "warmUpFailed" | "subtitleFetched" | "audioChosen" | "originalChosen" | "linkCarriesOriginal" | "boostChosen" | "raiseWanted" | "dataCapStarted" | "playbackGone" | "ownPictureGivenUp" | "ownSoundGivenUp" | "mediaBack" | "castOver";

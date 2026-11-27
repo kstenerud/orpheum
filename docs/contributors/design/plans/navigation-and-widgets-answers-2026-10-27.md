@@ -5437,4 +5437,5 @@ next episode stops the runs of the one playing, in its last half minute, against
 usually read ahead, so nothing has been seen to stall from it; a browser's warm-up has done this
 since it was built, and the Chromecast's now does too. Proposed: a playback asked for as Up next
 replaces nothing; the playing film's playback is let go of by its player when it moves on, as a
-browser's is today. Not built: it makes the request's cause more than a word for the log.
+browser's is today. It makes the request's cause more than a word for the log, so it was asked
+first; the owner (2026-11-27): "yes go ahead". Built the same day.

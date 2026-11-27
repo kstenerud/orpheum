@@ -64,11 +64,13 @@ type StartPlaybackInput struct {
 		ItemID            int64               `doc:"The title the file was opened from, which it plays as where it is filed as that one; absent for the title it is filed as first" json:"itemId,omitempty" minimum:"0" required:"false"` //nolint:lll // one struct tag
 		PlayableFormats   PlayableFormatsBody `json:"playableFormats"`
 		PreferredDelivery DeliveryKind        `doc:"A person's override of the decision" json:"preferredDelivery,omitempty" required:"false"` //nolint:lll // one struct tag
-		// Cause and PageStarts are for the log alone: why the page asked, and how many playbacks it
+		// Cause and PageStarts are for the log: why the page asked, and how many playbacks it
 		// has asked for since it loaded, so a playback started again by itself says what started it
-		// (staging, 2026-10-14, where a phone's playback started over and nothing said why).
-		Cause      string `doc:"Why the page asked for this playback, for the log" enum:"filmPage,upNext,playPage,warmUpStale,warmUpOffLadder,warmUpFailed,subtitleFetched,audioChosen,originalChosen,linkCarriesOriginal,boostChosen,raiseWanted,dataCapStarted,playbackGone,ownPictureGivenUp,ownSoundGivenUp,mediaBack,castOver" json:"cause,omitempty" required:"false"` //nolint:lll // one struct tag
-		PageStarts int    `doc:"How many playbacks the page has asked for since it loaded, this one included" json:"pageStarts,omitempty" minimum:"0" required:"false"`                                                                                                                                                                                                      //nolint:lll // one struct tag
+		// (staging, 2026-10-14, where a phone's playback started over and nothing said why). One
+		// cause is more than a word for the log: upNext, the film after the one playing asked for
+		// ahead, takes nothing from the film playing (the owner, 2026-11-27).
+		Cause      string `doc:"Why the page asked for this playback, for the log; upNext, asked ahead for the film after the one playing, leaves that one's playback as it is" enum:"filmPage,upNext,playPage,warmUpStale,warmUpOffLadder,warmUpFailed,subtitleFetched,audioChosen,originalChosen,linkCarriesOriginal,boostChosen,raiseWanted,dataCapStarted,playbackGone,ownPictureGivenUp,ownSoundGivenUp,mediaBack,castOver" json:"cause,omitempty" required:"false"` //nolint:lll // one struct tag
+		PageStarts int    `doc:"How many playbacks the page has asked for since it loaded, this one included" json:"pageStarts,omitempty" minimum:"0" required:"false"`                                                                                                                                                                                                                                                                                                   //nolint:lll // one struct tag
 		// HasGivenUpOwnPicture is the page's word that its player gave the film's own picture up as
 		// unplayable on this device (D266), so the playback starts at its twin (D323 §2); the core
 		// keeps it before it decides, whether or not the player's report reached it first.
@@ -287,7 +289,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		PlayableFormats:   playableFormatsOf(input.Body.PlayableFormats),
 		PreferredDelivery: decide.Delivery(input.Body.PreferredDelivery), ClientAddress: input.clientAddress,
 		HasGivenUpOwnPicture: input.Body.HasGivenUpOwnPicture, IsWebAudioLate: input.Body.IsWebAudioLate,
-		NetworkKind: auth.NetworkKind(input.Body.NetworkKind),
+		NetworkKind: auth.NetworkKind(input.Body.NetworkKind), IsAheadForUpNext: input.Body.Cause == causeUpNext,
 	}
 	started, err := dependencies.Playback.Start(ctx, holder, request)
 	who := []any{

@@ -8662,7 +8662,7 @@
         "additionalProperties": false,
         "properties": {
           "cause": {
-            "description": "Why the page asked for this playback, for the log",
+            "description": "Why the page asked for this playback, for the log; upNext, asked ahead for the film after the one playing, leaves that one's playback as it is",
             "enum": [
               "filmPage",
               "upNext",

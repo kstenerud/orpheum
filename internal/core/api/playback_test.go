@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -582,6 +583,38 @@ func TestPlayback_UpNextsWarmUpSaysSo(t *testing.T) {
 	asked["cause"] = "upNext"
 	harness.play(t, user, asked)
 	harness.logs.AwaitEvent(t, "playbackStarted", `"fileId":2`, `"cause":"upNext"`)
+}
+
+// Up next's warm-up takes nothing from the film playing: a device asking for another film has gone
+// to it, and the runs of the one it left stop, but one asking ahead for its Up next is still
+// playing, and the playing film's runs were stopped in its last half minute (the owner, 2026-11-27).
+func TestPlayback_UpNextsWarmUpLeavesThePlayingFilmsRuns(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	token := harness.play(t, user, chrome(1)).MediaToken
+	harness.keepFilmOnesTimeline(t)
+	chunk := api.Prefix + "/bytes/media/chunks/" + token + "/q700k432p/00001.m4s"
+	if early := harness.getSought(t, chunk, user); early != http.StatusTooEarly {
+		t.Fatalf("the playing film's chunk, not made yet: %d; want 425", early)
+	}
+	playing := harness.openJobs(t, jobs.KindMakeChunks)
+	if len(playing) == 0 {
+		t.Fatalf("the playing film has no run queued:\n%s", harness.logs.String())
+	}
+	asked := chrome(2)
+	asked["cause"] = "upNext"
+	harness.play(t, user, asked)
+	open := map[int64]bool{}
+	for _, run := range harness.openJobs(t, jobs.KindMakeChunks) {
+		open[run.ID] = true
+	}
+	for _, run := range playing {
+		if !open[run.ID] {
+			t.Errorf("the playing film's run %d was stopped by Up next's warm-up:\n%s", run.ID, harness.logs.String())
+		}
+	}
 }
 
 // A cast's remote playing here from where its receiver stood asks saying so, and from where, which
