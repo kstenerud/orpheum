@@ -107,8 +107,8 @@ function withForeseen(said: SaidInterest, foreseen: ForeseenStepDown | undefined
     : { ...said, stepDownPictureStream: foreseen.pictureStream, stepDownFromMs: foreseen.fromMs };
 }
 
-/** Why a player let go of its playback (D309 §7): it left its page, or went on to another film. */
-export type LeftFor = "left" | "replaced";
+// The one way a player lets go of its playback is the SDK's, which the Google Cast receiver uses too.
+export { leavePlayback, type LeftFor } from "@orpheum/sdk";
 
 /**
  * Says to the server what the playback to.mediaToken names wants now, by to.headers where they carry a
@@ -129,15 +129,5 @@ export function sendInterest(
       body: said,
       ...(headers === undefined ? {} : { headers }),
     })
-    .catch(() => undefined);
-}
-
-/**
- * Lets go of the playback mediaToken names, saying why (D258 §2, D309 §7). A leave that fails costs
- * only what the server keeps for the playback until it idles out.
- */
-export function leavePlayback(api: Api, mediaToken: string, reason: LeftFor): void {
-  api
-    .DELETE("/playback/{token}", { params: { path: { token: mediaToken }, query: { reason } } })
     .catch(() => undefined);
 }

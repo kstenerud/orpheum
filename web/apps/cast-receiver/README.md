@@ -45,6 +45,15 @@ answered is gone (D555 §12).
   batch's item 3). It pairs no device and keeps no session of its own: D288's pairing, which only the
   lab's sender asked for, is gone (D555 §12). `src/device.test.ts`, `src/device-follow.test.ts`, `src/guest.test.ts`; only a
   device shows the whole: VQ286, VQ287.
+- **Warms its next episode as its Up next shows, and plays on that decision** (the owner,
+  2026-11-27: a Chromecast's next episode started cold, 10 to 20 s), as a browser's Up next warms
+  its own: by the same rule (`isNearItsEnd`, from the credits), it asks the next episode's playback
+  with cause `upNext`, so the core starts making its chunks, leaving the film playing's alone, and
+  preloads nothing; once the cast moves on to it, by the remote or at the film's end, it plays on
+  that decision, asked again only where it is stale, off the ladder or failed, or asked as another
+  title. A different film played, or the cast ended, lets the warmed playback go. The SDK's
+  `NextWarmUp` and `playOnWarmUp`, which the web app's `Watching` uses too.
+  `src/device-warm-next.test.ts`; only a device shows the gain: VQ420.
 - **Has its cast's remote work its sound and subtitles, as a browser receiver's** (the owner,
   2026-11-26: "Anything it can do, I want"): it says, in its state, the file's audio tracks its
   ladder has a mix of, the dialogue boost where its track has a boosted mix, levelling, its sound's

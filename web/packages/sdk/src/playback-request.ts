@@ -36,3 +36,17 @@ export async function requestTogetherPlayback(
     }),
   );
 }
+
+/** Why a player let go of its playback (D309 §7): it left its page, or went on to another film. */
+export type LeftFor = "left" | "replaced";
+
+/**
+ * Lets go of the playback mediaToken names, saying why (D258 §2, D309 §7): the one way the web app
+ * and the Google Cast receiver let one go. A leave that fails costs only what the server keeps for
+ * the playback until it idles out.
+ */
+export function leavePlayback(api: Api, mediaToken: string, reason: LeftFor): void {
+  api
+    .DELETE("/playback/{token}", { params: { path: { token: mediaToken }, query: { reason } } })
+    .catch(() => undefined);
+}

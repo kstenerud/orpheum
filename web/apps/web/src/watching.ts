@@ -2,10 +2,13 @@
 
 import { isWebAudioLate, type ChunkedPlayback, type playChunked } from "@orpheum/player";
 import {
+  NextWarmUp,
+  playOnWarmUp,
   requestPlayback as requestPlaybackOfTheCore,
   type Api,
   type components,
   type PlayableFormats,
+  type WarmUp,
 } from "@orpheum/sdk";
 
 import { browserStorage } from "./browser-storage.ts";
@@ -91,12 +94,9 @@ export async function requestPlayback(
   return decision;
 }
 
-/**
- * How long a film page's decision may wait for its Play page before a new one is asked for: half
- * the least mediaTokenIdleExpiryHours can be, an hour, so its token is never idled out by the
- * time it plays.
- */
-export const warmUpKeptMs: number = 30 * 60_000;
+// How long a film page's decision may wait for its Play page before a new one is asked for: the
+// SDK's, which a Google Cast receiver's warmed next episode keeps to as well.
+export { warmUpKeptMs } from "@orpheum/sdk";
 
 /** A hidden player filling a film's first buffer on its page (D260 §3). */
 export interface Preload {
@@ -243,13 +243,20 @@ export class Watching {
   // The film page's decision, until the Play page takes it, and when it was asked for.
   private warm: Warm | undefined;
   // The next episode's warm-up, asked as Up next shows, kept beside the film watched until it is.
-  private next: NextWarm | undefined;
+  private readonly next: NextWarmUp<PlaybackDecision>;
 
   constructor(
     private readonly api: Api,
     private readonly nowMs: () => number = () => performance.now(),
     private readonly startPreload: StartPreload = preloadInHiddenVideo,
-  ) {}
+  ) {
+    this.next = new NextWarmUp({
+      leave: (token) => {
+        this.leave(token);
+      },
+      nowMs,
+    });
+  }
 
   /**
    * A film's page was opened: the film is warmed up, and any other one let go of. Its preload is
@@ -307,30 +314,13 @@ export class Watching {
    * kept.
    */
   warmUpNext(fileId: number, playableFormats: PlayableFormats, itemId?: number): void {
-    if (this.fileId === fileId || this.next?.fileId === fileId) {
+    if (this.fileId === fileId) {
       return;
     }
-    this.letGoOfNext();
-    const decision = requestPlayback(this.api, fileId, {
-      playableFormats,
-      cause: "upNext",
-      itemId,
-    }).then(startedAsThisBrowserStarts);
-    const warm: Warm = { decision, askedMs: this.nowMs(), preload: undefined, itemId };
-    const next: NextWarm = { fileId, warm, mediaToken: undefined };
-    this.next = next;
-    decision.then(
-      (decided) => {
-        if (this.next === next) {
-          next.mediaToken = decided.mediaToken;
-        } else if (this.fileId === fileId) {
-          this.tokens.add(decided.mediaToken); // watched while it was asked for (watch)
-        } else {
-          this.leave(decided.mediaToken); // let go of while it was asked for
-        }
-      },
-      // A warm-up that fails is the Play page's to ask again; nothing waits on it here.
-      () => undefined,
+    this.next.warm(fileId, itemId, () =>
+      requestPlayback(this.api, fileId, { playableFormats, cause: "upNext", itemId }).then(
+        startedAsThisBrowserStarts,
+      ),
     );
   }
 
@@ -360,41 +350,34 @@ export class Watching {
       this.letGoOf(warm);
       return this.ask(fileId, { playableFormats, ...asked });
     }
-    if (this.nowMs() - warm.askedMs >= warmUpKeptMs) {
-      warm.preload?.stop();
-      return this.ask(fileId, { playableFormats, cause: "warmUpStale", startsAtMs, itemId });
-    }
     // Its start is timed from Play, not from opening the page: what the person waits for.
     const pressedMs = performance.now();
-    return warm.decision.then(
-      (decision) => {
+    return playOnWarmUp(warm, {
+      nowMs: this.nowMs(),
+      askAgain: (cause) => this.ask(fileId, { playableFormats, cause, startsAtMs, itemId }),
+      stale: () => {
+        warm.preload?.stop();
+      },
+      offLadder: (decision) => {
+        warm.preload?.stop();
+        // The warm-up's playback is let go of: the server worked on both (the M4 closing audit).
+        this.tokens.delete(decision.mediaToken);
+        this.leave(decision.mediaToken);
+      },
+      played: (decision) => {
         const settledAtBps = warm.preload?.settledAtBps();
         const preloadSteps = warm.preload?.steps();
         warm.preload?.stop();
-        if (decision.onLadder === undefined) {
-          // The warm-up's playback is let go of: the server worked on both (the M4 closing audit).
-          this.tokens.delete(decision.mediaToken);
-          this.leave(decision.mediaToken);
-          return this.ask(fileId, {
-            playableFormats,
-            cause: "warmUpOffLadder",
-            startsAtMs,
-            itemId,
-          });
-        }
         noteDecisionTimes(decision.mediaToken, {
           askedMs: pressedMs,
           decidedMs: performance.now(),
           preloadSteps,
         });
-        return settledAtBps === undefined
+        return settledAtBps === undefined || decision.onLadder === undefined
           ? decision
           : { ...decision, onLadder: withThePagesStart(decision.onLadder, settledAtBps) };
       },
-      // A warm-up that failed is asked again at Play, as its page left it to be: it failed the
-      // first press of Play instead (the M4 closing audit, 2026-10-08).
-      () => this.ask(fileId, { playableFormats, cause: "warmUpFailed", startsAtMs, itemId }),
-    );
+    });
   }
 
   /**
@@ -452,25 +435,21 @@ export class Watching {
     this.warm?.preload?.stop();
     this.warm = undefined;
     this.fileId = fileId;
-    const next = this.next;
-    if (next?.fileId !== fileId) {
-      this.letGoOfNext();
+    const next = this.next.take(fileId);
+    if (next === undefined) {
       return;
     }
-    this.next = undefined;
-    this.warm = next.warm;
-    if (next.mediaToken !== undefined) {
-      this.tokens.add(next.mediaToken);
-    }
-  }
-
-  /** Lets go of the next episode's warm-up: its playback, once decided. */
-  private letGoOfNext(): void {
-    const next = this.next;
-    this.next = undefined;
-    if (next?.mediaToken !== undefined) {
-      this.leave(next.mediaToken);
-    }
+    this.warm = { ...next, preload: undefined };
+    next.decision.then(
+      (decided) => {
+        if (this.fileId === fileId) {
+          this.tokens.add(decided.mediaToken);
+        } else {
+          this.leave(decided.mediaToken); // another film watched while it was asked for
+        }
+      },
+      () => undefined,
+    );
   }
 
   private leave(token: string): void {
@@ -483,18 +462,8 @@ export class Watching {
  * A film page's decision, until the Play page takes it, when it was asked for, its preload, and the
  * title it was asked as (StartAsked's itemId).
  */
-interface Warm {
-  readonly decision: Promise<PlaybackDecision>;
-  readonly askedMs: number;
+interface Warm extends WarmUp<PlaybackDecision> {
   preload: Preload | undefined;
-  readonly itemId: number | undefined;
-}
-
-/** The next episode's warm-up (warmUpNext), and its playback's token once it is decided. */
-interface NextWarm {
-  readonly fileId: number;
-  readonly warm: Warm;
-  mediaToken: string | undefined;
 }
 
 const watchingByApi = new WeakMap<Api, Watching>();

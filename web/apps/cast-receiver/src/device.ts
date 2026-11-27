@@ -13,6 +13,9 @@ import {
   requestPlayback,
   expectedGroupPositionMs,
   failureText,
+  leavePlayback,
+  NextWarmUp,
+  playOnWarmUp,
   tellsNoFilmHere,
   workedByTheRemote,
   type Api,
@@ -26,13 +29,15 @@ import {
   type TellsCastState,
   type TellsPlaybackAlone,
   type TogetherConnection,
+  type WarmUp,
+  type WarmUpAskedAgain,
 } from "@orpheum/sdk";
 
 import { systemVolumeOf } from "./caf.ts";
 import { ReceiverPicturePanel } from "./picture-panel.ts";
 import type { Reached } from "./reach.ts";
 import { ReceiverSoundPanel, type SoundAudio } from "./sound-panel.ts";
-import { UpNextCard } from "./up-next.ts";
+import { UpNextCard, type NextShown } from "./up-next.ts";
 
 /** What the core decides for a film the receiver plays. */
 type PlaybackDecision = components["schemas"]["StartPlaybackOutputBody"];
@@ -166,6 +171,8 @@ export interface CastDeviceOptions {
   readonly startsFilm?: typeof playChunked | undefined;
   /** Web Audio's parts of the sound's panel, a test's stand-ins where given. */
   readonly audio?: SoundAudio | undefined;
+  /** The clock a warmed next episode's age is read by: performance.now, a test's where given. */
+  readonly nowMs?: (() => number) | undefined;
 }
 
 /** The receiver as a device of its person's: its live connection, and the cast it plays. */
@@ -186,9 +193,20 @@ export class CastDevice {
   private toPutOn: readonly GroupCommand[] = [];
   /** What plays after the film, shown near its end; chosen on the caster (D471). */
   private readonly upNext: UpNextCard;
+  /** The next episode's decision, asked as its Up next shows, until it plays (warmUpNext). */
+  private readonly nextWarm: NextWarmUp<PlaybackDecision>;
 
   constructor(private readonly options: CastDeviceOptions) {
+    this.nextWarm = new NextWarmUp({
+      leave: (token) => {
+        leavePlayback(options.api, token, "replaced");
+      },
+      nowMs: () => this.nowMs(),
+    });
     this.upNext = new UpNextCard(options.video, options.api, options.note);
+    this.upNext.tellsShown((next) => {
+      this.warmUpNext(next);
+    });
     options.video.addEventListener("ended", () => {
       this.waitsReadyAtTheEnd();
     });
@@ -447,14 +465,74 @@ export class CastDevice {
     };
   }
 
-  /** The core's decision for playing fileId here, as the title itemId where one is given. */
+  /**
+   * Up next shows next, the episode that plays after the film: its decision is asked now, so the
+   * server starts making its chunks, and the receiver plays on it once the cast moves on to it, as a
+   * browser's Up next warms its own (the web app's Watching.warmUpNext; the owner, 2026-11-27: a
+   * Chromecast's next episode started cold, 10 to 20 s). The film playing keeps its playbacks; nothing
+   * is preloaded beside it; a different next replaces it, and at most one is kept (NextWarmUp).
+   */
+  private warmUpNext(next: NextShown): void {
+    if (next.fileId === this.playingFileId) {
+      return;
+    }
+    const { fileId, itemId } = next;
+    this.nextWarm.warm(fileId, itemId, () => this.ask(fileId, itemId, "upNext"));
+  }
+
+  /**
+   * The core's decision for playing fileId here, as the title itemId where one is given: the next
+   * episode's, warmed as its Up next showed, where it is fileId's as that title, fresh and on the
+   * film's ladder (playOnWarmUp); else one asked now. Any other warm-up kept is let go of.
+   */
   private async decisionFor(fileId: number, itemId: number | undefined): Promise<PlaybackDecision> {
-    return await requestPlayback(this.options.api, {
+    const warm = this.nextWarm.take(fileId);
+    if (warm === undefined) {
+      return await this.ask(fileId, itemId, "playPage");
+    }
+    if (warm.itemId !== itemId) {
+      this.letGoOf(warm);
+      return await this.ask(fileId, itemId, "playPage");
+    }
+    return await playOnWarmUp(warm, {
+      nowMs: this.nowMs(),
+      askAgain: (cause) => this.ask(fileId, itemId, cause),
+      stale: () => {
+        this.letGoOf(warm);
+      },
+      offLadder: (decision) => {
+        leavePlayback(this.options.api, decision.mediaToken, "replaced");
+      },
+      played: (decision) => decision,
+    });
+  }
+
+  /** Asks the core how fileId plays here, as the title itemId where one is given, and why. */
+  private ask(
+    fileId: number,
+    itemId: number | undefined,
+    cause: "playPage" | "upNext" | WarmUpAskedAgain,
+  ): Promise<PlaybackDecision> {
+    return requestPlayback(this.options.api, {
       fileId,
       ...(itemId === undefined ? {} : { itemId }),
       playableFormats: receiverFormats(),
-      cause: "playPage",
+      cause,
     });
+  }
+
+  /** Lets go of a warm-up not played on: its playback, once decided. */
+  private letGoOf(warm: WarmUp<PlaybackDecision>): void {
+    warm.decision.then(
+      (decision) => {
+        leavePlayback(this.options.api, decision.mediaToken, "replaced");
+      },
+      () => undefined,
+    );
+  }
+
+  private nowMs(): number {
+    return this.options.nowMs?.() ?? performance.now();
   }
 
   /**
@@ -533,6 +611,7 @@ export class CastDevice {
     this.credential = "";
     this.handedFileId = 0;
     this.toPutOn = [];
+    this.nextWarm.letGo();
     this.stopFilm();
   }
 }

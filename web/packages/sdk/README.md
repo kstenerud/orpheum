@@ -74,7 +74,15 @@ device lab reported until it went, D555 §12) and a WebRTC call of a page with i
   player's session, its body what the player says of itself) and `requestTogetherPlayback` (POST
   /together/playback, by a viewer's membership's credential in place of a session, D246 §3), used by
   the web app and the Google Cast receiver alike; what each says of itself is its own.
-  `src/playback-request.test.ts`.
+  `src/playback-request.test.ts`. One way to let a playback go, `leavePlayback` (DELETE
+  /playback/{token}, saying why), the same file.
+- **One way to warm a film up and play on it** (D258 §1, D260 §1; the owner, 2026-11-27): the next
+  episode's decision asked as Up next shows, at most one kept, a different next replacing it, the
+  next played taking it and anything else played letting it go (`NextWarmUp`), the film playing's
+  playbacks left alone; and a warm-up played on only fresh (under `warmUpKeptMs`) and on the film's
+  ladder, else asked again saying why (`playOnWarmUp`: `warmUpStale`, `warmUpOffLadder`,
+  `warmUpFailed`). The web app's `Watching` and the Google Cast receiver both use them.
+  `src/warm-up.test.ts`.
 - **One way to choose Up next** (D555 §3): where it shows, from its credits' start or within
   `upNextLeadMs` of the end (`isNearItsEnd`, D139, D339); whether it shows and counts down, by the
   person's dismissal and stop and autoplay (`offerState`); and whether an episode before or after

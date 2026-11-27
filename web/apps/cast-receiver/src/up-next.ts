@@ -56,12 +56,25 @@ export function upNextLines(upNext: UpNext | undefined): readonly string[] | und
 /** The video's events after which Up next is shown or hidden again. */
 const shownAgainAfter = ["timeupdate", "seeked", "ended", "durationchange", "emptied"] as const;
 
-/** The Up next drawn over the receiver's video, for the film it plays now. */
+/** The episode that plays next, as the card shows it: its file, and the title it plays as. */
+export interface NextShown {
+  readonly fileId: number;
+  readonly itemId: number;
+}
+
+/**
+ * The Up next drawn over the receiver's video, for the film it plays now. Each time it comes to show,
+ * it tells whoever asked (tellsShown) the episode it shows, which the receiver warms up then, as the
+ * web app's Up next warms its own as it shows (its up-next.tsx's useWarmsUpNext; the owner,
+ * 2026-11-27).
+ */
 export class UpNextCard {
   private fileId = 0;
   private creditsStartMs: number | undefined;
   private lines: readonly string[] | undefined;
+  private next: NextShown | undefined;
   private card: HTMLElement | undefined;
+  private onShown: (next: NextShown) => void = () => undefined;
 
   constructor(
     private readonly video: HTMLVideoElement,
@@ -75,6 +88,11 @@ export class UpNextCard {
     }
   }
 
+  /** Has onShown told the episode the card shows, each time it comes to show. */
+  tellsShown(onShown: (next: NextShown) => void): void {
+    this.onShown = onShown;
+  }
+
   /**
    * Asks what plays after fileId, the film the receiver plays now, 0 for none, and shows it then:
    * from the credits, where its segments, as its playback gave them, have a credits segment.
@@ -86,6 +104,7 @@ export class UpNextCard {
     this.fileId = fileId;
     this.creditsStartMs = creditsStartOf(segments);
     this.lines = undefined;
+    this.next = undefined;
     this.draw();
     if (fileId === 0) {
       return;
@@ -96,6 +115,11 @@ export class UpNextCard {
       .then((answer) => {
         if (this.fileId === fileId) {
           this.lines = upNextLines(answer.upNext);
+          const episode = answer.upNext?.episode;
+          this.next =
+            this.lines === undefined || episode === undefined
+              ? undefined
+              : { fileId: episode.fileId, itemId: episode.itemId };
           this.draw();
         }
       })
@@ -117,6 +141,7 @@ export class UpNextCard {
     this.fileId = 0;
     this.creditsStartMs = undefined;
     this.lines = undefined;
+    this.next = undefined;
     this.card?.remove();
     this.card = undefined;
   }
@@ -137,6 +162,9 @@ export class UpNextCard {
         this.card.hidden = true;
       }
       return;
+    }
+    if (this.next !== undefined) {
+      this.onShown(this.next);
     }
     const card = this.cardOver(video);
     if (card === undefined) {

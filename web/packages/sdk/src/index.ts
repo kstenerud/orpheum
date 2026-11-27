@@ -16,6 +16,8 @@ export type { components, operations, paths } from "./gen/api.ts";
 export { allPages, pageLimitMax } from "./pages.ts";
 export { creditsStartOf, isNearItsEnd, upNextLeadMs } from "./up-next-lead.ts";
 export type { Ending } from "./up-next-lead.ts";
+export { NextWarmUp, playOnWarmUp, warmUpKeptMs } from "./warm-up.ts";
+export type { WarmedDecision, WarmUp, WarmUpAskedAgain } from "./warm-up.ts";
 export { isPlayableNext, noOfferChoice, offerState, type OfferChoice } from "./up-next-offer.ts";
 export type { ListPage, PageQuery } from "./pages.ts";
 export { browserPlayableFormats, playableFormatsFrom } from "./playable-formats.ts";
@@ -354,8 +356,10 @@ export { toldTheCastHowItPlays, workedByTheRemote } from "./receiver-panels.ts";
 export type { HowItPlays, PanelSessions, RemotesPanel } from "./receiver-panels.ts";
 export { putOnCommands } from "./together-put-on.ts";
 export {
+  leavePlayback,
   requestPlayback,
   requestTogetherPlayback,
+  type LeftFor,
   type PlaybackAsked,
   type PlaybackDecision,
 } from "./playback-request.ts";

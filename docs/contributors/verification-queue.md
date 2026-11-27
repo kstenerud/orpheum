@@ -4346,3 +4346,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   again; and, from the page's problem report, whether its steps say a connection is gone because
   "it went disconnected as the browser's network changed". Then, on Wi-Fi alone, let the film play
   for a few minutes: report any stall, which a change that is no move must not cause.
+- [ ] **VQ420** — A Chromecast's next episode is warmed as its Up next shows, and starts on that
+  decision (the owner, 2026-11-27: a Chromecast's next episode started cold, 10 to 20 s): only a
+  real Chromecast and node show how soon the next starts. Cast an episode of a series, not the
+  last, from a phone to the Chromecast, seek it to a minute before its end, and let it reach its Up
+  next. Before pressing anything, read the core's log: report whether it shows the next file's
+  playback asked with `cause=upNext` as the Up next showed, and its first chunk ready before the
+  press. Then press Next on the phone's remote: report how many seconds the next episode takes to
+  play, and whether the log shows no second playback asked for it (no `cause=playPage` for the
+  next file). Then cast another episode, let its Up next show, and press Stop instead: report
+  whether the log shows the warmed playback let go of.
