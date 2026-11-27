@@ -41,17 +41,33 @@ export interface GroupNow {
   readonly tuning: SyncTuning;
 }
 
-/** The command a leading player's own event is, if any: its person's play, pause or seek. */
+/** A leading player: its media, and whether it is the host's, as its welcome said. */
+export interface LeadingPlayer {
+  readonly media: FollowedMedia;
+  readonly isHost: boolean;
+}
+
+/**
+ * The command a leading player's own event is, if any: its person's play, pause or seek. Its film's
+ * end pauses a playing group on the host's player alone: a guest's copy reached its end a moment
+ * before the host's, by drift or a shorter copy, and its end paused everyone, the next episode too
+ * as the host's Up next put it on (the owner, 2026-11-27). A guest's player sits at its end and
+ * follows what the group does next.
+ */
 export function commandOfEvent(
   event: string,
-  media: FollowedMedia,
+  player: LeadingPlayer,
   where: GroupNow,
 ): GroupCommand | undefined {
+  const { media, isHost } = player;
   const { state } = where.group;
   if (event === "play" && state === "paused") {
     return { command: "play" };
   }
-  if (state === "playing" && (event === "ended" || (event === "pause" && !media.ended))) {
+  // A browser fires pause just before ended: that pause is the end's, not its person's.
+  const isPersonsPause = event === "pause" && !media.ended;
+  const isHostsEnd = event === "ended" && isHost;
+  if (state === "playing" && (isHostsEnd || isPersonsPause)) {
     return { command: "pause" };
   }
   // A jump is past the seek threshold: the browser's player moves itself a fraction of a second to

@@ -198,6 +198,39 @@ describe("a leading player's person's moves", () => {
     expect(commands).toEqual([{ command: "pause" }]);
   });
 
+  it("pauses a playing group at its film's end from the host's player alone, a guest's own pause still sent (the owner, 2026-11-27)", () => {
+    // What a player that may pause sends, its film playing along with its group, as the host's or
+    // a guest's, at its film's end or at its person's pause mid-film.
+    const sentAt = (isHost: boolean, isAtTheEnd: boolean): readonly unknown[] => {
+      const media = new FakeMedia();
+      media.currentTime = 60;
+      media.readyState = 4;
+      const { connection, commands } = fakeConnection({ ...paused, state: "playing" });
+      followGroup(
+        media,
+        { ...connection, snapshot: () => ({ ...connection.snapshot(), isHost }) },
+        { fileId: 5, leads: { canPlayPause: true, canSeek: true, canNext: true }, monotonicMs },
+      );
+      media.fire("seeked");
+      vi.advanceTimersByTime(scrubPauseWindowMs);
+      if (isAtTheEnd) {
+        media.currentTime = media.duration;
+        media.ended = true; // a browser says it ended before its pause's event, then fires ended
+      }
+      media.paused = true;
+      media.fire("pause");
+      if (isAtTheEnd) {
+        media.fire("ended");
+      }
+      vi.advanceTimersByTime(browserPauseWindowMs);
+      return commands;
+    };
+    expect(sentAt(true, true)).toEqual([{ command: "pause" }]);
+    // A guest's copy ending a moment before the host's paused everyone, and the next episode too.
+    expect(sentAt(false, true)).toEqual([]);
+    expect(sentAt(false, false)).toEqual([{ command: "pause" }]);
+  });
+
   it("takes the host's player stepping a fraction of a second over a gap for no seek", () => {
     const media = new FakeMedia();
     const { connection, commands } = fakeConnection({ ...paused, state: "playing" });

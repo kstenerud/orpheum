@@ -342,7 +342,11 @@ export class GroupFollower {
     // group, which waited for everyone again (the owner's test, 2026-10-12).
     const command =
       where !== undefined && !isOwn && this.#hasCaughtUp
-        ? commandOfEvent(event, this.#media, where)
+        ? commandOfEvent(
+            event,
+            { media: this.#media, isHost: this.#connection.snapshot().isHost },
+            where,
+          )
         : undefined;
     this.#takePersonsMove(event, command, where);
     // While its person's command waits to be sent, the player's loading is of a place the group

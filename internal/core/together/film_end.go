@@ -55,7 +55,7 @@ func (current *session) stopsAtItsLeadersEnd(now time.Time, from *device, messag
 }
 
 // atItsLeadersEnd is whether message is the state of deviceID, the Watch Together session's leader,
-// saying its player played the group's film to its end: playing, or paused there, as a leading
+// saying its player played the group's film to its end: playing, or paused there, as the host's
 // player's own end pauses its group (commandOfEvent, in the SDK) where its state comes after. A cast's
 // own session is left as it is: its receiver's page moves it on or waits ready for the next video
 // (D364 §5).

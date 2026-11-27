@@ -109,8 +109,10 @@ device lab reported until it went, D555 §12) and a WebRTC call of a page with i
   move it makes itself is marked, and a mark whose event has not come within `ownMarkLastsMs` is
   given up and noted (D268 §4); on a wireless receiver, a pause or play its element fires within
   `receiverAnswersWithinMs` of its own seek, play or pause is the receiver's answer, never its
-  person's (D522 §2). `src/together-follow.test.ts`, `src/together-own-moves.test.ts`,
-  `src/together-follow-receiver.test.ts`.
+  person's (D522 §2). Its film's end pauses a playing group from the host's player alone: a guest's
+  sits at its end and follows the group on (the owner, 2026-11-27).
+  `src/together-follow.test.ts`, `src/together-own-moves.test.ts`,
+  `src/together-follow-receiver.test.ts`, `src/together-lead.test.ts`.
 - **After a stall a following player is ready again only with `refillAheadMs` loaded ahead, and after
   a seek once what it loaded outlasts its next chunk's expected load by `readyAheadOfNextChunkPercent`**
   (`readyAheadOf`, `src/ready-ahead.ts`: the one rule every player starts by, its player telling the
