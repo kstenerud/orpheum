@@ -569,8 +569,18 @@ Watch Together volumes and a guest's tracks and timing went into the bar's menus
 
 Added by the owner, 2026-11-26, from the same walk's unfixed observations:
 
-4. **A guest's page hung at "Checking your invitation…" until a reload**, three times on the walk;
-   not investigated.
+4. **A guest's page hung at "Checking your invitation…" until a reload**, three times on the walk.
+   **Looked into, 2026-11-27**, nothing built. The likeliest route: the check
+   (`POST /together/join/check`) is the guest's page's only request, and on a WebRTC connection
+   that has stalled while still saying it is connected its body never leaves the browser; the sdk
+   starts timing a request's answer only once the body has left (`rtc-request.ts`), so the check
+   waits for ever and nothing replaces the connection. A scratch test showed it: a GET on such a
+   connection failed at 40 s, the check was still pending at 400 s. A second route: where no
+   connection works at all the transport waits for good and the page says nothing. Chromium closes
+   a request's channel when its connection closes, so that is no route there; Firefox was not
+   checked. Options for the owner: (a) a limit on the check in the page; (b) a limit in the sdk on
+   a request whose body does not leave (the lead recommends it: the cause, for every request);
+   (c) a ping on idle connections; (d) a "still trying" note for the guest.
 5. **A TV's cast that started late put its own film back on over the group's**, once, before the
    batch's fixes; not checked since.
 6. **Stopping a Chromecast's cast left the phone's film paused.**
