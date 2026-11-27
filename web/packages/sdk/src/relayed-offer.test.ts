@@ -64,6 +64,18 @@ describe("an offer through a discovery", () => {
     expect(kept).toEqual(expect.arrayContaining(udpHosts));
   });
 
+  it("counts a candidate listed twice once, and never keeps more lines than the limit", () => {
+    const hosts = Array.from({ length: 9 }, (_, index) =>
+      candidate(`2a0f:5000:1::${String(index + 1)}`, "udp", "host"),
+    );
+    const reflexive = candidate("203.0.113.9", "udp", "srflx");
+    const kept = candidatesIn(
+      offerThroughDiscovery(sdpOf([...hosts, reflexive, reflexive, reflexive])),
+    );
+    expect(kept).toHaveLength(relayedCandidatesMost);
+    expect(new Set(kept).size).toBe(relayedCandidatesMost);
+  });
+
   it("leaves an offer within the limit as it was", () => {
     const sdp = sdpOf([candidate("203.0.113.9", "udp", "srflx")]);
     expect(offerThroughDiscovery(sdp)).toBe(sdp);

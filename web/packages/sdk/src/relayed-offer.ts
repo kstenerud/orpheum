@@ -101,21 +101,27 @@ function keptBefore(one: Candidate, other: Candidate): number {
 /**
  * The offer's SDP as it goes through a discovery: without the candidates no core outside the client's
  * network could use, and with at most relayedCandidatesMost of the rest, relayed and UDP ones kept
- * first. A phone on Wi-Fi lists more than that, and the discovery would refuse the whole offer.
+ * first. A phone on Wi-Fi lists more than that, and the discovery would refuse the whole offer. A
+ * candidate listed twice goes once: the discovery counts lines, and a Chromecast's offer of 12 lines
+ * passed while its kept lines were told by their text (production, 2026-11-27).
  */
 export function offerThroughDiscovery(sdp: string): string {
   const lines = sdp.replaceAll("\r\n", "\n").split("\n");
-  const usable = lines
-    .map(candidateOf)
-    .filter(
-      (candidate): candidate is Candidate =>
-        candidate !== undefined && isReachableFromOutside(candidate.address),
-    );
+  const seen = new Set<string>();
+  const usable: { readonly candidate: Candidate; readonly at: number }[] = [];
+  lines.forEach((line, at) => {
+    const candidate = candidateOf(line);
+    if (candidate === undefined || !isReachableFromOutside(candidate.address) || seen.has(line)) {
+      return;
+    }
+    seen.add(line);
+    usable.push({ candidate, at });
+  });
   const kept = new Set(
-    [...usable]
-      .sort(keptBefore)
+    usable
+      .sort((one, other) => keptBefore(one.candidate, other.candidate))
       .slice(0, relayedCandidatesMost)
-      .map((candidate) => candidate.line),
+      .map((each) => each.at),
   );
-  return lines.filter((line) => candidateOf(line) === undefined || kept.has(line)).join("\r\n");
+  return lines.filter((line, at) => candidateOf(line) === undefined || kept.has(at)).join("\r\n");
 }
