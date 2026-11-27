@@ -44,7 +44,7 @@ import {
 import type { OverlayControl } from "./player-overlay-state.ts";
 import { seekStepMs } from "./seek-ahead.ts";
 import { isSeekable, TargetTimeline } from "./target-timeline.tsx";
-import { volumeAfter } from "./volume-step.ts";
+import { stepSound } from "./volume-step.ts";
 
 /** How long Volume down or up is held before it repeats, in ms (D548 §6). A justified constant. */
 export const heldRepeatsAfterMs = 500;
@@ -60,8 +60,7 @@ export interface RemoteSoundMoves {
 }
 
 /**
- * The pad's volume over a film's level, sound (D548 §6): a step of volumeStep (D562) down or up,
- * within 0 and 1, a step up turning a muted film's sound on first, as the player's volume key does;
+ * The pad's volume over a film's level, sound (D548 §6): a step down or up (stepSound, D562);
  * Mute turning it off or on. Each tells onShown, which shows the volume's Pill. Undefined where the
  * target says no level.
  */
@@ -75,10 +74,7 @@ export function remoteSoundMovesOf(
   return {
     isMuted: sound.isMuted,
     step: (direction) => {
-      if (direction === 1 && sound.isMuted) {
-        sound.setMuted(false);
-      }
-      sound.setVolume(volumeAfter(sound.volume, direction));
+      stepSound(sound, direction);
       onShown();
     },
     toggleMute: () => {

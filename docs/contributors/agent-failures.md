@@ -49,6 +49,34 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A98 — Told the owner a Connect package carried the pad's change; the pad is the core's (2026-11-27)
+
+- **What happened:** the change that shows a Chromecast's volume on the caster's pad when the TV's
+  remote moves it is in the web client, which the core serves. The lead gave the owner Connect
+  packages, which carry the Cast receiver, and wrote as if they brought the pad's change to
+  production, whose core was v0.8.13 without it. When the owner reported the number still not
+  showing, the lead diagnosed a stale page ("I think your phone's page was stale rather than the
+  code being wrong") and had the owner reload, instead of checking what production's core ran.
+- **Caught by:** the owner: "I started a fresh tab and it still behaves the same way."
+- **Gate:** none. The practice: before saying a fix is on production, name which program serves
+  the changed code (the core: the web client; Connect: the loader, the discovery and the Cast
+  receiver) and check that program's version there.
+
+### A97 — Changed the same volume step in three places and did not say there were three (2026-11-27)
+
+- **What happened:** the owner asked for the cast remote's volume to move 5 % a press. The step of
+  a film's volume, "a step along, a step up turning a muted film's sound on first", was written
+  three times: in the pad (`remote-pad.tsx`), in the keys over a castee (`player-commands.ts`) and
+  in 🔈's row (`volume-row.tsx`), the first two with their own constant beside the player's. The
+  lead edited each place and committed, and in a status line guessed that the upright pad was
+  "a different component from the landscape one I fixed" as if that were an ordinary thing to
+  find. Rule 11 says to stop and say so when there are already two.
+- **Caught by:** the owner: "We should not have multiple components that implement the same thing.
+  Finding that you need to apply the same fix in multiple places is a very strong code smell."
+- **Gate:** the three are one function, `stepSound` (`volume-step.ts`). Nothing general catches
+  three short copies: `dupl` sees none this small. The practice: a fix that has to be made twice
+  is a finding, told to the owner with the merge, before the fix is called done.
+
 ### A96 — Called the Chromecast's skip forward fixed after walking it on one file (2026-11-26)
 
 - **What happened:** the lead fixed a refill that never ended on a Chromecast by capping what a

@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 
 import { VolumeButtonsNote } from "./film-volume-slider.tsx";
 import { FilmStripIcon } from "./icons.tsx";
-import { volumeAfter } from "./volume-step.ts";
+import { stepSound } from "./volume-step.ts";
 import type { PlayerSound } from "./playback-target.ts";
 import { SoundControls } from "./player-controls.tsx";
 import type { OneControl } from "./popover.tsx";
@@ -81,7 +81,7 @@ export function useVolumeRow(sound: PlayerSound, voice: VoiceInUse | undefined):
   const focusedPerson = people[at - 1];
   const step = (direction: -1 | 1): void => {
     if (focusedPerson === undefined || voice === undefined) {
-      stepFilm(sound, direction);
+      stepSound(sound, direction);
       return;
     }
     const gain = partnerGainOf(voice.snapshot, focusedPerson.memberId);
@@ -108,14 +108,6 @@ export function useVolumeRow(sound: PlayerSound, voice: VoiceInUse | undefined):
       },
     },
   };
-}
-
-/** A step of the film's volume (volumeAfter), Up turning a muted film's sound on, as + and − do. */
-function stepFilm(sound: PlayerSound, direction: -1 | 1): void {
-  sound.setVolume(volumeAfter(sound.volume, direction));
-  if (direction === 1 && sound.isMuted) {
-    sound.setMuted(false);
-  }
 }
 
 /**

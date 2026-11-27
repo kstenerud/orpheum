@@ -25,7 +25,7 @@ import { arrowsAreCommandsAttribute, caretOf } from "./focus-engine.ts";
 import { isMeantToPlay, isPausedAsAsked } from "./film-waits.tsx";
 import { useLatest } from "./latest.ts";
 import type { PlaybackTarget } from "./playback-target.ts";
-import { volumeAfter } from "./volume-step.ts";
+import { stepSound, volumeAfter } from "./volume-step.ts";
 import { useCommands, useMediaPlayPause, useMediaSeeks } from "./input-layer.tsx";
 import type { Command } from "./input-buttons.ts";
 import type { CommandHold, CommandSource, MediaTracks } from "./input-commands.ts";
@@ -204,8 +204,7 @@ export function stageOfVideo(
 /**
  * Another target, a castee, as the stage the player's commands work on, its picture where the video
  * would be (PlayerStage): nothing taken while it is not ready (D555 §6); its sound, where it says
- * one, stepped as the cast remote's Volume down and up did, volumeStep a press (D548 §6, D562), a
- * step up turning a muted film's sound on first.
+ * one, stepped as the cast remote's Volume down and up do (stepSound; D548 §6, D562).
  */
 export function stageOfTarget(target: PlaybackTarget, picture: HTMLElement): PlayerStage {
   const { sound, isReady } = target;
@@ -229,10 +228,7 @@ export function stageOfTarget(target: PlaybackTarget, picture: HTMLElement): Pla
       if (!isReady || sound === undefined) {
         return false;
       }
-      if (direction === 1 && sound.isMuted) {
-        sound.setMuted(false);
-      }
-      sound.setVolume(volumeAfter(sound.volume, direction));
+      stepSound(sound, direction);
       return true;
     },
     toggleMute: () => {
