@@ -194,7 +194,10 @@ class Running(unittest.TestCase):
         # Its make runs in a session of its own: a check-pr stopped from outside left its steps running,
         # revert-red among them, without the lock (the owner, 2026-11-24, item 9).
         root = Path(tempfile.mkdtemp(prefix="quiet-gate-"))
-        env = {k: v for k, v in os.environ.items() if not k.startswith(("GIT_", "MAKE", "MFLAGS"))}
+        # Not the parent's VERBOSE either: CI runs `make check VERBOSE=1`, where the gate hands over to a
+        # plain make and this test, of the quiet run's stopping, failed on every push (2026-11-27).
+        env = {k: v for k, v in os.environ.items()
+               if not k.startswith(("GIT_", "MAKE", "MFLAGS")) and k != "VERBOSE"}
         subprocess.run(["git", "init", "-q"], cwd=root, check=True, env=env)
         (root / "Makefile").write_text("gate:\n\t@sleep 60 & echo $$! > step; wait\n")
         gate = subprocess.Popen([sys.executable, str(Path(qg.__file__)), "make gate", "gate"], cwd=root, env=env,
