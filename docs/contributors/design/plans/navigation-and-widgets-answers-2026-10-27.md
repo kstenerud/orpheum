@@ -5343,3 +5343,30 @@ where it is not says that this computer has no stub for that key, and that the o
 on the computer that has it or writes it back from the key with `ssh-keygen -K` (the keys are
 resident, `cmd/discovery-sign/keygen.go`), under the name the tool expects. It does not offer to
 try again.
+
+## A record signed under an older key list, next batch (found 2026-11-27)
+
+The owner added a second everyday key (`discovery-sign add`), which made version 2 of both key
+lists, and signed v0.8.15 the day after. The release record was signed with `root-version 1`: the
+release workflow carries the number over from the record served unless the repository's
+`PUBLISHER_ROOT_VERSION` says otherwise, and nothing between the workflow and the signature
+compares it with the key list. A core that follows the list to version 2 lifts its floor to it
+(`internal/core/discovery/release.go`, "a new root lifts the floor") and passes over a record
+under version 1 without a word, so it would never have offered v0.8.15. Read from the code, not
+yet shown by a test. Mended for that release in orpheum-ops (`release-resign` raises the record to
+the list served).
+
+To build, each with its test:
+
+1. `discovery-sign release` refuses a record whose root version is below the folder's chain's, or
+   raises it and says so (the owner's choice), so no record cores will pass over can be signed.
+2. The release workflow reads the version of the key list the publisher serves, in place of the
+   repository variable, which a person must remember after each change.
+3. `discovery-sign add`, `remove`, `suspend` and `resume`, and discovery-signing.md's "After a
+   change", say that every change to a key list needs the newest release record and the address
+   document signed again under the new version, not only a change to the key that signed them.
+4. The address document after a change: a running core keeps the one it holds, but whether a new
+   install takes a document under version 1 once the list is at 2 is not checked. Check it; if it
+   does not, `refreshSigned` signs the document again after every change.
+5. A core says, in its discovery status, when the newest record served is under an older key list
+   than it holds, instead of passing over it in silence.
