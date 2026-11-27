@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/encode"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
@@ -522,11 +523,11 @@ type stopWatchingChunkMaker struct{ stopped chan struct{} }
 
 func (maker stopWatchingChunkMaker) Make(
 	ctx context.Context, _ execx.Film, command nodeproto.MakeChunks, onChunk func(n int),
-) (int, error) {
+) (int, encode.Decoding, error) {
 	onChunk(command.FirstChunk)
 	<-ctx.Done()
 	close(maker.stopped)
-	return command.FirstChunk, ctx.Err()
+	return command.FirstChunk, "", ctx.Err()
 }
 
 // One answer the core did not take is tried again, and costs nothing else: the session goes on
@@ -671,15 +672,15 @@ type releasedChunkMaker struct {
 
 func (maker releasedChunkMaker) Make(
 	ctx context.Context, _ execx.Film, command nodeproto.MakeChunks, onChunk func(n int),
-) (int, error) {
+) (int, encode.Decoding, error) {
 	onChunk(command.FirstChunk)
 	close(maker.started)
 	select {
 	case <-maker.release:
-		return command.FirstChunk, nil
+		return command.FirstChunk, "", nil
 	case <-ctx.Done():
 		maker.stopped.Store(true)
-		return command.FirstChunk, ctx.Err()
+		return command.FirstChunk, "", ctx.Err()
 	}
 }
 

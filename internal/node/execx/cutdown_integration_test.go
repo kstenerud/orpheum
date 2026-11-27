@@ -172,7 +172,7 @@ func madeBy(
 ) ([]byte, bool) {
 	t.Helper()
 	film := streamedFilmOf(t, runner, maker, path, command)
-	if last, err := maker.Make(t.Context(), film, command, nil); err != nil || last != 42 {
+	if last, _, err := maker.Make(t.Context(), film, command, nil); err != nil || last != 42 {
 		t.Fatalf("%s, cut down %v: the run made through %d, %v; want chunk 42", store, film.IsIndexCutDown, last, err)
 	}
 	return storeBytes(t, store, 3), film.IsIndexCutDown

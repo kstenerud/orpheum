@@ -23,6 +23,8 @@ var argumentsByRecipe = map[nodeproto.ChunkStreamKind]map[int]string{
 		1: "3dae99adffc429ad6e1b43218dcebdba9872491d21de6284ce4b663e505e9a72",
 		// 2 starts an encode's times at its first picture (encode's startAtZero; file 1282).
 		2: "c0b8e05bfa25c9376524041e42639df2b9f0469c3823a24244aeab822438d273",
+		// 3 decodes and scales a VAAPI node's picture on the GPU, where the card can (the owner, 2026-11-27).
+		3: "41fbd942161c0054715102767263d4b8a07049dcbc7cd79e5003ddb923f814e8",
 	},
 	nodeproto.StreamSound:       {1: "169f1b599b8d85925f4efdeab2496fc4123af216b1e3e99f5785b94e6aee5615"},
 	nodeproto.StreamSoundCopied: {1: "19ac78897a3cc6de988e058419c40f131722ee1acf5973b4b1a69548bb2feac4"},
@@ -93,7 +95,7 @@ func recipeCommands() map[nodeproto.ChunkStreamKind][]nodeproto.MakeChunks {
 }
 
 // recipeArguments is a hash of the arguments the node builds for each of a kind's recipeCommands,
-// an encoded quality's on every encoder.
+// an encoded quality's on every encoder, and on VAAPI decoded on the GPU too.
 func recipeArguments(commands []nodeproto.MakeChunks) string {
 	film := execx.Film{Path: "/films/a.mkv"}
 	var lines []string
@@ -103,8 +105,13 @@ func recipeArguments(commands []nodeproto.MakeChunks) string {
 			encoders = append(encoders, encode.EncoderQuickSync, encode.EncoderNVENC, encode.EncoderVAAPI)
 		}
 		for _, encoder := range encoders {
-			arguments := Arguments(film, "/prepared/7/chunks-x/k/raw-1", command, encoder)
-			lines = append(lines, strings.Join(arguments, "\x00"))
+			for _, decoding := range []encode.Decoding{encode.DecodedOnCPU, encode.DecodedOnGPU} {
+				if decoding == encode.DecodedOnGPU && encoder != encode.EncoderVAAPI {
+					continue
+				}
+				arguments := Arguments(film, "/prepared/7/chunks-x/k/raw-1", command, encoder, decoding)
+				lines = append(lines, strings.Join(arguments, "\x00"))
+			}
 		}
 	}
 	sum := sha256.Sum256([]byte(strings.Join(lines, "\n")))

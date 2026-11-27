@@ -4356,3 +4356,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   play, and whether the log shows no second playback asked for it (no `cause=playPage` for the
   next file). Then cast another episode, let its Up next show, and press Stop instead: report
   whether the log shows the warmed playback let go of.
+- [ ] **VQ421** — A VAAPI node decodes and scales a quality on the GPU, and a film the card cannot
+  decode still plays, decoded on the CPU (the owner, 2026-11-27: "We should be using the hardware
+  available to us for as much as we can"). The sandbox has no card, so only a node whose System page
+  shows `h264_vaapi` chosen (staging's NUC7, production's J3455) can show it. On that node's core,
+  in a browser with the player's quality set to a ladder quality (not Original), play an HEVC film
+  from its start and again after a seek to its middle. In the node's log, report the
+  `chunkRunFinished` lines' `decodedOn` (want `gpu`) and `speed`, and the CPU the node used while
+  it ran; then step between Original and the ladder quality and report any jump, stall or change of
+  shape in the picture where the two meet. Then play a RealVideo film (or another codec FFmpeg has
+  no VAAPI decoder for, such as MPEG-1 or Theora), and an H.264 High 10 film (a profile the card's
+  decoder lacks), each at the ladder quality: report that each plays and that its runs say
+  `decodedOn` `cpu`, and, for the High 10 film, how long its first chunk took (its first run fails on
+  the GPU at its first picture and is made again on the CPU).

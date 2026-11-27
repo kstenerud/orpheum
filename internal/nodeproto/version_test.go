@@ -194,6 +194,9 @@ var wireShapeByVersion = map[int]string{
 	// 74 adds the trickplay command, its result, its sheet and TrickplayRecipe (trickplay.md §3): a
 	// node of 73 would refuse the command, and a core of 73 would 404 the sheets.
 	74: "2bc5bbdeea2dbbe004f468887f9f24d9e6b7d3abcfa2d2f2f270dfe93227023d",
+	// 75 raises QualityRecipe to 3, a VAAPI node's quality decoded and scaled on the GPU: a node of
+	// 74 would make a quality's chunks the old way under the new recipe's key.
+	75: "b7d14e08be41754e40269ab90a22a45eaa205a64c148bd7eb5a534bb144fe7c8",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
@@ -279,6 +282,15 @@ var routesByVersion = map[int][]string{
 	// 74 adds the sheet route, PathTrickplaySheet, each finished sheet of a run of the trickplay
 	// command (trickplay.md §3).
 	74: {
+		"PathBytesChunks /bytes/v1/chunks/", "PathBytesFile /bytes/v1/file", "PathBytesFolders /bytes/v1/folders",
+		"PathBytesFrame /bytes/v1/frame", "PathBytesProbe /bytes/v1/probe",
+		"PathBytesRecentLog /bytes/v1/recent-log", "PathBytesResult /bytes/v1/result/",
+		"PathChanged /node/v1/changed", "PathCommands /node/v1/commands", "PathHello /node/v1/hello",
+		"PathLocked /node/v1/locked", "PathProgress /node/v1/progress", "PathResult /node/v1/result",
+		"PathStatus /node/v1/status", "PathTrickplaySheet /node/v1/trickplay-sheet",
+	},
+	// 75 raises QualityRecipe; the routes are 74's.
+	75: {
 		"PathBytesChunks /bytes/v1/chunks/", "PathBytesFile /bytes/v1/file", "PathBytesFolders /bytes/v1/folders",
 		"PathBytesFrame /bytes/v1/frame", "PathBytesProbe /bytes/v1/probe",
 		"PathBytesRecentLog /bytes/v1/recent-log", "PathBytesResult /bytes/v1/result/",

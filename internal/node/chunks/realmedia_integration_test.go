@@ -53,7 +53,8 @@ func TestMake_AnInterleavedRealMediaSoundIsWholeAndAtItsTimesInEveryRun(t *testi
 			FirstChunk: first, BoundsMs: grid[first : first+4], LeadInMs: leadInMs, IsLedIn: first > 0,
 			IsSoundInterleaved: true,
 		}
-		if last, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); err != nil || last != first+2 {
+		if last, _, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); err != nil ||
+			last != first+2 {
 			t.Fatalf("the run from %d made through %d, %v", first, last, err)
 		}
 	}

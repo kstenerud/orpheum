@@ -43,7 +43,7 @@ func MeasureSpeed(ctx context.Context, runner SpeedRunner, encoder Encoder) (int
 		latest float64
 	)
 	arguments := append([]string{"-v", "error", "-f", "lavfi", "-i", speedTrialSource},
-		encoder.QualityArguments(speedTrialKbps, speedTrialHeight, "0")...)
+		encoder.QualityArguments(speedTrialKbps, speedTrialHeight, "0", DecodedOnCPU)...)
 	_, err := runner.RunWatched(ctx, execx.WatchedRun{
 		Access:    confine.Access{UsesGPU: encoder.UsesGPU()},
 		Arguments: append(arguments, "-f", "null", "-"),

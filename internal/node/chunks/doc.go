@@ -154,6 +154,17 @@
 //     finished; the refusal says where the run read from and first cut. Enforced by
 //     TestMake_NeverMakesAChunkOfAFileNotCutAtItsBounds and
 //     TestMake_ACopiedSoundWhoseFilmsFirstChunkStartsLateDropsWhatIsBeforeIt.
+//   - On VAAPI a quality of a codec FFmpeg decodes through VAAPI is decoded and scaled on the GPU
+//     first (encode.Encoder.DecodesOnGPU; the owner, 2026-11-27), its command line the CPU's but for
+//     the decode's options and the filter, so its chunks start, are timed and are cut where the CPU's
+//     are. When FFmpeg itself fails on it, as at the first picture of one the card cannot decode, the
+//     video decodes on the CPU for the node's life, and a run that made no chunk is made again at once
+//     on the CPU, exactly as before; a stall or a stop is not. Every run of a quality says where it
+//     was decoded. Enforced by TestArguments_AQualityDecodedOnTheGPUDiffersOnlyInItsDecodeAndItsFilter,
+//     TestMake_AQualityTheCardCannotDecodeIsMadeAgainDecodedOnTheCPU,
+//     TestMake_ARunDecodedOnTheGPUThatFailedAfterAChunkIsNotMadeAgain,
+//     TestMake_AStoppedOrStalledRunOnTheGPUIsNotMadeAgain and TestMake_WhereARunsPictureIsDecoded.
+//     That a real card's chunks are the CPU's in size, shape and time is VQ421's.
 //   - A run not of a run's shape is refused before anything is made. Enforced by
 //     TestMake_RefusesARunNotOfARunsShape.
 //   - What is not a raw file of the muxer's is refused, never read past its end. Enforced by

@@ -40,6 +40,7 @@ User-Agent (D263; the User-Agent is logged only).
 
 | Symptom | Entry |
 |---|---|
+| On a VAAPI node a quality run logged `decodedOn=cpu`, or ran twice, once failing at its first picture with "Impossible to convert between the formats". | [FFmpeg falls back to decoding on the CPU without a word when a VAAPI card cannot decode a picture](#ffmpeg-falls-back-to-decoding-on-the-cpu-without-a-word-when-a-vaapi-card-cannot-decode-a-picture) |
 | Production stopped downloading posters a moment after it started: TMDB's image server "down", never back, though the host reached it. | [TMDB's CDN serves some images with no Content-Type](#tmdbs-cdn-serves-some-images-with-no-content-type) |
 | Back in the browser on a phone after another app: a moment of the page, about 7 s of black, then drawn again; a film page said a failure the app does not expect. | [A phone freezes a page in the background, and hands it back with its WebRTC connection still saying connected](#a-phone-freezes-a-page-in-the-background-and-hands-it-back-with-its-webrtc-connection-still-saying-connected) |
 | On a phone in the player, about half the taps on the film paused it, though a touch's click was meant to do nothing there. | [Some mobile browsers give a tap's click a mouse's pointerType, or none](#some-mobile-browsers-give-a-taps-click-a-mouses-pointertype-or-none) |
@@ -3893,6 +3894,38 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   VAAPI encode against an unconfined one.
 - **Evidence:** "amd", 2026-10-23 (VQ52): 240 decoded frames identical; hiding `amdgpu.ids` from an
   unconfined run gave the confined run's bytes exactly.
+
+
+### FFmpeg falls back to decoding on the CPU without a word when a VAAPI card cannot decode a picture
+
+- **Cause:** with `-hwaccel vaapi -hwaccel_output_format vaapi`, FFmpeg's `ff_get_format`
+  (`libavcodec/decode.c`, 8.1) tries the VAAPI decoder and, when the card's driver offers no
+  profile for the picture's codec (`vaapi_decode.c`, "No support for codec … profile", at error
+  level) or FFmpeg has no VAAPI decoder for the codec at all (`libavcodec/hwaccels.h`: AV1, H.263,
+  H.264, HEVC, MJPEG, MPEG-2, MPEG-4 part 2, VC-1, WMV3, VP8, VP9, VVC), logs "Format vaapi not
+  usable, retrying get_format() without it" at debug level only and decodes on the CPU. The run
+  goes on, and nothing at the default level says which way it decoded. `hwupload` passes a picture
+  already on the card through in its own hardware context (`vf_hwupload.c`, "pass through the
+  input frames"), so a filter chain ending `format=nv12|vaapi,hwupload` would take either, and hide
+  the fallback; `scale_vaapi` takes only pictures on the card (`vaapi_vpp.c` query formats), so a
+  chain without the upload fails at its first picture when the decode fell back ("Impossible to
+  convert between the formats supported by the filter").
+- **Also:** `scale_vaapi` reckons a `-2` width and the output's sample aspect ratio with the CPU
+  `scale`'s own code (`ff_scale_eval_dimensions`, `ff_scale_adjust_dimensions`, and
+  `av_mul_q({out_h·in_w, out_w·in_h}, in_sar)`), so the two paths make the same size and shape. One
+  difference stays: fftools crops a decoded picture itself (`ffmpeg_dec.c`, `av_frame_apply_cropping`),
+  and on a picture on the card only its right and bottom crop shrink it, its top and left kept as
+  crop fields that `scale_vaapi` applies; a stream cropped at its top or left (rare: an SPS crop is
+  almost always the bottom rows of 1088) could reckon its `-2` width from a different input size.
+  `setpts` works on pictures on the card (`AVFILTER_FLAG_METADATA_ONLY`, all formats).
+- **What we do:** a VAAPI node decodes a quality on the GPU only for a codec FFmpeg has a VAAPI
+  decoder for (`encode.Encoder.DecodesOnGPU`), with no upload in the chain, so a fallback fails the
+  run rather than hiding; the maker then marks the file to decode on the CPU and makes the run again
+  at once on the CPU, exactly as before (`chunks.Maker.Make`), and each run's log line says
+  `decodedOn=gpu|cpu` (the owner, 2026-11-27).
+- **Evidence:** FFmpeg 8.1.3's source, read 2026-11-27; the speed on production's Celeron J3455,
+  HEVC Main 10 at 1080p, 2.65 times real time decoded on the CPU and 5.94 on the GPU, at 432p 3.09
+  and 11.4, on a tenth of the CPU (2026-11-27). No card here to see the failure line itself: VQ421.
 
 
 ### FFmpeg takes any protocol it doesn't know as local for a network one, and reads forward rather than seek

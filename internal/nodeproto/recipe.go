@@ -22,8 +22,9 @@ const (
 	PictureRecipe = 1
 	// QualityRecipe is an encoded quality's, on every encoder, counted from the core's encodeRecipe
 	// "sourceTimeBase" (D392 §3). 2 starts an encode's times at its first picture, so its keyframes
-	// fall where the segment muxer cuts on a film whose picture starts after its sound (file 1282).
-	QualityRecipe = 2
+	// fall where the segment muxer cuts on a film whose picture starts after its sound (file 1282). 3
+	// decodes and scales a VAAPI node's picture on the GPU where the card can (encode.Decoding).
+	QualityRecipe = 3
 	// SoundRecipe is a sound's, a track's mix encoded as stereo AAC, its gaps filled (D533 §1).
 	SoundRecipe = 1
 	// SoundCopiedRecipe is a track's sound copied as it is (D368 §1).

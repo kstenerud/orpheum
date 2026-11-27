@@ -51,6 +51,57 @@ const startAtZero = "setpts=PTS-STARTPTS"
 // vaapiUpload converts a picture to NV12 and uploads it to the card, which h264_vaapi encodes from.
 const vaapiUpload = "format=nv12,hwupload"
 
+// Decoding is where an encode's picture is decoded and scaled: on the CPU, as every encode's was, or
+// on the GPU, the picture kept on the card from the decoder to the encoder.
+type Decoding string
+
+// The places an encode's picture is decoded, as a run's log line names them (decodedOn).
+const (
+	DecodedOnCPU Decoding = "cpu"
+	DecodedOnGPU Decoding = "gpu"
+)
+
+// vaapiDecodes is whether codec, by the name FFmpeg's probe gives it, is one the pinned FFmpeg (8.1)
+// has a VAAPI decoder for (its libavcodec/hwaccels.h); a card decodes those of them its driver
+// offers, at the profiles it offers.
+func vaapiDecodes(codec string) bool {
+	switch codec {
+	case "av1", "h263", "h264", "hevc", "mjpeg", "mpeg2video", "mpeg4", "vc1", "vp8", "vp9", "vvc", "wmv3":
+		return true
+	}
+	return false
+}
+
+// DecodesOnGPU is whether an encode of a picture in codec is first tried decoded and scaled on the
+// GPU it is encoded on: on VAAPI, of a codec FFmpeg decodes through it. Kept on the card, an HEVC
+// Main 10 picture at 1080p encoded at 5.94 times real time on production's Celeron J3455, not 2.65
+// decoded and scaled on its four cores, and at 432p at 11.4, not 3.09, on a tenth of the CPU (the
+// owner, 2026-11-27: "We should be using the hardware available to us for as much as we can").
+// Quick Sync's, NVENC's and x264's encodes decode on the CPU as before.
+func (encoder Encoder) DecodesOnGPU(codec string) bool {
+	return encoder == EncoderVAAPI && vaapiDecodes(codec)
+}
+
+// DecodeArguments are an encode's input options, before its film: decoded on the GPU, by VAAPI on
+// the run's device (vaapiDevice), each picture left on the card; none on the CPU. Where the card
+// cannot open the decoder for the picture's codec or profile, FFmpeg decodes on the CPU by itself
+// and hands the filter a picture in memory, which scale_vaapi cannot take: the run fails at its first
+// picture, and the maker runs it again decoded on the CPU (internal/node/chunks, idiosyncrasies.md).
+func (encoder Encoder) DecodeArguments(decoding Decoding) []string {
+	if encoder != EncoderVAAPI || decoding != DecodedOnGPU {
+		return nil
+	}
+	return []string{"-hwaccel", "vaapi", "-hwaccel_device", "va", "-hwaccel_output_format", "vaapi"}
+}
+
+// vaapiScale scales a picture on the card to height lines with its shape and makes it NV12, 8-bit,
+// as h264_vaapi takes it, reckoning a -2 width and the sample aspect ratio as the CPU's scale does
+// (FFmpeg's ff_scale_eval_dimensions and ff_scale_adjust_dimensions), so a picture decoded on the GPU
+// comes out the size and shape of one decoded on the CPU (idiosyncrasies.md).
+func vaapiScale(height int) string {
+	return "scale_vaapi=w=-2:h=" + strconv.Itoa(height) + ":format=nv12"
+}
+
 // UsesGPU is whether an encode with it opens the GPU, which its confinement must grant.
 func (encoder Encoder) UsesGPU() bool { return encoder != EncoderX264 }
 
@@ -58,7 +109,9 @@ func (encoder Encoder) UsesGPU() bool { return encoder != EncoderX264 }
 // at kbps, its peak at most 1.5 times that, scaled to height with the source's shape, and keyframes
 // at keyframesAt, a list of seconds from its first picture, and nowhere else, so its chunks cut where
 // the copied picture's do (slow-links.md §10). Its times start at its first picture (startAtZero).
-func (encoder Encoder) QualityArguments(kbps, height int, keyframesAt string) []string {
+// On VAAPI a picture decoded on the GPU (DecodeArguments) is scaled there by vaapiScale, and one
+// decoded on the CPU is scaled on the CPU and uploaded; the other encoders take one decoded on the CPU.
+func (encoder Encoder) QualityArguments(kbps, height int, keyframesAt string, decoding Decoding) []string {
 	rate := func(kbps int) string { return strconv.Itoa(kbps) + "k" }
 	scale := startAtZero + ",scale=-2:" + strconv.Itoa(height)
 	rates := []string{
@@ -66,8 +119,12 @@ func (encoder Encoder) QualityArguments(kbps, height int, keyframesAt string) []
 		"-g", "100000", "-force_key_frames", keyframesAt,
 	}
 	if encoder == EncoderVAAPI {
-		// It has no preset, and the scaled picture reaches it uploaded rather than in a pixel format.
-		return slices.Concat(vaapiDevice(), []string{codecFlag, "h264_vaapi", "-vf", scale + "," + vaapiUpload}, rates)
+		// It has no preset, and the scaled picture reaches it on the card rather than in a pixel format.
+		filter := scale + "," + vaapiUpload
+		if decoding == DecodedOnGPU {
+			filter = startAtZero + "," + vaapiScale(height)
+		}
+		return slices.Concat(vaapiDevice(), []string{codecFlag, "h264_vaapi", "-vf", filter}, rates)
 	}
 	codec, preset, pixelFormat, extra := "libx264", "veryfast", "yuv420p", []string{"-sc_threshold", "0"}
 	switch encoder {
@@ -149,7 +206,7 @@ func tryEncoder(ctx context.Context, runner TrialRunner, encoder Encoder) error 
 	defer cancel()
 	arguments := append([]string{
 		"-v", "error", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=25:duration=1",
-	}, encoder.QualityArguments(trialKbps, trialHeight, "0")...)
+	}, encoder.QualityArguments(trialKbps, trialHeight, "0", DecodedOnCPU)...)
 	arguments = append(arguments, "-f", "null", "-")
 	err := runner.RunStreaming(ctx, execx.FFmpeg, confine.Access{UsesGPU: true}, arguments, io.Discard)
 	if err != nil {

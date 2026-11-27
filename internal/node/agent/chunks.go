@@ -8,6 +8,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/node/encode"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -15,9 +16,12 @@ import (
 )
 
 // ChunkMaker makes a run of chunks of one stream of a film, telling onChunk each as it is in its
-// store, and returns the last it made, or -1; chunks.Maker is the real one.
+// store, and returns the last it made, or -1, and where a quality's picture was decoded (""
+// for a run that decodes none); chunks.Maker is the real one.
 type ChunkMaker interface {
-	Make(ctx context.Context, source execx.Film, command nodeproto.MakeChunks, onChunk func(n int)) (int, error)
+	Make(
+		ctx context.Context, source execx.Film, command nodeproto.MakeChunks, onChunk func(n int),
+	) (int, encode.Decoding, error)
 	// StretchOf is the stretch of its film the run reads, to which the film's long index is cut down
 	// (execx.OpenedFilm.Stretch, D512).
 	StretchOf(command nodeproto.MakeChunks) execx.Stretch
@@ -62,12 +66,15 @@ func (agent *Agent) chunksWork(
 type chunksRunTimes struct {
 	startedAt, openedAt, firstChunkAt time.Time
 	isIndexCutDown                    bool
+	// decodedOn is where a quality's picture was decoded, once its run has ended.
+	decodedOn encode.Decoding
 }
 
 // chunksRunFigures are a run's numbers for its log line: the chunks it made, the film they span and
 // the wall time it took, both in ms, its speed as film made per wall time (6.2 is 6.2 times real
 // time), how long it took to open its film and to make its first chunk, the time between them
-// FFmpeg's to its first output, and whether its film's index was cut down (D512). Whether a run
+// FFmpeg's to its first output, whether its film's index was cut down (D512), and, for a quality,
+// where its picture was decoded (decodedOn: gpu or cpu, chunks.Maker.Make). Whether a run
 // keeps ahead of a player who seeks into it was found only by reading the code
 // (playback-in-practice.md §3, 2026-10-06).
 func (agent *Agent) chunksRunFigures(
@@ -91,6 +98,9 @@ func (agent *Agent) chunksRunFigures(
 	}
 	if times.isIndexCutDown {
 		figures = append(figures, "indexCutDown", true)
+	}
+	if times.decodedOn != "" {
+		figures = append(figures, "decodedOn", string(times.decodedOn))
 	}
 	return figures
 }
@@ -127,7 +137,8 @@ func (agent *Agent) runChunks(
 		running.ChunksMadeThrough = &n
 		agent.sayProgress(ctx, nodeID, running)
 	}
-	last, err := agent.workers.ChunkMaker.Make(ctx, source, command, onChunk)
+	last, decodedOn, err := agent.workers.ChunkMaker.Make(ctx, source, command, onChunk)
+	times.decodedOn = decodedOn
 	switch stall := stallOf(err); {
 	case errors.Is(err, prepared.ErrNoRoom):
 		noRoom := refused(err)

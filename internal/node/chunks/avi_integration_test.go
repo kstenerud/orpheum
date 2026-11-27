@@ -198,7 +198,7 @@ func TestMake_AnAVIsSoundInterleavedAheadOfItsPictureIsAtItsTimesFromTheFilmsSta
 			Kind: nodeproto.StreamSound, SoundKbps: 128, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
 		},
 	}
-	if last, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); err != nil || last != 2 {
+	if last, _, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); err != nil || last != 2 {
 		t.Fatalf("the run made through %d, %v", last, err)
 	}
 	inFilm := toneOnset(t, runner, source)

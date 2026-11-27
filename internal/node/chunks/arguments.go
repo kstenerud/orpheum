@@ -339,8 +339,11 @@ func encodeStartDecodeTimes() []string {
 }
 
 // Arguments is FFmpeg's command line for one run, after execx's hardening flags: the source film, the
-// run's raw directory, where the segment muxer writes, and the node's encoder.
-func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, encoder encode.Encoder) []string {
+// run's raw directory, where the segment muxer writes, the node's encoder, and where a quality's
+// picture is decoded (encode.Encoder.DecodesOnGPU; the CPU for every other run).
+func Arguments(
+	source execx.Film, rawPath string, command nodeproto.MakeChunks, encoder encode.Encoder, decoding encode.Decoding,
+) []string {
 	arguments := []string{"-v", "error", "-nostats"}
 	if command.Stream.Kind == nodeproto.StreamSoundCopied {
 		arguments = append(arguments, "-copyts", "-start_at_zero")
@@ -352,6 +355,9 @@ func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, 
 	if isRetimed(command) && command.Stream.Kind == nodeproto.StreamQuality {
 		// The picture's stream alone, by its index: a cover picture beside it is no H.264 or HEVC.
 		arguments = append(arguments, "-bsf:"+strconv.Itoa(command.VideoStreamIndex), encodeRetimingFilters)
+	}
+	if command.Stream.Kind == nodeproto.StreamQuality {
+		arguments = append(arguments, encoder.DecodeArguments(decoding)...)
 	}
 	arguments = append(arguments, source.Input()...)
 	switch command.Stream.Kind {
@@ -370,7 +376,8 @@ func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, 
 	case nodeproto.StreamQuality:
 		arguments = append(arguments, "-map", "0:"+strconv.Itoa(command.VideoStreamIndex))
 		arguments = append(arguments,
-			encoder.QualityArguments(command.Stream.BitRateKbps, command.Stream.Height, keyframeTimes(command))...)
+			encoder.QualityArguments(command.Stream.BitRateKbps, command.Stream.Height, keyframeTimes(command),
+				decoding)...)
 		arguments = append(arguments, encodeTimeBase()...)
 		arguments = append(arguments, encodeCutTimes()...)
 		arguments = append(arguments, encodeStartDecodeTimes()...)

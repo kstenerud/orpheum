@@ -14,6 +14,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/node/disc"
 	"github.com/kstenerud/orpheum/internal/node/disc/disctest"
+	"github.com/kstenerud/orpheum/internal/node/encode"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -33,14 +34,14 @@ type filmRecordingChunkMaker struct{ films chan filmSeen }
 
 func (maker filmRecordingChunkMaker) Make(
 	ctx context.Context, source execx.Film, command nodeproto.MakeChunks, _ func(n int),
-) (int, error) {
+) (int, encode.Decoding, error) {
 	seen := filmSeen{film: source}
 	if source.Stream != nil {
 		seen.contents = make([]byte, source.Size)
 		seen.readErr = source.Stream.Source.ReadAt(ctx, seen.contents, 0)
 	}
 	maker.films <- seen
-	return command.FirstChunk, nil
+	return command.FirstChunk, "", nil
 }
 
 // On a node whose FFmpeg reads through it, a run is served the very file the node opened and checked

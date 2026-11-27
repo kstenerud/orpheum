@@ -97,8 +97,8 @@ func TestChooseEncoder_AnAMDCardEncodesThroughVAAPIAfterQuickSyncAndNVENC(t *tes
 // times and nowhere else, as every encoder's (D332, D247 §6).
 func TestQualityArguments_OnVAAPIScaleThenUploadWithTheChunksKeyframes(t *testing.T) {
 	t.Parallel()
-	vaapi := encode.EncoderVAAPI.QualityArguments(1500, 480, "0,1.5,4")
-	x264 := encode.EncoderX264.QualityArguments(1500, 480, "0,1.5,4")
+	vaapi := encode.EncoderVAAPI.QualityArguments(1500, 480, "0,1.5,4", encode.DecodedOnCPU)
+	x264 := encode.EncoderX264.QualityArguments(1500, 480, "0,1.5,4", encode.DecodedOnCPU)
 	if got := after(vaapi, "-vf"); got != "setpts=PTS-STARTPTS,scale=-2:480,format=nv12,hwupload" {
 		t.Errorf("a VAAPI quality's filter is %q, want its times from its first picture, the scale, then the upload",
 			got)
@@ -117,14 +117,59 @@ func TestQualityArguments_OnVAAPIScaleThenUploadWithTheChunksKeyframes(t *testin
 	}
 }
 
+// A chunk's quality on VAAPI decoded on the GPU is decoded on the run's device with each picture
+// left on the card, and scaled there to the same -2 width, made 8-bit NV12, with no upload; its
+// rates and keyframes are the same as decoded on the CPU (the owner, 2026-11-27).
+func TestQualityArguments_OnVAAPIDecodedOnTheGPUScaleOnTheCard(t *testing.T) {
+	t.Parallel()
+	onGPU := encode.EncoderVAAPI.QualityArguments(1500, 480, "0,1.5,4", encode.DecodedOnGPU)
+	onCPU := encode.EncoderVAAPI.QualityArguments(1500, 480, "0,1.5,4", encode.DecodedOnCPU)
+	if got := after(onGPU, "-vf"); got != "setpts=PTS-STARTPTS,scale_vaapi=w=-2:h=480:format=nv12" {
+		t.Errorf("a quality decoded on the GPU is filtered %q; want its times from its first picture, then "+
+			"scaled on the card to NV12", got)
+	}
+	at := slices.Index(onGPU, "-vf")
+	cpuAt := slices.Index(onCPU, "-vf")
+	if !slices.Equal(onGPU[:at], onCPU[:cpuAt]) || !slices.Equal(onGPU[at+2:], onCPU[cpuAt+2:]) {
+		t.Errorf("decoded on the GPU %q, on the CPU %q; want them to differ only in the filter", onGPU, onCPU)
+	}
+	if got := encode.EncoderVAAPI.DecodeArguments(encode.DecodedOnGPU); !slices.Equal(got, []string{
+		"-hwaccel", "vaapi", "-hwaccel_device", "va", "-hwaccel_output_format", "vaapi",
+	}) {
+		t.Errorf("a VAAPI decode's input options are %q; want VAAPI on the run's device, kept on the card", got)
+	}
+	for _, encoder := range []encode.Encoder{
+		encode.EncoderX264, encode.EncoderQuickSync, encode.EncoderNVENC, encode.EncoderVAAPI,
+	} {
+		if got := encoder.DecodeArguments(encode.DecodedOnCPU); got != nil {
+			t.Errorf("%s decoding on the CPU has input options %q; want none", encoder, got)
+		}
+	}
+	for _, encoder := range []encode.Encoder{encode.EncoderX264, encode.EncoderQuickSync, encode.EncoderNVENC} {
+		if got := encoder.DecodeArguments(encode.DecodedOnGPU); got != nil {
+			t.Errorf("%s has GPU decode options %q; want none, as only VAAPI decodes on the GPU", encoder, got)
+		}
+		if !slices.Equal(encoder.QualityArguments(1500, 480, "0,4", encode.DecodedOnGPU),
+			encoder.QualityArguments(1500, 480, "0,4", encode.DecodedOnCPU)) {
+			t.Errorf("%s's quality changes with where it is decoded; want it untouched", encoder)
+		}
+	}
+	if got := after(encode.EncoderX264.QualityArguments(1500, 480, "0,4", encode.DecodedOnCPU), "-vf"); got !=
+		"setpts=PTS-STARTPTS,scale=-2:480" {
+		t.Errorf("x264's filter is %q; want it as before", got)
+	}
+}
+
 // A chunk's forced keyframes are IDR pictures on every encoder that needs a flag for it, as a chunk
 // can start only on one (Quick Sync's lacked it, 2026-10-23).
 func TestQualityArguments_ForcedKeyframesAreIDRsOnQuickSyncAndNVENC(t *testing.T) {
 	t.Parallel()
-	if got := after(encode.EncoderQuickSync.QualityArguments(1500, 480, "0,4"), "-forced_idr"); got != "1" {
+	if got := after(encode.EncoderQuickSync.QualityArguments(1500, 480, "0,4", encode.DecodedOnCPU),
+		"-forced_idr"); got != "1" {
 		t.Errorf("Quick Sync's -forced_idr is %q, want 1", got)
 	}
-	if got := after(encode.EncoderNVENC.QualityArguments(1500, 480, "0,4"), "-forced-idr"); got != "1" {
+	if got := after(encode.EncoderNVENC.QualityArguments(1500, 480, "0,4", encode.DecodedOnCPU),
+		"-forced-idr"); got != "1" {
 		t.Errorf("NVENC's -forced-idr is %q, want 1", got)
 	}
 }

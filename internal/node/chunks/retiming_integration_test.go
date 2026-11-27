@@ -105,7 +105,7 @@ func (fixture retimingFixture) makeTwoRuns(
 			VideoStreamIndex: 0, VideoCodec: fixture.codec, Stream: stream, StoreDir: storeDir, FirstChunk: first,
 			BoundsMs: grid[first : first+4], NeedsPictureRetiming: isMarked,
 		}
-		last, err := fixture.maker.Make(t.Context(), execx.Film{Path: fixture.source}, command, nil)
+		last, _, err := fixture.maker.Make(t.Context(), execx.Film{Path: fixture.source}, command, nil)
 		if err != nil || last != first+2 {
 			t.Fatalf("%s %s: the run from %d made through %d, %v", fixture.codec, stream.Kind, first, last, err)
 		}
@@ -236,7 +236,7 @@ func TestMake_ARetimedCopyIsCutAtAKeyframeShownSoonerThanItsFirst(t *testing.T) 
 		StoreDir: "1/chunks-picture/0123456789abcdef", FirstChunk: 1, BoundsMs: grid[1:5],
 		NeedsPictureRetiming: true,
 	}
-	last, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil)
+	last, _, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil)
 	if err != nil || last != 3 {
 		t.Errorf("a re-timed copy of chunks 1–3, on keyframes at %v ms, made through %d, %v; want 3", grid[1:5],
 			last, err)

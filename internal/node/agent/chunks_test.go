@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/node/encode"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/namedfile"
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
@@ -31,18 +32,18 @@ type fakeChunkMaker struct{}
 
 func (fakeChunkMaker) Make(
 	ctx context.Context, _ execx.Film, command nodeproto.MakeChunks, onChunk func(n int),
-) (int, error) {
+) (int, encode.Decoding, error) {
 	switch {
 	case strings.Contains(command.StoreDir, "panicking"):
 		panic("a box shorter than its header")
 	case strings.Contains(command.StoreDir, "slow"):
 		onChunk(command.FirstChunk)
 		<-ctx.Done()
-		return command.FirstChunk, ctx.Err()
+		return command.FirstChunk, "", ctx.Err()
 	case strings.Contains(command.StoreDir, "full"):
-		return -1, fmt.Errorf("make %s: %w", command.StoreDir, prepared.ErrNoRoom)
+		return -1, "", fmt.Errorf("make %s: %w", command.StoreDir, prepared.ErrNoRoom)
 	case strings.Contains(command.StoreDir, "stalled"):
-		return -1, fmt.Errorf("make %s: %w", command.StoreDir, errStalled)
+		return -1, "", fmt.Errorf("make %s: %w", command.StoreDir, errStalled)
 	}
 	last := command.FirstChunk + len(command.BoundsMs) - 2
 	if strings.Contains(command.StoreDir, "failing") {
@@ -52,9 +53,9 @@ func (fakeChunkMaker) Make(
 		onChunk(n)
 	}
 	if strings.Contains(command.StoreDir, "failing") {
-		return last, errors.New("ffmpeg: Invalid data found when processing input")
+		return last, "", errors.New("ffmpeg: Invalid data found when processing input")
 	}
-	return last, nil
+	return last, "", nil
 }
 
 // sendMakeChunks sends the core's command to make chunks as job.
@@ -164,8 +165,9 @@ func TestAgent_AJobThatPanicsSaysSoAndTheNodeGoesOn(t *testing.T) {
 }
 
 // pacedChunkMaker makes every chunk of the run in turn, each taking chunkTakes of its clock, and
-// ends; a run of a store named "...failing..." fails after its first chunk, and one named
-// "...waiting..." waits after its first chunk until it is stopped.
+// ends; a run of a store named "...failing..." fails after its first chunk, one named
+// "...waiting..." waits after its first chunk until it is stopped, and one named "...gpu..." says its
+// picture was decoded on the GPU (decodedOnOf).
 type pacedChunkMaker struct {
 	clock      *clocktest.Fake
 	chunkTakes time.Duration
@@ -173,20 +175,29 @@ type pacedChunkMaker struct {
 
 func (maker pacedChunkMaker) Make(
 	ctx context.Context, _ execx.Film, command nodeproto.MakeChunks, onChunk func(n int),
-) (int, error) {
+) (int, encode.Decoding, error) {
 	last := command.FirstChunk + len(command.BoundsMs) - 2
 	for chunk := command.FirstChunk; chunk <= last; chunk++ {
 		maker.clock.Advance(maker.chunkTakes)
 		onChunk(chunk)
 		switch {
 		case strings.Contains(command.StoreDir, "failing"):
-			return chunk, errors.New("ffmpeg: Invalid data found when processing input")
+			return chunk, "", errors.New("ffmpeg: Invalid data found when processing input")
 		case strings.Contains(command.StoreDir, "waiting"):
 			<-ctx.Done()
-			return chunk, ctx.Err()
+			return chunk, "", ctx.Err()
 		}
 	}
-	return last, nil
+	return last, decodedOnOf(command), nil
+}
+
+// decodedOnOf is where a paced run says its picture was decoded: on the GPU for a store named
+// "...gpu...", and nowhere, as a run decoding no picture says, otherwise.
+func decodedOnOf(command nodeproto.MakeChunks) encode.Decoding {
+	if strings.Contains(command.StoreDir, "gpu") {
+		return encode.DecodedOnGPU
+	}
+	return ""
 }
 
 // checkLogLine fails the test unless line holds every one of parts.
@@ -201,8 +212,8 @@ func checkLogLine(t *testing.T, line string, parts ...string) {
 
 // A run of chunks, however it ends, is logged with the chunks it made, the film they span, the wall
 // time it took, its speed, the time to open its film and to its first chunk: whether a run keeps
-// ahead of a player who seeks into it (playback-in-practice.md §3), and how much of its start is
-// FFmpeg's (D512).
+// ahead of a player who seeks into it (playback-in-practice.md §3), how much of its start is
+// FFmpeg's (D512), and, for a quality, where its picture was decoded.
 func TestAgent_ARunOfChunksIsLoggedWithTheFilmItMadeAndHowFast(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
@@ -235,6 +246,9 @@ func TestAgent_ARunOfChunksIsLoggedWithTheFilmItMadeAndHowFast(t *testing.T) {
 		`"storeDir":"1/chunks-picture/0123456789abcdef"`, `"firstChunk":4,`, `"lastChunk":6,`, `"chunksMade":3,`,
 		`"filmMadeMs":6000,`, `"wallTimeMs":1800,`, `"speed":3.3,`, `"filmOpenedAfterMs":0,`,
 		`"firstChunkAfterMs":600`)
+	if line := logs.AwaitEvent(t, "chunkRunFinished"); strings.Contains(line, "decodedOn") {
+		t.Errorf("a run decoding no picture logged %s; want no decodedOn", line)
+	}
 	core.sendMakeChunks(2, run("1/chunks-failing/0123456789abcdef"))
 	receiveChunksReport(t, core)
 	checkLogLine(t, logs.AwaitEvent(t, "chunkRunFailed"), `"level":"WARN"`,
@@ -251,6 +265,10 @@ func TestAgent_ARunOfChunksIsLoggedWithTheFilmItMadeAndHowFast(t *testing.T) {
 	checkLogLine(t, logs.AwaitEvent(t, "chunkRunCancelled"), `"jobId":3,`,
 		`"storeDir":"1/chunks-waiting/0123456789abcdef"`, `"lastChunk":4,`, `"chunksMade":1,`,
 		`"filmMadeMs":2000,`, `"wallTimeMs":600,`, `"firstChunkAfterMs":600`)
+	// A quality says where its picture was decoded.
+	core.sendMakeChunks(5, run("1/chunks-gpu/0123456789abcdef"))
+	receiveChunksReport(t, core)
+	logs.AwaitEvent(t, "chunkRunFinished", `"jobId":5,`, `"decodedOn":"gpu"`)
 }
 
 // Each run of chunks after a seek opens the same unchanged film; the payload hashes the node shares

@@ -33,6 +33,13 @@
 //     TestQualityArguments_OnVAAPIScaleThenUploadWithTheChunksKeyframes and
 //     TestQualityArguments_ForcedKeyframesAreIDRsOnQuickSyncAndNVENC.
 //
+//   - On VAAPI a quality of a codec FFmpeg decodes through VAAPI may be decoded and scaled on the GPU,
+//     the picture kept on the card (the owner, 2026-11-27): decoded by VAAPI on the run's device and
+//     scaled by scale_vaapi to the same -2 width, as NV12, with no upload, its rates, keyframes and
+//     everything else the same as decoded on the CPU; decoded on the CPU, every encoder's quality is
+//     as before, and Quick Sync, NVENC and x264 never decode on the GPU. Enforced by
+//     TestQualityArguments_OnVAAPIDecodedOnTheGPUScaleOnTheCard.
+//
 //   - A track with a centre has a standard and a boosted stereo mix, one without its one mix, each
 //     carrying the track's levelling gain (D217 §3, D226 §4). Enforced by
 //     TestMixFilter_ATrackWithACentreHasAStandardAndABoostedMix and

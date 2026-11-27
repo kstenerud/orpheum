@@ -106,8 +106,8 @@ func TestMake_PutsEachChunkAtItsTimeAsFFmpegFinishesIt(t *testing.T) {
 	}
 	maker, shelf, directory := makerOver(t, fake)
 	var told []int
-	last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command,
-		func(n int) { told = append(told, n) })
+	last, err := lastOf(maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command,
+		func(n int) { told = append(told, n) }))
 	if err != nil || last != 12 {
 		t.Fatalf("the run made through %d, %v; want 12", last, err)
 	}
@@ -153,8 +153,8 @@ func TestMake_DropsACopiedPicturesLeadIn(t *testing.T) {
 	}
 	maker, shelf, directory := makerOver(t, fake)
 	var told []int
-	last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mkv"}, command,
-		func(n int) { told = append(told, n) })
+	last, err := lastOf(maker.Make(t.Context(), execx.Film{Path: "/films/a.mkv"}, command,
+		func(n int) { told = append(told, n) }))
 	if err != nil || last != 12 || !slices.Equal(told, []int{10, 11, 12}) {
 		t.Fatalf("the run made through %d, telling %v, %v; want 10, 11, 12", last, told, err)
 	}
@@ -191,8 +191,8 @@ func TestMake_ACopiedPictureIsLedInFromAChunkAtTheFilmsStart(t *testing.T) {
 	}
 	maker, shelf, directory := makerOver(t, fake)
 	var told []int
-	last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mkv"}, command,
-		func(n int) { told = append(told, n) })
+	last, err := lastOf(maker.Make(t.Context(), execx.Film{Path: "/films/a.mkv"}, command,
+		func(n int) { told = append(told, n) }))
 	if err != nil || last != 2 || !slices.Equal(told, []int{1, 2}) {
 		t.Fatalf("the run made through %d, telling %v, %v; want 1 and 2, led in from chunk 0", last, told, err)
 	}
@@ -223,7 +223,7 @@ func TestMake_TimesASoundBySamplesAfterItsLeadIn(t *testing.T) {
 		numbers: []int{9, 10, 11},
 	}
 	maker, shelf, directory := makerOver(t, fake)
-	if _, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil); err != nil {
+	if _, err := lastOf(maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil)); err != nil {
 		t.Fatal(err)
 	}
 	if shelf.HasFile(command.StoreDir, ChunkName(9)) {
@@ -262,7 +262,8 @@ func TestMake_TimesACopiedSoundByItsListedEndInTheFilm(t *testing.T) {
 		},
 	}
 	maker, shelf, directory := makerOver(t, fake)
-	if last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil); err != nil || last != 12 {
+	if last, err := lastOf(maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil)); err != nil ||
+		last != 12 {
 		t.Fatalf("the run made through %d, %v; want chunk 12", last, err)
 	}
 	if shelf.HasFile(command.StoreDir, ChunkName(9)) {
@@ -293,7 +294,8 @@ func TestMake_TimesACopiedSoundByItsListedEndInTheFilm(t *testing.T) {
 		spans: map[int]string{0: "0.000000,2.005333"},
 	}
 	maker, _, directory = makerOver(t, fromStart)
-	if last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, first, nil); err != nil || last != 0 {
+	if last, err := lastOf(maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, first, nil)); err != nil ||
+		last != 0 {
 		t.Fatalf("the run from the start made through %d, %v; want chunk 0", last, err)
 	}
 	if got, want := storedDecodeTime(t, directory, first.StoreDir, 0), uint64(TimelineOffsetMs*48-1); got != want {
@@ -322,7 +324,8 @@ func TestMake_ACopiedSoundWhoseFilmsFirstChunkStartsLateDropsWhatIsBeforeIt(t *t
 		spans:   map[int]string{0: "0.000000,10.197167", 1: "10.197167,12.266500", 2: "12.266500,22.527167"},
 	}
 	maker, shelf, directory := makerOver(t, fake)
-	if last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil); err != nil || last != 1 {
+	if last, err := lastOf(maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil)); err != nil ||
+		last != 1 {
 		t.Fatalf("the run made through %d, %v; want chunk 1", last, err)
 	}
 	for chunk, end := range map[int]struct {
@@ -343,7 +346,7 @@ func TestMake_ACopiedSoundWhoseFilmsFirstChunkStartsLateDropsWhatIsBeforeIt(t *t
 		numbers: []int{0}, spans: map[int]string{0: "0.000000,12.266500"},
 	}
 	maker, shelf, _ = makerOver(t, whole)
-	last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil)
+	last, err := lastOf(maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil))
 	isSaid := err != nil && strings.Contains(err.Error(), "read from 0 ms, its first cut at 10.176 s")
 	if last != -1 || !errors.Is(err, errNotHeld) || !isSaid {
 		t.Errorf("a raw file of the film from its start to chunk 0's end made through %d, %v; want none, saying "+
@@ -364,7 +367,7 @@ func TestMake_AFailedRunKeepsWhatItFinished(t *testing.T) {
 		err:     errors.New("Invalid data found when processing input"),
 	}
 	maker, shelf, _ := makerOver(t, fake)
-	last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil)
+	last, err := lastOf(maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil))
 	if err == nil || last != 10 || !shelf.HasFile(command.StoreDir, ChunkName(10)) {
 		t.Errorf("a failed run made through %d, %v; want chunk 10 kept and the failure said", last, err)
 	}
@@ -380,7 +383,7 @@ func TestMake_FFmpegWritesOnlyInItsStoreInsideThePreparedDirectory(t *testing.T)
 	command := run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 300, Height: 96})
 	fake := &fakeFFmpeg{}
 	maker, _, directory := makerOver(t, fake)
-	if _, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil); err != nil {
+	if _, err := lastOf(maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil)); err != nil {
 		t.Fatal(err)
 	}
 	store := filepath.Join(directory, command.StoreDir)
@@ -404,7 +407,7 @@ func TestMake_FFmpegWritesOnlyInItsStoreInsideThePreparedDirectory(t *testing.T)
 		hostile.StoreDir = storeDir
 		fake := &fakeFFmpeg{}
 		maker, _, directory := makerOver(t, fake)
-		_, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, hostile, nil)
+		_, err := lastOf(maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, hostile, nil))
 		if !errors.Is(err, ErrBadRun) {
 			t.Errorf("the store %q: %v, want it refused", storeDir, err)
 		}
@@ -437,7 +440,7 @@ func TestMake_RefusesARunNotOfARunsShape(t *testing.T) {
 	} {
 		fake := &fakeFFmpeg{}
 		maker, _, directory := makerOver(t, fake)
-		_, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil)
+		_, err := lastOf(maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil))
 		if !errors.Is(err, ErrBadRun) {
 			t.Errorf("%s: %v, want it refused", name, err)
 		}
@@ -492,7 +495,7 @@ func TestMake_NeverMakesAChunkOfAFileNotCutAtItsBounds(t *testing.T) {
 		fake := &fakeFFmpeg{raw: picture(test.numbers...), numbers: test.numbers, spans: test.spans, err: test.err}
 		maker, shelf, _ := makerOver(t, fake)
 		command := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
-		last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mkv"}, command, nil)
+		last, err := lastOf(maker.Make(t.Context(), execx.Film{Path: "/films/a.mkv"}, command, nil))
 		if last != test.wantLast || (err != nil) != test.wantError {
 			t.Errorf("%s: the run made through %d, %v; want %d, failing %v", test.name, last, err, test.wantLast,
 				test.wantError)

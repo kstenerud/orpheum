@@ -191,7 +191,8 @@ func makeInTwoRunsOf(t *testing.T, maker *chunks.Maker, source string, grid []in
 		if (command.Stream.Kind.IsSound() || command.Stream.Kind == nodeproto.StreamPicture) && first > 0 {
 			command.LeadInMs, command.IsLedIn = grid[first-1], true
 		}
-		if last, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); err != nil || last != first+2 {
+		if last, _, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); err != nil ||
+			last != first+2 {
 			t.Fatalf("the run from %d made through %d, %v", first, last, err)
 		}
 	}
@@ -429,7 +430,7 @@ func TestMake_AnMPEGTSWhoseOnlyKeyframeIsItsFirstIsOneChunkMadeWhole(t *testing.
 		VideoStreamIndex: 0, VideoCodec: "h264", Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
 		StoreDir: storeDir, BoundsMs: []int64{0, 12_000},
 	}
-	if last, err := maker.Make(t.Context(), execx.Film{Path: transport}, command, nil); err != nil || last != 0 {
+	if last, _, err := maker.Make(t.Context(), execx.Film{Path: transport}, command, nil); err != nil || last != 0 {
 		t.Fatalf("the run made through %d, %v; want its one chunk", last, err)
 	}
 	stored := packetSizes(t, runner, joined(t, filepath.Join(directory, storeDir), 1), "0")
@@ -501,7 +502,7 @@ func TestMake_ACopiedSoundOfAFilmWhoseGridStartsPastItsStartIsCutAtItsFirstChunk
 		{Stream: stream, StoreDir: storeDir, FirstChunk: 2, BoundsMs: grid[2:], LeadInMs: grid[1], IsLedIn: true},
 	} {
 		wantLast := command.FirstChunk + len(command.BoundsMs) - 2
-		last, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil)
+		last, _, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil)
 		if err != nil || last != wantLast {
 			t.Fatalf("the run from chunk %d made through %d, %v; want %d", command.FirstChunk, last, err, wantLast)
 		}
@@ -615,7 +616,7 @@ func TestMake_AnEncodeOfAFilmWithAGapAfterItsFirstPictureIsCutAtItsBounds(t *tes
 		VideoStreamIndex: 0, VideoCodec: "h264", StoreDir: storeDir, FirstChunk: 0, BoundsMs: grid[:4],
 		Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 400, Height: 360},
 	}
-	if last, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); err != nil || last != 2 {
+	if last, _, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); err != nil || last != 2 {
 		t.Fatalf("the run from the film's start made through %d, %v; want its three chunks", last, err)
 	}
 	var want int
@@ -673,7 +674,8 @@ func TestMake_AnEncodeOfAFilmWhosePictureStartsAfterItsSoundIsCutAtItsBounds(t *
 		VideoStreamIndex: 0, VideoCodec: "h264", StoreDir: storeDir, FirstChunk: 0, BoundsMs: grid,
 		Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 400, Height: 360},
 	}
-	if last, makeErr := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); makeErr != nil || last != 2 {
+	if last, _, makeErr := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); makeErr != nil ||
+		last != 2 {
 		t.Fatalf("the run from the film's start made through %d, %v; want its three chunks", last, makeErr)
 	}
 	shown := sourceTimes(t, runner, source, "v:0", false)
@@ -716,7 +718,8 @@ func TestMake_AnEncodeOfAFilmWithAGapAfterItsFirstPictureDecodesItAtItsShownTime
 		VideoStreamIndex: 0, VideoCodec: "h264", StoreDir: storeDir, FirstChunk: 0, BoundsMs: grid[:3],
 		Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 400, Height: 360},
 	}
-	if last, makeErr := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); makeErr != nil || last != 1 {
+	if last, _, makeErr := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); makeErr != nil ||
+		last != 1 {
 		t.Fatalf("the run from the film's start made through %d, %v; want its two chunks", last, makeErr)
 	}
 	storePath := filepath.Join(directory, storeDir)

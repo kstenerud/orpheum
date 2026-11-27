@@ -41,14 +41,14 @@ func run(stream nodeproto.ChunkStream) nodeproto.MakeChunks {
 func TestArguments_ReadTheRunsChunksAndCutAtEachAndAtTheEnd(t *testing.T) {
 	t.Parallel()
 	arguments := Arguments(execx.Film{Path: "/films/a.mp4"}, "/prepared/7/chunks-x/0123456789abcdef/raw-1",
-		run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}), encode.EncoderX264)
+		run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}), encode.EncoderX264, encode.DecodedOnCPU)
 	if start, end := valueOf(arguments, "-ss"), valueOf(arguments, "-to"); start != "98.799" || end != "122.581" {
 		t.Errorf("the run reads %s to %s, want from 50 ms before its keyframe, 98.799, to 122.581", start, end)
 	}
 	quality := Arguments(execx.Film{Path: "/a"}, "/r", run(nodeproto.ChunkStream{
 		Kind: nodeproto.StreamQuality, BitRateKbps: 1200,
 		Height: 480,
-	}), encode.EncoderX264)
+	}), encode.EncoderX264, encode.DecodedOnCPU)
 	if start := valueOf(quality, "-ss"); start != "98.849" {
 		t.Errorf("an encoded quality reads from %s, want its start, 98.849", start)
 	}
@@ -79,7 +79,7 @@ func TestArguments_ACopiedPictureIsLedInFromTheChunkBefore(t *testing.T) {
 	t.Parallel()
 	command := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
 	command.LeadInMs, command.IsLedIn = 88_839, true
-	arguments := Arguments(execx.Film{Path: "/films/a.mkv"}, "/r", command, encode.EncoderX264)
+	arguments := Arguments(execx.Film{Path: "/films/a.mkv"}, "/r", command, encode.EncoderX264, encode.DecodedOnCPU)
 	if start := valueOf(arguments, "-ss"); start != "88.789" {
 		t.Errorf("the run seeks to %s, want 50 ms before its lead-in's keyframe, 88.789", start)
 	}
@@ -98,7 +98,8 @@ func TestArguments_WriteNoTimecodeTrackBesideTheStream(t *testing.T) {
 	t.Parallel()
 	for _, kind := range []nodeproto.ChunkStreamKind{nodeproto.StreamPicture, nodeproto.StreamQuality} {
 		arguments := Arguments(execx.Film{Path: "/a"}, "/r",
-			run(nodeproto.ChunkStream{Kind: kind, BitRateKbps: 1200, Height: 480}), encode.EncoderX264)
+			run(nodeproto.ChunkStream{Kind: kind, BitRateKbps: 1200, Height: 480}), encode.EncoderX264,
+			encode.DecodedOnCPU)
 		if options := valueOf(arguments, "-segment_format_options"); !strings.Contains(options, "write_tmcd=0") {
 			t.Errorf("a %s run's raw files are written with %q; want no timecode track", kind, options)
 		}
@@ -111,7 +112,7 @@ func TestArguments_WriteNoTimecodeTrackBesideTheStream(t *testing.T) {
 func TestArguments_ACopiedPictureIsTimedFromItsFirstKeyframe(t *testing.T) {
 	t.Parallel()
 	transport := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
-	arguments := Arguments(execx.Film{Path: "/a.ts"}, "/r", transport, encode.EncoderX264)
+	arguments := Arguments(execx.Film{Path: "/a.ts"}, "/r", transport, encode.EncoderX264, encode.DecodedOnCPU)
 	if shift := valueOf(arguments, "-avoid_negative_ts"); shift != "make_zero" {
 		t.Errorf("the copy's times are shifted by %q; want make_zero", shift)
 	}
@@ -142,7 +143,7 @@ func TestArguments_ACopiedPictureStartsAtItsKeyframeWhereverItsSeekLands(t *test
 		"a Matroska's led in": {"/a.mkv", ledIn, "88.789"},
 		"an MPEG-TS's":        {"/a.ts", run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}), "98.799"},
 	} {
-		arguments := Arguments(execx.Film{Path: made.film}, "/r", made.command, encode.EncoderX264)
+		arguments := Arguments(execx.Film{Path: made.film}, "/r", made.command, encode.EncoderX264, encode.DecodedOnCPU)
 		seek := valueOf(arguments, "-ss")
 		if seek != made.seek || slices.Index(arguments, "-ss") > slices.Index(arguments, "-i") {
 			t.Errorf("%s run seeks its input to %q; want %s, 50 ms before its keyframe", name, seek, made.seek)
@@ -155,7 +156,7 @@ func TestArguments_ACopiedPictureStartsAtItsKeyframeWhereverItsSeekLands(t *test
 	}
 	fromTheStart := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
 	fromTheStart.FirstChunk, fromTheStart.BoundsMs = 0, []int64{0, 2_000, 4_000}
-	arguments := Arguments(execx.Film{Path: "/a.avi"}, "/r", fromTheStart, encode.EncoderX264)
+	arguments := Arguments(execx.Film{Path: "/a.avi"}, "/r", fromTheStart, encode.EncoderX264, encode.DecodedOnCPU)
 	if slices.Contains(arguments, "-ss") || slices.Contains(arguments, "-copypriorss:v") {
 		t.Errorf("a run from the film's start copies %q; want it read unsought and nothing dropped", arguments)
 	}
@@ -166,7 +167,8 @@ func TestArguments_TagACopiedHEVCPicture(t *testing.T) {
 	t.Parallel()
 	hevc := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
 	hevc.VideoCodec = "hevc"
-	if tag := valueOf(Arguments(execx.Film{Path: "/a"}, "/r", hevc, encode.EncoderX264), "-tag:v"); tag != "hvc1" {
+	if tag := valueOf(Arguments(execx.Film{Path: "/a"}, "/r", hevc, encode.EncoderX264, encode.DecodedOnCPU),
+		"-tag:v"); tag != "hvc1" {
 		t.Errorf("a copied HEVC picture is tagged %q, want hvc1", tag)
 	}
 }
@@ -176,7 +178,8 @@ func TestArguments_TagACopiedHEVCPicture(t *testing.T) {
 func TestArguments_EncodeAQualityWithKeyframesAtItsChunksStarts(t *testing.T) {
 	t.Parallel()
 	arguments := Arguments(execx.Film{Path: "/a"}, "/r",
-		run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 1200, Height: 480}), encode.EncoderX264)
+		run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 1200, Height: 480}), encode.EncoderX264,
+		encode.DecodedOnCPU)
 	if keyframes := valueOf(arguments, "-force_key_frames"); keyframes != "0.000,10.010,13.764" {
 		t.Errorf("the keyframes are at %s, want 0.000,10.010,13.764", keyframes)
 	}
@@ -200,14 +203,15 @@ func TestArguments_EncodeAQualityInItsSourcesTimeBase(t *testing.T) {
 		encode.EncoderX264, encode.EncoderQuickSync, encode.EncoderNVENC, encode.EncoderVAAPI,
 	} {
 		arguments := Arguments(execx.Film{Path: "/a.ts"}, "/r",
-			run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 1200, Height: 480}), encoder)
+			run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 1200, Height: 480}), encoder,
+			encode.DecodedOnCPU)
 		timeBase, rate := valueOf(arguments, "-enc_time_base:v"), valueOf(arguments, "-fps_mode:v")
 		if timeBase != "demux" || rate != "vfr" {
 			t.Errorf("%s encodes at time base %q, frame rate mode %q; want demux, vfr", encoder, timeBase, rate)
 		}
 	}
 	copied := Arguments(execx.Film{Path: "/a.ts"}, "/r", run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}),
-		encode.EncoderX264)
+		encode.EncoderX264, encode.DecodedOnCPU)
 	if slices.Contains(copied, "-enc_time_base:v") || slices.Contains(copied, "-fps_mode:v") {
 		t.Errorf("a copied picture is given an encoder's time base: %q", copied)
 	}
@@ -223,13 +227,14 @@ func TestArguments_EncodeAQualityCutAtItsKeyframesOwnTimes(t *testing.T) {
 		encode.EncoderX264, encode.EncoderQuickSync, encode.EncoderNVENC, encode.EncoderVAAPI,
 	} {
 		arguments := Arguments(execx.Film{Path: "/a.rm"}, "/r",
-			run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 400, Height: 360}), encoder)
+			run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 400, Height: 360}), encoder,
+			encode.DecodedOnCPU)
 		if shift := valueOf(arguments, "-avoid_negative_ts"); shift != "disabled" {
 			t.Errorf("%s's encode moves its times by %q before the muxer cuts them; want disabled", encoder, shift)
 		}
 	}
 	copied := Arguments(execx.Film{Path: "/a.rm"}, "/r", run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}),
-		encode.EncoderX264)
+		encode.EncoderX264, encode.DecodedOnCPU)
 	if shift := valueOf(copied, "-avoid_negative_ts"); shift != "make_zero" {
 		t.Errorf("a copied picture's times are moved by %q; want make_zero", shift)
 	}
@@ -248,7 +253,7 @@ func TestArguments_EncodeAQualityDecodingItsFirstPictureAtItsShownTime(t *testin
 		for _, isRetimed := range []bool{false, true} {
 			command := run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 400, Height: 360})
 			command.NeedsPictureRetiming = isRetimed
-			arguments := Arguments(execx.Film{Path: "/a.rm"}, "/r", command, encoder)
+			arguments := Arguments(execx.Film{Path: "/a.rm"}, "/r", command, encoder, encode.DecodedOnCPU)
 			filter, input := slices.Index(arguments, "-bsf:v"), slices.Index(arguments, "-i")
 			if filter < input || valueOf(arguments, "-bsf:v") != want {
 				t.Errorf("%s's encode (re-timed: %v) is %q; want its output's decode times filtered by %s",
@@ -257,7 +262,7 @@ func TestArguments_EncodeAQualityDecodingItsFirstPictureAtItsShownTime(t *testin
 		}
 	}
 	copied := Arguments(execx.Film{Path: "/a.rm"}, "/r", run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}),
-		encode.EncoderX264)
+		encode.EncoderX264, encode.DecodedOnCPU)
 	if strings.Contains(strings.Join(copied, " "), "STARTPTS-16") {
 		t.Errorf("a copied picture's decode times are moved: %q", copied)
 	}
@@ -289,7 +294,7 @@ func TestArguments_ReTimeAPictureWhoseBFramesCarryNoDisplayTimes(t *testing.T) {
 		kind, want := test.kind, test.want
 		marked := run(nodeproto.ChunkStream{Kind: kind, BitRateKbps: 1200, Height: 480})
 		marked.NeedsPictureRetiming, marked.VideoStreamIndex = true, 2
-		arguments := Arguments(execx.Film{Path: "/a"}, "/r", marked, encode.EncoderX264)
+		arguments := Arguments(execx.Film{Path: "/a"}, "/r", marked, encode.EncoderX264, encode.DecodedOnCPU)
 		filter, input := slices.Index(arguments, want[0]), slices.Index(arguments, "-i")
 		if filter < 0 || valueOf(arguments, want[0]) != want[1] {
 			t.Errorf("a marked %s run is %q; want it re-timed by %s %s", kind, arguments, want[0], want[1])
@@ -307,21 +312,22 @@ func TestArguments_ReTimeAPictureWhoseBFramesCarryNoDisplayTimes(t *testing.T) {
 		}
 
 		ordinary := run(nodeproto.ChunkStream{Kind: kind, BitRateKbps: 1200, Height: 480})
-		unmarked := Arguments(execx.Film{Path: "/a"}, "/r", ordinary, encode.EncoderX264)
+		unmarked := Arguments(execx.Film{Path: "/a"}, "/r", ordinary, encode.EncoderX264, encode.DecodedOnCPU)
 		if strings.Contains(strings.Join(unmarked, " "), "dts2pts") || valueOf(unmarked, "-to") != "122.581" {
 			t.Errorf("an ordinary %s run is %q; want it neither re-timed nor read past its end", kind, unmarked)
 		}
 	}
 	quality := run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 1200, Height: 480})
 	quality.NeedsPictureRetiming = true
-	keyframes := valueOf(Arguments(execx.Film{Path: "/a"}, "/r", quality, encode.EncoderX264), "-force_key_frames")
+	keyframes := valueOf(Arguments(execx.Film{Path: "/a"}, "/r", quality, encode.EncoderX264, encode.DecodedOnCPU),
+		"-force_key_frames")
 	if keyframes != "0.000,10.010,13.764,23.732" {
 		t.Errorf("a marked encode's keyframes are at %s, want 0.000,10.010,13.764,23.732: its chunks' starts "+
 			"and its end", keyframes)
 	}
 	sound := run(nodeproto.ChunkStream{Kind: nodeproto.StreamSound, Sound: &nodeproto.SoundTrack{}, SoundKbps: 96})
 	sound.NeedsPictureRetiming = true
-	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
+	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264, encode.DecodedOnCPU)
 	if strings.Contains(strings.Join(arguments, " "), "dts2pts") || valueOf(arguments, "-to") != "122.581" {
 		t.Errorf("a sound run is %q; want it neither re-timed nor read past its end", arguments)
 	}
@@ -337,7 +343,7 @@ func TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds(t *testing.T) {
 		Sound: &nodeproto.SoundTrack{AudioTrackIndex: 1, ChannelCount: 6},
 	})
 	sound.LeadInMs, sound.IsLedIn = 88_839, true
-	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
+	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264, encode.DecodedOnCPU)
 	if start := valueOf(arguments, "-ss"); start != "86.839" {
 		t.Errorf("the sound's decode starts at %s, want two seconds before its lead-in, 86.839", start)
 	}
@@ -358,7 +364,7 @@ func TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds(t *testing.T) {
 	// From chunk 1 of a film whose chunk 0 starts at its start, the lead-in is chunk 0, at 0 ms, read
 	// unsought, not lost for a lead-in of zero.
 	sound.FirstChunk, sound.BoundsMs, sound.LeadInMs = 1, []int64{10_480, 13_320, 14_320}, 0
-	arguments = Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
+	arguments = Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264, encode.DecodedOnCPU)
 	if slices.Contains(arguments, "-ss") || valueOf(arguments, "-segment_start_number") != "0" ||
 		valueOf(arguments, "-segment_times") != "10.480,13.320,14.320" {
 		t.Errorf("a sound from chunk 1 is %v; want it read from the film's start unsought, its lead-in raw "+
@@ -375,19 +381,19 @@ func TestArguments_AnInterleavedSoundSeeksTenSecondsEarlyAndNeverToTheStart(t *t
 		Kind: nodeproto.StreamSound, SoundKbps: 96, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
 	})
 	sound.LeadInMs, sound.IsLedIn, sound.IsSoundInterleaved = 88_839, true, true
-	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
+	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264, encode.DecodedOnCPU)
 	if start, filter := valueOf(arguments, "-ss"), valueOf(arguments, "-filter:a"); start != "78.839" ||
 		!strings.HasPrefix(filter, soundGapFill+",atrim=start=10.000,asetpts=PTS-STARTPTS,") {
 		t.Errorf("the sound decodes from %s filtered by %q; want from 78.839, dropping ten seconds", start, filter)
 	}
 	sound.LeadInMs, sound.IsLedIn, sound.FirstChunk, sound.BoundsMs = 0, false, 0, []int64{0, 3_236, 6_400}
-	arguments = Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
+	arguments = Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264, encode.DecodedOnCPU)
 	if slices.Contains(arguments, "-ss") || valueOf(arguments, "-to") != "6.400" ||
 		!strings.HasPrefix(valueOf(arguments, "-filter:a"), soundGapFill+",atrim=start=0.000,") {
 		t.Errorf("the film's first chunks' sound reads %v; want it read from the start unsought", arguments)
 	}
 	sound.BoundsMs = []int64{8_000, 11_000}
-	arguments = Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
+	arguments = Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264, encode.DecodedOnCPU)
 	if slices.Contains(arguments, "-ss") ||
 		!strings.HasPrefix(valueOf(arguments, "-filter:a"), soundGapFill+",atrim=start=8.000,") {
 		t.Errorf("a sound eight seconds in reads %v; want it read from the start unsought, dropping 8 s", arguments)
@@ -397,7 +403,7 @@ func TestArguments_AnInterleavedSoundSeeksTenSecondsEarlyAndNeverToTheStart(t *t
 		Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
 	})
 	copied.FirstChunk, copied.BoundsMs, copied.IsSoundInterleaved = 0, []int64{21, 3_236}, true
-	arguments = Arguments(execx.Film{Path: "/a"}, "/r", copied, encode.EncoderX264)
+	arguments = Arguments(execx.Film{Path: "/a"}, "/r", copied, encode.EncoderX264, encode.DecodedOnCPU)
 	if start := valueOf(arguments, "-ss"); start != "0.021" {
 		t.Errorf("a sound copied seeks to %q; want its run's start, 0.021, as any copy", start)
 	}
@@ -413,7 +419,7 @@ func TestArguments_ASoundNearTheFilmsStartDecodesFromItsStart(t *testing.T) {
 	})
 	sound.BoundsMs = []int64{1_500, 11_500}
 	sound.FirstChunk = 0
-	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
+	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264, encode.DecodedOnCPU)
 	if filter := valueOf(arguments, "-filter:a"); slices.Contains(arguments, "-ss") ||
 		!strings.HasPrefix(filter, soundGapFill+",atrim=start=1.500,asetpts=PTS-STARTPTS,") {
 		t.Errorf("the sound decodes from %q filtered by %q; want from the start unsought, dropping 1.500 s",
@@ -436,7 +442,7 @@ func TestArguments_NoRunSeeksToTheFilmsStart(t *testing.T) {
 	} {
 		command := run(stream)
 		command.FirstChunk, command.BoundsMs = 0, []int64{0, 2_000, 4_000}
-		arguments := Arguments(execx.Film{Path: "/a"}, "/r", command, encode.EncoderX264)
+		arguments := Arguments(execx.Film{Path: "/a"}, "/r", command, encode.EncoderX264, encode.DecodedOnCPU)
 		if slices.Contains(arguments, "-ss") || valueOf(arguments, "-to") != "4.000" {
 			t.Errorf("%s of the film's first chunks reads %q; want from the start unsought, to 4.000", name, arguments)
 		}
@@ -453,7 +459,7 @@ func TestArguments_CopyASoundAtItsTimesInTheFilmAndCutItAtTheBounds(t *testing.T
 		Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{AudioTrackIndex: 1, ChannelCount: 6},
 	})
 	copied.LeadInMs, copied.IsLedIn = 88_839, true
-	arguments := Arguments(execx.Film{Path: "/a"}, "/r", copied, encode.EncoderX264)
+	arguments := Arguments(execx.Film{Path: "/a"}, "/r", copied, encode.EncoderX264, encode.DecodedOnCPU)
 	if start := valueOf(arguments, "-ss"); start != "88.839" {
 		t.Errorf("the copy reads from %s, want its lead-in, 88.839", start)
 	}
@@ -494,7 +500,7 @@ func TestArguments_ACopiedSoundWhoseFilmsFirstChunkStartsLateIsLedInFromTheFilms
 		Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 6},
 	})
 	copied.FirstChunk, copied.BoundsMs = 0, []int64{10_176, 12_262, 22_522}
-	arguments := Arguments(execx.Film{Path: "/a"}, "/r", copied, encode.EncoderX264)
+	arguments := Arguments(execx.Film{Path: "/a"}, "/r", copied, encode.EncoderX264, encode.DecodedOnCPU)
 	if slices.Contains(arguments, "-ss") {
 		t.Errorf("the copy reads from %s, want the film's start, unsought", valueOf(arguments, "-ss"))
 	}
@@ -508,7 +514,7 @@ func TestArguments_ACopiedSoundWhoseFilmsFirstChunkStartsLateIsLedInFromTheFilms
 		Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
 	})
 	early.FirstChunk, early.BoundsMs = 0, []int64{21, 2_005}
-	arguments = Arguments(execx.Film{Path: "/a"}, "/r", early, encode.EncoderX264)
+	arguments = Arguments(execx.Film{Path: "/a"}, "/r", early, encode.EncoderX264, encode.DecodedOnCPU)
 	start, cuts := valueOf(arguments, "-ss"), valueOf(arguments, "-segment_times")
 	if start != "0.021" || cuts != "2.005" {
 		t.Errorf("a first chunk 21 ms in reads from %s and cuts at %s; want 0.021 and 2.005, no lead-in", start, cuts)
@@ -526,7 +532,7 @@ func TestArguments_ASoundWhoseFirstPacketIsStretchedIsReadThatMuchLater(t *testi
 		Kind: nodeproto.StreamSound, SoundKbps: 96, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
 	})
 	sound.LeadInMs, sound.IsLedIn, sound.SoundFirstPacketStretchMs = 88_839, true, 31_902
-	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
+	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264, encode.DecodedOnCPU)
 	if start, end := valueOf(arguments, "-ss"), valueOf(arguments, "-to"); start != "118.741" || end != "154.483" ||
 		!strings.HasPrefix(valueOf(arguments, "-filter:a"), soundGapFill+",atrim=start=2.000,asetpts=PTS-STARTPTS,") {
 		t.Errorf("the sound reads %v; want from 118.741 to 154.483, 31.902 s past the film's times, dropping 2 s",
@@ -536,7 +542,7 @@ func TestArguments_ASoundWhoseFirstPacketIsStretchedIsReadThatMuchLater(t *testi
 		t.Errorf("the run's stretch is %+v; want the file's, from 118.741 to 154.483 s", stretch)
 	}
 	sound.LeadInMs, sound.IsLedIn, sound.FirstChunk, sound.BoundsMs = 0, false, 0, []int64{0, 3_236, 6_400}
-	arguments = Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
+	arguments = Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264, encode.DecodedOnCPU)
 	if start, end := valueOf(arguments, "-ss"), valueOf(arguments, "-to"); start != "31.902" || end != "38.302" ||
 		!strings.HasPrefix(valueOf(arguments, "-filter:a"), soundGapFill+",atrim=start=0.000,") {
 		t.Errorf("the film's first chunks' sound reads %v; want from the stretch's end, 31.902, to 38.302", arguments)
@@ -547,7 +553,7 @@ func TestArguments_ASoundWhoseFirstPacketIsStretchedIsReadThatMuchLater(t *testi
 	} {
 		command := run(stream)
 		command.FirstChunk, command.BoundsMs, command.SoundFirstPacketStretchMs = 0, []int64{0, 2_000, 4_000}, 31_902
-		arguments := Arguments(execx.Film{Path: "/a"}, "/r", command, encode.EncoderX264)
+		arguments := Arguments(execx.Film{Path: "/a"}, "/r", command, encode.EncoderX264, encode.DecodedOnCPU)
 		if slices.Contains(arguments, "-ss") || valueOf(arguments, "-to") != "4.000" {
 			t.Errorf("%s of the film's first chunks reads %q; want from the start unsought, to 4.000", name, arguments)
 		}

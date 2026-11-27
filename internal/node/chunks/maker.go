@@ -79,11 +79,18 @@ type Maker struct {
 	keeper    Keeper
 	directory string
 	encoder   encode.Encoder
+
+	mutex sync.Mutex
+	// decodedOnCPU are the videos, by root and path, a run decoding on the GPU failed on: every later
+	// run of them decodes on the CPU, for the node's life. Guarded by mutex.
+	decodedOnCPU map[string]bool
 }
 
 // NewMaker returns a maker writing under directory, the prepared directory, encoding with encoder.
 func NewMaker(runner Runner, keeper Keeper, directory string, encoder encode.Encoder) *Maker {
-	return &Maker{runner: runner, keeper: keeper, directory: directory, encoder: encoder}
+	return &Maker{
+		runner: runner, keeper: keeper, directory: directory, encoder: encoder, decodedOnCPU: map[string]bool{},
+	}
 }
 
 // check refuses a run that is not of a run's shape before anything is made.
@@ -133,20 +140,81 @@ func mayBeLedIn(kind nodeproto.ChunkStreamKind) bool {
 }
 
 // Make makes the run's chunks of source, a film the caller has checked, in order, telling onChunk
-// each one as it is in its store, and returns the last it made, or -1 for none. A chunk is in the
-// store whole and at its time in the film once told; a run that fails or is stopped keeps the chunks
-// it made.
+// each one as it is in its store, and returns the last it made, or -1 for none, and where a quality's
+// picture was decoded ("" for a run that decodes none). A chunk is in the store whole and at its time
+// in the film once told; a run that fails or is stopped keeps the chunks it made.
+//
+// A quality the node's encoder decodes on the GPU (encode.Encoder.DecodesOnGPU) is first made so.
+// When FFmpeg fails on it, as it does at the first picture of one the card cannot decode
+// (encode.Encoder.DecodeArguments), the video is decoded on the CPU from then on, and a run that made
+// no chunk is made again at once, decoded on the CPU exactly as every quality was before. A stall is
+// not retried: it is the film's or the disk's, not the decoder's.
 func (maker *Maker) Make(
 	ctx context.Context, source execx.Film, command nodeproto.MakeChunks, onChunk func(n int),
-) (int, error) {
+) (int, encode.Decoding, error) {
 	if err := check(command); err != nil {
-		return -1, err
+		return -1, "", err
 	}
 	if err := maker.keeper.MakeRoom(ctx); err != nil {
-		return -1, fmt.Errorf("make chunks of %s: %w", command.StoreDir, err)
+		return -1, "", fmt.Errorf("make chunks of %s: %w", command.StoreDir, err)
 	}
 	finishWriting := maker.keeper.MarkWriting(command.StoreDir)
 	defer finishWriting()
+	decoding := maker.decodingOf(command)
+	last, err := maker.makeRun(ctx, source, command, onChunk, decoding)
+	if decoding == encode.DecodedOnGPU && isDecodeFailure(ctx, err) {
+		maker.decodeOnCPU(command)
+		if last < 0 {
+			decoding = encode.DecodedOnCPU
+			last, err = maker.makeRun(ctx, source, command, onChunk, decoding)
+		}
+	}
+	if command.Stream.Kind != nodeproto.StreamQuality {
+		decoding = ""
+	}
+	return last, decoding, err
+}
+
+// videoKey names a run's video in decodedOnCPU: its root and its path.
+func videoKey(command nodeproto.MakeChunks) string {
+	return command.Video.RootPath + "\x00" + string(command.Video.Path)
+}
+
+// decodingOf is where a run's picture is decoded: on the GPU for a quality the encoder decodes there,
+// unless a run decoding the video there failed; otherwise on the CPU.
+func (maker *Maker) decodingOf(command nodeproto.MakeChunks) encode.Decoding {
+	if command.Stream.Kind != nodeproto.StreamQuality || !maker.encoder.DecodesOnGPU(command.VideoCodec) {
+		return encode.DecodedOnCPU
+	}
+	maker.mutex.Lock()
+	defer maker.mutex.Unlock()
+	if maker.decodedOnCPU[videoKey(command)] {
+		return encode.DecodedOnCPU
+	}
+	return encode.DecodedOnGPU
+}
+
+// decodeOnCPU has every later run of the command's video decode on the CPU.
+func (maker *Maker) decodeOnCPU(command nodeproto.MakeChunks) {
+	maker.mutex.Lock()
+	defer maker.mutex.Unlock()
+	maker.decodedOnCPU[videoKey(command)] = true
+}
+
+// isDecodeFailure is whether a run's err is FFmpeg's own failure, exiting of itself while the run was
+// wanted: not a stall, a stop, or a failure of the node's.
+func isDecodeFailure(ctx context.Context, err error) bool {
+	var failure *execx.RunError
+	var stalled *execx.StalledError
+	return ctx.Err() == nil && errors.As(err, &failure) && failure.ExitStatus > 0 && !errors.As(err, &stalled)
+}
+
+// makeRun runs FFmpeg once for the run, its picture decoded as decoding says, in a raw directory of
+// its own, and makes what it finishes into chunks.
+func (maker *Maker) makeRun(
+	ctx context.Context, source execx.Film, command nodeproto.MakeChunks, onChunk func(n int),
+	decoding encode.Decoding,
+) (int, error) {
 	rawPath, err := maker.keeper.OpenStore(ctx, nodeproto.StoreManifest{
 		StoreDir: command.StoreDir, Video: command.Video, Stream: command.Stream,
 	})
@@ -166,7 +234,7 @@ func (maker *Maker) Make(
 	}
 	_, runErr := maker.runner.RunWatched(ctx, execx.WatchedRun{
 		Access:    confine.Access{Read: source.Readable(), Write: []string{storePath}, UsesGPU: isOnGPU},
-		Arguments: Arguments(source, rawPath, command, maker.encoder),
+		Arguments: Arguments(source, rawPath, command, maker.encoder, decoding),
 		Watch:     watch,
 		Film:      source.Stream,
 	})
