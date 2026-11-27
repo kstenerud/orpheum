@@ -8,7 +8,9 @@ import {
   backgroundChangeWaits,
   changingWaitsPoller,
   clientWaits,
+  backingOffPoller,
   nextWaitMs,
+  pollerUntil,
   pollUntilStopped,
 } from "./polling.ts";
 
@@ -103,6 +105,26 @@ describe("polling (D237)", () => {
     stop();
     sendFailuresTo(() => undefined);
     vi.restoreAllMocks();
+  });
+
+  it("asks until it is done, then asks nothing and ends its poll for good (trickplay.md §5)", async () => {
+    vi.useFakeTimers();
+    const every = { firstMs: 30_000, longestMs: 30_000, failedMs: 30_000 };
+    let asked = 0;
+    let isDone = false;
+    const stop = pollerUntil(backingOffPoller(every), () => isDone).start((answered) => {
+      asked += 1;
+      answered("changed");
+    });
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(asked).toBe(2);
+    isDone = true;
+    await vi.advanceTimersByTimeAsync(30_000);
+    isDone = false; // a poll that was done does not start again
+    await vi.advanceTimersByTimeAsync(90_000);
+    expect(asked).toBe(2);
+    expect(vi.getTimerCount()).toBe(0);
+    stop();
   });
 
   it("waits as the server's client settings say, D237's waits until they are read", () => {

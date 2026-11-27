@@ -143,6 +143,32 @@ export function shownAndEveryPoller(
 }
 
 /**
+ * poller, until isDone: an ask due once isDone says so asks nothing and ends the poll for good, as a
+ * list read again only until it is whole (a film's scrub-bar pictures, trickplay.md §5).
+ */
+export function pollerUntil(poller: Poller, isDone: () => boolean): Poller {
+  return {
+    start: (ask) => {
+      let isStopped = false;
+      const end = (): void => {
+        if (!isStopped) {
+          isStopped = true;
+          stop();
+        }
+      };
+      const stop = poller.start((answered, signal) => {
+        if (isDone()) {
+          end();
+          return;
+        }
+        ask(answered, signal);
+      });
+      return end;
+    },
+  };
+}
+
+/**
  * The wait before the next ask, after lastWaitMs and what the last ask came to. Only an unchanged
  * answer backs off: a failure is no answer, and a screen open while the server restarts asks again
  * after the failed wait each time, so it shows the server's answer soon after it is up (D237).

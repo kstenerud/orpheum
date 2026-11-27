@@ -4,15 +4,24 @@
  * A film's scrub-bar pictures (trickplay.md §5, phase F3): the pictures its nodes made, every
  * interval of the film, in sheets of columns × rows, which a timeline shows above itself at the
  * place pointed at, dragged to or stepped to (Timeline). They are read as the player opens
- * (GET /files/{id}/trickplay), and their sheets loaded only once the film has started playing, so
+ * (GET /files/{id}/trickplay) and, while not every sheet is made, again as the film plays
+ * (scrubPicturesReadAgainEveryMs); their sheets are loaded only once the film has started playing, so
  * they never compete with its first seconds of buffering; over WebRTC each sheet waits on the
  * cosmetic rung besides, below the film's bytes (rungOf, D479). A film with none made, or a stretch
  * whose sheet is not made yet, shows the time alone, as before.
  */
 
-import { readScrubPictures, type ScrubPictures } from "@orpheum/sdk";
-import { createContext, useEffect, type Context, type CSSProperties, type JSX } from "react";
+import { readScrubPictures, reportFailure, type ScrubPictures } from "@orpheum/sdk";
+import {
+  createContext,
+  useEffect,
+  useMemo,
+  type Context,
+  type CSSProperties,
+  type JSX,
+} from "react";
 
+import { pollerUntil, shownAndEveryPoller, type Poller } from "./polling.ts";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
 
@@ -79,18 +88,94 @@ export function ScrubPicture(props: {
 const noPictures = null;
 
 /**
- * The scrub-bar pictures of fileId, read as the player opens; undefined while they are read, where
- * none is made, and where fileId is undefined (a cast's receiver). Their sheets are loaded once
- * video first plays, or at once where there is no video here (the cast remote: the film plays on
- * the television), so a sheet never holds back the film's first seconds.
+ * How often an open player asks again for its film's pictures while not every sheet is made: the
+ * node makes them in the background, a sheet at a time, so a film opened before they are gains them
+ * as it plays (the owner, 2026-11-27).
+ */
+export const scrubPicturesReadAgainEveryMs = 30_000;
+
+/**
+ * The poller of a film's pictures: every scrubPicturesReadAgainEveryMs while the page shows and as
+ * it is shown again, one ask at a time, none while it is hidden; a read that failed is asked again
+ * at the next time due, not at once.
+ */
+const scrubPicturesPoller = shownAndEveryPoller(scrubPicturesReadAgainEveryMs);
+
+/**
+ * Whether every sheet pictures' count, columns and rows call for is made, so asking again would find
+ * nothing more. A list that calls for none is whole.
+ */
+export function isEverySheetMade(pictures: ScrubPictures): boolean {
+  const perSheet = pictures.columns * pictures.rows;
+  if (perSheet <= 0 || pictures.pictureCount <= 0) {
+    return true;
+  }
+  const calledFor = Math.ceil(pictures.pictureCount / perSheet);
+  const made = new Set(
+    pictures.sheets.map((sheet) => sheet.index).filter((index) => index >= 0 && index < calledFor),
+  );
+  return made.size >= calledFor;
+}
+
+/** One film's reads of its pictures: the last it read, and the poller asking until it is whole. */
+interface PicturesReading {
+  readonly keep: (pictures: ScrubPictures) => void;
+  readonly kept: () => ScrubPictures | undefined;
+  readonly poller: Poller | undefined;
+}
+
+/** The reads of fileId's pictures; none asked again where there is no film (a cast's receiver). */
+function picturesReading(fileId: number | undefined): PicturesReading {
+  let last: ScrubPictures | undefined;
+  const poller =
+    fileId === undefined
+      ? undefined
+      : pollerUntil(scrubPicturesPoller, () => last !== undefined && isEverySheetMade(last));
+  return {
+    keep: (pictures) => {
+      last = pictures;
+    },
+    kept: () => last,
+    poller,
+  };
+}
+
+/**
+ * The scrub-bar pictures of fileId, read as the player opens and again every
+ * scrubPicturesReadAgainEveryMs until every sheet is made (isEverySheetMade) or the player closes;
+ * undefined while they are read, where none is made, and where fileId is undefined (a cast's
+ * receiver), which asks nothing. A read that fails keeps the pictures read before it. Their sheets
+ * are loaded once video first plays, or at once where there is no video here (the cast remote: the
+ * film plays on the television), so a sheet never holds back the film's first seconds.
  */
 export function useScrubPictures(
   fileId: number | undefined,
   video: HTMLVideoElement | null | "elsewhere",
 ): ScrubPictures | undefined {
   const { api } = useServices();
-  const [read] = useResource(`trickplay/${String(fileId ?? 0)}`, async () =>
-    fileId === undefined ? noPictures : ((await readScrubPictures(api, fileId)) ?? noPictures),
+  const reading = useMemo(() => picturesReading(fileId), [fileId]);
+  const [read] = useResource(
+    `trickplay/${String(fileId ?? 0)}`,
+    async () => {
+      if (fileId === undefined) {
+        return noPictures;
+      }
+      try {
+        const pictures = (await readScrubPictures(api, fileId)) ?? noPictures;
+        if (pictures !== noPictures) {
+          reading.keep(pictures);
+        }
+        return pictures;
+      } catch (cause) {
+        const last = reading.kept();
+        if (last === undefined) {
+          throw cause;
+        }
+        reportFailure(cause);
+        return last;
+      }
+    },
+    { poller: reading.poller },
   );
   const pictures = read.state === "loaded" && read.value !== null ? read.value : undefined;
   useSheetsLoadedOncePlaying(pictures, video);
