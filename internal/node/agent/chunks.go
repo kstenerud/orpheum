@@ -40,12 +40,16 @@ func (agent *Agent) chunksWork(
 			ends := agent.workers.SpeedTrials.ChunksRunStarts()
 			defer ends()
 		}
+		ended := agent.runsGoing.starts()
+		defer ended() // a run that panics is beside no later one
 		times := chunksRunTimes{startedAt: agent.clock.Now()}
 		report := agent.runChunks(jobCtx, nodeID, held, command, &times)
+		made := agent.madeIn(command, report, times)
+		withSpeedFigures(&report, command, made, times, ended())
 		run := append([]any{
 			"jobId", jobID, "storeDir", command.StoreDir, "firstChunk", command.FirstChunk,
 			"lastChunk", report.LastChunk,
-		}, agent.chunksRunFigures(command, report, times)...)
+		}, chunksRunFigures(made, times)...)
 		switch {
 		case jobCtx.Err() != nil && ctx.Err() == nil:
 			agent.logger.InfoContext(ctx, "a run of chunks was cancelled",
@@ -74,6 +78,45 @@ type chunksRunTimes struct {
 	decodedOn encode.Decoding
 }
 
+// runMade is what a run of chunks made: its chunks, the film they span and the wall time it took,
+// both in ms.
+type runMade struct {
+	chunks             int
+	filmMs, wallTimeMs int64
+}
+
+// madeIn is what the run of command made, as its report says, by now.
+func (agent *Agent) madeIn(
+	command nodeproto.MakeChunks, report nodeproto.MakeChunksReport, times chunksRunTimes,
+) runMade {
+	made := runMade{
+		chunks:     max(report.LastChunk-command.FirstChunk+1, 0),
+		wallTimeMs: agent.clock.Now().Sub(times.startedAt).Milliseconds(),
+	}
+	if made.chunks > 0 && made.chunks < len(command.BoundsMs) {
+		made.filmMs = command.BoundsMs[made.chunks] - command.BoundsMs[0]
+	}
+	return made
+}
+
+// withSpeedFigures puts a run of a quality's figures in its report, for the core to judge its node's
+// speed by (start-quality-by-node-speed.md §3): its speed, the film it made, where its picture was
+// decoded and whether another run went beside it. A run of another stream, or one that made no film,
+// carries none.
+func withSpeedFigures(
+	report *nodeproto.MakeChunksReport, command nodeproto.MakeChunks, made runMade, times chunksRunTimes,
+	wasBeside bool,
+) {
+	if command.Stream.Kind != nodeproto.StreamQuality || made.filmMs <= 0 || made.wallTimeMs <= 0 {
+		return
+	}
+	report.SpeedPercent = int(made.filmMs * realTimePercent / made.wallTimeMs)
+	report.FilmMadeMs, report.DecodedOn, report.WasBesideAnotherRun = made.filmMs, string(times.decodedOn), wasBeside
+}
+
+// realTimePercent is real time in percent: a run's speed is its film over its wall time, by it.
+const realTimePercent = 100
+
 // chunksRunFigures are a run's numbers for its log line: the chunks it made, the film they span and
 // the wall time it took, both in ms, its speed as film made per wall time (6.2 is 6.2 times real
 // time), how long it took to open its film and to make its first chunk, the time between them
@@ -81,18 +124,10 @@ type chunksRunTimes struct {
 // where its picture was decoded (decodedOn: gpu or cpu, chunks.Maker.Make). Whether a run
 // keeps ahead of a player who seeks into it was found only by reading the code
 // (playback-in-practice.md §3, 2026-10-06).
-func (agent *Agent) chunksRunFigures(
-	command nodeproto.MakeChunks, report nodeproto.MakeChunksReport, times chunksRunTimes,
-) []any {
-	chunksMade := max(report.LastChunk-command.FirstChunk+1, 0)
-	var filmMadeMs int64
-	if chunksMade > 0 && chunksMade < len(command.BoundsMs) {
-		filmMadeMs = command.BoundsMs[chunksMade] - command.BoundsMs[0]
-	}
-	wallTimeMs := agent.clock.Now().Sub(times.startedAt).Milliseconds()
-	figures := []any{"chunksMade", chunksMade, "filmMadeMs", filmMadeMs, "wallTimeMs", wallTimeMs}
-	if filmMadeMs > 0 && wallTimeMs > 0 {
-		figures = append(figures, "speed", math.Round(float64(filmMadeMs)/float64(wallTimeMs)*10)/10)
+func chunksRunFigures(made runMade, times chunksRunTimes) []any {
+	figures := []any{"chunksMade", made.chunks, "filmMadeMs", made.filmMs, "wallTimeMs", made.wallTimeMs}
+	if made.filmMs > 0 && made.wallTimeMs > 0 {
+		figures = append(figures, "speed", math.Round(float64(made.filmMs)/float64(made.wallTimeMs)*10)/10)
 	}
 	if !times.openedAt.IsZero() {
 		figures = append(figures, "filmOpenedAfterMs", times.openedAt.Sub(times.startedAt).Milliseconds())

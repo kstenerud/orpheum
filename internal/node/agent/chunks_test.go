@@ -271,6 +271,56 @@ func TestAgent_ARunOfChunksIsLoggedWithTheFilmItMadeAndHowFast(t *testing.T) {
 	logs.AwaitEvent(t, "chunkRunFinished", `"jobId":5,`, `"decodedOn":"gpu"`)
 }
 
+// A run of a quality tells the core with its report how fast it made its film, how much it made,
+// where its picture was decoded and whether another run went beside it at any time while it did; a
+// run of another stream carries none of it (start-quality-by-node-speed.md §3).
+func TestAgent_ARunOfAQualityReportsItsSpeedAndWhetherAnotherRunWentBesideIt(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	clock := clocktest.NewFake(time.Date(2026, 11, 27, 12, 0, 0, 0, time.UTC))
+	root, _ := startAgentWithWorkers(t, socket, Workers{
+		ChunkMaker: pacedChunkMaker{clock: clock, chunkTakes: 600 * time.Millisecond},
+	}, func(node *Agent) { node.clock = clock })
+	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	video := nodeproto.BytesFile{
+		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: nodetest.PayloadHashHex(t, "a film"),
+	}
+	run := func(storeDir string, kind nodeproto.ChunkStreamKind) nodeproto.MakeChunks {
+		return nodeproto.MakeChunks{
+			Video: video, StoreDir: storeDir, FirstChunk: 4, BoundsMs: []int64{8000, 10000, 12000, 14000},
+			Stream: nodeproto.ChunkStream{Kind: kind, BitRateKbps: 3000, Height: 720},
+		}
+	}
+	// Three chunks of two seconds each in 1.8 s: 333 % of real time.
+	core.sendMakeChunks(1, run("1/chunks-q3000k720p-gpu/0123456789abcdef", nodeproto.StreamQuality))
+	alone := nodeproto.MakeChunksReport{
+		State: nodeproto.RunDone, LastChunk: 6, SpeedPercent: 333, FilmMadeMs: 6000, DecodedOn: "gpu",
+	}
+	if report := receiveChunksReport(t, core); report != alone {
+		t.Errorf("a quality's run alone reported %+v; want %+v", report, alone)
+	}
+	core.sendMakeChunks(2, run("1/chunks-picture/0123456789abcdef", nodeproto.StreamPicture))
+	if report := receiveChunksReport(t, core); report != (nodeproto.MakeChunksReport{
+		State: nodeproto.RunDone, LastChunk: 6,
+	}) {
+		t.Errorf("a copied picture's run reported %+v; want no figures", report)
+	}
+	core.sendMakeChunks(3, run("1/chunks-waiting/0123456789abcdef", nodeproto.StreamPicture))
+	for {
+		if progress := testutil.Receive(t, core.progress, "job 3's first chunk"); progress.JobID == 3 &&
+			progress.ChunksMadeThrough != nil {
+			break
+		}
+	}
+	core.sendMakeChunks(4, run("1/chunks-q3000k720p/0123456789abcdef", nodeproto.StreamQuality))
+	if report := receiveChunksReport(t, core); !report.WasBesideAnotherRun || report.SpeedPercent != 333 {
+		t.Errorf("a quality's run beside another reported %+v; want it beside another, at 333 %%", report)
+	}
+	core.commands <- nodeproto.Command{CommandSeq: 5, JobID: 3, Work: nodeproto.Work{Type: nodeproto.CommandCancel}}
+}
+
 // Each run of chunks after a seek opens the same unchanged film; the payload hashes the node shares
 // with its byte socket remember its hash, so it is hashed once, not at every run (audit N4).
 func TestAgent_RunsOfAnUnchangedFilmHashItOnceInTheHashesTheNodeShares(t *testing.T) {

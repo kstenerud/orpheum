@@ -32,7 +32,11 @@ func (agent *Agent) trickplayWork(
 			return nodeproto.Result{Trickplay: &nodeproto.TrickplayResult{Stall: &stall}}
 		},
 		makeAnswer: func(jobCtx context.Context) (nodeproto.Result, string) {
-			answer := agent.makeTrickplay(jobCtx, nodeID, held, command)
+			answer := func() nodeproto.TrickplayResult {
+				// A run of a quality beside it is no fair measure of its node's speed.
+				defer agent.runsGoing.starts()()
+				return agent.makeTrickplay(jobCtx, nodeID, held, command)
+			}()
 			return nodeproto.Result{Trickplay: &answer}, answer.Refusal + answer.Failure + stallDetail(answer.Stall)
 		},
 	})

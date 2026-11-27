@@ -190,8 +190,11 @@ type Agent struct {
 	clock   clock.Clock
 	logger  *slog.Logger
 
-	work  *workList
-	ended *endedAttempts
+	work *workList
+	// runsGoing are the runs of chunks and of trickplay going, which tells a run of a quality whether
+	// another went beside it (start-quality-by-node-speed.md §3).
+	runsGoing runsGoing
+	ended     *endedAttempts
 	// stuckReads are the readings the node answered as stalled that have not ended.
 	stuckReads stuckReads
 	// diskGate is the gate every reading of a root goes through, one stuck at most on each (diskwatch).

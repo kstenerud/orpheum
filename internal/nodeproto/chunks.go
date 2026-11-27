@@ -102,6 +102,18 @@ type MakeChunksReport struct {
 	Refusal     string      `json:"refusal,omitempty"`
 	RefusalCode RefusalCode `json:"refusalCode,omitempty"`
 	Stall       *Stall      `json:"stall,omitempty"`
+	// SpeedPercent, FilmMadeMs and DecodedOn are a run of a quality's figures, which the core keeps
+	// to judge its node's speed by (design/plans/start-quality-by-node-speed.md §3): the film it made
+	// over the run's whole time, in percent of real time; the film it made, in ms; and where its
+	// picture was decoded, "gpu" or "cpu". Zero and empty for a run of another stream, and for one
+	// that made nothing.
+	SpeedPercent int    `json:"speedPercent,omitempty"`
+	FilmMadeMs   int64  `json:"filmMadeMs,omitempty"`
+	DecodedOn    string `json:"decodedOn,omitempty"`
+	// WasBesideAnotherRun says another run went on the node at some time while this one did: a run of
+	// chunks of any stream, or a video's trickplay. Only a run alone on its node is a fair measure of
+	// it (§3).
+	WasBesideAnotherRun bool `json:"wasBesideAnotherRun,omitempty"`
 }
 
 // StoreManifestName is the file in a store's directory that names it, written when the store is
