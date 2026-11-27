@@ -32428,3 +32428,24 @@ we'd need to bring the cast submenu back up, and I think that's worse UX".
 6. **A person who leaves the page and comes back finds the same state**: it is read from the
    cast's session, not kept by the page that started it, so the cast's page shows §1–4 whenever it
    is opened while the cast is still being started.
+
+## D570 — A Chromecast being connected says so on the film's page, with Cancel, from the pick in Chrome's picker
+
+**Decided** (2026-11-27), by the project owner ("decision: Agreed"), on the lead's proposal after a
+walk from a phone to a Chromecast: for about four seconds after the TV was picked the film's page
+said nothing and every control stayed live, as no cast exists, and so no cast's page (D569), until
+the receiver has joined.
+
+**Status:** decided. No code yet.
+
+It adds to D569, for a Google Cast device, the stretch D569's Status says it does not cover.
+
+1. **From pressing Chromecast until Chrome's picker closes, nothing changes**: the film plays on
+   here. The picker is Chrome's, lies over the page, and may be dismissed with no TV chosen.
+2. **From the pick until the cast exists, the film's page says "Connecting to ‹TV›…"**, by the
+   name Chrome gives for the TV picked, with Cancel, and the film's transport here is disabled as
+   D569 §2 disables the cast page's; volume stays.
+3. **Cancel there abandons the cast**: the Chromecast's session is ended, at once or as soon as it
+   exists, no cast is made, and the film carries on here as it stood.
+4. **Once the cast exists, D569 takes over** on the cast's page, with no state between the two in
+   which nothing is said.
