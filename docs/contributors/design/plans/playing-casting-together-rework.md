@@ -681,7 +681,7 @@ Added by the owner, 2026-11-26, from the same walk's unfixed observations:
     owner, staging, 2026-11-27: "the playback controls on the caster side are selectable, and
     there's no way to know what the state is or what those buttons will actually do"). The pad is
     disabled with "Reaching ‹TV›…" only until the TV is reached; from then until the TV first shows
-    the film it is live and unexplained. Proposed to the owner, not agreed: one stated state from
+    the film it is live and unexplained. Decided as D569: one stated state from
     the choice of the TV until its first picture, the transport disabled through it and only
     "Stop casting" live; a TV standing ready and paused says so, with Play the one action.
 

@@ -553,7 +553,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D545](working-notes.md#d545--a-casts-remote-shows-the-films-key-frame-at-the-receivers-place-every-3-s-while-it-moves) A cast's remote shows the film's key frame at the receiver's place, every 3 s while it moves
 - [D546](working-notes.md#d546--casting-offers-the-skips-and-up-next-from-the-credits-as-the-player-does-locally) Casting offers the skips, and Up next from the credits, as the player does locally — *revisited by D547*
 - [D547](working-notes.md#d547--the-core-makes-one-plan-per-play-and-keeps-one-live-state-and-every-device-draws-its-own-part) The core makes one plan per play and keeps one live state, and every device draws its own part
-- [D548](working-notes.md#d548--the-cast-remote-has-its-own-layout-the-picture-in-a-card-a-pad-of-round-buttons-and-the-players-buttons-row) The cast remote has its own layout: the picture in a card, a pad of round buttons, and the player's buttons row — *revisited by D550, D562*
+- [D548](working-notes.md#d548--the-cast-remote-has-its-own-layout-the-picture-in-a-card-a-pad-of-round-buttons-and-the-players-buttons-row) The cast remote has its own layout: the picture in a card, a pad of round buttons, and the player's buttons row — *revisited by D550, D562, D569*
 - [D549](working-notes.md#d549--after-stop-the-casting-device-resumes-where-the-receiver-last-stood-home-only-where-nothing-was-on) After Stop, the casting device resumes where the receiver last stood; home only where nothing was on
 - [D550](working-notes.md#d550--the-cast-remote-reaches-for-a-receiver-the-server-no-longer-hears-and-offers-to-play-the-film-here) The cast remote reaches for a receiver the server no longer hears, and offers to play the film here — *revisited by D552*
 - [D551](working-notes.md#d551--a-discovery-request-is-bounded-one-never-answered-ends-as-the-paths-loss-waited-out-with-the-retries) A discovery request is bounded: one never answered ends as the path's loss, waited out with the retries
@@ -574,6 +574,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D566](working-notes.md#d566--a-phones-keyboard-resizes-the-page) A phone's keyboard resizes the page
 - [D567](working-notes.md#d567--the-hosted-relay-announces-that-it-works-and-is-not-offered-when-it-does-not) The hosted relay announces that it works, and is not offered when it does not
 - [D568](working-notes.md#d568--a-vaapi-node-decodes-and-scales-on-the-card-and-a-playback-asked-ahead-for-up-next-replaces-nothing) A VAAPI node decodes and scales on the card, and a playback asked ahead for Up next replaces nothing
+- [D569](working-notes.md#d569--a-cast-being-started-says-so-on-the-casts-page-with-cancel-and-its-controls-wait-for-the-tvs-first-picture) A cast being started says so on the cast's page, with Cancel, and its controls wait for the TV's first picture
 
 ## Archived
 

@@ -32401,3 +32401,30 @@ on the finding the lead filed the same day ("yes go ahead"). The measurement is 
    a cast at a lower quality if no suitable hardware codec exists"): a node encoding with x264, or
    a film its card cannot decode, starts as slowly as before. The lead proposes both next.
 
+
+## D569 — A cast being started says so on the cast's page, with Cancel, and its controls wait for the TV's first picture
+
+**Decided** (2026-11-27), by the project owner, on a cast to a Chromecast on staging that stood
+black: "While a cast is being prepared, the playback controls on the caster side are selectable,
+and there's no way to know what the state is or what those buttons will actually do". The lead
+proposed §1–4 ("Yes the above sounds good"); §5–6 are the owner's own: "Maybe it's best to say
+'connecting to ‹x›' and have a cancel button on the offer area of the cast page itself? Otherwise
+we'd need to bring the cast submenu back up, and I think that's worse UX".
+
+**Status:** decided. No code yet.
+
+1. **From the choice of a TV until its first picture, the caster's page states one thing**:
+   "Connecting to ‹TV›…" until the TV is reached, then "Loading on ‹TV›…". It amends D548 §9,
+   whose "Reaching ‹TV›…" ended when the TV was reached.
+2. **Through that time play and pause, seeking and Next are disabled.** Cancel (§5) stays, and the
+   volume, which works the TV whatever it shows.
+3. **A TV that is ready says how it stands.** Standing paused, the page says "Paused on ‹TV›" and
+   Play is the action focused.
+4. **A TV with no picture after about 20 seconds is said to be slow**, with the same Cancel, in
+   place of a wait that never ends.
+5. **The state and its Cancel are on the cast's page itself, where its notices show, not in the
+   Cast panel.** The panel closes when a TV is chosen, and is not brought back. Cancel ends the
+   cast as "Stop casting" does, and the film plays here again where it stood.
+6. **A person who leaves the page and comes back finds the same state**: it is read from the
+   cast's session, not kept by the page that started it, so the cast's page shows §1–4 whenever it
+   is opened while the cast is still being started.
