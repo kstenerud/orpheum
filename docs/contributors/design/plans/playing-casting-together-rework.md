@@ -685,3 +685,11 @@ Added by the owner, 2026-11-26, from the same walk's unfixed observations:
     the choice of the TV until its first picture, the transport disabled through it and only
     "Stop casting" live; a TV standing ready and paused says so, with Play the one action.
 
+    Built (2026-11-27, VQ424). Left by the build, for the owner to weigh: a TV lost and found again
+    mid-cast gets none of the start's notices, as they show only to a page that saw the start; the
+    volume's number is hidden while a start notice shows; `decideAgainFor` in `play.tsx` still reads
+    the video element's pause, not the person's.
+16. **A test's stray timer fails a run now and then** (the gate, 2026-11-27, twice in a day): in
+    `apps/web/src/together-host-paused.test.tsx` a `StartGate` look-again timer fires after the
+    page's teardown ("Failed to execute 'dispatchEvent'"), an unhandled error that fails the whole
+    web test run; the file passes alone and the next run passes. The timer is to end with its gate.
