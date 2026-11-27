@@ -16,6 +16,7 @@ const offer = {
   qualityKbps: 1200,
   height: 480,
   isBelowTheLowest: false,
+  isStartHeldByNodeSpeed: false,
   soundCarriedGainDb: 0,
   isReady: true,
   filmPictureKbps: 4000,

@@ -298,6 +298,11 @@ type LadderBody struct {
 	// Steadiness is the steadiness level the player starts at (D352 §3): the one its last playback on
 	// this network ended at, relaxed by the time since; 0 for none remembered (D352 Q2).
 	Steadiness int `json:"steadiness" maximum:"3" minimum:"0"`
+	// IsStartHeldByNodeSpeed is whether, at a playback's start, its node's speed held the quality it
+	// starts on below what its link and its upload allow (start-quality-by-node-speed.md §2): its
+	// player then asks once for the quality its link carries, ten seconds loaded ahead (§4, S4).
+	// False on a lower quality offered after a stall.
+	IsStartHeldByNodeSpeed bool `json:"isStartHeldByNodeSpeed"`
 	// RememberedLinkKbps is, at a playback's start, the link its device last measured on this
 	// network (D257 §1), which its player's estimate starts from as a prior, and its start gate reads
 	// before any chunk (bandwidth-sampling-2026-10-29.md P2, P5): one fast first chunk let a Fire TV

@@ -13,6 +13,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -491,6 +492,7 @@ func startedOutput(started playback.Started) *StartPlaybackOutput {
 		// Its player waits for the chunks it asks for itself: a start does not say whether they are made.
 		output.Body.OnLadder = ladderBody(
 			started.Token, *started.OnLadder, false, started.Steadiness, started.RememberedLink)
+		output.Body.OnLadder.IsStartHeldByNodeSpeed = started.OnLadder.StartBound == chunks.StartBoundNodeSpeed
 		// A film converted plays from its ladder, the one way to convert it (D344 §1).
 		if started.Decision.Delivery == decide.HLS {
 			output.Body.URL = output.Body.OnLadder.URL

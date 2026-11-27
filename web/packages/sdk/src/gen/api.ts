@@ -4230,6 +4230,7 @@ export interface components {
             height: number;
             isBelowTheLowest: boolean;
             isReady: boolean;
+            isStartHeldByNodeSpeed: boolean;
             /** Format: int64 */
             linkSharePercent: number;
             playlists?: components["schemas"]["StartingPlaylistsBody"];

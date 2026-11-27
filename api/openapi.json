@@ -3961,6 +3961,9 @@
           "isReady": {
             "type": "boolean"
           },
+          "isStartHeldByNodeSpeed": {
+            "type": "boolean"
+          },
           "linkSharePercent": {
             "format": "int64",
             "type": "integer"
@@ -4016,7 +4019,8 @@
           "isReady",
           "filmPictureKbps",
           "linkSharePercent",
-          "steadiness"
+          "steadiness",
+          "isStartHeldByNodeSpeed"
         ],
         "type": "object"
       },

@@ -299,6 +299,7 @@ describe("play state", () => {
       qualityKbps: 1200,
       height: 480,
       isBelowTheLowest: false,
+      isStartHeldByNodeSpeed: false,
       soundCarriedGainDb: 0,
       isReady: false,
       filmPictureKbps: 4000,
