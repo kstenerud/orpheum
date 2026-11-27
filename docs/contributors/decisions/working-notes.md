@@ -32332,3 +32332,42 @@ plan's next batch, item 8 ([plan](../design/plans/playing-casting-together-rewor
 2. It holds for the whole client, every page and dialog with a field, not the Invite dialog alone:
    the others are sized the same way. Not chosen: a fix for that one dialog.
 3. Proved by `web/apps/web/src/page-viewport.test.ts`; how it looks on a phone is walked.
+
+## D567 — The hosted relay announces that it works, and is not offered when it does not
+
+**Decided** (2026-11-27), by the project owner: the design is the owner's ("The relay informs the
+core when it's available, and keeps announcing… the client connecting and failing is a signal
+that something's broken. From then until the relay announces its availability again, it's not
+offered as a path (and also the responsible person gets an alert). Also if we keep getting failed
+connections AND the relay keeps announcing itself, that's a big alert"), and its fit to what is
+built is the lead's, agreed ("Agreed"). It closes finding 5 of
+[the hosted relay's plan](../design/plans/hosted-relay.md), and with it the same day's answers on
+findings 3 and D558 §7's admission.
+
+**Status:** decided. It has no code.
+
+1. **The relay announces to its discovery, which passes it on.** A relay knows no core: it shares
+   a secret with a discovery and nothing else. Every minute it makes an allocation on its own
+   public listeners and, when that works, sends each discovery it serves a short message signed
+   under their secret. The announcement means an allocation works from outside, not that the
+   process runs.
+2. **A discovery names the relay only while it is announced**: to no core and no device once
+   three minutes pass without an announcement. The operators are mailed once when that happens
+   and once when it returns, and the console's Overview shows which it is.
+3. **A core that gets nothing from the relay answers with what it has** after two seconds, and
+   fails only with no candidate at all. From then it leaves the relay out of its own answers, and
+   tells the discovery at once. It takes the relay back when a status carries an announcement
+   newer than the failure.
+4. **One core's word withdraws the relay from that core alone**: its own network may block the
+   relay. The discovery counts the reports. Reports from two households within ten minutes, while
+   the relay announces, are the louder alert to the operators, mailed with the count: a fault is
+   keeping a critical service from working.
+5. **A device's failures are not reported** in this step: a browser cannot tell a dead relay from
+   its own network. Its problem report carries the kinds of candidates it gathered.
+6. **A core asks how it stands when its signalling connection is dialled again, and when an offer
+   needs a relay credential it lacks** (finding 3; "go with your recommendation"), so a discovery
+   that restarted is read within about a second and not at the next heartbeat.
+7. **Who may use the relay is a mark on the household's account**, set by a checkbox in the
+   operator console and on for a new account during the beta ("a checkbox to enable/disable it
+   per-user… per-household (via connectd)"). It replaces the hand-kept list of realms and amends
+   D558 §7.

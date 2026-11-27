@@ -153,8 +153,8 @@ the log says whether a device took the relay needlessly (the owner, 2026-11-26):
    out): the relay announces that it is available and keeps announcing; a connection that fails
    through it is the sign that it is not, and from then until it next announces it is not offered
    as a path, and the person responsible is told; failures while it keeps announcing are a louder
-   alert, a fault in a critical service. The lead's fit of it to what is built, proposed and not
-   yet agreed:
+   alert, a fault in a critical service. The lead's fit of it to what is built, agreed by the owner the
+   same day (D567), not yet built:
 
    - **The relay announces to the discovery, not to the cores.** A relay knows no core: it shares
      a secret with a discovery and nothing else (§1). Every minute it sends the discovery a short
