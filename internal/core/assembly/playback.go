@@ -10,6 +10,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
 	"github.com/kstenerud/orpheum/internal/core/repeats"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
+	"github.com/kstenerud/orpheum/internal/core/trickplay"
 )
 
 // openPlayback is what plays a file and the work a play asks of the nodes: the read-through for its
@@ -20,6 +21,11 @@ func (services *Services) openPlayback(parts Parts) {
 	services.ReadThrough = readthrough.NewService(readthrough.Parts{
 		Database: database, Queue: queue, Nodes: services.nodes, Exchanges: services.Exchanges, Clock: parts.Clock,
 		Logger: parts.Logger,
+	})
+	// The scrub bar's pictures, made in the background of every video's bytes (trickplay.md section 4).
+	services.Trickplay = trickplay.NewService(trickplay.Parts{
+		Database: database, Cache: parts.Cache, Sheets: parts.Directories, Queue: queue, Nodes: services.nodes,
+		Exchanges: services.Exchanges, Clock: parts.Clock,
 	})
 	levels := loudness.NewService(loudness.Parts{Database: database, Settings: parts.Settings})
 	services.subtitles = subtitles.NewService(subtitles.Parts{
@@ -56,13 +62,15 @@ func (services *Services) openPlayback(parts Parts) {
 
 // derivedDroppers are how each thing derived from a file's probe is thrown out once the facts it was
 // made from change (library.DerivedDroppers): the read-through's measurements and timelines, the
-// subtitles' texts, the frame stills, the chunk stores and what repeats were found from.
+// subtitles' texts, the frame stills, the chunk stores, the scrub bar's pictures and what repeats
+// were found from.
 func derivedDroppers(services *Services) library.DerivedDroppers {
 	return library.DerivedDroppers{
 		Loudness: readthrough.ForgetLoudness, Timeline: readthrough.ForgetTimeline,
 		SubtitleText: subtitles.ForgetText, FrameStills: services.artwork.RetireFrameStills,
 		Repeats:       repeats.ForgetMeasurements,
 		PictureChunks: services.chunks.ForgetPictureStores, SoundChunks: services.chunks.ForgetSoundStores,
+		Trickplay: services.Trickplay.Forget,
 	}
 }
 

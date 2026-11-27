@@ -34,6 +34,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/core/systemvideos"
 	"github.com/kstenerud/orpheum/internal/core/together"
+	"github.com/kstenerud/orpheum/internal/core/trickplay"
 	"github.com/kstenerud/orpheum/internal/core/unexpected"
 	"github.com/kstenerud/orpheum/internal/core/waits"
 	"github.com/kstenerud/orpheum/internal/platform/build"
@@ -127,6 +128,8 @@ type Services struct {
 	// ReadThrough reads each video through, for its sounds' loudness and its picture's timeline
 	// (D226, D247 §10).
 	ReadThrough *readthrough.Service
+	// Trickplay makes the scrub bar's pictures of each video, in the background (trickplay.md).
+	Trickplay *trickplay.Service
 	// Certificates renew the HTTPS certificates; the composition root, which makes them from its
 	// config, sets them before the runners start. Nil holds none.
 	Certificates Certificates

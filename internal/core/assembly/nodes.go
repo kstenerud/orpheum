@@ -67,6 +67,9 @@ type nodeWiring interface {
 	// SetFFmpegFailures forget the failures FFmpeg made of a node's files when it says hello with another
 	// FFmpeg build, and the call after asks the background passes to try each again (D535 §9).
 	SetFFmpegFailures(failures nodes.FFmpegFailures, forgotten func())
+	// SetTrickplaySheets is where the sheets a trickplay run posts go: the exchanges, which hand them
+	// to the trickplay service (trickplay.md section 3).
+	SetTrickplaySheets(sheets nodes.TrickplaySheets)
 }
 
 // commandPollHold is how long a node's long-poll for commands is held when there is nothing to
@@ -172,6 +175,7 @@ func openExchanges(channel Nodes, parts Parts) *nodes.Exchanges {
 		Settings: parts.Settings, MaxSilence: nodeWorkMaxSilence, Rooms: channel,
 	})
 	channel.SetResultSink(exchanges)
+	channel.SetTrickplaySheets(exchanges)
 	return exchanges
 }
 

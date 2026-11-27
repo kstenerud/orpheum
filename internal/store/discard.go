@@ -232,6 +232,14 @@ func tablesOutsideADiscard() map[string]TableInADiscard {
 func CacheTablesInADiscard() map[string]TableInADiscard {
 	return map[string]TableInADiscard{
 		"chunk_store": {DiscardedByTheRead, "", "a stream's chunks, made again (D247 §10)", provenByTheRead},
+		"trickplay": {
+			DiscardedByTheRead, "", "the scrub bar's pictures' run, made again by the sweep (trickplay.md)",
+			provenByTheRead,
+		},
+		"trickplay_sheet": {
+			DiscardedByTheRead, "", "the scrub bar's sheets, made again by the sweep, their images removed",
+			provenByTheRead,
+		},
 		"match_candidate": {
 			DiscardedByTheMatchAgain, "", "a provider's candidates (D172), fetched again",
 			provenByTheMatchAgain,

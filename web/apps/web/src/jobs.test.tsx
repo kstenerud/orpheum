@@ -39,6 +39,7 @@ const everyKind = [
   "hashWholeFile",
   "makeSystemVideos",
   "findRepeats",
+  "trickplay",
 ] as const satisfies readonly Job["kind"][];
 
 /** True only when everyKind names every kind: a kind left out makes this fail to compile. */

@@ -78,6 +78,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/chunks` | R7 (a film's grid of chunks, from its picture's timeline, and the playlists a playback is offered), R8 (the `make_chunks` runs, and in memory each store's chunks made and runs on their way) | — (D247 §10; built 2026-10-05) |
 | `internal/core/chunks/qualities` | R7 (the setting `chunkQualities`, read and checked by one function) | — (its own package so the settings registry checks the value with it, D247 §6) |
 | `internal/core/playback` | R6b (play state) | — (the preferences store moved out on 2026-09-30; loudness, subtitles and renditions on 2026-10-03, F2) |
+| `internal/core/trickplay` | R8 (the trickplay jobs, their sweep and the sweep that forgets the pictures of files gone), R3 (the scrub bar's sheets, by payload hash and version) | — (trickplay.md F2; built 2026-11-27) |
 | `internal/core/subtitles` | R8 (the subtitle extraction and conversion jobs), R3 (the texts, by source hash) | ⚑ R1: subtitle search and fetch through the provider client (fetch.go). Split out of playback on 2026-10-03, F2 |
 | `internal/core/resourceuse` | OPS (what the core and each node use of their machines, a minute's row each, kept a month; toolkit.md) | — |
 | `internal/core/preferences` | R6b (a person's choices) | — (since 2026-09-30: F2's preferences part, F6) |
@@ -246,6 +247,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | rescan_given_up | cache.db | T4 (a library whose rescan gave up, for Needs attention) | no | ⚑ lost with cache.db, the library's next rescan gives up again if it still never settles |
 | match_candidate | cache.db | T2 (a TMDB search) | no | ⚑ T2 in cache.db. Mitigated: the chooser searches again when the candidates are lost |
 | art_served | cache.db | T4 | no | — |
+| trickplay, trickplay_sheet (each video's scrub-bar pictures: a run's end, and each sheet kept, by payload hash and version) | cache.db | T3 (reads the whole file on a node) | no | ⚑ lost with cache.db: the sweep makes every video's pictures again in the background, and the images no row names are removed (trickplay.md) |
 | chunk_store (a stream of a film on a grid, the target of its runs) | cache.db | T4 | no | made again by the next run asked for; the chunks themselves are the node's |
 | full config (`config.toml`) | instance's persistent/ | T1 | yes | D242 §3 |
 | secret.key | instance's persistent/ | T1 | only when asked | by design (D194) |

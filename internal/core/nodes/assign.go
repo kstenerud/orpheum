@@ -91,20 +91,21 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 	if notReady := all.sender.ParkUnlessConnected(ctx, nodeID); notReady != nil {
 		return notReady
 	}
-	if full := all.parkIfWindowFull(ctx, nodeID, command.Work, job.Priority); full != nil {
+	priority := priorityOnNode(command.Work, job.Priority)
+	if full := all.parkIfWindowFull(ctx, nodeID, command.Work, priority); full != nil {
 		return full
 	}
 	token, err := all.newToken()
 	if err != nil {
 		return err
 	}
-	command.JobID, command.AttemptToken, command.Priority = job.ID, token, job.Priority
+	command.JobID, command.AttemptToken, command.Priority = job.ID, token, priority
 	// Play-driven work pauses background work on its device (D240 §6).
-	command.IsPlayDriven = job.Priority >= jobs.PriorityPlayNow
+	command.IsPlayDriven = priority >= jobs.PriorityPlayNow
 	now := all.clock.Now()
 	attempt := Attempt{
 		Token: token, JobID: job.ID, Kind: job.Kind, NodeID: nodeID, NodeStartID: all.sender.StartOf(nodeID),
-		Work: command.WithoutBytes(), SentAt: now, Priority: job.Priority,
+		Work: command.WithoutBytes(), SentAt: now, Priority: priority,
 	}
 	// Kept before its command is queued, it is on its way to a status until then.
 	if all.unsent != nil {
@@ -242,13 +243,13 @@ func (all *Exchanges) Reprioritize(jobID, priority int64) {
 	var held []Attempt
 	for _, attempt := range all.attempts {
 		if attempt.JobID == jobID {
-			attempt.Priority = priority
+			attempt.Priority = priorityOnNode(attempt.Work, priority)
 			held = append(held, attempt.Attempt)
 		}
 	}
 	all.mutex.Unlock()
 	for _, attempt := range held {
-		all.sender.Enqueue(attempt.NodeID, ReprioritizeCommand(attempt.JobID, attempt.Token, priority))
+		all.sender.Enqueue(attempt.NodeID, ReprioritizeCommand(attempt.JobID, attempt.Token, attempt.Priority))
 	}
 }
 

@@ -101,9 +101,11 @@ type Service struct {
 	logger       *slog.Logger
 	pollHold     time.Duration
 
-	resultSink  ResultSink
-	heldResults HeldResultReader
-	scans       ScanRequester
+	resultSink ResultSink
+	// trickplaySheets take the trickplay runs' sheets (SetTrickplaySheets); nil refuses them.
+	trickplaySheets TrickplaySheets
+	heldResults     HeldResultReader
+	scans           ScanRequester
 	// changes takes the nodes' watchers' notices; nil drops them.
 	changes ChangeTaker
 	// storeTiers says how strongly each chunk store is kept (D309 §8); nil sends none.
@@ -193,6 +195,7 @@ func (service *Service) Handler() http.Handler {
 	mux.HandleFunc("GET "+nodeproto.PathCommands, service.serveCommands)
 	mux.HandleFunc("POST "+nodeproto.PathResult, service.takeResult)
 	mux.HandleFunc("POST "+nodeproto.PathProgress, service.takeProgress)
+	mux.HandleFunc("POST "+nodeproto.PathTrickplaySheet, service.takeTrickplaySheet)
 	mux.HandleFunc("POST "+nodeproto.PathChanged, service.takeChanged)
 	mux.HandleFunc("POST "+nodeproto.PathLocked, service.takeLocked)
 	return mux

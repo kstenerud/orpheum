@@ -3780,7 +3780,8 @@
               "renewCertificate",
               "hashWholeFile",
               "makeSystemVideos",
-              "findRepeats"
+              "findRepeats",
+              "trickplay"
             ],
             "type": "string",
             "x-extensible-enum": [
@@ -3796,7 +3797,8 @@
               "renewCertificate",
               "hashWholeFile",
               "makeSystemVideos",
-              "findRepeats"
+              "findRepeats",
+              "trickplay"
             ]
           },
           "lastFailure": {

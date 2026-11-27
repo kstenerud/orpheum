@@ -44,6 +44,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
+	"github.com/kstenerud/orpheum/internal/core/trickplay"
 	"github.com/kstenerud/orpheum/internal/core/turn"
 	"github.com/kstenerud/orpheum/internal/core/unexpected"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -98,6 +99,8 @@ type testHarness struct {
 	// subtitles makes and fetches their subtitles.
 	readThrough *readthrough.Service
 	subtitles   *subtitles.Service
+	// trickplay makes the scrub bar's pictures of each video (trickplay.md).
+	trickplay *trickplay.Service
 	// chunks cuts each film into chunks made on request (D247 §10).
 	chunks *chunks.Service
 	// backups makes the backups a job asks for (D243 §11).
@@ -191,6 +194,7 @@ func newHarness(t *testing.T) testHarness {
 		jobs.KindConvertFetchedSubtitle: dependencies.Subtitles.Assignee,
 		jobs.KindReadThrough:            core.ReadThrough.Assignee,
 		jobs.KindMakeChunks:             dependencies.Chunks.Assignee,
+		jobs.KindTrickplay:              core.Trickplay.Assignee,
 	} {
 		exchanges.Handle(kind, assignee(resolver.Of(queue.NewRunner(kind, nil))))
 	}
@@ -249,7 +253,7 @@ func newHarness(t *testing.T) testHarness {
 		unknownFailures: dependencies.UnknownFailures,
 		resourceUse:     dependencies.ResourceUse,
 		subtitler:       subtitler, readThrough: core.ReadThrough, subtitles: dependencies.Subtitles,
-		chunks: dependencies.Chunks, reads: reads, settings: seeded,
+		chunks: dependencies.Chunks, reads: reads, settings: seeded, trickplay: core.Trickplay,
 	}
 }
 

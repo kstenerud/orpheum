@@ -100,6 +100,7 @@ func (quietNodes) SetScans(nodes.ScanRequester)                   {}
 func (quietNodes) SetChanges(nodes.ChangeTaker)                   {}
 func (quietNodes) SetStoreTiers(nodes.StoreTiers)                 {}
 func (quietNodes) SetFFmpegFailures(nodes.FFmpegFailures, func()) {}
+func (quietNodes) SetTrickplaySheets(nodes.TrickplaySheets)       {}
 
 // fakeNodeBytes reads no node's bytes.
 type fakeNodeBytes struct{}

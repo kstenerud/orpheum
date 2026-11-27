@@ -96,6 +96,8 @@ type Exchanges struct {
 	// attempts are the jobs assigned to nodes, by attempt token, mirroring cache.db's (Assign).
 	attempts  map[string]*heldAttempt // guarded by mutex
 	assignees map[jobs.Kind]Assignee  // guarded by mutex
+	// sheetTaker keeps the trickplay runs' sheets (TakeSheetsBy); nil takes none yet.
+	sheetTaker SheetTaker // guarded by mutex
 	// brokenInvariants counts, by node, the differences reconciled between what it was given and held.
 	brokenInvariants map[int64]int // guarded by mutex
 	// stopping are the attempts the core told their node to stop, a bump's or a cancel's, by token,

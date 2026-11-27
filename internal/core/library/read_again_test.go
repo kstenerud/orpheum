@@ -152,7 +152,7 @@ func (log *droppedLog) droppers() DerivedDroppers {
 	return DerivedDroppers{
 		Loudness: log.inWrite("loudness"), Timeline: log.inWrite("timeline"), SubtitleText: log.inWrite("text"),
 		FrameStills: log.inWrite("stills"), Repeats: log.inWrite("repeats"), PictureChunks: log.afterWrite("picture"),
-		SoundChunks: log.afterWrite("sound"),
+		SoundChunks: log.afterWrite("sound"), Trickplay: log.afterWrite("trickplay"),
 	}
 }
 

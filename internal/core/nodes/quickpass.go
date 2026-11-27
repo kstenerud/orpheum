@@ -32,11 +32,12 @@ func (all *Exchanges) SetQuickPasses(passes QuickPasses) {
 const quickPassRecheckEvery = 30 * time.Second
 
 // readsWholeFiles is whether work reads a video through: a read-through, but one of its index alone,
-// or extracting a subtitle from inside one. Such work, in the background, waits for a scan's quick
-// pass of its disk (D255).
+// or extracting a subtitle from inside one, or making its trickplay pictures, which reads each of its
+// keyframes (trickplay.md section 2). Such work, in the background, waits for a scan's quick pass of
+// its disk (D255).
 func readsWholeFiles(work nodeproto.Work) bool {
 	return (work.ReadThrough != nil && !work.ReadThrough.IsFromIndexOnly()) ||
-		(work.ExtractSubtitle != nil && work.ExtractSubtitle.Video != nil)
+		(work.ExtractSubtitle != nil && work.ExtractSubtitle.Video != nil) || work.MakeTrickplay != nil
 }
 
 // parkBehindQuickPass parks background work that reads whole files on a device that a scan is still on

@@ -327,6 +327,9 @@ func (*fakeNodes) SetStoreTiers(corenodes.StoreTiers) {}
 // SetFFmpegFailures takes nothing: the fake node's FFmpeg forgets nothing.
 func (*fakeNodes) SetFFmpegFailures(corenodes.FFmpegFailures, func()) {}
 
+// SetTrickplaySheets takes nothing: the fake node makes no trickplay.
+func (*fakeNodes) SetTrickplaySheets(corenodes.TrickplaySheets) {}
+
 // InProgress is the scans in progress the test set.
 func (nodes *fakeNodes) InProgress(context.Context) (map[library.ScanRoot]library.ScanProgress, error) {
 	return nodes.scanning, nil

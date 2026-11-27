@@ -13,8 +13,9 @@ import (
 
 // A rescan that discards what was made throws out everything made of a file it reads again, though
 // its probe is the one kept: every picture's and sound's chunks, each sound's loudness, the picture's
-// timeline, its frame stills, what its repeats were found from and each subtitle's text, each by the
-// one way a difference throws it out (D535 §6); the same file read again without discarding throws out nothing
+// timeline, its frame stills, its scrub bar's pictures, what its repeats were found from and each
+// subtitle's text, each by the one way a difference throws it out (D535 §6); the same file read
+// again without discarding throws out nothing
 // (TestScans_ASecondFullScanOfAnUnchangedLibraryChangesNothing).
 func TestScans_ADiscardingRescanThrowsOutEverythingMadeOfAnUnchangedFile(t *testing.T) {
 	t.Parallel()
@@ -30,7 +31,7 @@ func TestScans_ADiscardingRescanThrowsOutEverythingMadeOfAnUnchangedFile(t *test
 	bench.examineAs(probedRecord("film.mp4", "film", filmProbe()))
 	want := []string{
 		"loudness 1", "loudness 2", "picture 0 track 0", "repeats 1", "repeats 2", "sound 1 track 0",
-		"sound 2 track 1", "stills 0", "text 3", "timeline 0",
+		"sound 2 track 1", "stills 0", "text 3", "timeline 0", "trickplay 0 track 0",
 	}
 	if got := slices.Sorted(slices.Values(dropped.dropped)); !slices.Equal(got, want) {
 		t.Errorf("a discarding rescan of an unchanged file threw out %v; want %v", got, want)

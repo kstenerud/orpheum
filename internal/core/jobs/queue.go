@@ -64,6 +64,9 @@ const (
 	// they share as intro and credits segments (D101, D115); its target is the season (GroupID), and
 	// its arguments name the node whose videos of the season it compares.
 	KindFindRepeats Kind = "find_repeats"
+	// KindTrickplay makes a video's scrub-bar pictures, in sheets, on the node that holds it, at the
+	// idle scheduling class; its target is the file (trickplay.md section 4).
+	KindTrickplay Kind = "trickplay"
 )
 
 // Kinds are every kind of job, as the job view documents them: the one list, which the API's
@@ -72,7 +75,7 @@ func Kinds() []Kind {
 	return []Kind{
 		KindFetchMetadata, KindMakeArtworkSizes, KindExtractSubtitle, KindConvertFetchedSubtitle,
 		KindReadThrough, KindMakeChunks, KindScan, KindExamine, KindBackup, KindRenewCertificate, KindHashWholeFile,
-		KindMakeSystemVideos, KindFindRepeats,
+		KindMakeSystemVideos, KindFindRepeats, KindTrickplay,
 	}
 }
 

@@ -6,7 +6,7 @@
 -- A job's kind is checked in Go where a job is written (internal/core/jobs' Enqueue, against
 -- jobs.Kinds()), not by a CHECK here, since version 54: a new kind changes nothing here, so it
 -- discards no cache (the code audit of 2026-11-21, finding 2).
--- cache schema version 55
+-- cache schema version 56
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -233,3 +233,31 @@ CREATE TABLE resource_use (                                 -- class C (toolkit.
   CHECK ((cpu_micros IS NULL) = (elapsed_ms IS NULL)),
   PRIMARY KEY (at, process, node_name)
 ) WITHOUT ROWID, STRICT;
+
+-- A video's scrub-bar pictures (trickplay.md section 4), rebuildable, so here and not in
+-- persistent.db: by its bytes' payload hash and the trickplay version (trickplay.Version, which
+-- folds in nodeproto.TrickplayRecipe), so a version made later is made again by the sweep. A probe
+-- whose picture's facts changed forgets them (library.DerivedDroppers.Trickplay, D392 section 3).
+CREATE TABLE trickplay (                                   -- trickplay.md section 4: one run's end
+  payload_hash       BLOB NOT NULL,      -- persistent.db's file.payload_hash
+  version            INTEGER NOT NULL,
+  video_stream_index INTEGER NOT NULL,   -- the picture it was made of, as the probe numbers it
+  failure            TEXT,               -- FFmpeg's word that it cannot: a fact, not asked again
+  done_at            INTEGER,            -- when the node said every sheet was made
+  CHECK (failure IS NULL OR done_at IS NULL),
+  PRIMARY KEY (payload_hash, version)
+) WITHOUT ROWID, STRICT;
+
+CREATE TABLE trickplay_sheet (                             -- trickplay.md section 4: one sheet of 10 x 10
+  payload_hash     BLOB NOT NULL,
+  version          INTEGER NOT NULL,
+  sheet_index      INTEGER NOT NULL CHECK (sheet_index >= 0),  -- from 0 at the video's start
+  -- Its WebP's SHA-256: the file cache/trickplay/<it>.webp, content-addressed as artwork is
+  sheet_sha256_hex TEXT NOT NULL,
+  size_bytes       INTEGER NOT NULL CHECK (size_bytes > 0),
+  made_at          INTEGER NOT NULL,
+  PRIMARY KEY (payload_hash, version, sheet_index)
+) WITHOUT ROWID, STRICT;
+CREATE INDEX trickplay_sheet_file ON trickplay_sheet(sheet_sha256_hex);
+-- The sweep's read of the runs ended at the current version (ListTrickplaysEnded).
+CREATE INDEX trickplay_version ON trickplay(version);

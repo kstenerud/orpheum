@@ -1607,6 +1607,8 @@ second writer, or on a writer this table does not name. A table no package write
 | `rescan_given_up` | cache.db | `internal/core/identify` | a library whose rescan gave up, listed on Needs attention until a later rescan of it finishes (the owner, 2026-11-13) |
 | `scan` | cache.db | `internal/core/library` | a root's scan in progress, from its request to its end (D240) |
 | `scan_batch` | cache.db | `internal/core/library` | the batches of files a scan has its node read (D240 §8) |
+| `trickplay` | cache.db | `internal/core/trickplay` | how each payload hash's scrub-bar pictures ended at each trickplay version: made, or FFmpeg's failure (trickplay.md §4) |
+| `trickplay_sheet` | cache.db | `internal/core/trickplay` | each sheet of them kept, its image by SHA-256 at `cache/trickplay/<sha256>.webp` (trickplay.md §4) |
 | `video_timeline` | persistent.db | `internal/core/readthrough` | each picture's keyframes and bytes in each second, by payload hash; `internal/core/chunks` reads it for the grid (D247 §10) |
 
 ## What grows, and what bounds it

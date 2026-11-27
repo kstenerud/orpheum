@@ -128,3 +128,11 @@ type ScanBatch struct {
 	FileCount int64
 	IsDone    int64
 }
+
+type Trickplay struct {
+	PayloadHash      []byte
+	Version          int64
+	VideoStreamIndex int64
+	Failure          *string
+	DoneAt           *int64
+}

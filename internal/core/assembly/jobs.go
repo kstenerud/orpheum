@@ -111,6 +111,13 @@ func (services *Services) runners(artworkRetrySchedule []time.Duration) jobRunne
 			services.ReadThrough.Assignee, keptByNothing,
 		},
 		{
+			// A run that gave up keeps FFmpeg's failure of the bytes, so they are not asked again; one
+			// refused or lost keeps the sheets posted, and the next sweep resumes after them.
+			jobs.KindTrickplay, services.Trickplay.HandleTrickplay, nil, nil, 1,
+			[]string{sweepTrickplays},
+			services.Trickplay.Assignee, keptByNothing,
+		},
+		{
 			// A run lost is forgotten, so the next player's ask for its chunks queues another.
 			jobs.KindMakeChunks, services.chunks.HandleMakeChunks, services.chunks.RecordMakeChunksFailure, nil, 1,
 			derivedByAPlay(), services.chunks.Assignee,
@@ -220,6 +227,8 @@ const (
 	sweepPasses           = "identification passes"
 	sweepOwedPasses       = "identification passes owed"
 	sweepReadThroughs     = "read-throughs"
+	sweepTrickplays       = "the scrub bar's pictures"
+	sweepOldTrickplays    = "scrub bar pictures of removed files"
 	sweepCopies           = "copies found at a second place"
 	sweepRepeats          = "seasons' intros and credits"
 	sweepScheduledBackup  = "the scheduled backup"
@@ -337,7 +346,7 @@ func askForTheFFmpegSweeps(sweeps sweepRequester) func() {
 func sweepsAfterAPass() []string {
 	return []string{
 		sweepFirstMatches, sweepRefreshRequests, sweepRechecks, sweepRollingRefresh, sweepReadThroughs, sweepRescans,
-		sweepCopies, sweepRepeats, sweepOlderProbes,
+		sweepCopies, sweepRepeats, sweepOlderProbes, sweepTrickplays,
 	}
 }
 
@@ -361,7 +370,7 @@ func (services *Services) sweeps(logger *slog.Logger) []jobs.Sweep {
 		}
 	}
 	derivedWorkEvery := every(settings.DerivedWorkSweepEverySeconds)
-	return []jobs.Sweep{
+	return append([]jobs.Sweep{
 		// Before the first matches, which queue what it returns to them.
 		{Name: sweepReconsidered, Derive: services.matcher.ReconsiderAmbiguous, Every: derivedWorkEvery},
 		// A few at a time, under search rules newer than they were found to match nothing under (D513 §5).
@@ -435,5 +444,23 @@ func (services *Services) sweeps(logger *slog.Logger) []jobs.Sweep {
 		// A season's videos not measured yet are compared after the pass that files them, and hourly
 		// (D101).
 		{Name: sweepRepeats, Derive: services.repeats.QueueRepeats, Every: derivedWorkEvery},
+	}, services.trickplaySweeps(every)...)
+}
+
+// trickplaySweeps are every video's scrub-bar pictures, in the background behind every cheaper pass,
+// hourly with the read-throughs, which read whole files too (trickplay.md section 4); and the
+// forgetting of those of files gone, with the removed files' purge.
+func (services *Services) trickplaySweeps(
+	every func(settings.Key) func(ctx context.Context) time.Duration,
+) []jobs.Sweep {
+	return []jobs.Sweep{
+		{
+			Name: sweepTrickplays, Derive: services.Trickplay.QueueTrickplays,
+			Every: every(settings.ReadThroughSweepEveryHours),
+		},
+		{
+			Name: sweepOldTrickplays, Derive: services.Trickplay.ForgetTheRemoved,
+			Every: every(settings.RetentionSweepEveryHours),
+		},
 	}
 }

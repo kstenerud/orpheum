@@ -45,6 +45,7 @@ const (
 	derivedSubtitleText  = "a subtitle track's text"
 	derivedFrameStills   = "the frame stills"
 	derivedRepeats       = "what its repeats were found from"
+	derivedTrickplay     = "the scrub bar's pictures"
 )
 
 // The facts of a stream most derived things are made from, by their names in the probe.
@@ -105,6 +106,13 @@ func derivedFromProbe() []derivedThing {
 			inWrite:     func(droppers DerivedDroppers) DropInWrite { return droppers.FrameStills },
 		},
 		{
+			// Pictures of the main picture at its times, kept by its bytes in cache.db (trickplay.md
+			// section 4).
+			name: derivedTrickplay, of: ofMainPicture, formatFacts: []string{"durationMs"},
+			streamFacts: []string{factStreamIndex, "video.width", "video.height"},
+			afterWrite:  func(droppers DerivedDroppers) DropAfterWrite { return droppers.Trickplay },
+		},
+		{
 			// Heard on the main sound (repeats.Detector), chosen among the sounds by these facts;
 			// thrown out with any sound's, and by every discard (D535 §6).
 			name: derivedRepeats, of: ofEachSound, streamFacts: []string{factStreamIndex, factCodec},
@@ -140,6 +148,7 @@ type DerivedDroppers struct {
 	Repeats       DropInWrite    // repeats.ForgetMeasurements
 	PictureChunks DropAfterWrite // chunks.Service.ForgetPictureStores
 	SoundChunks   DropAfterWrite // chunks.Service.ForgetSoundStores
+	Trickplay     DropAfterWrite // trickplay.Service.Forget
 }
 
 // SetDerivedDroppers sets how what is derived from a probe is thrown out when the probe changes.
