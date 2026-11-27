@@ -4294,3 +4294,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   the pad: the TV's volume changes and "Volume ‹n› %" shows. Change the volume with the TV's own
   remote: the number shows on the pad, nothing pressed there. Turn the phone's Wi-Fi off for 40 s
   and on again, then press Volume down: the TV's volume changes. Report each.
+  The lead walked the presses and the Wi-Fi step on staging, 2026-11-27 (a Pixel 3a, the
+  Chromecast): each press changed the level the receiver says, none went through the phone's Cast
+  session, and after the Wi-Fi was back, that session gone, Volume down, Volume up and Mute still
+  did. The TV's remote is the owner's to press.

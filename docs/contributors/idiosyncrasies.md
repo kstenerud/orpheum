@@ -277,6 +277,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A cast to a Chromecast over WebRTC failed: "the answer is not the server's own: its key or signature does not match its link". | [A Chromecast's Chrome 90 has no Ed25519 in WebCrypto, so no core's answer verifies](#a-chromecasts-chrome-90-has-no-ed25519-in-webcrypto-so-no-cores-answer-verifies) |
 | The remote's pad showed no volume for a film cast to a Chromecast, and the page reloaded, none again. | [A Chromecast's volume is the Cast device's, set by the sender's Cast session, which a reloaded page no longer holds](#a-chromecasts-volume-is-the-cast-devices-set-by-the-senders-cast-session-which-a-reloaded-page-no-longer-holds) |
 | Casting from a phone's Chrome to a Chromecast, the pad's volume buttons did nothing after the phone was away long enough to reconnect; every other button worked. | [Chrome on Android keeps a Cast session that can no longer send once the phone's network has come back](#chrome-on-android-keeps-a-cast-session-that-can-no-longer-send-once-the-phones-network-has-come-back) |
+| A receiver change deployed to staging did nothing on the Chromecast after stopping the cast and casting again. | [A Chromecast keeps its receiver page running after a cast is stopped, so a new receiver build does not load](#a-chromecast-keeps-its-receiver-page-running-after-a-cast-is-stopped-so-a-new-receiver-build-does-not-load) |
 | The pad's Mute muted a Chromecast and never showed pressed; pressed again, it muted again. | [The Cast Web Sender tells no VOLUME_CHANGED for a mute set through its own session](#the-cast-web-sender-tells-no-volume_changed-for-a-mute-set-through-its-own-session) |
 | Google's Cast console would not publish a receiver application: "You must add details about at least one sender application", the Chrome website URL saved and then gone. | [Google's Cast developer console in Chrome loses a sender's details, and publishing refuses](#googles-cast-developer-console-in-chrome-loses-a-senders-details-and-publishing-refuses) |
 
@@ -1722,9 +1723,11 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   `sound-panel.ts`); the pad then works it through the cast's session as every other control
   (D557 §5). The sender's Cast session volume stays only for a receiver that says no channel.
   Tests: the receiver's `device-follow.test.ts`, "says the Cast device's own volume as its film's
-  channel"; the web app's `play-castee-controls.test.tsx`, "works a Chromecast's volume through the
+  channel"; the web app's `play-castee-volume.test.tsx`, "works a Chromecast's volume through the
   cast's session". VQ414 checks it on the phone and the Chromecast.
-- **Evidence:** the lead's runs on staging with the Pixel 3a and the Chromecast, 2026-11-27. The
+- **Evidence:** the lead's runs on staging with the Pixel 3a and the Chromecast, 2026-11-27; with
+  the fix, after the phone's Wi-Fi was off 40 s the sender's session was gone and the pad's Volume
+  down, Volume up and Mute still changed the device, the receiver saying each new level. The
   receiver's names are in CAF's own script
   (www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js, read 2026-11-27):
   `getSystemVolume`, `setSystemVolumeLevel` (which throws on a level outside 0 to 1) and
@@ -1732,6 +1735,26 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   Google's reference lists the event and `SystemVolumeData` (`level`, `muted`)
   (developers.google.com/cast/docs/reference/web_receiver/cast.framework.system.SystemVolumeData)
   but no longer lists the three methods on `CastReceiverContext`.
+
+### A Chromecast keeps its receiver page running after a cast is stopped, so a new receiver build does not load
+
+- **Technology:** a third-generation Chromecast running our Cast receiver application, launched
+  from Chrome on Android; 2026-11-27.
+- **Symptom:** a receiver change deployed to staging did nothing on the Chromecast: after "Stop
+  casting" on the pad and a new cast from the picker, the receiver still behaved as the build
+  before (it said no volume in its state, an hour's diagnosis).
+- **Cause:** stopping the cast ends our cast, not Google's Cast session: the receiver application's
+  page stays loaded on the device while a sender's session holds it, and the next cast goes to the
+  same page. The page is fetched again only when the application is launched anew.
+- **What we do:** nothing in the product: a receiver from before a change is one the app must
+  already work with (the pad falls back to the sender's Cast session for a receiver that says no
+  volume). Testing a receiver change, close the application first: from the sender's page,
+  `cast.framework.CastContext.getInstance().endCurrentSession(true)`, then reload and cast again.
+  The receiver is served by the discovery's site (`/cast/`), so staging needs
+  orpheum-connect's `deploy/staging/up.sh`, not the core's deploy alone.
+- **Evidence:** the lead's runs on staging, 2026-11-27: the pad's page held a sound with no
+  channel through two stop-and-cast rounds, and the channel at once after `endCurrentSession(true)`
+  and a new cast.
 
 ### Chromecast subtitles are drawn as the video's own WebVTT track, not by JASSUB
 
