@@ -10,8 +10,8 @@ import (
 
 // startSpeedPercent is the speed, in percent of real time, a quality a playback starts on must be
 // expected to be made at on its node: three times real time, a six-second chunk in two seconds
-// (design/plans/start-quality-by-node-speed.md §2). It is the lead's default, which the owner has
-// not yet confirmed (the plan's question 1).
+// (design/plans/start-quality-by-node-speed.md §2), the mark the owner took
+// (2026-11-27, the plan's question 1).
 const startSpeedPercent = 300
 
 // realTimePercent is real time in percent: a speed's cost, the seconds spent on each second of
