@@ -177,7 +177,8 @@ export function signallerOf(client: DiscoveryClient, target: Target): Signaller 
 
 /**
  * Connects to the target through the discovery, its offers proven and its answers checked; its
- * tries paced while the page is hidden unless isNeededHidden says otherwise (connectRtc, D482).
+ * tries paced while the page is hidden unless isNeededHidden says otherwise (connectRtc, D482), and
+ * its relay credentials fetched again from the discovery where an attempt finds them stale (D564 §3).
  */
 export function connectThrough(
   client: DiscoveryClient,
@@ -187,8 +188,23 @@ export function connectThrough(
   return connect(
     signallerOf(client, target),
     { iceServers: target.iceServers },
-    { isNeededHidden },
+    { isNeededHidden, iceServersAgain: () => iceServersOf(client, target) },
   );
+}
+
+/**
+ * The target's ICE servers as the discovery names them now, by what the device holds by then
+ * (latest, where it holds more than the target began with), which a connection's attempt asking a
+ * relay fetches once those held are stale (D564 §3); the discovery answering for another core is
+ * refused.
+ */
+async function iceServersOf(client: DiscoveryClient, target: Target): Promise<RTCIceServer[]> {
+  const held = (await target.latest?.())?.held ?? target.held;
+  const located = await pathsOf(client, held);
+  if (located.coreId !== target.coreId) {
+    throw new Error("the discovery answered for another server than this device reached");
+  }
+  return located.iceServers;
 }
 
 /**

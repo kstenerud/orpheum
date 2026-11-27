@@ -9,6 +9,7 @@ import {
   type Target,
 } from "./core-target.ts";
 import { guestGrantOfferKey, sessionOfferKey, type DiscoveryClient } from "./discovery.ts";
+import type { RtcConnectOptions, Signaller } from "./rtc-connect.ts";
 
 const core = { coreId: "k7xq2", fingerprint: "Vkdap1RjR0wChd9dvyvKtz2mUTWIOem3dIGy6rEHcIw" };
 
@@ -77,6 +78,83 @@ describe("a connection through the discovery (D482)", () => {
     await expect(
       connectThrough(discoveryOf("k7xq2", []), target, { isNeededHidden, connect }),
     ).rejects.toThrow("no connection in this test");
-    expect(handed).toEqual([[{ iceServers: target.iceServers }, { isNeededHidden }]]);
+    expect(handed).toEqual([
+      [
+        { iceServers: target.iceServers },
+        { isNeededHidden, iceServersAgain: expect.any(Function) as unknown },
+      ],
+    ]);
+  });
+});
+
+describe("a connection through the discovery fetches its relay credentials again (D564 §3)", () => {
+  const relayed = { urls: ["turn:relay.example:3478"], username: "1:client", credential: "c" };
+
+  /** The iceServersAgain connectThrough hands its transport for target, on a discovery for coreId. */
+  async function againOf(
+    target: Target,
+    coreId: string,
+    sent: unknown[],
+  ): Promise<() => Promise<RTCIceServer[]>> {
+    const discovery: DiscoveryClient = {
+      clientApi: "https://discovery.example/client/v1",
+      fetch: (url, init) => {
+        const asked = typeof url === "string" ? url : "a request that is not a URL's text";
+        sent.push([asked, JSON.parse(typeof init?.body === "string" ? init.body : "null")]);
+        return Promise.resolve(new Response(JSON.stringify({ coreId, iceServers: [relayed] })));
+      },
+    };
+    let again: (() => Promise<RTCIceServer[]>) | undefined;
+    const connect = (
+      _signaller: Signaller,
+      _config?: RTCConfiguration,
+      options?: RtcConnectOptions,
+    ): Promise<never> => {
+      again = options?.iceServersAgain;
+      return Promise.reject(new Error("no connection in this test"));
+    };
+    await expect(connectThrough(discovery, target, { connect })).rejects.toThrow("no connection");
+    if (again === undefined) {
+      throw new Error("connectThrough handed no way to fetch the ICE servers again");
+    }
+    return again;
+  }
+
+  const target: Target = {
+    coreId: "k7xq2",
+    fingerprint: core.fingerprint,
+    held: { bootstrapToken: "a-bootstrap-token" },
+    key: new Uint8Array(32),
+    iceServers: [],
+    directUrls: [],
+    lanUrls: [],
+  };
+
+  it("asks the discovery's paths by what the device holds by then, and takes its ICE servers", async () => {
+    const sent: unknown[] = [];
+    const later: Target = {
+      ...target,
+      latest: () =>
+        Promise.resolve({ held: { locator: "the-later-locator" }, key: new Uint8Array(32) }),
+    };
+    const again = await againOf(later, "k7xq2", sent);
+    await expect(again()).resolves.toEqual([relayed]);
+    expect(sent).toEqual([
+      ["https://discovery.example/client/v1/paths", { locator: "the-later-locator" }],
+    ]);
+  });
+
+  it("asks by what the target began with where the device holds nothing more", async () => {
+    const sent: unknown[] = [];
+    const again = await againOf(target, "k7xq2", sent);
+    await again();
+    expect(sent).toEqual([
+      ["https://discovery.example/client/v1/paths", { bootstrapToken: "a-bootstrap-token" }],
+    ]);
+  });
+
+  it("refuses a discovery answering for another core", async () => {
+    const again = await againOf(target, "other", []);
+    await expect(again()).rejects.toThrow("another server");
   });
 });

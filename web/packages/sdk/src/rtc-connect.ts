@@ -16,6 +16,7 @@ import {
   isPastThisDevice,
 } from "./rtc-candidates.ts";
 import { connectingStepsOf, slowConnection } from "./rtc-connect-timing.ts";
+import { RelayCredentials, type IceServersAgain } from "./rtc-relay-credentials.ts";
 import { climbLadder, lostToAnotherAttempt, type AttemptHooks } from "./rtc-ladder.ts";
 import { candidatePairsOf } from "./rtc-pairs.ts";
 import { peerOf } from "./rtc-peer.ts";
@@ -190,7 +191,9 @@ export async function connectRtc(
   rtcConfig: RTCConfiguration = {},
   options: RtcConnectOptions = {},
 ): Promise<RtcTransport> {
-  const open = (signal: AbortSignal): Promise<PeerLike> => connectOne(signaller, rtcConfig, signal);
+  const credentials = new RelayCredentials(rtcConfig, options.iceServersAgain, options.nowMs);
+  const open = (signal: AbortSignal): Promise<PeerLike> =>
+    connectOne(signaller, credentials, signal);
   const page = typeof document === "undefined" ? undefined : document;
   return new RtcTransport(
     [await open(new AbortController().signal)],
@@ -205,6 +208,14 @@ export async function connectRtc(
 export interface RtcConnectOptions {
   readonly count?: number | undefined;
   readonly isNeededHidden?: (() => boolean) | undefined;
+  /**
+   * Fetches the ICE servers again, which an attempt asking a relay does first once those held are
+   * near their expiry (RelayCredentials, D564 §3); absent, those given are offered for the
+   * transport's life.
+   */
+  readonly iceServersAgain?: IceServersAgain | undefined;
+  /** The wall clock the relay credentials' expiry is judged on: Date.now where absent. */
+  readonly nowMs?: (() => number) | undefined;
 }
 
 /**
@@ -281,15 +292,18 @@ async function offerGathered(rtcConfig: RTCConfiguration, waitMostMs: number): P
 
 /**
  * One peer connection, connected through signaller; given up, its peer closed, once signal aborts.
- * Where rtcConfig names a TURN server, it climbs the ladder of attempts rtc-ladder.ts gives, from
- * the rung this page's network last needed (climbLadder; D559 §1, D561 §2). The discovery's answer
- * does not say which relay is a household's own, so it waits with the hosted one.
+ * Where the credentials' configuration names a TURN server, it climbs the ladder of attempts
+ * rtc-ladder.ts gives, from the rung this page's network last needed (climbLadder; D559 §1, D561 §2),
+ * each rung that asks a relay offering credentials good then, fetched again where stale (D564 §3).
+ * The discovery's answer does not say which relay is a household's own, so it waits with the hosted
+ * one.
  */
 async function connectOne(
   signaller: Signaller,
-  rtcConfig: RTCConfiguration,
+  credentials: RelayCredentials,
   signal: AbortSignal,
 ): Promise<PeerLike> {
+  const rtcConfig = credentials.config;
   if (!hasRelayServer(rtcConfig)) {
     return await connectAttempt(signaller, rtcConfig, { signal });
   }
@@ -297,6 +311,7 @@ async function connectOne(
     attempt: (config, hooks) => connectAttempt(signaller, config, hooks),
     isTurnedAway: (failure) => isTurnedAway(failure),
     signal,
+    fresh: () => credentials.fresh(),
   });
 }
 

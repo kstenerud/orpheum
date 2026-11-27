@@ -643,3 +643,9 @@ Added by the owner, 2026-11-26, from the same walk's unfixed observations:
     for a try made long after the last fetch (recommended if the VPN is confirmed); (C) the panel
     says it is reconnecting and keeps its list for a while before saying unreachable (wording and
     wait are the owner's); (D) take a `navigator.connection` change as a sign to check.
+    **Built** (2026-11-27): (A) first (a request waits for a connection that can carry it,
+    `canCarry`); then, as D564 decided, (B) (§3): a transport holds its ICE servers in
+    `RelayCredentials` (`rtc-relay-credentials.ts`), and a rung of a connection's ladder that asks a
+    relay first fetches them again from the discovery's `/paths` (`connectThrough`'s
+    `iceServersAgain`) where they are within a minute of the expiry their TURN username states, the
+    rung without a relay waiting on no fetch; walked on a device by VQ417.

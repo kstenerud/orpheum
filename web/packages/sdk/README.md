@@ -265,6 +265,15 @@ device lab reported until it went, D555 §12) and a WebRTC call of a page with i
   addresses took six allocations a connection, and four connections passed the relay's 16 a
   credential, the TLS ones carrying nothing (production, 2026-11-26).
   `src/rtc-connect-relay.test.ts`.
+- **A rung that asks a relay offers credentials good then** (D564 §3): a transport holds its ICE
+  servers in `RelayCredentials`, and before a rung that asks a relay it fetches them again
+  (`iceServersAgain`, the discovery's `/paths` by what the device holds by then, `connectThrough`)
+  where they are within `relayCredentialMarginMs` of their expiry, which a TURN REST username states
+  (`<expiry>:…`) and is otherwise `relayCredentialLifeMs` (15 min) after the fetch. The rung without
+  a relay waits on no fetch; one that fails leaves those held offered. The page read them once, at
+  load, so a page whose network changed past their life onto one only the relay carries could not
+  reconnect (the owner's phone, production, 2026-11-26). `src/rtc-connect-relay.test.ts`,
+  `src/core-target.test.ts`.
 - **A WebRTC transport connects again within a bound once the network is back, in every browser**:
   a connection is gone when its connection's or its ICE's state is `failed` or `closed`, its
   signalling `closed`, or either state `disconnected` for `disconnectedGraceMs`, judged at each of

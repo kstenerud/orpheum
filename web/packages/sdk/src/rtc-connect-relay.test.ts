@@ -5,6 +5,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { withoutRelayServers, withUdpRelaysAlone } from "./rtc-candidates.ts";
 import { connectRtc, RtcUnconnected, type Signaller } from "./rtc-connect.ts";
 import { forgetRelayNeeded, relayAfterMs } from "./rtc-ladder.ts";
+import {
+  relayCredentialLifeMs,
+  relayCredentialMarginMs,
+  relayExpiryOf,
+} from "./rtc-relay-credentials.ts";
 import { RtcTransport } from "./rtc-transport.ts";
 import { forgetSteps, stepsSoFar } from "./steps.ts";
 
@@ -364,5 +369,147 @@ describe("a connection asks the relays only once it has not connected without th
     expect(problem instanceof Error ? problem.message : "").toBe(
       "the WebRTC connection failed (ICE checking, connection failed, no pair selected)",
     );
+  });
+});
+
+describe("an attempt asking a relay fetches its credentials again once they are stale (D564 §3)", () => {
+  afterEach(() => {
+    forgetSteps();
+    forgetRelayNeeded();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    racingPeers.length = 0;
+  });
+
+  /** The steps so far, without their times. */
+  function steps(): string[] {
+    return stepsSoFar().map((step) => step.replace(/^\d+ ms /, ""));
+  }
+
+  /** A relay's TURN REST credential, its username stating its expiry in Unix seconds. */
+  function relayUntil(expiresAtMs: number, credential: string): RTCConfiguration {
+    return {
+      iceServers: [
+        {
+          urls: ["turn:relay.example.com:3478"],
+          username: `${String(expiresAtMs / 1000)}:client:household:8000`,
+          credential,
+        },
+      ],
+    };
+  }
+
+  /** A fetch of the ICE servers again that the test answers, and how often it was asked. */
+  function heldFetch(): {
+    again: () => Promise<RTCIceServer[]>;
+    answer: (servers: RTCIceServer[]) => void;
+    fail: () => void;
+    asked: () => number;
+  } {
+    let asked = 0;
+    let settle:
+      { resolve: (servers: RTCIceServer[]) => void; reject: (problem: Error) => void } | undefined;
+    return {
+      again: () => {
+        asked += 1;
+        return new Promise((resolve, reject) => {
+          settle = { resolve, reject };
+        });
+      },
+      answer: (servers) => settle?.resolve(servers),
+      fail: () => settle?.reject(new Error("the discovery did not answer")),
+      asked: () => asked,
+    };
+  }
+
+  async function startConnecting(
+    config: RTCConfiguration,
+    again: () => Promise<RTCIceServer[]>,
+  ): Promise<{ connecting: Promise<unknown> }> {
+    vi.stubGlobal("RTCPeerConnection", RacingPeer);
+    const signaller: Signaller = () => Promise.resolve({ type: "answer", sdp: "v=0" });
+    const connecting = connectRtc(signaller, config, { count: 1, iceServersAgain: again }).catch(
+      (problem: unknown) => problem,
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    return { connecting };
+  }
+
+  it("states a credential's expiry by its username, else fifteen minutes after its fetch", () => {
+    expect(relayExpiryOf(relayUntil(1_800_000_000_000, "c").iceServers ?? [], 0)).toBe(
+      1_800_000_000_000,
+    );
+    expect(relayExpiryOf(stunAndTurn.iceServers ?? [], 5_000)).toBe(5_000 + relayCredentialLifeMs);
+  });
+
+  it("offers the credentials held, fetching none, while they are good", async () => {
+    vi.useFakeTimers({ now: 1_000_000_000_000 });
+    const fetched = heldFetch();
+    const config = relayUntil(1_000_000_000_000 + relayCredentialLifeMs, "held");
+    await startConnecting(config, fetched.again);
+    await vi.advanceTimersByTimeAsync(relayAfterMs);
+    expect(racingPeers.map((peer) => peer.config)).toEqual([{ iceServers: [] }, config]);
+    expect(fetched.asked()).toBe(0);
+  });
+
+  it("tries without the relay at once, and asks the relay on credentials fetched again", async () => {
+    vi.useFakeTimers({ now: 1_000_000_000_000 });
+    const fetched = heldFetch();
+    const stale = relayUntil(1_000_000_000_000 + relayCredentialMarginMs, "stale");
+    const renewed = relayUntil(1_000_000_000_000 + relayCredentialLifeMs, "renewed");
+    const { connecting } = await startConnecting(stale, fetched.again);
+    // The attempt without the relay waits on no fetch (D561 §2).
+    expect(racingPeers.map((peer) => peer.config)).toEqual([{ iceServers: [] }]);
+    expect(fetched.asked()).toBe(0);
+    await vi.advanceTimersByTimeAsync(relayAfterMs);
+    expect(fetched.asked()).toBe(1);
+    expect(racingPeers).toHaveLength(1);
+    fetched.answer(renewed.iceServers ?? []);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(racingPeers.map((peer) => peer.config)).toEqual([{ iceServers: [] }, renewed]);
+    racingPeers[1]?.connects();
+    expect(await connecting).toBeInstanceOf(RtcTransport);
+    expect(steps()).toContain("WebRTC: the relay's credentials were stale; fetched them again");
+    expect(steps().join("\n")).not.toContain("renewed");
+  });
+
+  it("offers the credentials held where the fetch fails", async () => {
+    vi.useFakeTimers({ now: 1_000_000_000_000 });
+    const fetched = heldFetch();
+    const stale = relayUntil(1_000_000_000_000, "stale");
+    await startConnecting(stale, fetched.again);
+    await vi.advanceTimersByTimeAsync(relayAfterMs);
+    fetched.fail();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(racingPeers.map((peer) => peer.config)).toEqual([{ iceServers: [] }, stale]);
+    expect(steps()).toContain(
+      "WebRTC: could not fetch the relay's credentials again (the discovery did not answer); offering those held",
+    );
+  });
+
+  it("fetches again a credential that was good at the transport's start and aged past its life", async () => {
+    vi.useFakeTimers({ now: 1_000_000_000_000 });
+    let asked = 0;
+    const renewed = relayUntil(1_000_000_000_000 + 2 * relayCredentialLifeMs, "renewed");
+    const again = (): Promise<RTCIceServer[]> => {
+      asked += 1;
+      return Promise.resolve(renewed.iceServers ?? []);
+    };
+    const held = relayUntil(1_000_000_000_000 + relayCredentialLifeMs, "held");
+    const { connecting } = await startConnecting(held, again);
+    racingPeers[0]?.connects();
+    const transport = await connecting;
+    expect(transport).toBeInstanceOf(RtcTransport);
+    expect(asked).toBe(0);
+    await vi.advanceTimersByTimeAsync(relayCredentialLifeMs);
+    // The connection is lost on a new network: its replacement asks the relay on new credentials.
+    racingPeers[0]?.fails();
+    await vi.advanceTimersByTimeAsync(relayAfterMs * 4);
+    expect(asked).toBe(1);
+    const relayAsked = racingPeers
+      .slice(1)
+      .filter((peer) => (peer.config.iceServers ?? []).length > 0);
+    expect(relayAsked.map((peer) => peer.config)).toEqual([renewed]);
+    (transport as RtcTransport).close();
   });
 });

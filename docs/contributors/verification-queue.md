@@ -4317,3 +4317,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   phone's cast page shows "Waiting for someone to press OK on ‹the Fire TV's name›" over the key
   frame while the TV shows "Press OK to start". Press OK on the TV's remote: the words go from the
   phone as the film starts. Report each, and how long the words took to go.
+- [ ] **VQ417** — A page whose network changed long after it loaded reconnects through the relay
+  (D564 §3; the owner's phone, production, 2026-11-26, could not reach the server for two
+  minutes): only a real network that only the relay carries shows the relay admitting the
+  credentials fetched again. On the phone's Chrome, open a film's page on production and leave it
+  open for twenty minutes, the phone on Wi-Fi. Then turn the VPN on (one that leaves over IPv4
+  alone) or move to a network with no IPv6, and open the Cast panel. Report whether the page
+  reconnects within a minute, and, from the page's problem report, whether its steps say "the
+  relay's credentials were stale; fetched them again" and a connection through the attempt that
+  asked the relay.

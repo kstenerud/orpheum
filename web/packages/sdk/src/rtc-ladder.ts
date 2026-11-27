@@ -42,6 +42,11 @@ export interface Climbing {
   readonly attempt: (rtcConfig: RTCConfiguration, hooks: AttemptHooks) => Promise<PeerLike>;
   readonly isTurnedAway: (failure: unknown) => boolean;
   readonly signal: AbortSignal;
+  /**
+   * The configuration with relay credentials good now, fetched again where stale (RelayCredentials,
+   * D564 §3), asked before each rung that asks a relay; absent, the climb's own is used throughout.
+   */
+  readonly fresh?: (() => Promise<RTCConfiguration>) | undefined;
 }
 
 /**
@@ -51,6 +56,8 @@ export interface Climbing {
  */
 interface Rung {
   readonly config: RTCConfiguration;
+  /** The rung's configuration out of another, its credentials fetched again (D564 §3). */
+  readonly configOf: (rtcConfig: RTCConfiguration) => RTCConfiguration;
   readonly relay?: string;
   readonly need: number;
 }
@@ -63,15 +70,25 @@ interface Rung {
  * credential, the TLS allocations carrying nothing (production, 2026-11-26).
  */
 function ladderOf(rtcConfig: RTCConfiguration): readonly Rung[] {
+  return rungsOf(rtcConfig).map((rung) => ({ ...rung, config: rung.configOf(rtcConfig) }));
+}
+
+/** ladderOf's rungs, each with how its configuration is made out of the whole one. */
+function rungsOf(rtcConfig: RTCConfiguration): readonly Omit<Rung, "config">[] {
   return [
-    { config: withoutRelayServers(rtcConfig), need: 0 },
+    { configOf: withoutRelayServers, need: 0 },
     ...(hasUdpRelayServer(rtcConfig)
-      ? [{ config: withUdpRelaysAlone(rtcConfig), relay: "the relay over UDP", need: 1 }]
+      ? [{ configOf: withUdpRelaysAlone, relay: "the relay over UDP", need: 1 }]
       : []),
     ...(hasRelayBesidesUdp(rtcConfig)
-      ? [{ config: rtcConfig, relay: "the relay's every address", need: 2 }]
+      ? [{ configOf: everyServer, relay: "the relay's every address", need: 2 }]
       : []),
   ];
+}
+
+/** The whole configuration, every relay in it: the last rung's. */
+function everyServer(rtcConfig: RTCConfiguration): RTCConfiguration {
+  return rtcConfig;
 }
 
 /** How a rung's attempt is told in steps: "without the relay", "with the relay over UDP". */
@@ -189,24 +206,31 @@ class LadderClimb {
     if (rung.relay !== undefined) {
       each.startLateTimer(late);
     }
-    this.climbing
-      .attempt(rung.config, {
-        signal: each.controller.signal,
-        onAnswered: () => {
-          each.isAnswered = true;
-          if (rung.relay === undefined) {
-            each.startLateTimer(late);
-          }
-        },
-      })
-      .then(
-        (peer) => {
-          this.#connected(each, peer);
-        },
-        (failure: unknown) => {
-          this.#failed(each, index, failure);
-        },
-      );
+    const hooks: AttemptHooks = {
+      signal: each.controller.signal,
+      onAnswered: () => {
+        each.isAnswered = true;
+        if (rung.relay === undefined) {
+          each.startLateTimer(late);
+        }
+      },
+    };
+    const { fresh } = this.climbing;
+    const attempted =
+      rung.relay === undefined || fresh === undefined
+        ? this.climbing.attempt(rung.config, hooks)
+        : fresh().then((config) => {
+            each.controller.signal.throwIfAborted();
+            return this.climbing.attempt(rung.configOf(config), hooks);
+          });
+    attempted.then(
+      (peer) => {
+        this.#connected(each, peer);
+      },
+      (failure: unknown) => {
+        this.#failed(each, index, failure);
+      },
+    );
   }
 
   /** Starts the rung after each's, at index, saying why, unless that is decided or the climb over. */
