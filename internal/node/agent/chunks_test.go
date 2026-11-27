@@ -278,10 +278,12 @@ func TestAgent_ARunOfAQualityReportsItsSpeedAndWhetherAnotherRunWentBesideIt(t *
 	t.Parallel()
 	core, socket := startFakeCore(t)
 	clock := clocktest.NewFake(time.Date(2026, 11, 27, 12, 0, 0, 0, time.UTC))
+	logs := &testutil.Log{}
 	root, _ := startAgentWithWorkers(t, socket, Workers{
 		ChunkMaker: pacedChunkMaker{clock: clock, chunkTakes: 600 * time.Millisecond},
 	}, func(node *Agent) {
 		node.clock = clock
+		node.logger = slog.New(slog.NewJSONHandler(logs, nil))
 		twoEncodes := testCapacity
 		twoEncodes.EncodeSlotCount = 2
 		node.work = newWorkList(twoEncodes, clock)
@@ -323,6 +325,8 @@ func TestAgent_ARunOfAQualityReportsItsSpeedAndWhetherAnotherRunWentBesideIt(t *
 	if report := receiveChunksReport(t, core); !report.WasBesideAnotherRun || report.SpeedPercent != 333 {
 		t.Errorf("a quality's run beside another reported %+v; want it beside another, at 333 %%", report)
 	}
+	// The node's log says so too, which is how a run the core kept no figure of is explained.
+	logs.AwaitEvent(t, "chunkRunFinished", `"jobId":4,`, `"wentBesideAnotherRun":true`)
 	core.commands <- nodeproto.Command{CommandSeq: 5, JobID: 3, Work: nodeproto.Work{Type: nodeproto.CommandCancel}}
 }
 

@@ -50,6 +50,10 @@ func (agent *Agent) chunksWork(
 			"jobId", jobID, "storeDir", command.StoreDir, "firstChunk", command.FirstChunk,
 			"lastChunk", report.LastChunk,
 		}, chunksRunFigures(made, times)...)
+		if report.WasBesideAnotherRun {
+			// Why the core keeps no figure of a run that looks fair (start-quality-by-node-speed.md §3).
+			run = append(run, "wentBesideAnotherRun", true)
+		}
 		switch {
 		case jobCtx.Err() != nil && ctx.Err() == nil:
 			agent.logger.InfoContext(ctx, "a run of chunks was cancelled",
