@@ -12,6 +12,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/node/encode"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/pkg/atomics"
 	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
@@ -58,10 +59,9 @@ func readKept(directory string, key Key) (kept, error) {
 	return found, nil
 }
 
-// writeKept keeps results in directory. The write is not whole: pkg/atomics needs an os.Root, which
-// the node opens only as a media root (forbidigo's [media-root]), and a torn file is read as none
-// (readKept), so the trials run again rather than report wrong.
-func writeKept(directory string, results kept) error {
+// writeKept keeps results in directory, written whole (atomics.Replace), so a node stopped mid-write
+// keeps the results it had.
+func writeKept(directory string, results kept) (err error) {
 	contents, err := json.Marshal(results)
 	if err != nil {
 		return fmt.Errorf("encode the speed trials: %w", err)
@@ -69,7 +69,12 @@ func writeKept(directory string, results kept) error {
 	if err = os.MkdirAll(directory, 0o700); err != nil {
 		return fmt.Errorf("make the speed trials' directory: %w", err)
 	}
-	if err = os.WriteFile(filepath.Join(directory, keptName), contents, keptMode); err != nil {
+	root, err := os.OpenRoot(directory)
+	if err != nil {
+		return fmt.Errorf("keep the speed trials: %w", err)
+	}
+	defer func() { err = errors.Join(err, root.Close()) }()
+	if err = atomics.Replace(root, keptName, contents, keptMode); err != nil {
 		return fmt.Errorf("keep the speed trials: %w", err)
 	}
 	return nil

@@ -745,6 +745,11 @@ linters:
       - path: ^internal/node/prepared/stores\.go$
         linters: [forbidigo]
         text: '\[media-root\]'
+      # The node's kept speed trials, written whole through atomics (the owner, 2026-11-27: "make it
+      # atomic"); never a media root.
+      - path: ^internal/node/speedtrial/kept\.go$
+        linters: [forbidigo]
+        text: '\[media-root\]'
       - path: ^internal/core/instancedir/
         linters: [forbidigo]
         text: '\[(media-root|core-fs)\]'
