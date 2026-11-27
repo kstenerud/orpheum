@@ -49,6 +49,18 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A99 — Sent the owner to staging to cast to a Chromecast staging's receiver is not registered on (2026-11-27)
+
+- **What happened:** production not yet having v0.8.14, the lead told the owner that casting from
+  staging to the living room's Chromecast "should show both changes". Staging's Cast receiver
+  application is unpublished, so Chrome offers only the Chromecasts registered for it in Google's
+  console (plans/google-cast.md, step 4): the test one, not the owner's. The owner tried, and
+  Chrome's picker said "No devices available".
+- **Caught by:** the owner: "When I try orpheum.dev, it can't find the TV."
+- **Gate:** none. The practice: before sending the owner to try something on a device, check that
+  the route reaches that device; a Chromecast is cast to from staging only where its serial
+  number is registered for staging's application.
+
 ### A98 — Told the owner a Connect package carried the pad's change; the pad is the core's (2026-11-27)
 
 - **What happened:** the change that shows a Chromecast's volume on the caster's pad when the TV's
