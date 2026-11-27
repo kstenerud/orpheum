@@ -32283,13 +32283,31 @@ bring it back to the phone in the same state it was in. So paused if paused, pla
    back paused whatever the TV was doing (the plan's item 6).
 2. **The caster's page says when the TV is waiting for someone to press OK.** A TV that will not
    start a film's sound or picture until a press on its own remote says so on its own screen
-   (D554); the caster saw only a cast that did nothing (item 7). The words, the lead's proposal
-   until the owner changes them: "Waiting for someone to press OK on ‹TV›".
+   (D554); the caster saw only a cast that did nothing (item 7). The words, the lead's proposal,
+   which the owner took ("Go with your recommendations"): "Waiting for someone to press OK on ‹TV›".
 3. **A try made long after the page fetched its relay credentials fetches them again first**
    (item 10, option B): they last fifteen minutes and were read once, at load, so a page whose
    network changed later could not go through the relay.
 4. **The Cast panel says it is reconnecting, and keeps its list, before it says the server cannot
-   be reached** (item 10, option C). The words and the wait are the lead's proposal until the
-   owner changes them: "Reconnecting to the server…" while the page makes new connections, the
+   be reached** (item 10, option C). The words and the wait are the lead's proposal, which the
+   owner took ("Go with your recommendations"): "Reconnecting to the server…" while the page makes new connections, the
    devices listed before left in place, and the present message only once thirty seconds have
    passed without a connection.
+
+## D565 — A request whose body does not leave the browser is given up on in the answer's time
+
+**Decided** (2026-11-27), by the project owner ("Go with your recommendations"), on the lead's
+proposal from the look into a guest's page stuck at "Checking your invitation…"
+([plan](../design/plans/playing-casting-together-rework.md), next batch, item 4).
+
+**Status:** decided. It has no code yet.
+
+1. **The sdk times a request from when it is made, not only from when its body has left.** A
+   request on a WebRTC connection that has stalled while still saying it is connected never sent
+   its body, and the sdk began timing the answer only once it had, so the request waited for ever;
+   a page whose only request it was, as a guest's check of its invitation is, never replaced the
+   connection. A body that has not left within the time an answer is given (40 s today) fails the
+   request as an unanswered one does, with what follows from that: the connection counted as one
+   that cannot carry, and the request tried again where its kind is.
+2. Not chosen: a limit on the invitation check alone in the page (the fault is every request's),
+   a ping on idle connections, and a "still trying" note for the guest, which may still come.
