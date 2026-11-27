@@ -5427,3 +5427,14 @@ a tenth of the CPU. The 2.65x is the machine idle and all four cores free; a sca
 took it to the 1.3 to 2.2 the log showed. The owner (2026-11-27): go ahead with the proposals,
 "We should be using the hardware available to us for as much as we can", and production stays on
 this machine for now, to prove it there.
+
+### Warming the next film stops the playing film's runs (found 2026-11-27, for the owner)
+
+Any new playback on the ladder marks its player's playbacks of other films as replaced and stops
+their runs (`goneToAnother`, D309 §7), and an Up next warm-up is such a playback: so warming the
+next episode stops the runs of the one playing, in its last half minute, against what
+`warmUpNext` says it keeps. The next chunk fetched starts them again, and by then the player has
+usually read ahead, so nothing has been seen to stall from it; a browser's warm-up has done this
+since it was built, and the Chromecast's now does too. Proposed: a playback asked for as Up next
+replaces nothing; the playing film's playback is let go of by its player when it moves on, as a
+browser's is today. Not built: it makes the request's cause more than a word for the log.
