@@ -9,7 +9,7 @@
   and *"We'd likely need to have the core choose based on what the hardware can actually provide
   (i.e. do test encodes to find out what it's capable of, before choosing the base rate to start
   at)"*. Phase S1 (the node's trials) follows from those words; the two questions at the end are
-  open.
+  open. §3 is the owner's addition of the same day.
 - **Depends on:** D568 (decode on the card), D457 (a machine too slow to convert), D257 and D381
   (the quality a playback starts on), D265 (the player's own choosing).
 
@@ -58,14 +58,32 @@ path a real run takes.
 - The figure D457 judges by becomes the slowest of these and not the generated picture's, in a
   later phase, once nodes in use have shown the trials sound.
 
-## 3. Phases
+## 3. What real playbacks add
+
+The owner (2026-11-27): *"We can also keep data on how real playbacks have performed, and use
+those to fine-tune what we believe the hardware is capable of."*
+
+- **Each finished run of a quality tells the core its speed and where it was decoded**, with the
+  result the node already sends. The node logs both today and the core is not told.
+- **The core keeps a figure a node, a kind of film and a quality**, in its cache database, so it
+  outlasts a restart; a node's changed FFmpeg, encoder or recipe starts it over, as it does the
+  trials.
+- **Only a fair run counts:** one that made at least half a minute of film while no other run
+  went on its node. A node made slow by its load is `keepRunsFast`'s matter (D250 §6), not what
+  its hardware can do.
+- **The real figure takes over from the trial's as runs are counted:** the trial alone until
+  three fair runs, then the middle one of the last several. A kind the trials never tried gets a
+  figure of its own this way, and no longer borrows its neighbour's.
+
+## 4. Phases
 
 | Phase | What | Done when |
 | --- | --- | --- |
 | S1 | **The node:** the clips, the trials, the kept results, the message | A node with a faked FFmpeg reports each kind once and nothing after a restart; no trial starts while a run goes |
 | S2 | **The core:** the figures kept for a node, the cap at a start | A film whose kind measured slow starts on the highest quality measured fast; one not measured starts as today |
-| S3 | **The player** (question 2) | The owner's answer |
-| S4 | **On devices:** a VQ item on production's J3455 with the card's decode refused | The owner's run |
+| S3 | **Real runs:** the run's speed and decode in its result, the kept figures, the trial's giving way | A kind with three fair runs starts by their figure and not the trial's; a run beside another counts for nothing |
+| S4 | **The player** (question 2) | The owner's answer |
+| S5 | **On devices:** a VQ item on production's J3455 with the card's decode refused | The owner's run |
 
 ## Questions for the owner
 
