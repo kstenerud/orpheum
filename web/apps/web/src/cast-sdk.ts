@@ -147,16 +147,68 @@ export function castContext(): unknown {
 }
 
 /**
- * Opens a session with the receiver app appId, Chrome's own picker asking the person to pick a device
- * (the press that asks must be the person's); answers the SDK's session, or fails where they pick
- * none or it cannot launch.
+ * The page's Cast context, set to the receiver app appId: a session of it that a page of this origin
+ * left running is joined by the SDK itself (ORIGIN_SCOPED), which says it SESSION_RESUMED.
  */
-export async function openCastSession(appId: string): Promise<unknown> {
+function castContextFor(appId: string): unknown {
   const context = castContext();
   call(context, "setOptions", {
     receiverApplicationId: appId,
     autoJoinPolicy: at(globalThis, "chrome", "cast", "AutoJoinPolicy", "ORIGIN_SCOPED"),
   });
+  return context;
+}
+
+/** How many of openCastSession's pickers are open now: a session starting meanwhile is theirs. */
+let picking = 0;
+
+/**
+ * Tells listener each session of the receiver app appId the page has without Chrome's picker: the
+ * context's current one now, if it has one, and each one the SDK says resumed (a page of this origin
+ * loaded again and auto-joined to the session it left running, or Chrome handing the page its
+ * session back as a new object as it comes back from the background) or started while no picker of
+ * openCastSession's is open. Opens no picker; returns the unsubscribing.
+ */
+export function onCastSessionJoined(
+  appId: string,
+  listener: (session: unknown) => void,
+): () => void {
+  const context = castContextFor(appId);
+  const changed = at(
+    globalThis,
+    "cast",
+    "framework",
+    "CastContextEventType",
+    "SESSION_STATE_CHANGED",
+  );
+  const resumed = at(globalThis, "cast", "framework", "SessionState", "SESSION_RESUMED");
+  const started = at(globalThis, "cast", "framework", "SessionState", "SESSION_STARTED");
+  const tellCurrent = (): void => {
+    const session = call(context, "getCurrentSession");
+    if (session !== null && session !== undefined) {
+      listener(session);
+    }
+  };
+  const heard = (event: unknown): void => {
+    const said = at(event, "sessionState");
+    if (said !== undefined && (said === resumed || (said === started && picking === 0))) {
+      tellCurrent();
+    }
+  };
+  call(context, "addEventListener", changed, heard);
+  tellCurrent();
+  return () => {
+    call(context, "removeEventListener", changed, heard);
+  };
+}
+
+/**
+ * Opens a session with the receiver app appId, Chrome's own picker asking the person to pick a device
+ * (the press that asks must be the person's); answers the SDK's session, or fails where they pick
+ * none or it cannot launch.
+ */
+export async function openCastSession(appId: string): Promise<unknown> {
+  const context = castContextFor(appId);
   // A session starts only once a device is picked: none heard starting, the picker was closed.
   const changed = at(
     globalThis,
@@ -172,12 +224,14 @@ export async function openCastSession(appId: string): Promise<unknown> {
   };
   call(context, "addEventListener", changed, heard);
   let failure: unknown;
+  picking += 1;
   try {
     failure = await answerOf(call(context, "requestSession"));
   } catch (cause) {
     // The SDK rejects with its code, or answers it: either way, a failure says whether one was picked.
     throw cause instanceof CastSdkFailure ? new CastSdkFailure(cause.code, isPicked) : cause;
   } finally {
+    picking -= 1;
     call(context, "removeEventListener", changed, heard);
   }
   if (typeof failure === "string") {
@@ -216,6 +270,8 @@ export interface CastChannel {
   readonly end: () => void;
   /** The Cast device's own volume, which any sender of its session sets (the Cast SDK's CastSession). */
   readonly volume: CastDeviceVolume;
+  /** Whether session, the SDK's, is the one this channel speaks on. */
+  readonly isOf: (session: unknown) => boolean;
 }
 
 /** session, the SDK's, spoken to on namespace. */
@@ -242,6 +298,7 @@ export function channelOf(session: unknown, namespace: string): CastChannel {
       call(session, "endSession", true);
     },
     volume: deviceVolumeOf(session),
+    isOf: (other) => other === session,
   };
 }
 

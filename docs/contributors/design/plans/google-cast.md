@@ -27,6 +27,9 @@ reached there through the person's devices (D465 §4).
 
 Google's sender script loads only in Chrome, at the menu's first opening (the owner, 2026-11-12), so
 no page loads it until someone means to cast; the Chromecast entry shows in Chrome from the start.
+A page whose device already sends a cast to a Chromecast, loaded again, loads it too, to rejoin that
+cast's Cast session without the picker, so the pad sets the device's volume again (the owner,
+2026-11-27: the volume buttons did nothing after leaving the browser and coming back).
 The Cast icon is Material Symbols' `cast` (Apache-2.0), inlined as the client's other icons are, so
 no package is added.
 

@@ -25,6 +25,7 @@ import {
   isCancelledByThePerson,
   isNotListenedOn,
   loadCastSender,
+  onCastSessionJoined,
   openCastSession,
   type CastChannel,
 } from "./cast-sdk.ts";
@@ -33,7 +34,7 @@ import { tellCastSessionLinked, tellCastSessionLost } from "./cast-session-lost.
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { useLive } from "./live.tsx";
 import { dataOrThrow } from "./problem.ts";
-import type { AskGuestCastGrant, Services } from "./services.tsx";
+import { useServices, type AskGuestCastGrant, type Services } from "./services.tsx";
 import { membershipHeaders } from "./together-storage.ts";
 
 /** The namespace the sender and the receiver speak on of a cast under a grant. */
@@ -375,7 +376,9 @@ let sentCastId: number | undefined;
  * ends nothing: it is a hint the remote reaches for its receiver by (tellCastSessionLost) while the
  * cast's session shows no leader, a Chromecast still leading left to play on, and the remote gives
  * up a receiver unheard for its wait (D553 §5, D554 §1, §4, amending D552 §5). The cast's end ends the session (castSentNow).
- * While linked, the session's device volume is the pad's (cast-device-volume.ts).
+ * While linked, the session's device volume is the pad's (cast-device-volume.ts). Linked again to
+ * castId, a session rejoined (rejoinCastSession), the one linked before is let go of quietly: its
+ * passing neither ends the cast nor says it lost.
  */
 export function linkCastSession(api: Api, channel: CastChannel, castId: number): void {
   if (linked !== undefined && linked.castId !== castId) {
@@ -385,8 +388,8 @@ export function linkCastSession(api: Api, channel: CastChannel, castId: number):
   tellCastSessionLinked(castId);
   tellCastDeviceVolume(castId, channel.volume);
   channel.onEnded((isStoppedThere) => {
-    if (linked?.castId !== castId) {
-      return; // its cast ended first, and ended it
+    if (linked?.channel !== channel) {
+      return; // its cast ended first, and ended it, or its session was rejoined as a new one
     }
     linked = undefined;
     forgetCastDeviceVolume(castId);
@@ -414,6 +417,53 @@ export function castSentNow(castId: number | undefined): void {
   } else if (linked.isSent) {
     endLinked();
   }
+}
+
+/**
+ * Links session, one the page has without Chrome's picker (cast-sdk.ts's onCastSessionJoined), to
+ * the cast castId this device sends to a Google Cast device, unless it is linked already or another
+ * cast's session is linked (one being made through the picker).
+ */
+function rejoinCastSession(api: Api, session: unknown, castId: number): void {
+  if (linked !== undefined && (linked.castId !== castId || linked.channel.isOf(session))) {
+    return;
+  }
+  linkCastSession(api, channelOf(session, guestCastNamespace), castId);
+}
+
+/**
+ * Rejoins the Cast session of the cast the live connection says this device sends to a Google Cast
+ * device, so its device volume is the pad's again (cast-device-volume.ts) and Chrome's own Stop
+ * still ends it: a page loaded again, as Android's Chrome does with a tab left in the background,
+ * has none linked until the SDK joins the session the page left running; and a page whose session
+ * Chrome gave up while it was away is handed it back as a new object, which the link follows. In
+ * Chrome alone, under a loader naming the receiver application; opens no picker. Mounted where the
+ * page always has it, the status tray.
+ */
+export function useRejoinsTheCastSessionOfItsCast(): void {
+  const { api, castReceiverAppId: appId } = useServices();
+  const sending = useLive().sending;
+  const castId = sending?.isGuestReceiver === true ? sending.castId : undefined;
+  useEffect(() => {
+    if (castId === undefined || appId === undefined || !isChromeBrowser()) {
+      return undefined;
+    }
+    let isOver = false;
+    let stop: () => void = () => undefined;
+    loadCastSender()
+      .then((isAvailable) => {
+        if (!isOver && isAvailable) {
+          stop = onCastSessionJoined(appId, (session) => {
+            rejoinCastSession(api, session, castId);
+          });
+        }
+      })
+      .catch(() => undefined); // no sender here: nothing to rejoin, as before
+    return () => {
+      isOver = true;
+      stop();
+    };
+  }, [api, appId, castId]);
 }
 
 /** Ends the Cast session linked to castId, a cast its device did not take, if it is the one linked. */

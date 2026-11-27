@@ -2,7 +2,12 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { channelOf, isCancelledByThePerson, openCastSession } from "./cast-sdk.ts";
+import {
+  channelOf,
+  isCancelledByThePerson,
+  onCastSessionJoined,
+  openCastSession,
+} from "./cast-sdk.ts";
 
 /**
  * Puts a Cast context on the page's globals whose requestSession tells its listeners each of states,
@@ -125,5 +130,71 @@ describe("a Cast device's own volume, through its session", () => {
     volume.setMuted(false);
     await answered();
     expect(heard).toBe(2);
+  });
+});
+
+describe("a Cast session the page has without the picker", () => {
+  it("is the context's current one, and each one resumed or started with no picker open; a session the picker starts is the picker's alone", async () => {
+    const listeners: ((event: unknown) => void)[] = [];
+    const say = (sessionState: string): void => {
+      for (const listener of [...listeners]) {
+        listener({ sessionState });
+      }
+    };
+    const running = { name: "running" };
+    const resumed = { name: "resumed" };
+    const picked = { name: "picked" };
+    const startedLater = { name: "started later" };
+    let current: unknown = running;
+    const options: unknown[] = [];
+    const castContext = {
+      setOptions: (set: unknown) => {
+        options.push(set);
+      },
+      getCurrentSession: () => current,
+      addEventListener: (_type: unknown, listener: (event: unknown) => void) => {
+        listeners.push(listener);
+      },
+      removeEventListener: (_type: unknown, listener: (event: unknown) => void) => {
+        listeners.splice(listeners.indexOf(listener), 1);
+      },
+      requestSession: async () => {
+        current = picked;
+        say("SESSION_STARTING");
+        say("SESSION_STARTED");
+        await Promise.resolve();
+      },
+    };
+    Reflect.set(globalThis, "cast", {
+      framework: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
+        CastContext: { getInstance: () => castContext },
+        // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
+        CastContextEventType: { SESSION_STATE_CHANGED: "sessionstatechanged" },
+        // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
+        SessionState: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
+          SESSION_STARTING: "SESSION_STARTING",
+          // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
+          SESSION_STARTED: "SESSION_STARTED",
+          // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
+          SESSION_RESUMED: "SESSION_RESUMED",
+        },
+      },
+    });
+    const told: unknown[] = [];
+    const stop = onCastSessionJoined("ABCD1234", (session) => {
+      told.push(session);
+    });
+    expect(options).toEqual([{ receiverApplicationId: "ABCD1234", autoJoinPolicy: undefined }]);
+    current = resumed;
+    say("SESSION_RESUMED");
+    await openCastSession("ABCD1234");
+    current = startedLater;
+    say("SESSION_STARTED");
+    stop();
+    current = running;
+    say("SESSION_RESUMED");
+    expect(told).toEqual([running, resumed, startedLater]);
   });
 });

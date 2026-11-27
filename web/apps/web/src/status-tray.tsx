@@ -13,7 +13,10 @@ import { IconButton } from "./icon-button.tsx";
 import { CastIcon, TogetherIcon, WarningIcon } from "./icons.tsx";
 import { Link } from "./link.tsx";
 import { hasCopyWarning } from "./copy-warning.ts";
-import { useEndsTheCastSessionWithItsCast } from "./google-cast.ts";
+import {
+  useEndsTheCastSessionWithItsCast,
+  useRejoinsTheCastSessionOfItsCast,
+} from "./google-cast.ts";
 import { useLive } from "./live.tsx";
 import { readNeedsAttention, needsAttentionKey } from "./needs-attention-read.ts";
 import { isAnythingNeeded } from "./attention-pages.ts";
@@ -48,6 +51,7 @@ export function StatusTray(props: {
   const isViewing = useMembership(browserStorage, "viewer") !== undefined;
   const { sending, receiving } = useLive();
   useEndsTheCastSessionWithItsCast(); // a Google Cast device's, its Cast menu closed once it took it
+  useRejoinsTheCastSessionOfItsCast(); // its volume the pad's again, the page loaded again or resumed
   useClosesTheDialogAsThePageMoves();
   useLoadsTrayDialogsAhead();
   return (

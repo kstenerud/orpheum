@@ -4280,3 +4280,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   Chrome, cast a film to the Chromecast, the pad upright, and press nothing on the pad. Turn the
   volume up and down with the TV's remote. Report whether "Volume ‹n› %" shows on the phone at
   each change and goes a moment after the last.
+- [ ] **VQ413** — The caster's pad sets a Chromecast's volume again after the phone's Chrome was
+  left and returned to (the owner, 2026-11-27: "When I leave the browser and then go back again,
+  the volume buttons on the caster don't do anything anymore"): only a real phone shows whether
+  Chrome reloads the tab or hands the page its Cast session back. On the phone's Chrome, cast a
+  film to the Chromecast, the pad upright. Leave Chrome for another app for a minute, return,
+  and press Volume up and Volume down. Then reload the page and press them again. Report, each
+  time, whether "Volume ‹n› %" shows on the phone and the TV's volume changes.

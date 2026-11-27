@@ -7,7 +7,9 @@
  * software sliders"). The Cast link (google-cast.ts's linkCastSession) tells it the session's, and
  * the castee's target (castee-target.ts) shows it on the pad's volume where the castee says no film
  * channel of its own, as a Chromecast does (the owner, 2026-11-26: "Anything it can do, I want").
- * A page loaded again has no Cast session linked, so no device volume, until it casts again.
+ * A page loaded again, or whose session Chrome gave up and handed back while it was in the
+ * background, has its cast's Cast session rejoined and linked anew
+ * (google-cast.ts's useRejoinsTheCastSessionOfItsCast), so its device volume is the pad's again.
  */
 
 import { useSyncExternalStore } from "react";
