@@ -692,4 +692,5 @@ Added by the owner, 2026-11-26, from the same walk's unfixed observations:
 16. **A test's stray timer fails a run now and then** (the gate, 2026-11-27, twice in a day): in
     `apps/web/src/together-host-paused.test.tsx` a `StartGate` look-again timer fires after the
     page's teardown ("Failed to execute 'dispatchEvent'"), an unhandled error that fails the whole
-    web test run; the file passes alone and the next run passes. The timer is to end with its gate.
+    web test run; the file passes alone and the next run passes. **Fixed** (2026-11-27): the stage
+    gives up its video's waiting play as it lets the video go (`useWaitsStopWithTheVideo`).

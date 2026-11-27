@@ -297,7 +297,7 @@ export function Stage(
     const video = videoRef.current;
     return video === null ? undefined : pauseWhenHidden(video, document, isThisHandheld());
   }, [videoRef]);
-  useSeekAheadStopsWithTheVideo(videoRef, props.keptVideo);
+  useWaitsStopWithTheVideo(videoRef, props.keptVideo);
   useStartsWithEnoughAhead(videoRef, props.isAutoPlay);
   useTellsTooSlowAtLowest(videoRef, ladder);
   const parts = { videoRef, readLinkKbps, failure, ladder };
@@ -445,11 +445,14 @@ function useStartsWithEnoughAhead(
 }
 
 /**
- * Stops a seek chosen on the stage's video (seekAheadOf) as the stage lets the video go, gone or
- * kept for the next film (keptVideo): a seek a press aimed waits for the presses to rest, and it
- * outlived the player, seeking a video no page showed (check-pr, 2026-11-18).
+ * Stops what waits on the stage's video as the stage lets the video go, gone or kept for the next
+ * film (keptVideo). A seek chosen on it (seekAheadOf): a seek a press aimed waits for the presses to
+ * rest, and it outlived the player, seeking a video no page showed (check-pr, 2026-11-18). And a
+ * play its start gate holds until enough is loaded, whoever asked it (the page, a session's leader,
+ * a seek the gate held): its look-again timer outlived the player, and told a video of a page
+ * already torn down (the gate, 2026-11-27).
  */
-function useSeekAheadStopsWithTheVideo(
+function useWaitsStopWithTheVideo(
   videoRef: RefObject<HTMLVideoElement | null>,
   keptVideo: HTMLVideoElement | undefined,
 ): void {
@@ -459,6 +462,7 @@ function useSeekAheadStopsWithTheVideo(
       ? undefined
       : () => {
           stopSeekAheadOf(video);
+          startGateOf(video).cancel();
         };
   }, [videoRef, keptVideo]);
 }
