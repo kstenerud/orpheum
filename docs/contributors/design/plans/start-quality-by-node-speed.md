@@ -75,6 +75,9 @@ those to fine-tune what we believe the hardware is capable of."*
   three fair runs, then the middle one of the last several. A kind the trials never tried gets a
   figure of its own this way, and no longer borrows its neighbour's.
 
+The owner on these marks (half a minute, alone on its node, three runs, the middle one), the
+same day: *"those sound fine"*.
+
 ## 4. Phases
 
 | Phase | What | Done when |
