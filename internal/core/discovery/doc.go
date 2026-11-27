@@ -96,6 +96,10 @@
 //     candidate while the core holds no fresh relay credential asks it too (AskStandingForRelay,
 //     which rtcapi calls).
 //     TestSignal_AConnectionOpenAgainAsksHowTheCoreStandsAtOnceAndTheFirstOpeningDoesNot.
+//   - A hosted relay the WebRTC server marks failed (ReportRelayFailure, which rtcapi's
+//     ReportRelayFailuresWith calls) is carried by the next heartbeat, sent at once within the same
+//     limit, and by that one alone: the latest failure of each relay, at most MaxRelayFailures
+//     (D567 §3). TestReportRelayFailure_TheNextHeartbeatCarriesItAtOnceAndOnce.
 //   - The certificate of the core's names is proven through the discovery, which sets and clears
 //     its DNS-01 record. TestSetTXT_ACertificateForTheCoresNamesIsObtainedThroughTheDiscovery.
 //   - A discovery's deprecation date is kept for the admin to see.

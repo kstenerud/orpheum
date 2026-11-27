@@ -115,6 +115,32 @@ the log says whether a device took the relay needlessly (the owner, 2026-11-26):
 4. Not yet: a connection that moves from the relay to a direct pair after it connected, or back,
    says nothing; and the System page counts `relayed` as one figure, not by reason.
 
+## 6. Availability (D567)
+
+Built for the relay and the core, 2026-11-27; the discovery's part is owed (orpheum-connect).
+
+- **The relay announces itself** to each discovery its configuration names in `[[announce]]`
+  (`url`, an https URL, and `secret_line`, the line of the secrets file it shares with that
+  discovery). At once and each minute it makes an allocation on its own public UDP listener under
+  that secret, as the household `relay-self-test` (`relaycred.SelfTestHousehold`, recorded as no
+  household's and counted against no limit), and only when it works POSTs to the URL a body
+  `{"name": <the relay's name>, "at": <Unix ms>}`, `Content-Type: application/json`, signed in the
+  header `Orpheum-Relay-Signature`: standard base64 of HMAC-SHA256 over the body under the secret.
+  A discovery reads it with `relaycred.ReadAnnouncement`, which refuses a bad signature or an `at`
+  more than two minutes from its clock. Any 2xx is accepted. Each change of state (self-test failed,
+  announcement failed, announced) is logged once. The relay's `name` must be the host its TURN URLs
+  name.
+- **The discovery's status says when** each TURN server last announced: `iceServers[].announcedAt`,
+  Unix ms, left out when it knows nothing (protocol 1.1, discovery-protocol.md §2.9).
+- **The core waits two seconds** for a relayed candidate in an answer through a relay, then answers
+  with what it has, failing only with no candidate at all. A relay that gave none is marked failed
+  (one warning, `relayFailed`), left out of its answers, and reported with the next heartbeat, sent
+  at once: `relayFailures: [{"name", "failedAt"}]`, at most eight (discovery-protocol.md §2.4). It
+  is taken back when the status's `announcedAt` is after the failure, or, when the status says
+  nothing of announcements, five minutes after it (`relayTakenBack`).
+- **Owed by the discovery**: reading the announcements, naming a relay only while announced (three
+  minutes), `announcedAt` in the status, the mails and the console, and counting the reports.
+
 ## Proof
 
 - The relay's rules each have a test that fails on revert, on real sockets on the loopback.
@@ -151,13 +177,14 @@ the log says whether a device took the relay needlessly (the owner, 2026-11-26):
    limit, would have named finding 1 at once. It now does (§5 item 2).
 5. **A relay that does not answer holds the core's answer** to an offer with a relayed candidate
    until the core has a reflexive candidate, or for five seconds and then fails it where it has no
-   STUN server (seen in D559 §2's test, 2026-11-26). Before D559 §2 that was every offer. Open.
+   STUN server (seen in D559 §2's test, 2026-11-26). Before D559 §2 that was every offer. Built for
+   the relay and the core (2026-11-27, §6); the discovery's part is owed.
    The owner's design, 2026-11-27, in place of the lead's (a two-second wait and a minute left
    out): the relay announces that it is available and keeps announcing; a connection that fails
    through it is the sign that it is not, and from then until it next announces it is not offered
    as a path, and the person responsible is told; failures while it keeps announcing are a louder
    alert, a fault in a critical service. The lead's fit of it to what is built, agreed by the owner the
-   same day (D567), not yet built:
+   same day (D567), built for the relay and the core (§6):
 
    - **The relay announces to the discovery, not to the cores.** A relay knows no core: it shares
      a secret with a discovery and nothing else (§1). Every minute it sends the discovery a short

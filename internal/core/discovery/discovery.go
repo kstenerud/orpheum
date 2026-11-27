@@ -214,6 +214,10 @@ type Service struct {
 	// standingAskedAt when a refusal last had it asked (askStandingSoon).
 	standingAsked   bool
 	standingAskedAt time.Time
+	// relayFailures are the hosted relays the WebRTC server marked failed that no heartbeat has
+	// carried yet (ReportRelayFailure, D567 §3): the latest of each relay, at most
+	// discoveryproto.MaxRelayFailures.
+	relayFailures []discoveryproto.RelayFailure
 	// sentLinks and sentLocators are what the discovery was last told it may find the core by, and
 	// sentUnder the session's token it was told under: a new session, a discovery that may have
 	// forgotten, is told again.
@@ -675,8 +679,9 @@ func (service *Service) heartbeat(ctx context.Context, status Status) time.Durat
 	isDue := !slices.Equal(candidates, service.lastSent) ||
 		!slices.Equal(houseNetworks, service.sentHouseNetworks) ||
 		service.parts.Clock.Now().Sub(service.status.LastHeartbeatAt) >= heartbeatEvery ||
-		service.standingAsked
+		service.standingAsked || len(service.relayFailures) > 0
 	service.standingAsked = false
+	relayFailures := slices.Clone(service.relayFailures)
 	service.mutex.Unlock()
 	if !isDue {
 		return service.wait(ctx, settings.DiscoveryAddressCheckEverySeconds)
@@ -693,7 +698,7 @@ func (service *Service) heartbeat(ctx context.Context, status Status) time.Durat
 		OrpheumVersion: service.parts.Version,
 		APIMajor:       service.parts.APIMajor, Candidates: candidates, HouseNetworks: houseNetworks,
 		// The root it pinned, so its operator sees a core holding another statement (the audit's F17).
-		RootVersion: rootVersion, RootHash: rootHash,
+		RootVersion: rootVersion, RootHash: rootHash, RelayFailures: relayFailures,
 	}
 	if len(service.parts.KeySalt) > 0 {
 		request.KeySalt = base64.RawURLEncoding.EncodeToString(service.parts.KeySalt)
@@ -717,6 +722,9 @@ func (service *Service) heartbeat(ctx context.Context, status Status) time.Durat
 		return service.failed(ctx, "send the core's addresses", err)
 	}
 	service.mutex.Lock()
+	service.relayFailures = slices.DeleteFunc(service.relayFailures, func(failure discoveryproto.RelayFailure) bool {
+		return slices.Contains(relayFailures, failure)
+	})
 	service.lastSent, service.sentHouseNetworks = candidates, houseNetworks
 	service.status.LastHeartbeatAt = service.parts.Clock.Now()
 	service.status.Published, service.status.Probe = answered.Published, answered.Probe

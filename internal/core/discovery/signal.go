@@ -6,7 +6,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -415,6 +417,26 @@ func (service *Service) askStandingSoon() bool {
 	}
 	service.nudge()
 	return true
+}
+
+// ReportRelayFailure keeps a hosted relay the WebRTC server marked failed for the next heartbeat, and
+// has that heartbeat sent at once, within standingAskEvery of the last ask (rtcapi's
+// ReportRelayFailuresWith, D567 §3). It waits on nothing: the answer that found the failure is on its
+// way. A relay already waiting keeps its latest failure alone.
+func (service *Service) ReportRelayFailure(ctx context.Context, failure rtcapi.RelayFailure) {
+	reported := discoveryproto.RelayFailure{Name: failure.Name, FailedAt: failure.At.UnixMilli()}
+	service.mutex.Lock()
+	service.relayFailures = slices.DeleteFunc(service.relayFailures, func(held discoveryproto.RelayFailure) bool {
+		return held.Name == reported.Name
+	})
+	service.relayFailures = append(service.relayFailures, reported)
+	if excess := len(service.relayFailures) - discoveryproto.MaxRelayFailures; excess > 0 {
+		service.relayFailures = slices.Delete(service.relayFailures, 0, excess)
+	}
+	service.mutex.Unlock()
+	service.askStandingSoon()
+	service.parts.Logger.InfoContext(ctx, "discovery: a relay failed, told the discovery with the next heartbeat",
+		slog.String(slogx.EventKey, "relayFailureReported"), slog.String("relay", failure.Name))
 }
 
 // AskStandingForRelay has the core ask its discovery at once how it stands, so the relay's servers and

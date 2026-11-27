@@ -18,6 +18,12 @@
 //     Enforced by TestMatches_RefusesAChangedUsernameOrAnotherSecret.
 //   - A secret is at least 32 bytes, and nothing that prints, logs or serialises one shows it;
 //     no method returns it. Enforced by TestSecret_IsLongEnoughAndNeverPrints.
+//   - An announcement (D567 §1) is read back as signed: its signature is HMAC-SHA256's standard
+//     base64 over its body, and one under another secret, of a changed body or more than
+//     AnnouncementSkew from the reader's clock is refused. Enforced by
+//     TestReadAnnouncement_ReadsASignedOneWithinTwoMinutesAndRefusesAnythingElse.
+//   - The relay's own household, SelfTestHousehold, is a household's name and none a discovery
+//     makes. Enforced by TestSelfTestHousehold_IsAHouseholdNoDiscoveryNames.
 //   - Imports nothing from internal/ and no TURN library. Enforced by
 //     TestArch_PublicPackagesImportNothingInternal; the TURN library, review-only.
 //
@@ -25,8 +31,10 @@
 //
 //   - D558; docs/contributors/design/plans/hosted-relay.md §1: the wire contract.
 //   - D275 §1: why this package is public.
+//   - D567; the plan's §6: the announcement.
 //
 // # Where to change
 //
 //   - relaycred.go: the username, the password and the secret.
+//   - announcement.go: the relay's signed announcement to a discovery (D567 §1).
 package relaycred

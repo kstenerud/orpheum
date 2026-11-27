@@ -32344,7 +32344,7 @@ built is the lead's, agreed ("Agreed"). It closes finding 5 of
 [the hosted relay's plan](../design/plans/hosted-relay.md), and with it the same day's answers on
 findings 3 and D558 §7's admission.
 
-**Status:** decided. It has no code.
+**Status:** decided. It has code for the relay and the core; the discovery's part is owed.
 
 1. **The relay announces to its discovery, which passes it on.** A relay knows no core: it shares
    a secret with a discovery and nothing else. Every minute it makes an allocation on its own

@@ -139,6 +139,10 @@ type Server struct {
 	// relayAsk asks the core's discovery for a fresh relay credential (AskForRelayCredentialWith);
 	// none asks nothing.
 	relayAsk atomic.Pointer[func(context.Context)]
+	// relayReport is told of each relay the core marks failed (ReportRelayFailuresWith); relayAnnounced
+	// says when the discovery last heard a relay announce itself (UseRelayAnnouncements). D567 §3.
+	relayReport    atomic.Pointer[func(context.Context, RelayFailure)]
+	relayAnnounced atomic.Pointer[func(string) (time.Time, bool)]
 	// anyRelayedAddress lets a relayed connection check any remote address, the core's own networks'
 	// too: for a development build alone, whose browser tests put the browser, the discovery and the
 	// core on one machine (AcceptAnyRelayedAddress).
@@ -162,6 +166,8 @@ type Server struct {
 	// from numbered.
 	held     map[*webrtc.PeerConnection]*heldConnection
 	numbered int64
+	// failedRelays are the relays marked failed, by name, with when (D567 §3).
+	failedRelays map[string]time.Time
 	// lanPort, lanIPs and lanMux are where the core takes WebRTC at home (ListenLAN,
 	// SetLANAddresses): 0 and none until then.
 	lanPort int
@@ -442,11 +448,11 @@ func (server *Server) answerWith(
 	if mayRelay {
 		server.askForRelayCredential(ctx)
 	}
-	connection, err := server.open(api, onProvenAtHome, mayRelay)
+	connection, asked, err := server.open(api, onProvenAtHome, mayRelay)
 	if err != nil {
 		return Description{}, err
 	}
-	answer, err := server.answer(ctx, connection, offerSDP)
+	answer, err := server.answer(ctx, connection, offerSDP, asked)
 	if err != nil {
 		server.forget(connection)
 		return Description{}, errors.Join(err, connection.Close())
@@ -457,18 +463,20 @@ func (server *Server) answerWith(
 // open makes a peer connection with api, unless the core holds its most connections. One that has not
 // connected within its bound is closed, and so is one past its network's share once it connects. Once
 // it connects, onProvenAtHome, unless nil, is told when it proved itself from home (D356 §1). It asks
-// a relay for an address only when mayRelay (D559 §2).
+// a relay for an address only when mayRelay (D559 §2), and never one marked failed (D567 §3); asked
+// names the relays it asks.
 func (server *Server) open(
 	api *webrtc.API, onProvenAtHome func(ProvenAtHome), mayRelay bool,
-) (*webrtc.PeerConnection, error) {
+) (connection *webrtc.PeerConnection, asked []string, err error) {
 	server.mutex.Lock()
 	defer server.mutex.Unlock()
 	if len(server.connections) >= server.bounds.connections {
-		return nil, ErrTooManyConnections
+		return nil, nil, ErrTooManyConnections
 	}
-	connection, err := api.NewPeerConnection(webrtc.Configuration{ICEServers: server.serversFor(mayRelay)})
+	servers, asked := server.serversFor(mayRelay)
+	connection, err = api.NewPeerConnection(webrtc.Configuration{ICEServers: servers})
 	if err != nil {
-		return nil, fmt.Errorf("make a peer connection: %w", err)
+		return nil, nil, fmt.Errorf("make a peer connection: %w", err)
 	}
 	server.connections[connection] = true
 	openedAt := server.clock.Now()
@@ -531,7 +539,7 @@ func (server *Server) open(
 			now:      server.clock.Now, answerLingers: server.bounds.answerLingers,
 		})
 	})
-	return connection, nil
+	return connection, asked, nil
 }
 
 // keepOwnIPv6Networks keeps the core's own IPv6 networks a connection that just connected found, in
@@ -555,9 +563,10 @@ func (server *Server) recordSelectedPath(
 	return path
 }
 
-// answer sets the offer and returns the answer once the core's candidates are gathered.
+// answer sets the offer and returns the answer once the core's candidates are gathered. Through the
+// relays asked, it waits for a relayed candidate at most relayWait (awaitRelay).
 func (server *Server) answer(
-	ctx context.Context, connection *webrtc.PeerConnection, offerSDP string,
+	ctx context.Context, connection *webrtc.PeerConnection, offerSDP string, asked []string,
 ) (Description, error) {
 	err := connection.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: offerSDP})
 	if err != nil {
@@ -570,7 +579,9 @@ func (server *Server) answer(
 	gathered := webrtc.GatheringCompletePromise(connection)
 	reachedOut := make(chan struct{})
 	var reaching sync.Once
+	heard := &gathering{relayed: make(chan struct{})}
 	connection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
+		heard.heard(candidate)
 		if candidate != nil &&
 			(candidate.Typ == webrtc.ICECandidateTypeSrflx || candidate.Typ == webrtc.ICECandidateTypeRelay) {
 			reaching.Do(func() { time.AfterFunc(gatherAfterReflexive, func() { close(reachedOut) }) })
@@ -578,6 +589,13 @@ func (server *Server) answer(
 	})
 	if err = connection.SetLocalDescription(answer); err != nil {
 		return Description{}, fmt.Errorf("set the answer: %w", err)
+	}
+	if len(asked) > 0 {
+		if relayErr := server.awaitRelay(ctx, gathered, heard, asked); relayErr != nil {
+			return Description{}, relayErr
+		}
+		local := connection.LocalDescription()
+		return Description{Type: local.Type.String(), SDP: local.SDP}, nil
 	}
 	waitCtx, cancel := context.WithTimeout(ctx, gatherTimeout)
 	defer cancel()

@@ -125,7 +125,7 @@ core then by **its home address**, which every household is told (D292 §6; §3.
 
 All calls are HTTPS to `<discovery>/core/v1/…`, JSON, outbound only; the discovery connects in only
 to probe (§2.6). **Built** (`discovery/discoveryproto`, `internal/core/discovery`): JSON keys are
-camelCase; every call carries `Orpheum-Discovery-Protocol: 1.0`; an answer's
+camelCase; every call carries `Orpheum-Discovery-Protocol: 1.1`; an answer's
 `Orpheum-Discovery-Deprecated: <date>` header is shown to the core's admin. §5 says how the version
 signals change (C13).
 
@@ -311,6 +311,11 @@ with ±20% jitter, and at once when an address or mapping changes:
   "turn": [{"urls": ["turn:198.51.100.9:3478"], "username": "…", "credential": "…"}]
 }
 ```
+
+Since 1.1 (D567 §3) it may carry `relayFailures`, at most eight: each hosted relay the core asked
+for an address in an answer and that gave none within two seconds, by the host its TURN URLs name,
+and when the core marked it, in Unix ms, `[{"name": "relay.example", "failedAt": 1795780800000}]`.
+A failure is carried by one heartbeat, sent at once, and is left out when there is none.
 
 The body carries no version (C13, §5; built). `configured` candidates are built (2026-10-14). **The code must change:** the heartbeat is a `PUT /addresses` every 5 minutes, without jitter, and nothing rides on
 the signalling connection.
@@ -676,6 +681,11 @@ which sits behind Cloudflare and whose address must not be given away [I, availa
 A third, `stun.cloudflare.com`, was taken by D291 §6 (G8); it is named on the privacy page. The
 NAT measurement's second server waits with the measurement (§2.6). For the thin path any public STUN
 server will do (coherence §3.2).
+
+Since 1.1 (D567 §3), a TURN server among `iceServers` may carry `announcedAt`: when the discovery
+last read that relay's signed announcement that it works (hosted-relay.md §6), in Unix ms, left out
+when it knows nothing. A core takes back a relay it marked failed once `announcedAt` is after the
+failure, and, of a discovery that sends none, five minutes after it.
 
 ## 3. Client ↔ discovery
 
@@ -1113,6 +1123,10 @@ discoveries upgrade on their own schedule):
   core has; `/signal` checks the header too. Built (2026-10-13): `discoveryproto.ParseVersion`
   and `Serves`; `single` refuses another major, or none, with `unsupportedVersion` naming what it
   serves, on every call, `/signal` included.
+- **1.1** (2026-11-27, D567): the heartbeat's `relayFailures` (§2.4) and the TURN server's
+  `announcedAt` in the status (§2.9). Both are optional, and each side ignores a field it does not
+  know, so 1.0 and 1.1 speak to each other: a 1.0 discovery gets no failures read, and its cores
+  take a relay back after five minutes.
 - **A break is a new major** (`/core/v2`).
 - **The window is promised from the public launch** (D292 §3), as D273 §7 states it: a major is
   served while it is one of the two before the newest, and in any case for at least six months after

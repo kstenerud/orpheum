@@ -58,6 +58,12 @@ type stage struct {
 
 func newStage(t *testing.T) *stage {
 	t.Helper()
+	return newStageWith(t, nil)
+}
+
+// newStageWith is newStage with its config and parts changed by adjust before the relay starts.
+func newStageWith(t *testing.T, adjust func(*stage, *Config, *Parts)) *stage {
+	t.Helper()
 	fakeClock := clocktest.NewFake(time.Date(2026, 11, 26, 20, 0, 0, 0, time.UTC))
 	var secrets []relaycred.Secret
 	for _, key := range []string{strings.Repeat("a", 32), strings.Repeat("b", 40)} {
@@ -75,16 +81,21 @@ func newStage(t *testing.T) *stage {
 	}
 	built.writeCertificate(t, 1, time.Date(2026, 11, 26, 0, 0, 0, 0, time.UTC))
 	logger := slog.New(slog.NewJSONHandler(built.lines, nil))
-	relay, err := Start(t.Context(), Config{
+	config := Config{
 		Name: "relay.test", PublicAddress: public, Listen: "127.0.0.1:0", ListenTLS: "127.0.0.1:0",
 		RelayPortMin: 40000, RelayPortMax: 49999,
 		CertificateFile: built.files[0], KeyFile: built.files[1], Secrets: secrets,
-	}, Parts{Clock: fakeClock, Logger: logger, afterDrop: func(reason string) {
+	}
+	parts := Parts{Clock: fakeClock, Logger: logger, afterDrop: func(reason string) {
 		select {
 		case built.drops <- reason:
 		default:
 		}
-	}})
+	}}
+	if adjust != nil {
+		adjust(built, &config, &parts)
+	}
+	relay, err := Start(t.Context(), config, parts)
 	if err != nil {
 		t.Fatal(err)
 	}

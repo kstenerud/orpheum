@@ -83,3 +83,17 @@ func SetPacerClock(server *Server, set clock.Clock) {
 	defer server.pacer.mutex.Unlock()
 	server.pacer.clock = set
 }
+
+// RelayWait and RelayLeftOutFor are relayWait and relayLeftOutFor.
+const (
+	RelayWait       = relayWait
+	RelayLeftOutFor = relayLeftOutFor
+)
+
+// AnswerOnNoAddress has server's own offer endpoint gather no address of its own: an answer through
+// a relay that gives nothing then has no candidate at all.
+func AnswerOnNoAddress(server *Server) {
+	engine := settings(server.pacer)
+	engine.SetIPFilter(func(net.IP) bool { return false })
+	server.api.Store(newAPI(engine))
+}

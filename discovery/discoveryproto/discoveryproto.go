@@ -13,12 +13,12 @@ const (
 // a breaking one raises the major, which the paths carry too (/core/v1; the protocol's §5, D273 §6).
 const (
 	ProtocolMajor = 1
-	ProtocolMinor = 0
+	ProtocolMinor = 1
 )
 
 // ProtocolVersion is what every call says in ProtocolHeader, "major.minor": the one version signal,
 // which no body repeats (the protocol's §5; C13).
-const ProtocolVersion = "1.0"
+const ProtocolVersion = "1.1"
 
 // The paths under a discovery's base URL.
 const (
@@ -231,12 +231,29 @@ type Candidate struct {
 	Scope  string `json:"scope,omitempty"`
 }
 
-// ICEServer is a TURN server the owner runs, passed to the core's clients: never the discovery's.
+// ICEServer is a TURN server: in a heartbeat, one the owner runs, passed to the core's clients; in a
+// status or a found answer, one the discovery names, a hosted relay's among them.
 type ICEServer struct {
 	URLs       []string `json:"urls"`
 	Username   string   `json:"username,omitempty"`
 	Credential string   `json:"credential,omitempty"`
+	// AnnouncedAt is, for a hosted relay a status names, the Unix millisecond of the relay's last
+	// announcement as the discovery received it: a core that marked the relay failed takes it back
+	// once this is after the failure (D567 §3). Absent from a discovery older than protocol 1.1.
+	AnnouncedAt int64 `json:"announcedAt,omitempty"`
 }
+
+// RelayFailure is a hosted relay that gave a core no relayed candidate within its wait (D567 §3):
+// the relay's name, its TURN URLs' host, and the Unix millisecond the core marked it failed. A core
+// sends each in its heartbeats until one is answered; a discovery counts it once by core, name and
+// FailedAt.
+type RelayFailure struct {
+	Name     string `json:"name"`
+	FailedAt int64  `json:"failedAt"`
+}
+
+// MaxRelayFailures is the most failures a heartbeat carries: a core keeps the latest for each relay.
+const MaxRelayFailures = 8
 
 // AddressesRequest is the heartbeat: the core's version, its API's major, its candidates, its
 // owner's TURN servers, and a nonce for the outside probe.
@@ -264,6 +281,9 @@ type AddressesRequest struct {
 	// audit's F17; D393 §8).
 	RootVersion int64  `json:"rootVersion,omitempty"`
 	RootHash    string `json:"rootHash,omitempty"`
+	// RelayFailures are the hosted relays the core marked failed since its last heartbeat answered,
+	// at most MaxRelayFailures (D567 §3). Protocol 1.1.
+	RelayFailures []RelayFailure `json:"relayFailures,omitempty"`
 }
 
 // ProbeResult is what the discovery's outside probe found of one candidate, each part a field of its

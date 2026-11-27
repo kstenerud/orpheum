@@ -136,7 +136,7 @@
 //     deployment.go: write-deployment and install-script; start.go: start, the first start (D447).
 //     doctor.go: doctor, the one list of what to fix. bugreport.go: bugreport, a problem report
 //     from the command line (D524 §5). relay.go: relay, the hosted TURN relay from its config file
-//     and secrets file (D558). dev_seed.go: orpheum dev seed, in dev
+//     and secrets file (D558), announcing to the discoveries it names (D567). dev_seed.go: orpheum dev seed, in dev
 //     builds only.
 //   - serve.go's openAndWire and wireCore: what is opened, seeded and read for the assembly, and what
 //     is made beside it. A service of the core's, or its wiring to another, is

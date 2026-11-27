@@ -173,6 +173,9 @@ func (ledger *ledger) mayAllocate(username, _ string, source net.Addr) bool {
 // the ledger's mutex is held.
 func (ledger *ledger) limitReached(credential relaycred.Credential, username string, source net.Addr) string {
 	switch {
+	case credential.Household == relaycred.SelfTestHousehold:
+		// The relay's own allocation before an announcement (D567 §1) is no household's.
+		return ""
 	case credential.Role == relaycred.RoleClient && ledger.perCredential[username] >= allocationsPerClientCredential:
 		return "clientCredential"
 	case ledger.households[credential.Household] != nil &&
@@ -265,6 +268,9 @@ func (ledger *ledger) deleted(source, destination net.Addr) {
 		slog.Bool("idle", ended.idle),
 	}
 	ledger.mutex.Unlock()
+	if ended.credential.Household == relaycred.SelfTestHousehold {
+		return // the relay's own allocation is recorded by its self-test, not as a household's
+	}
 	ledger.parts.Logger.InfoContext(ledger.ctx, "a relayed allocation ended", line...)
 }
 
@@ -428,6 +434,12 @@ func (ledger *ledger) turnDay(day time.Time) {
 	ledger.mutex.Lock()
 	lines := make([][]any, 0, len(ledger.households))
 	for name, held := range ledger.households {
+		if name == relaycred.SelfTestHousehold {
+			if held.live == 0 {
+				delete(ledger.households, name)
+			}
+			continue
+		}
 		lines = append(lines, []any{
 			slog.String(slogx.EventKey, "relayHouseholdDay"), slog.String("household", name),
 			slog.String("day", day.Format(time.DateOnly)), slog.Int("allocationsEnded", held.ended),

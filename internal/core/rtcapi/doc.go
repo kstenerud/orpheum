@@ -73,6 +73,17 @@
 //     offer is answered with what the core holds (hosted-relay.md, finding 3). A fresh credential, or
 //     an offer with no relayed candidate, asks nothing.
 //     TestAnswer_AnOfferThroughARelayAsksForARelayCredentialOnlyWhenTheCoreHoldsNoneFresh.
+//   - An answer through a relay waits for the core's relayed candidate relayWait at most (a STUN
+//     server's wait, two seconds), then goes with the candidates the core has, failing only with none.
+//     A relay that gave no relayed candidate in that time is marked failed: logged and reported once
+//     (ReportRelayFailuresWith) and left out of every answer until the discovery says it announced
+//     itself after the failure, or, when the discovery says nothing of it, relayLeftOutFor after
+//     (D567 §3). A relay is judged only when it was asked, and one that gave a relayed candidate never.
+//     TestAnswer_AnUnansweringRelayHoldsTheAnswerTwoSecondsThenIsLeftOut,
+//     TestAnswer_ThroughAnUnansweringRelayWithNoCandidateAtAllFails,
+//     TestAnswer_AFailedRelayIsTakenBackByANewerAnnouncementOnly,
+//     TestAnswer_AFailedRelayIsTakenBackAfterFiveMinutesWhenTheDiscoverySaysNothing,
+//     TestRelayName_IsATURNURLsHost.
 //   - Each connection's path (direct, punched or relayed, by family; hairpinned; or failed) is counted
 //     and logged, told by the core's end of its selected pair (D274 §3); the log names both ends by
 //     type and address. TestAnswer_CountsThePathEachConnectionTook, TestPathOf_IsToldByTheCoresEndOfThePair,
@@ -152,7 +163,9 @@
 // # Where to change
 //
 //   - rtcapi.go: offers, connections and their bounds; relayed.go: the core's own check of an offer
-//     a discovery passed on; path.go: the paths connections take; local_path.go: the hairpin warning;
+//     a discovery passed on; relay_asked.go: when a relay is asked; relay_failed.go: a relay that
+//     gives nothing, left out until it announces again (D567); path.go: the paths connections take;
+//     local_path.go: the hairpin warning;
 //     proven_home.go: a connection proven at home (D356);
 //     channel.go: reading a request;
 //     writer.go: sending a response; message.go: a request that became a WebSocket; ended.go: the

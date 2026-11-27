@@ -13,6 +13,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/pion/webrtc/v4"
 
@@ -236,6 +237,12 @@ func openReachedFromOutside(
 	// An offer through a relay while the core holds no fresh relay credential has the core ask its
 	// discovery for one at once (hosted-relay.md, finding 3).
 	rtc.AskForRelayCredentialWith(discovered.AskStandingForRelay)
+	// A relay that gives no address in time is left out until the discovery says it announced itself
+	// since, and the discovery is told (D567 §3).
+	rtc.ReportRelayFailuresWith(discovered.ReportRelayFailure)
+	rtc.UseRelayAnnouncements(func(name string) (time.Time, bool) {
+		return relayAnnouncedAt(discovered.Status().ICEServers, name)
+	})
 	opened.discovery, opened.portMapping = discovered, mapped
 	served.discoveryParts.DNS = discovered
 	if useErr := served.useDiscoveryName(discovered.Status().CertificateName()); useErr != nil {
@@ -399,4 +406,21 @@ func logActivation(logger *slog.Logger) func(context.Context, auth.Activation) {
 			"byUser", activated.ByUserID, "forUser", activated.ForUserID, "device", activated.DeviceName,
 			"platform", activated.Platform, "throughService", activated.IsThroughService)
 	}
+}
+
+// relayAnnouncedAt is when the discovery last heard the relay named announce itself, by the TURN
+// servers it names; false when it says nothing of that relay's announcements, as one before
+// protocol 1.1 (D567 §3).
+func relayAnnouncedAt(servers []discoveryproto.ICEServer, name string) (time.Time, bool) {
+	for _, server := range servers {
+		if server.AnnouncedAt <= 0 {
+			continue
+		}
+		for _, each := range server.URLs {
+			if rtcapi.RelayName(each) == name {
+				return time.UnixMilli(server.AnnouncedAt), true
+			}
+		}
+	}
+	return time.Time{}, false
 }

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"strconv"
 
 	pionturn "github.com/pion/turn/v4"
@@ -38,12 +39,17 @@ type Config struct {
 	CertificateFile, KeyFile string
 	// Secrets are those a credential may be made under: one or several, each at least 32 bytes.
 	Secrets []relaycred.Secret
+	// Announce are the discoveries the relay announces itself to each minute an allocation on
+	// PublicAddress works (D567 §1). A secret no entry names is announced to no one.
+	Announce []Announce
 }
 
 // Parts are what the relay needs besides its config.
 type Parts struct {
 	Clock  clock.Clock
 	Logger *slog.Logger
+	// HTTP posts the announcements, with a timeout; needed when Config.Announce names any.
+	HTTP *http.Client
 	// afterDrop, when set, is told of each datagram the relay drops, with why: tests wait on it.
 	afterDrop func(reason string)
 }
@@ -57,11 +63,13 @@ type Relay struct {
 	stopDays    context.CancelFunc
 	daysStopped chan struct{}
 	ledger      *ledger
+	// announced is closed once the announcer has stopped, or at once when there is none.
+	announced chan struct{}
 }
 
 // Start serves TURN on config.Listen over UDP and TCP and on config.ListenTLS over TLS, until Close.
 func Start(ctx context.Context, config Config, parts Parts) (*Relay, error) {
-	if err := config.check(); err != nil {
+	if err := checkStart(config, parts); err != nil {
 		return nil, err
 	}
 	host, _, err := net.SplitHostPort(config.Listen)
@@ -128,16 +136,41 @@ func Start(ctx context.Context, config Config, parts Parts) (*Relay, error) {
 	daysCtx, stopDays := context.WithCancel(ctx)
 	relay := &Relay{
 		server: server, address: packets.LocalAddr(), tlsAddress: secured.Addr(), stopDays: stopDays,
-		daysStopped: make(chan struct{}), ledger: ledger,
+		daysStopped: make(chan struct{}), ledger: ledger, announced: make(chan struct{}),
 	}
 	go func() {
 		defer close(relay.daysStopped)
 		ledger.keep(daysCtx)
 	}()
+	go relay.announce(daysCtx, config, parts)
 	parts.Logger.InfoContext(ctx, "the relay is serving", slog.String(slogx.EventKey, "relayStarted"),
 		slog.String("name", config.Name), slog.String("listen", relay.address.String()),
 		slog.String("listenTls", relay.tlsAddress.String()), slog.Int("secrets", len(config.Secrets)))
 	return relay, nil
+}
+
+// checkStart refuses a configuration that is not whole, and one that announces with no HTTP client.
+func checkStart(config Config, parts Parts) error {
+	if err := config.check(); err != nil {
+		return err
+	}
+	if len(config.Announce) > 0 && parts.HTTP == nil {
+		return errors.New("the relay announces with no HTTP client")
+	}
+	return nil
+}
+
+// announce has the relay announce itself to each discovery config names until ctx ends (D567 §1).
+func (relay *Relay) announce(ctx context.Context, config Config, parts Parts) {
+	defer close(relay.announced)
+	if len(config.Announce) == 0 {
+		return
+	}
+	announcing := &announcer{
+		name: config.Name, targets: config.Announce, parts: parts, states: make([]string, len(config.Announce)),
+		target: &net.UDPAddr{IP: config.PublicAddress, Port: portOf(relay.address)},
+	}
+	announcing.keep(ctx)
 }
 
 // listeners are the relay's: UDP and TCP on one port, and TCP for TLS.
@@ -168,8 +201,15 @@ func (config Config) check() error {
 		return errors.New("the relay's public address must be an IPv4 address")
 	case len(config.Secrets) == 0:
 		return errors.New("the relay admits no credential: it has no secret")
+	case config.Name == "" && len(config.Announce) > 0:
+		return errors.New("the relay announces with no name: name it as the discovery names it")
 	case config.RelayPortMin == 0 || config.RelayPortMax < config.RelayPortMin:
 		return fmt.Errorf("the relayed ports %d to %d are no range", config.RelayPortMin, config.RelayPortMax)
+	}
+	for _, announce := range config.Announce {
+		if err := announce.check(); err != nil {
+			return err
+		}
 	}
 	_, plain, plainErr := net.SplitHostPort(config.Listen)
 	_, secured, securedErr := net.SplitHostPort(config.ListenTLS)
@@ -206,6 +246,7 @@ func (relay *Relay) Dropped() int64 { return relay.ledger.dropped.Load() }
 func (relay *Relay) Close() error {
 	relay.stopDays()
 	<-relay.daysStopped
+	<-relay.announced
 	if err := relay.server.Close(); err != nil {
 		return fmt.Errorf("stop the relay: %w", err)
 	}

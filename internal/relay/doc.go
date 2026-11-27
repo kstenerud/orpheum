@@ -37,6 +37,14 @@
 //     TestShortened_KeepsAnIPv4sSlash24AndAnIPv6sSlash48.
 //   - The TLS certificate is read again when its files change. Enforced by
 //     TestRelay_ReadsTheCertificateAgainWhenItsFilesChange.
+//   - The relay announces itself to each discovery Config.Announce names (D567 §1): at once and
+//     each minute, it makes an allocation on its own public UDP listener under that discovery's
+//     secret, for relaycred.SelfTestHousehold, and only when it works POSTs an announcement signed
+//     under the same secret; each change of state is logged once, and the self-test's allocation is
+//     recorded as no household's and counted against no limit. Enforced by
+//     TestAnnounce_TestsItselfAndPostsASignedAnnouncementEachMinute and
+//     TestAnnounce_AFailingSelfTestAnnouncesNothing; that a secret no `[[announce]]` names is
+//     announced to no one, by cmd/orpheum's TestRelay_AnnouncesOnlyToTheDiscoveriesItsConfigNames.
 //   - The relay imports nothing from internal/core: what it shares with the core's voice relay is in
 //     internal/platform/turnserver and internal/platform/tokenbucket. Review-only.
 //
@@ -44,7 +52,8 @@
 //
 //   - D558: the hosted relay, closed to a household's own two ends (§4), its rate (§1), what it
 //     records (§11, §14).
-//   - docs/contributors/design/plans/hosted-relay.md §1–2: the wire contract and the relay.
+//   - docs/contributors/design/plans/hosted-relay.md §1–2: the wire contract and the relay; §6
+//     and D567: the announcement.
 //
 // # Where to change
 //
@@ -52,4 +61,5 @@
 //   - secrets.go: which of the relay's secrets a request was made under.
 //   - ledger.go: the live allocations, where a datagram may go, the rate, the limits and the records.
 //   - certificate.go: the TLS certificate, read again when its files change.
+//   - announce.go: the self-test and the announcement to each discovery.
 package relay

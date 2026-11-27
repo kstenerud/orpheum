@@ -129,3 +129,25 @@ func TestLogActivation_NamesWhoActivatedWhatForWhom(t *testing.T) {
 		}
 	}
 }
+
+// A relay's last announcement is read from the TURN server the discovery names it by; a server
+// saying nothing of announcements, as from a discovery before protocol 1.1, or a relay it does not
+// name, is nothing known (D567 §3).
+func TestRelayAnnouncedAt_IsReadFromTheTURNServerNamingTheRelay(t *testing.T) {
+	t.Parallel()
+	servers := []discoveryproto.ICEServer{
+		{URLs: []string{"turn:old.example:3478?transport=udp"}},
+		{
+			URLs:        []string{"turn:relay.example:3478?transport=udp", "turns:relay.example:443?transport=tcp"},
+			AnnouncedAt: 1795780800000,
+		},
+	}
+	if at, isKnown := relayAnnouncedAt(servers, "relay.example"); !isKnown || at.UnixMilli() != 1795780800000 {
+		t.Errorf("relay.example announced at %s, %t; want 1795780800000 ms, known", at, isKnown)
+	}
+	for _, name := range []string{"old.example", "other.example"} {
+		if _, isKnown := relayAnnouncedAt(servers, name); isKnown {
+			t.Errorf("%s's announcement is known; want nothing known", name)
+		}
+	}
+}

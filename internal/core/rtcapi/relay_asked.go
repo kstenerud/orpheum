@@ -93,14 +93,15 @@ func (server *Server) askForRelayCredential(ctx context.Context) {
 }
 
 // serversFor are the servers a new connection gathers through, its relays among them only when
-// mayRelay.
-func (server *Server) serversFor(mayRelay bool) []webrtc.ICEServer {
+// mayRelay and only those not marked failed (D567 §3); asked names the relays among them. The server's
+// mutex is held.
+func (server *Server) serversFor(mayRelay bool) (servers []webrtc.ICEServer, asked []string) {
 	source := server.iceServers.Load()
 	if source == nil {
-		return nil
+		return nil, nil
 	}
 	if !mayRelay {
-		return withoutRelays((*source)())
+		return withoutRelays((*source)()), nil
 	}
-	return (*source)()
+	return server.leaveOutFailed((*source)())
 }

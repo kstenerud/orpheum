@@ -12,11 +12,13 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 
 	"github.com/kstenerud/orpheum/discovery/relaycred"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/relay"
 )
@@ -37,7 +39,20 @@ type relayFile struct {
 	SecretsFile     string `toml:"secrets_file"`
 	LogFormat       string `toml:"log_format"`
 	LogLevel        string `toml:"log_level"`
+	// Announce are the discoveries the relay announces itself to (D567 §1), each naming the
+	// secrets file's line of the secret it shares with the relay. A secret no entry names is
+	// announced to no one.
+	Announce []relayAnnounce `toml:"announce"`
 }
+
+// relayAnnounce is one `[[announce]]` table: the discovery's HTTPS URL and its secret's line.
+type relayAnnounce struct {
+	URL        string `toml:"url"`
+	SecretLine int    `toml:"secret_line"`
+}
+
+// announceTimeout bounds one announcement's POST.
+const announceTimeout = 10 * time.Second
 
 var (
 	// A secrets file others than its owner may read or write.
@@ -64,7 +79,11 @@ func commandRelay(ctx context.Context, call invocation) int {
 	if err != nil {
 		return call.fail(err)
 	}
-	running, err := relay.Start(ctx, config, relay.Parts{Clock: clock.System{}, Logger: logger})
+	client, err := outbound.NewClient(announceTimeout, "relay")
+	if err != nil {
+		return call.fail(err)
+	}
+	running, err := relay.Start(ctx, config, relay.Parts{Clock: clock.System{}, Logger: logger, HTTP: client})
 	if err != nil {
 		return call.fail(err)
 	}
@@ -97,9 +116,18 @@ func loadRelayConfig(path string, call invocation) (relay.Config, *slog.Logger, 
 	if file.CertificateFile == "" || file.KeyFile == "" || file.SecretsFile == "" {
 		return relay.Config{}, nil, errRelayFilesMissing
 	}
-	secrets, err := readRelaySecrets(file.SecretsFile)
+	secrets, lines, err := readRelaySecrets(file.SecretsFile)
 	if err != nil {
 		return relay.Config{}, nil, err
+	}
+	announce := make([]relay.Announce, 0, len(file.Announce))
+	for _, entry := range file.Announce {
+		index, isSecret := lines[entry.SecretLine]
+		if !isSecret {
+			return relay.Config{}, nil, fmt.Errorf("[[announce]] %s names secret_line %d, which holds no secret",
+				entry.URL, entry.SecretLine)
+		}
+		announce = append(announce, relay.Announce{URL: entry.URL, Secret: secrets[index]})
 	}
 	format, err := slogx.ParseFormat(file.LogFormat)
 	if err != nil {
@@ -116,25 +144,26 @@ func loadRelayConfig(path string, call invocation) (relay.Config, *slog.Logger, 
 	return relay.Config{
 		Name: file.Name, PublicAddress: public, Listen: file.Listen, ListenTLS: file.ListenTLS,
 		RelayPortMin: file.RelayPortMin, RelayPortMax: file.RelayPortMax,
-		CertificateFile: file.CertificateFile, KeyFile: file.KeyFile, Secrets: secrets,
+		CertificateFile: file.CertificateFile, KeyFile: file.KeyFile, Secrets: secrets, Announce: announce,
 	}, logger, nil
 }
 
 // readRelaySecrets reads the secrets file: one secret a line, each at least
-// relaycred.MinSecretBytes, the file readable by its owner alone. A blank line is skipped.
-func readRelaySecrets(path string) ([]relaycred.Secret, error) {
+// relaycred.MinSecretBytes, the file readable by its owner alone. A blank line is skipped. The lines
+// map each secret's line, counted from 1, to its place in secrets.
+func readRelaySecrets(path string) (secrets []relaycred.Secret, lines map[int]int, err error) {
 	info, err := os.Stat(path)
 	if err != nil {
-		return nil, fmt.Errorf("read the relay's secrets: %w", err)
+		return nil, nil, fmt.Errorf("read the relay's secrets: %w", err)
 	}
 	if info.Mode().Perm()&0o077 != 0 {
-		return nil, fmt.Errorf("the relay's secrets file %s: %w", path, errSecretsFileOpen)
+		return nil, nil, fmt.Errorf("the relay's secrets file %s: %w", path, errSecretsFileOpen)
 	}
 	text, err := os.ReadFile(path) //nolint:gosec // the path is the operator's own config
 	if err != nil {
-		return nil, fmt.Errorf("read the relay's secrets: %w", err)
+		return nil, nil, fmt.Errorf("read the relay's secrets: %w", err)
 	}
-	var secrets []relaycred.Secret
+	lines = map[int]int{}
 	for number, line := range bytes.Split(text, []byte("\n")) {
 		line = bytes.TrimSpace(line)
 		if len(line) == 0 {
@@ -143,12 +172,13 @@ func readRelaySecrets(path string) ([]relaycred.Secret, error) {
 		secret, err := relaycred.NewSecret(line)
 		if err != nil {
 			// The error names the length wanted, never the secret.
-			return nil, fmt.Errorf("the relay's secrets, line %d: %w", number+1, err)
+			return nil, nil, fmt.Errorf("the relay's secrets, line %d: %w", number+1, err)
 		}
+		lines[number+1] = len(secrets)
 		secrets = append(secrets, secret)
 	}
 	if len(secrets) == 0 {
-		return nil, errNoSecret
+		return nil, nil, errNoSecret
 	}
-	return secrets, nil
+	return secrets, lines, nil
 }
