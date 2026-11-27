@@ -5405,3 +5405,25 @@ Proposals, for the owner to choose among (none built):
    a cast's receiver, whose device is new each time.
 4. The node's measure of its speed is of encoding alone; measure a decode of the hard codecs too,
    so the core knows what the machine can do before a person waits.
+
+### Measured on production (2026-11-27, with the owner's leave)
+
+File 1738's picture is HEVC Main 10, 1920x1080, 23.98 frames a second. One minute of it from
+13 minutes in, on the production machine (Celeron J3455, its GPU by VAAPI) with nothing else
+running, the node's own FFmpeg, sound and output left out:
+
+| Run | Speed | CPU seconds |
+| --- | --- | --- |
+| As the node does it now, 1080p at 8000k: decode and scale on the CPU, encode on the GPU | 2.65x | 73.6 |
+| Decoding alone, on the CPU | 4.24x | 41.6 |
+| Decode, scale and encode all on the GPU, 1080p at 8000k | 5.94x | 6.8 |
+| Decoding alone, on the GPU | 20.3x | 1.7 |
+| As now, 432p at 700k | 3.09x | 61.7 |
+| All on the GPU, 432p at 700k | 11.4x | 4.7 |
+
+So decoding on the CPU, and turning its 10-bit picture into the 8-bit one the encoder takes, are
+what is slow: the same run kept on the GPU is 2.2 times as fast at 1080p and 3.7 times at 432p, on
+a tenth of the CPU. The 2.65x is the machine idle and all four cores free; a scan or a second run
+took it to the 1.3 to 2.2 the log showed. The owner (2026-11-27): go ahead with the proposals,
+"We should be using the hardware available to us for as much as we can", and production stays on
+this machine for now, to prove it there.
