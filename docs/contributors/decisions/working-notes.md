@@ -32268,3 +32268,28 @@ fallback for a receiver that says no channel, and nothing else of it.
    through it, its loss is still a hint (D553 §5), and the cast's end ends it.
 4. Proved by `web/apps/web/src/play-castee-volume.test.tsx` and `play-castee-controls.test.tsx`,
    the pad's volume driven by the receiver's channel alone, and `google-cast-rejoin.test.tsx`.
+
+## D564 — A cast stopped comes back as it was; a TV waiting for OK is said on the caster's page; a page that lost the server says it is reconnecting
+
+**Decided** (2026-11-27), by the project owner, on four items of the rework plan's next batch
+([plan](../design/plans/playing-casting-together-rework.md), items 6, 7 and 10): "1: b and c. 2:
+bring it back to the phone in the same state it was in. So paused if paused, playing if playing.
+[…] We should say on the caster page that the tv is waiting for someone to press ok".
+
+**Status:** decided. It has no code yet.
+
+1. **A film whose cast is stopped comes back to the caster's device as it was on the TV**: at the
+   cast's position, playing if it was playing there and paused if it was paused. Before, it came
+   back paused whatever the TV was doing (the plan's item 6).
+2. **The caster's page says when the TV is waiting for someone to press OK.** A TV that will not
+   start a film's sound or picture until a press on its own remote says so on its own screen
+   (D554); the caster saw only a cast that did nothing (item 7). The words, the lead's proposal
+   until the owner changes them: "Waiting for someone to press OK on ‹TV›".
+3. **A try made long after the page fetched its relay credentials fetches them again first**
+   (item 10, option B): they last fifteen minutes and were read once, at load, so a page whose
+   network changed later could not go through the relay.
+4. **The Cast panel says it is reconnecting, and keeps its list, before it says the server cannot
+   be reached** (item 10, option C). The words and the wait are the lead's proposal until the
+   owner changes them: "Reconnecting to the server…" while the page makes new connections, the
+   devices listed before left in place, and the present message only once thirty seconds have
+   passed without a connection.

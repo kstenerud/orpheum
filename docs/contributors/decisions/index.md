@@ -569,6 +569,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D561](working-notes.md#d561--the-relay-ends-an-allocation-its-owner-sends-nothing-through-for-a-minute-and-a-connection-asks-a-relays-udp-address-before-its-tls-one) The relay ends an allocation its owner sends nothing through for a minute, and a connection asks a relay's UDP address before its TLS one
 - [D562](working-notes.md#d562--the-cast-remotes-volume-moves-5--a-press-as-the-players-does) The cast remote's volume moves 5 % a press, as the player's does
 - [D563](working-notes.md#d563--a-chromecasts-volume-has-one-route-the-casts-session-to-the-receiver) A Chromecast's volume has one route: the cast's session to the receiver
+- [D564](working-notes.md#d564--a-cast-stopped-comes-back-as-it-was-a-tv-waiting-for-ok-is-said-on-the-casters-page-a-page-that-lost-the-server-says-it-is-reconnecting) A cast stopped comes back as it was; a TV waiting for OK is said on the caster's page; a page that lost the server says it is reconnecting
 
 ## Archived
 
