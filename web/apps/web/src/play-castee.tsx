@@ -4,7 +4,7 @@ import "./cast.css";
 import "./play-castee.css";
 import "./cast-words.ts";
 
-import type { CastSending } from "@orpheum/sdk";
+import type { CastSending, TogetherSnapshot } from "@orpheum/sdk";
 import { useEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -30,7 +30,7 @@ import {
   type CastOn,
   type PlaysHereFrom,
 } from "./castee-session.tsx";
-import { useCasteeTarget, type WorkedSession } from "./castee-target.ts";
+import { isCasteeWaitingForOKIn, useCasteeTarget, type WorkedSession } from "./castee-target.ts";
 import { EndsAt, leftMsOf } from "./convenience-area.tsx";
 import { useLeavesFullScreen } from "./film-fullscreen.ts";
 import { useShowsARemote } from "./hidden-need.ts";
@@ -219,8 +219,9 @@ function useCasteeCommands(target: PlaybackTarget): RefObject<HTMLDivElement | n
  * "the remote-control looking layout (3x3 pad). That should be the layout for portrait and
  * landscape mode when casting"): the bar, the way up and under it "On: ‹TV›" with when the film ends;
  * the offer area, the castee's key frame (RemotePicture) with Up next or a skip over it (RemoteOffers)
- * and in its centre the reconnecting sign while the castee is not heard, else the volume a moment
- * after the pad set it; the timeline, the time under it; the pad (RemotePad), its volume the castee's
+ * and in its centre the reconnecting sign while the castee is not heard, the castee's wait for a
+ * press on its own remote while it holds the cast for one (D564 §2), else the volume a moment after
+ * the pad set it; the timeline, the time under it; the pad (RemotePad), its volume the castee's
  * film's level; the menus' row at the end, with no ⤢: casting is never full screen (the owner,
  * 2026-11-26: "Never offer the fullscreen mode button when casting"), and a browser's own full screen
  * shows this same page. One column upright, two on its side or a computer's wide window
@@ -260,14 +261,13 @@ function CasteePlaying(props: {
           upNext={around?.upNext}
           art={title.art}
           centre={
-            isDisabled ? (
-              <CasteeReaching
-                receiverName={sent.receiverName}
-                isServerLost={isServerLostIn([props.cast, hosted])}
-              />
-            ) : (
+            <CasteeCentre
+              receiverName={sent.receiverName}
+              wait={casteeWaitOf(isDisabled, props.cast.snapshot)}
+              isServerLost={isServerLostIn([props.cast, hosted])}
+            >
               <VolumeShown sound={target.sound} isShown={volume.isShown} />
-            )
+            </CasteeCentre>
           }
         />
         <PadTimeline source={target} isDisabled={isDisabled} hasArrowsAsCommands={false} />
@@ -290,12 +290,43 @@ function CasteePlaying(props: {
   );
 }
 
-/** The offer area's centre while the castee is not reached: "Reaching ‹TV›…", or the server lost. */
-function CasteeReaching(props: {
+/**
+ * What the castee keeps the remote waiting on: "reaching" while it is not reached (the pad
+ * disabled), "forOK" while it holds the cast for a press on its own remote (D564 §2), undefined
+ * once it plays.
+ */
+function casteeWaitOf(
+  isDisabled: boolean,
+  castSnapshot: TogetherSnapshot | undefined,
+): "reaching" | "forOK" | undefined {
+  if (isDisabled) {
+    return "reaching";
+  }
+  return isCasteeWaitingForOKIn(castSnapshot) ? "forOK" : undefined;
+}
+
+/**
+ * The offer area's centre: while the castee is not reached, "Reaching ‹TV›…" or the server lost;
+ * while it waits for a press on its own remote (D564 §2), "Waiting for someone to press OK on ‹TV›",
+ * with no spinner, as nothing here moves it on; else children, the volume a moment after it was set.
+ */
+function CasteeCentre(props: {
   readonly receiverName: string;
+  readonly wait: "reaching" | "forOK" | undefined;
   readonly isServerLost: boolean;
+  readonly children: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
+  if (props.wait === undefined) {
+    return <>{props.children}</>;
+  }
+  if (props.wait === "forOK") {
+    return (
+      <span className="castee-play__centre">
+        <Pill>{t("cast.waitingForOK", { name: props.receiverName })}</Pill>
+      </span>
+    );
+  }
   return (
     <span className="castee-play__centre">
       <Pill icon={<span className="cast-remote__spinner" />}>

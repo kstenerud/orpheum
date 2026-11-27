@@ -78,3 +78,20 @@ export function casteePlaybackIn(
     devices.find((each) => each.id !== snapshot.deviceId && each.playback !== undefined);
   return castee?.playback;
 }
+
+/**
+ * Whether the castee waits for a press on its own remote before it starts (D468 §2, D564 §2), as it
+ * says in the cast's session (D555 §4): a device of this remote's member, the castee's, besides this
+ * one, saying its cast is waitingForOK. It says running, or leaves, as the press starts it.
+ */
+export function isCasteeWaitingForOKIn(snapshot: TogetherSnapshot | undefined): boolean {
+  if (snapshot === undefined) {
+    return false;
+  }
+  const own = snapshot.roster.find((member) => member.id === snapshot.memberId);
+  return (
+    own?.devices.some(
+      (each) => each.id !== snapshot.deviceId && each.castState === "waitingForOK",
+    ) === true
+  );
+}

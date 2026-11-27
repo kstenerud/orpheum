@@ -593,6 +593,16 @@ Added by the owner, 2026-11-26, from the same walk's unfixed observations:
    (`start-refused.ts`). Tests: `play-castee-stop.test.tsx`, `play-castee-ends.test.tsx`; the phone's
    own start: VQ415.
 7. **A sleeping Fire TV shows as a silent cast waiting for OK.**
+   **Built (D564 §2), 2026-11-27.** The receiver already said it: a page holding a cast for its
+   press (D468 §2, `cast-start.tsx`) tells the cast's session its cast is `waitingForOK` (D555 §4),
+   and the server puts that in the roster as the castee's `castState`. The caster's Play page now
+   reads it (`castee-target.ts`'s `isCasteeWaitingForOKIn`: a device of the remote's own member,
+   besides the remote, saying it) and shows "Waiting for someone to press OK on ‹TV›" in the offer
+   area's centre, where "Reaching ‹TV›…" goes, with no spinner; it goes as the receiver says
+   `running` or its holding page leaves. Reaching and the server lost still come first. No server
+   change. Not covered: a film playing muted for its sound's press ("Press OK to turn the sound on",
+   D468 §4) says nothing to the remote, as the film plays. Test:
+   `play-castee-reaching.test.tsx`; on the devices: VQ416.
 8. **The Invite dialog's "Make a link" button sits under a phone's keyboard.** **Built** (2026-11-27, D566):
    the page asks the browser to resize it under a keyboard, so every dialog fits the room above it.
 9. **The Fire TV's own volume across films is walked on the device**: kept per device by the

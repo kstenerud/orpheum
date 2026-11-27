@@ -4311,3 +4311,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   press Stop casting: it comes back paused there. Then once more, playing, stopped with Chrome's own
   Cast button's Stop: it plays on the phone. Do the playing case with the Fire TV too. Report each,
   and whether the browser refused the start ("Paused — press Play to start." on the phone).
+- [ ] **VQ416** — The caster's page says when the TV waits for its OK (D564 §2): only the devices
+  show a Fire TV whose page was never pressed holding a cast. Reload the Fire TV's Orpheum page
+  (or let it sleep and wake it), press nothing on it, and cast a film to it from the phone: the
+  phone's cast page shows "Waiting for someone to press OK on ‹the Fire TV's name›" over the key
+  frame while the TV shows "Press OK to start". Press OK on the TV's remote: the words go from the
+  phone as the film starts. Report each, and how long the words took to go.

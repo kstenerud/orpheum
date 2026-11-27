@@ -237,3 +237,61 @@ describe("the cast remote reaches for a receiver the server no longer hears (D55
     expect(onPlayHere).not.toHaveBeenCalled();
   });
 });
+
+describe("the cast remote says the receiver waits for a press on its own remote (D564 §2)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  const pill = (): string | undefined =>
+    mounted?.container.querySelector(".castee-play__centre .pill")?.textContent ?? undefined;
+
+  /** The cast's roster, this remote (5) and the receiver's page (6), saying castState. */
+  const rosterSaying = (castState: string): Readonly<Record<string, unknown>> => ({
+    type: "roster",
+    roster: [
+      {
+        id: 2,
+        name: "owner",
+        isHost: true,
+        devices: [
+          { id: 5, role: "panel" },
+          { id: 6, role: "video", castState },
+        ],
+      },
+    ],
+  });
+
+  it("says it waits for someone to press OK on the television while the receiver holds the cast for its press, and no more once it runs", async () => {
+    const drawn = await castingRemote({}, [], { remote: CasteePlay, onPlayHere: vi.fn() });
+    mounted = drawn.mounted;
+    const { sockets } = drawn;
+    await sockets.live.say(bothConnected);
+    await sockets.session.say(rosterSaying("waitingForOK"));
+    expect(pill()).toBe("Waiting for someone to press OK on Fire TV");
+    expect(mounted.container.querySelector(".cast-remote__spinner")).toBeNull();
+    await sockets.session.say(rosterSaying("running"));
+    expect(pill()).toBeUndefined();
+  });
+
+  it("says nothing of another member's receiver waiting for its press", async () => {
+    const drawn = await castingRemote({}, [], { remote: CasteePlay, onPlayHere: vi.fn() });
+    mounted = drawn.mounted;
+    const { sockets } = drawn;
+    await sockets.session.say({
+      type: "roster",
+      roster: [
+        { id: 2, name: "owner", isHost: true, devices: [{ id: 5, role: "panel" }] },
+        {
+          id: 3,
+          name: "guest",
+          isHost: false,
+          devices: [{ id: 7, role: "video", castState: "waitingForOK" }],
+        },
+      ],
+    });
+    expect(pill()).toBeUndefined();
+  });
+});

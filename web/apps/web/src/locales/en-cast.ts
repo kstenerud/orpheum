@@ -70,6 +70,8 @@ export const enCast = {
     },
     /** The castee not yet reached (D548 §9), on its Play page. */
     reaching: "Reaching {{name}}…",
+    /** The castee reached, holding the cast for a press on its own remote (D468 §2, D564 §2). */
+    waitingForOK: "Waiting for someone to press OK on {{name}}",
     /** The castee's Play page's own connection to the server lost, reconnecting (D553 §4). */
     serverLost: "Can't reach the server",
     /** The castee's Up next put away on this device (D548 §3). */
