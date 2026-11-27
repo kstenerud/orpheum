@@ -31345,9 +31345,9 @@ batch? I'd suggest one keyframe per 3 seconds (only updating if the video has mo
 ffmpeg every 3s is ok as a temporary measure for now, but when we implement trickplay we'll likely
 need to cache stuff." **Amends** the cast remote's picture, which was the film's still alone.
 
-**Status:** decided. Its code is `internal/node/artwork/frame.go`, `internal/node/byteserver/frame.go`,
-`internal/nodeproto/frame.go`, `internal/core/playback/frame.go`, `internal/core/api/frame.go` and
-`web/apps/web/src/cast-frame.tsx`.
+**Status:** decided; amended by D571, which replaced the key frame with the scrub-bar picture of the
+TV's place and removed its code (`internal/node/artwork/frame.go`, `internal/node/byteserver/frame.go`,
+`internal/nodeproto/frame.go`, `internal/core/playback/frame.go`, `internal/core/api/frame.go`).
 
 1. **What.** Where the video would be, a cast's remote shows the picture the receiver is showing:
    the key frame at the receiver's place, drawn as the video is (contained in the whole box), and
@@ -32456,7 +32456,9 @@ It adds to D569, for a Google Cast device, the stretch D569's Status says it doe
 be calling ffmpeg to generate casting stills, right?" and took the lead's recommendation: "yes
 let's try your recommendation. If it turns out to be too soft I'll let you know".
 
-**Status:** decided. No code yet.
+**Status:** decided. It has code: `web/apps/web/src/cast-frame.tsx` draws the scrub-bar picture of
+the TV's place, read once for the remote's page in `web/apps/web/src/play-castee.tsx`; the key
+frame's routes and FFmpeg run are removed, and node protocol 78 drops the byte socket's frame route.
 
 It amends D545 §2 and §4, which had the remote ask its node for the key frame at the TV's place
 every 3 s, an FFmpeg run each time, on a node that may be making the film being cast.

@@ -202,8 +202,6 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"listNotInOrder", "setItemPreferences",
 		// What plays after a file, which reaches the file (getUpNext's ReachFile).
 		"getUpNext",
-		// A file's key frame (TestFrame_IsRelayedForAPersonReachingTheFileAndNoOneElse).
-		"getFileFrame",
 		// A file's segments, which reaches the file as getUpNext does
 		// (TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere).
 		"getFileSegments",

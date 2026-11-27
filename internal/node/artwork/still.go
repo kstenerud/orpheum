@@ -65,7 +65,7 @@ func (deriver *Deriver) Still(
 // runOnFilm runs FFmpeg with arguments that read film, as every run reads one (execx.Film: granted
 // its path alone, or served it over fdproxy and granted none), keeping up to stdoutLimitBytes of
 // what it writes, which it writes only at its end: timeout bounds its start, its standing still and
-// its whole run. A frame still and a key frame are each one such run.
+// its whole run. A frame still is one such run.
 func (deriver *Deriver) runOnFilm(
 	ctx context.Context, film execx.Film, arguments []string, stdoutLimitBytes int, timeout time.Duration,
 ) ([]byte, error) {

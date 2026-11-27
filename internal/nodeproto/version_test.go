@@ -204,6 +204,10 @@ var wireShapeByVersion = map[int]string{
 	// (start-quality-by-node-speed.md §1): a core of 76 would refuse a node of 77's status for a field
 	// it does not know.
 	77: "3875362c0e505b90c90daf0280107980bb11cdcf00d33cc13445887d210fbbac",
+	// 78 drops the byte socket's frame route, PathBytesFrame, the key frame a cast's remote showed
+	// (D571 §3): a core of 77 would ask a node of 78 for it and be answered 404. No message changed,
+	// so the shape is 77's.
+	78: "3875362c0e505b90c90daf0280107980bb11cdcf00d33cc13445887d210fbbac",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
@@ -318,6 +322,15 @@ var routesByVersion = map[int][]string{
 	77: {
 		"PathBytesChunks /bytes/v1/chunks/", "PathBytesFile /bytes/v1/file", "PathBytesFolders /bytes/v1/folders",
 		"PathBytesFrame /bytes/v1/frame", "PathBytesProbe /bytes/v1/probe",
+		"PathBytesRecentLog /bytes/v1/recent-log", "PathBytesResult /bytes/v1/result/",
+		"PathChanged /node/v1/changed", "PathCommands /node/v1/commands", "PathHello /node/v1/hello",
+		"PathLocked /node/v1/locked", "PathProgress /node/v1/progress", "PathResult /node/v1/result",
+		"PathStatus /node/v1/status", "PathTrickplaySheet /node/v1/trickplay-sheet",
+	},
+	// 78 drops the frame route, PathBytesFrame: a cast's remote shows the scrub-bar picture (D571 §3).
+	78: {
+		"PathBytesChunks /bytes/v1/chunks/", "PathBytesFile /bytes/v1/file", "PathBytesFolders /bytes/v1/folders",
+		"PathBytesProbe /bytes/v1/probe",
 		"PathBytesRecentLog /bytes/v1/recent-log", "PathBytesResult /bytes/v1/result/",
 		"PathChanged /node/v1/changed", "PathCommands /node/v1/commands", "PathHello /node/v1/hello",
 		"PathLocked /node/v1/locked", "PathProgress /node/v1/progress", "PathResult /node/v1/result",

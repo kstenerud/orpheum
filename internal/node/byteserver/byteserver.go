@@ -68,11 +68,6 @@ type Server struct {
 	// (ServingRecentLog).
 	recent      *slogx.Recent
 	recentClock clock.Clock
-	// films and frames make a key frame of a video (D545); nil frames makes none.
-	films  Films
-	frames Frames
-	// frameSlot is held by the one key frame being made.
-	frameSlot chan struct{}
 }
 
 // LoggingTo has the server log to logger what an admin's folder listings asked and found, and how
@@ -105,7 +100,7 @@ func New(roots []*confine.MediaRoot) *Server {
 	for _, root := range roots {
 		byPath[root.Path()] = root
 	}
-	server := &Server{roots: byPath, payloadHashes: namedfile.NewHashes(), frameSlot: make(chan struct{}, 1)}
+	server := &Server{roots: byPath, payloadHashes: namedfile.NewHashes()}
 	server.openFile = server.payloadHashes.OpenNamed
 	server.placeFacts = (*confine.MediaRoot).FactsOf
 	server.subfolders = (*confine.MediaRoot).Subfolders
@@ -156,7 +151,6 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("GET "+nodeproto.PathBytesProbe, server.serveProbe)
 	mux.HandleFunc("GET "+nodeproto.PathBytesFolders, server.serveFolders)
 	mux.HandleFunc("GET "+nodeproto.PathBytesRecentLog, server.serveRecentLog)
-	mux.HandleFunc("GET "+nodeproto.PathBytesFrame, server.serveFrame)
 	return mux
 }
 

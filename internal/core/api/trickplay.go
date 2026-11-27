@@ -17,7 +17,7 @@ import (
 // trickplaySheetSuffix ends a sheet's address: its image's format.
 const trickplaySheetSuffix = ".webp"
 
-// webpType is the media type of a WebP image: a sheet, a key frame, an artwork.
+// webpType is the media type of a WebP image: a sheet, an artwork.
 const webpType = "image/webp"
 
 // TrickplayInput asks for a file's scrub-bar pictures.

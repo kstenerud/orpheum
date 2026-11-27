@@ -379,57 +379,6 @@ func TestRunNode_ServesItsRootsOnTheByteSocketToTheHolderOfItsKeyOnly(t *testing
 	}
 }
 
-// A running node's byte socket makes a key frame of a file it names, by its FFmpeg, for a cast's
-// remote (D545): what that run wrote, as a WebP.
-func TestRunNode_MakesKeyFramesOnTheByteSocket(t *testing.T) {
-	t.Parallel()
-	config, _ := testConfig(t)
-	media := t.TempDir()
-	if err := os.WriteFile(filepath.Join(media, "film.mkv"), []byte("film"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stdout: "ffprobe version test"})
-	config.Node.RootPaths, config.Node.FFmpegDir = []string{media}, fake.Directory
-	const listening = "byteSocketServing"
-	captured := newCapturedLog(listening)
-	ctx, cancel := context.WithCancel(t.Context())
-	done := make(chan error, 1)
-	go func() { done <- runNodeWith(ctx, config, processLog{logger: captured.logger}, fakeFFmpegSeams) }()
-	defer func() {
-		cancel()
-		if err := testutil.Receive(t, done, "the node to stop"); err != nil {
-			t.Errorf("runNode returned %v", err)
-		}
-	}()
-	select {
-	case <-captured.signals[listening]:
-	case early := <-done:
-		t.Fatalf("runNode returned before serving the byte socket: %v\n%s", early, captured)
-	}
-	identity, err := hash.PayloadIdentity(bytes.NewReader([]byte("film")), 4)
-	if err != nil {
-		t.Fatal(err)
-	}
-	asked := nodeproto.FrameRequest{Video: nodeproto.BytesFile{
-		RootPath: media, Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.PayloadHash[:]),
-	}, AtMs: 3000}
-	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://node"+asked.Target(), http.NoBody)
-	if err != nil {
-		t.Fatal(err)
-	}
-	response, err := unixsocket.Client(filepath.Join(config.Instance.RunDir, nodeSocketName), 0).Do(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = response.Body.Close() }() //nolint:errcheck // read to the end below
-	body, err := io.ReadAll(response.Body)
-	if err != nil || response.StatusCode != http.StatusOK || string(body) != "ffprobe version test" ||
-		response.Header.Get("Content-Type") != "image/webp" {
-		t.Errorf("the byte socket answered %d %q (%s, %v), want 200 with what FFmpeg wrote as image/webp",
-			response.StatusCode, body, response.Header.Get("Content-Type"), err)
-	}
-}
-
 // A running node's byte socket answers with the recent log it was given, every line kept whatever its
 // level, for the core's problem report (D524 §3).
 func TestRunNode_AnswersWithItsRecentLogOnTheByteSocket(t *testing.T) {

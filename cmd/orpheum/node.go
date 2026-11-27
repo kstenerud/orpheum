@@ -219,10 +219,10 @@ func runNodeWith(ctx context.Context, config Config, log processLog, seams nodeS
 	}
 	heldResults, hashes := agent.NewHeldResults(), namedfile.NewHashes()
 	// An image's probe and each of its encodes are one FFmpeg run over one untrusted input each,
-	// bounded as a file's probe is; a key frame the byte socket makes is one run too (D545).
+	// bounded as a file's probe is.
 	deriver := artwork.NewDeriver(runner, time.Duration(config.Node.ProbeTimeoutSeconds)*time.Second)
 	stopBytes, byteSocketPath, err := serveBytes(ctx, config, roots, directory, byteSocketShares{
-		heldResults: heldResults, disks: disks, hashes: hashes, recent: log.recent, films: runner, frames: deriver,
+		heldResults: heldResults, disks: disks, hashes: hashes, recent: log.recent,
 	}, logger)
 	if err != nil {
 		return err
@@ -427,17 +427,13 @@ func openPreparedDirectory(
 
 // byteSocketShares are what the byte socket shares with the node's agent: the results it holds,
 // too large to post, the gate every reading of the roots goes through, the payload hashes
-// remembered, so a film is hashed once for both, and the runner and deriver its key frames are made
-// by.
+// remembered, so a film is hashed once for both.
 type byteSocketShares struct {
 	heldResults *agent.HeldResults
 	disks       *diskwatch.Gate
 	hashes      *namedfile.Hashes
 	// recent is the node process's recent log, which the socket answers with; nil answers none.
 	recent *slogx.Recent
-	// films and frames make the key frames the socket serves (D545); nil frames makes none.
-	films  byteserver.Films
-	frames byteserver.Frames
 }
 
 // serveBytes serves the node's byte socket, in its instance's run directory, until the returned stop
@@ -457,9 +453,6 @@ func serveBytes(
 	}
 	if directory.shelf != nil {
 		server.ServingStores(directory.shelf).OnStoreServed(directory.shelf.MarkServed)
-	}
-	if shares.frames != nil {
-		server.ServingFrames(shares.films, shares.frames)
 	}
 	handler, err := keepSocketKey(ctx, listener.Addr().String(), server.Handler(), logger)
 	if err != nil {

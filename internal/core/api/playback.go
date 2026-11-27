@@ -231,7 +231,6 @@ func (server *Server) registerPlayback() {
 	server.registerSubtitleFetch()
 	server.registerChunks()
 	server.registerUpNext()
-	server.registerFrame()
 	server.registerFileSegments()
 	server.registerTrickplay()
 }

@@ -60,7 +60,6 @@
 //     node's start-up speed trials, which its status carries; trickplay.go also posts each sheet a
 //     run finishes, a piece, on a path of its own. stall.go: what a node saw of an FFmpeg run it
 //     stopped as stalled, which
-//     those answers carry. bytes.go names a file on the node's byte socket, and frame.go asks it for a
-//     key frame (D545). probe.go: the probe
+//     those answers carry. bytes.go names a file on the node's byte socket. probe.go: the probe
 //     record a scan reports and the core keeps.
 package nodeproto
