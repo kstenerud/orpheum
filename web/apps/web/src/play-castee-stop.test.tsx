@@ -29,14 +29,36 @@ describe("the cast remote's Stop, where the film resumes (D549)", () => {
     return { ...drawn, onPlayHere };
   }
 
-  it("plays the film here from where the server's answer to this tab's Stop says it stood, paused as the person is alone, before where the session had it (D555 §5)", async () => {
+  it("plays the film here from where the server's answer to this tab's Stop says it stood, playing as it played there, the person alone, before where the session had it (D555 §5, D564 §1)", async () => {
     const { services, sockets, onPlayHere } = await casting({
       "POST /me/casts/9/end": [200, { positionMs: 90_000, isPlaying: true }],
     });
     await endCast(services.api, 9, "stopped");
     await sockets.session.say({ type: "ended", reason: "stopped" });
     await settleUntil(() => onPlayHere.mock.calls.length > 0);
+    expect(onPlayHere).toHaveBeenCalledExactlyOnceWith(90_000, false);
+  });
+
+  it("brings the film back here paused where the server's answer to this tab's Stop says the castee had it paused, the person alone (D564 §1)", async () => {
+    const { services, sockets, onPlayHere } = await casting({
+      "POST /me/casts/9/end": [200, { positionMs: 90_000, isPlaying: false }],
+    });
+    const playing = { state: "playing", positionMs: 61_000, rate: 1, fileId: 4 };
+    await sockets.session.say({ type: "group", seq: 4, group: { ...playing, event: "played" } });
+    await endCast(services.api, 9, "stopped");
+    await sockets.session.say({ type: "ended", reason: "stopped" });
+    await settleUntil(() => onPlayHere.mock.calls.length > 0);
     expect(onPlayHere).toHaveBeenCalledExactlyOnceWith(90_000, true);
+  });
+
+  it("brings the film back here paused where the cast was stopped elsewhere as it played, the person alone (D555 §5, D564 §1)", async () => {
+    const { sockets, onPlayHere } = await casting({});
+    const playing = { state: "playing", positionMs: 61_000, rate: 1, fileId: 4 };
+    await sockets.session.say({ type: "group", seq: 4, group: { ...playing, event: "played" } });
+    await sockets.session.say({ type: "ended", reason: "stopped" }); // the receiver's own Stop casting here
+    await settleUntil(() => onPlayHere.mock.calls.length > 0);
+    expect(onPlayHere).toHaveBeenCalledOnce();
+    expect(onPlayHere.mock.calls[0]?.[1]).toBe(true);
   });
 
   it("plays the film here from the server's answer even where no leader was heard and the session holds no place", async () => {

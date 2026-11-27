@@ -4304,3 +4304,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   the volume it had said before the press. Owed again: press Volume down on the pad, wait for the
   number to go, then turn the volume up and down with the TV's remote: the number shows at each
   change, the TV's own. The steps on the pad are now 5 % (D562).
+- [ ] **VQ415** — A cast this phone stops comes back as it was on the TV (D564 §1): only a real
+  phone's Chrome shows whether it lets the film start again without a fresh press. On the phone's
+  Chrome, cast a film to the Chromecast and let it play; press Stop casting on the pad: the film
+  goes on playing on the phone from about where the TV was. Cast it again, pause it on the pad,
+  press Stop casting: it comes back paused there. Then once more, playing, stopped with Chrome's own
+  Cast button's Stop: it plays on the phone. Do the playing case with the Fire TV too. Report each,
+  and whether the browser refused the start ("Paused — press Play to start." on the phone).

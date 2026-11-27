@@ -584,6 +584,14 @@ Added by the owner, 2026-11-26, from the same walk's unfixed observations:
 5. **A TV's cast that started late put its own film back on over the group's**, once, before the
    batch's fixes; not checked since.
 6. **Stopping a Chromecast's cast left the phone's film paused.**
+   **Built (D564 §1), 2026-11-27.** A cast this tab stops (the pad's or the panel's Stop casting,
+   Chrome's own Stop for a Chromecast) comes back here, the person alone, at the castee's place and
+   as the castee had it: playing where the server's answer to the Stop says it played, paused where
+   it was paused, and, the answer failed, as the cast's session last said (`useSwapsBackAtTheEnd`,
+   `play-castee.tsx`). Every other end still comes back paused alone, and a Watch Together session
+   still plays on. A start the browser refuses is the player's, as at any film's start
+   (`start-refused.ts`). Tests: `play-castee-stop.test.tsx`, `play-castee-ends.test.tsx`; the phone's
+   own start: VQ415.
 7. **A sleeping Fire TV shows as a silent cast waiting for OK.**
 8. **The Invite dialog's "Make a link" button sits under a phone's keyboard.** **Built** (2026-11-27, D566):
    the page asks the browser to resize it under a keyboard, so every dialog fits the room above it.

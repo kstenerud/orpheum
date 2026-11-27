@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { useReceiverHeard } from "./cast-remote-heard.ts";
 import { RemoteOffers, RemotePicture } from "./cast-remote-offer.tsx";
-import { takeEndAnswerOf, type Cast } from "./cast.ts";
+import { endAskedOf, takeEndAnswerOf, type Cast } from "./cast.ts";
 import {
   isServerLostIn,
   RemoteButtons,
@@ -57,12 +57,12 @@ import type { Resource } from "./use-resource.ts";
  * (D548; the owner, 2026-11-26), upright, on its side and on a computer alike, full screen or not
  * (CasteePlaying): the castee's key frame where the video would be, with Up next and the skips over
  * it; under it, or beside it on its side, the timeline, the 3×3 pad and the menus' row. Every end of
- * the cast swaps the target back to the video here at the castee's last place, paused alone, playing
- * on in a Watch Together session, with no note and no press asked (D555 §5; useSwapsBackAtTheEnd).
- * The cast moved into a Watch Together part is no end (useCastSession). The castee not heard, the
- * reconnecting sign shows on its key frame and nothing takes a press (D555 §6); the server alone ends
- * the cast. The page fills the window under the top bar, scrolling where it does not fit
- * (play-castee.css).
+ * the cast swaps the target back to the video here at the castee's last place, paused alone (as the
+ * castee had it, where this tab stopped the cast: D564 §1), playing on in a Watch Together session,
+ * with no note and no press asked (D555 §5; useSwapsBackAtTheEnd). The cast moved into a Watch
+ * Together part is no end (useCastSession). The castee not heard, the reconnecting sign shows on its
+ * key frame and nothing takes a press (D555 §6); the server alone ends the cast. The page fills the
+ * window under the top bar, scrolling where it does not fit (play-castee.css).
  */
 export function CasteePlay(props: {
   readonly castId: number;
@@ -149,7 +149,10 @@ function useIsInASession(): boolean {
  * Swaps the target back to the video here, once, as the cast castId ends, however it ends (D555 §5):
  * at the castee's last place, the server's answer to this tab's own Stop first, then where the castee
  * last stood (stoodRef), then where the cast's session stood as it ended, and none known, the film's
- * own start (D549 §3); paused when the person watches alone, playing on in a Watch Together session.
+ * own start (D549 §3); playing on in a Watch Together session. The person alone, it comes back as the
+ * castee had it where this tab's Stop ended the cast (D564 §1: the pad's, the panel's or Chrome's own
+ * Stop for a Chromecast), playing where it played and paused where it was paused, and paused at every
+ * other end. A start the browser refuses is the player's, as at any film's start (start-refused.ts).
  */
 function useSwapsBackAtTheEnd(
   castId: number,
@@ -171,10 +174,12 @@ function useSwapsBackAtTheEnd(
       return;
     }
     hasSwappedRef.current = true;
+    const isStoppedHere = endAskedOf(castId) === "stopped";
     const answered = takeEndAnswerOf(castId) ?? Promise.resolve(undefined);
     void answered.then((ended) => {
       const from = ended ?? stoodRef.current ?? over.stood;
-      waysRef.current.playHere(from?.positionMs, !waysRef.current.isInASession);
+      const isPausedAlone = isStoppedHere ? (from?.isPaused ?? true) : true;
+      waysRef.current.playHere(from?.positionMs, !waysRef.current.isInASession && isPausedAlone);
     });
   }, [castId, over, stoodRef, waysRef]);
 }

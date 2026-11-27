@@ -130,14 +130,14 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
     expect(onPlayHere).toHaveBeenCalledWith(61_000, true);
   });
 
-  it("opens the film here paused, where the receiver played it, as the cast is stopped from Cast's dialog with the person alone (D446 §2, D555 §5)", async () => {
+  it("plays the film here, where the receiver played it, as the cast is stopped from Cast's dialog with the person alone (D446 §2, D555 §5, D564 §1)", async () => {
     const { services, sockets, onPlayHere } = await casting(failedEnd);
     const playing = { state: "playing", positionMs: 61_000, rate: 1, fileId: 4 };
     await sockets.session.say({ type: "group", seq: 4, group: { ...playing, event: "played" } });
     await endCast(services.api, 9, "stopped").catch(() => undefined); // this tab's Stop, unanswered
     await sockets.session.say({ type: "ended", reason: "stopped" });
     expect(onPlayHere).toHaveBeenCalledOnce();
-    expect(onPlayHere.mock.calls[0]?.[1]).toBe(true);
+    expect(onPlayHere.mock.calls[0]?.[1]).toBe(false);
   });
 
   /** File 4's page's way up, its film's page, item 40's, as a Play page's Up is. */
