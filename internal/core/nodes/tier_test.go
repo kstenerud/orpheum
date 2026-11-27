@@ -29,3 +29,12 @@ func TestTierOf_AReadOfAVideosIndexAloneIsFastWork(t *testing.T) {
 			readsWholeFiles(whole))
 	}
 }
+
+// Making a video's trickplay pictures reads each of its keyframes, so it waits for a scan's quick
+// pass of its disk as a read-through does (trickplay.md section 2, D255).
+func TestReadsWholeFiles_MakingTrickplayPicturesDoes(t *testing.T) {
+	t.Parallel()
+	if !readsWholeFiles(nodeproto.Work{MakeTrickplay: &nodeproto.MakeTrickplay{}}) {
+		t.Error("making trickplay pictures reads no whole file; want it to wait for a quick pass")
+	}
+}

@@ -130,3 +130,28 @@ func TestBuild_AFakedNodeChannelNeedsItsBytesFakedToo(t *testing.T) {
 			faked, err)
 	}
 }
+
+// sheetNotingNodes is a quiet node channel that notes where it was told its nodes' trickplay sheets go.
+type sheetNotingNodes struct {
+	quietNodes
+	sheets *nodes.TrickplaySheets
+}
+
+func (noting sheetNotingNodes) SetTrickplaySheets(sheets nodes.TrickplaySheets) {
+	*noting.sheets = sheets
+}
+
+// The node channel hands the sheets a trickplay run posts to the exchanges, or every run's sheets are
+// refused (trickplay.md section 3).
+func TestBuild_TheNodeChannelIsToldWhereTrickplaySheetsGo(t *testing.T) {
+	t.Parallel()
+	var sheets nodes.TrickplaySheets
+	parts := testParts(t)
+	parts.Nodes, parts.NodeBytes = sheetNotingNodes{sheets: &sheets}, fakeNodeBytes{}
+	if _, err := Build(t.Context(), parts); err != nil {
+		t.Fatal(err)
+	}
+	if _, isExchanges := sheets.(*nodes.Exchanges); !isExchanges {
+		t.Errorf("the node channel's trickplay sheets go to %T; want the exchanges", sheets)
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -47,10 +48,13 @@ func keepRuns(t *testing.T, service *Service, runs ...ranRun) {
 				Kind: stream.Kind, BitRateKbps: stream.Quality.Kbps, Height: stream.Quality.Height,
 			},
 		}
-		service.keepRunSpeed(t.Context(), 1, command, nodeproto.MakeChunksReport{
+		err := service.takeEnd(t.Context(), jobs.Job{}, 1, command, nodeproto.MakeChunksReport{
 			State: nodeproto.RunDone, LastChunk: 10, SpeedPercent: run.speedPercent, FilmMadeMs: run.filmMadeMs,
 			DecodedOn: "cpu", WasBesideAnotherRun: run.wasBeside,
 		})
+		if err != nil {
+			t.Fatalf("the end of a run of %s: %v", run.streamName, err)
+		}
 	}
 }
 
