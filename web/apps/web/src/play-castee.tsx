@@ -263,7 +263,7 @@ function CasteePlaying(props: {
           centre={
             <CasteeCentre
               receiverName={sent.receiverName}
-              wait={casteeWaitOf(isDisabled, props.cast.snapshot)}
+              wait={casteeWaitOf(target, isHeard, props.cast.snapshot)}
               isServerLost={isServerLostIn([props.cast, hosted])}
             >
               <VolumeShown sound={target.sound} isShown={volume.isShown} />
@@ -291,18 +291,20 @@ function CasteePlaying(props: {
 }
 
 /**
- * What the castee keeps the remote waiting on: "reaching" while it is not reached (the pad
- * disabled), "forOK" while it holds the cast for a press on its own remote (D564 §2), undefined
- * once it plays.
+ * What the castee keeps the remote waiting on: "forOK" while it is heard, over a connected session, holding the cast
+ * for a press on its own remote (D564 §2), which comes before the pad's own reading, as a castee waiting
+ * for its press plays nothing and so says no position, the pad disabled as if it were not reached;
+ * else "reaching" while the pad is disabled; undefined once it plays.
  */
 function casteeWaitOf(
-  isDisabled: boolean,
-  castSnapshot: TogetherSnapshot | undefined,
+  target: { readonly isReady: boolean },
+  isHeard: boolean,
+  snapshot: TogetherSnapshot | undefined,
 ): "reaching" | "forOK" | undefined {
-  if (isDisabled) {
-    return "reaching";
+  if (isHeard && snapshot?.status === "connected" && isCasteeWaitingForOKIn(snapshot)) {
+    return "forOK";
   }
-  return isCasteeWaitingForOKIn(castSnapshot) ? "forOK" : undefined;
+  return target.isReady ? undefined : "reaching";
 }
 
 /**

@@ -276,6 +276,23 @@ describe("the cast remote says the receiver waits for a press on its own remote 
     expect(pill()).toBeUndefined();
   });
 
+  // On the devices the television said "Press OK to start" and the phone "Reaching Fire TV…": a
+  // receiver waiting for its press plays nothing, so its session holds no position and the pad is
+  // disabled as for a receiver not reached (the lead's walk, 2026-11-27).
+  it("says it waits for the press, not that it is reaching, while the session holds no position yet", async () => {
+    const noPlace = { ...welcome, group: { state: "idle", positionMs: 0, rate: 1 } };
+    const drawn = await castingRemote({}, [], {
+      remote: CasteePlay,
+      onPlayHere: vi.fn(),
+      welcome: noPlace,
+    });
+    mounted = drawn.mounted;
+    await drawn.sockets.live.say(bothConnected);
+    await drawn.sockets.session.say(rosterSaying("waitingForOK"));
+    expect(pill()).toBe("Waiting for someone to press OK on Fire TV");
+    expect(mounted.container.querySelector(".cast-remote__spinner")).toBeNull();
+  });
+
   it("says nothing of another member's receiver waiting for its press", async () => {
     const drawn = await castingRemote({}, [], { remote: CasteePlay, onPlayHere: vi.fn() });
     mounted = drawn.mounted;
