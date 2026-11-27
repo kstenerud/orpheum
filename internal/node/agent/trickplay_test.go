@@ -4,6 +4,7 @@ package agent
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -46,13 +47,26 @@ func (fake *fakeTrickplayer) Make(
 	return nil
 }
 
-// sheetBytes is the fake sheet of index.
-func sheetBytes(index int) []byte { return []byte(strconv.Itoa(index)) }
+// sheetBytes is the fake sheet of index, or of an unreadable size at index unreadableSheet: an
+// extended WebP's header of 10 rows of pictures 180 px high, its width the index's, so each sheet
+// is its own.
+func sheetBytes(index int) []byte {
+	if index == unreadableSheet {
+		return []byte(strconv.Itoa(index))
+	}
+	width := uint32(3200 + index) //nolint:gosec // a test's few sheets
+	sheet := []byte("RIFF\x16\x00\x00\x00WEBPVP8X\x0a\x00\x00\x00\x00\x00\x00\x00")
+	sheet = append(sheet, binary.LittleEndian.AppendUint32(nil, width-1)[:3]...)
+	return append(sheet, 0x07, 0x07, 0) // 1800 high, less one
+}
 
-// trickplayCommand asks for the trickplay of a file written to root as contents, named as hashed.
-func trickplayCommand(t *testing.T, root, contents, hashed string, made []int) nodeproto.Command {
+// unreadableSheet is the index of the one sheet sheetBytes gives no size of.
+const unreadableSheet = 7
+
+// trickplayCommand asks for the trickplay of a file written to root as "film", named as hashed.
+func trickplayCommand(t *testing.T, root, hashed string, made []int) nodeproto.Command {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(root, "film.mkv"), []byte(contents), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "film.mkv"), []byte("film"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return nodeproto.Command{CommandSeq: 1, JobID: 9, AttemptToken: "attempt", Work: nodeproto.Work{
@@ -81,12 +95,13 @@ func TestAgent_PostsEachTrickplaySheetUntilTakenThenTheRunsEnd(t *testing.T) {
 	core.sheetStatuses = []int{http.StatusServiceUnavailable}
 	root, _ := startAgentWithWorkers(t, socket,
 		Workers{Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Trickplayer: fake}, quickRetry)
-	core.commands <- trickplayCommand(t, root.Path(), "film", "film", []int{1})
+	core.commands <- trickplayCommand(t, root.Path(), "film", []int{1})
 	var posted []int
 	for range 3 {
 		sheet := testutil.Receive(t, core.sheets, "a sheet")
-		if sheet.JobID != 9 || sheet.AttemptToken != "attempt" || !slices.Equal(sheet.WebP, sheetBytes(sheet.Index)) {
-			t.Errorf("posted %+v; want sheet %d of job 9's attempt", sheet, sheet.Index)
+		if sheet.JobID != 9 || sheet.AttemptToken != "attempt" || !slices.Equal(sheet.WebP, sheetBytes(sheet.Index)) ||
+			sheet.PictureHeight != 180 {
+			t.Errorf("posted %+v; want sheet %d of job 9's attempt, its pictures 180 px high", sheet, sheet.Index)
 		}
 		posted = append(posted, sheet.Index)
 	}
@@ -113,7 +128,7 @@ func TestAgent_ASheetTheCoreRefusesEndsTheTrickplayRun(t *testing.T) {
 	root, _ := startAgentWithWorkers(t, socket,
 		Workers{Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Trickplayer: &fakeTrickplayer{sheets: 3}},
 		quickRetry)
-	core.commands <- trickplayCommand(t, root.Path(), "film", "film", nil)
+	core.commands <- trickplayCommand(t, root.Path(), "film", nil)
 	answer := *testutil.Receive(t, core.trickplays, "the run's end").Trickplay
 	if answer.Refusal == "" || answer.Failure != "" {
 		t.Errorf("the run ended %+v; want it refused, not the file's failure", answer)
@@ -121,6 +136,26 @@ func TestAgent_ASheetTheCoreRefusesEndsTheTrickplayRun(t *testing.T) {
 	select {
 	case sheet := <-core.sheets:
 		t.Errorf("posted sheet %d after the core refused one", sheet.Index)
+	default:
+	}
+}
+
+// trickplay.md §5: a sheet whose pictures' height cannot be read from it is FFmpeg's output gone
+// wrong, the run's failure, and is not posted: the core could not cut its pictures.
+func TestAgent_ASheetWhoseSizeCannotBeReadIsTheRunsFailure(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	root, _ := startAgentWithWorkers(t, socket,
+		Workers{Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Trickplayer: &fakeTrickplayer{sheets: 9}},
+		quickRetry)
+	core.commands <- trickplayCommand(t, root.Path(), "film", []int{0, 1, 2, 3, 4, 5, 6})
+	answer := *testutil.Receive(t, core.trickplays, "the run's end").Trickplay
+	if answer.Failure == "" || answer.Refusal != "" {
+		t.Errorf("a sheet of no size ended the run %+v; want the file's failure", answer)
+	}
+	select {
+	case sheet := <-core.sheets:
+		t.Errorf("posted sheet %d of no size", sheet.Index)
 	default:
 	}
 }
@@ -143,7 +178,7 @@ func TestAgent_RefusesTheTrickplayOfAChangedVideoOrWithNoMaker(t *testing.T) {
 			workers.Trickplayer = check.maker
 		}
 		root, _ := startAgentWithWorkers(t, socket, workers, quickRetry)
-		core.commands <- trickplayCommand(t, root.Path(), "film", check.hashed, nil)
+		core.commands <- trickplayCommand(t, root.Path(), check.hashed, nil)
 		answer := *testutil.Receive(t, core.trickplays, "the run's end").Trickplay
 		if answer.Refusal == "" || answer.RefusalCode != check.code {
 			t.Errorf("%s ended %+v; want refused with code %q", check.what, answer, check.code)

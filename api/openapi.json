@@ -9928,6 +9928,78 @@
         ],
         "type": "object"
       },
+      "TrickplayOutputBody": {
+        "properties": {
+          "columns": {
+            "description": "A sheet's pictures across",
+            "format": "int64",
+            "type": "integer"
+          },
+          "intervalMs": {
+            "description": "The time between pictures: picture n is of n·intervalMs, the keyframe at or before it",
+            "format": "int64",
+            "type": "integer"
+          },
+          "pictureCount": {
+            "description": "The whole film's pictures, made or not",
+            "format": "int64",
+            "type": "integer"
+          },
+          "pictureHeight": {
+            "description": "Each picture's height in the sheet, in pixels",
+            "format": "int64",
+            "type": "integer"
+          },
+          "pictureWidth": {
+            "description": "Each picture's width in the sheet, in pixels",
+            "format": "int64",
+            "type": "integer"
+          },
+          "rows": {
+            "description": "A sheet's pictures down",
+            "format": "int64",
+            "type": "integer"
+          },
+          "sheets": {
+            "description": "Each sheet made, in order; a stretch whose sheet is missing has no pictures yet",
+            "items": {
+              "$ref": "#/components/schemas/TrickplaySheetBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "intervalMs",
+          "pictureWidth",
+          "pictureHeight",
+          "columns",
+          "rows",
+          "pictureCount",
+          "sheets"
+        ],
+        "type": "object"
+      },
+      "TrickplaySheetBody": {
+        "properties": {
+          "index": {
+            "description": "The sheet's place from the film's start: it holds pictures index·columns·rows onwards",
+            "format": "int64",
+            "type": "integer"
+          },
+          "url": {
+            "description": "The sheet's image, a WebP named by its content and kept for good, under /bytes/",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "url"
+        ],
+        "type": "object"
+      },
       "UnavailableBody": {
         "properties": {
           "nodeName": {
@@ -11836,6 +11908,137 @@
         "x-orpheum-capability": "media"
       }
     },
+    "/bytes/trickplay/{id}/{sheet}": {
+      "get": {
+        "operationId": "getFileTrickplaySheet",
+        "parameters": [
+          {
+            "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
+            "in": "cookie",
+            "name": "orpheum_media",
+            "schema": {
+              "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
+            "in": "cookie",
+            "name": "__Host-orpheum_media",
+            "schema": {
+              "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
+            "in": "cookie",
+            "name": "orpheum_viewer",
+            "schema": {
+              "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's over TLS, set as their playback starts",
+            "in": "cookie",
+            "name": "__Host-orpheum_viewer",
+            "schema": {
+              "description": "A Watch Together viewer's over TLS, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The browser's Sec-Fetch-Site",
+            "in": "header",
+            "name": "Sec-Fetch-Site",
+            "schema": {
+              "description": "The browser's Sec-Fetch-Site",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
+            "in": "header",
+            "name": "Orpheum-Viewer",
+            "schema": {
+              "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The file",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "The file",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The sheet's SHA-256 and format, from its list",
+            "in": "path",
+            "name": "sheet",
+            "required": true,
+            "schema": {
+              "description": "The sheet's SHA-256 and format, from its list",
+              "pattern": "^[0-9a-f]{64}\\.webp$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/webp": {}
+            },
+            "description": "The sheet",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "media": []
+          }
+        ],
+        "summary": "One sheet of a file's scrub-bar pictures, a WebP, content-addressed as an image is (D212)",
+        "tags": [
+          "Playback"
+        ],
+        "x-orpheum-capability": "media"
+      }
+    },
     "/client-manifest": {
       "get": {
         "operationId": "getClientManifest",
@@ -12675,6 +12878,56 @@
           "Playback"
         ],
         "x-orpheum-capability": "signedIn"
+      }
+    },
+    "/files/{id}/trickplay": {
+      "get": {
+        "operationId": "getFileTrickplay",
+        "parameters": [
+          {
+            "description": "The file",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "The file",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrickplayOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "A file's scrub-bar pictures made so far, their sizes and each sheet's address (trickplay.md); 404 while none is made",
+        "tags": [
+          "Playback"
+        ],
+        "x-orpheum-capability": "signedInOrGuest"
       }
     },
     "/files/{id}/up-next": {

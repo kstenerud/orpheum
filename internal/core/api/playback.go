@@ -233,6 +233,7 @@ func (server *Server) registerPlayback() {
 	server.registerUpNext()
 	server.registerFrame()
 	server.registerFileSegments()
+	server.registerTrickplay()
 }
 
 // FileAvailabilityOutput is whether a file can be read now.

@@ -38,7 +38,7 @@ func (server *Server) registerArt() {
 		Summary: "One size of one image, in WebP or JPEG (D212)", Tags: []string{tagBrowse},
 		Responses: map[string]*huma.Response{
 			"200": {Description: "The image", Content: map[string]*huma.MediaType{
-				"image/webp": {}, "image/jpeg": {},
+				webpType: {}, "image/jpeg": {},
 			}},
 			"307": {Description: "The nearest size, while this one is made or when it cannot be"},
 		},

@@ -41,6 +41,13 @@
 //     TestTrickplay_PicturesOfChangedOrRemovedBytesAreForgottenWithTheirImages (internal/core/api),
 //     TestScans_ADiscardingRescanThrowsOutEverythingMadeOfAnUnchangedFile (internal/core/library).
 //
+//   - A file's pictures are served only to those reaching it, 404 until its first sheet is kept, and
+//     each sheet by its content's hash, kept for a year; a sheet's picture height is the node's
+//     reading of its WebP canvas, and a sheet of no height is refused.
+//     TestTrickplay_AFilesPicturesAreItsSheetsKeptServedByContentToThoseReachingIt
+//     (internal/core/api), TestAgent_ASheetWhoseSizeCannotBeReadIsTheRunsFailure
+//     (internal/node/agent).
+//
 // # Read before changing
 //
 // docs/contributors/design/plans/trickplay.md; D231 (jobs as facts), D244 §1 (failures kept), D324
@@ -50,6 +57,7 @@
 //
 //   - trickplay.go: the job, what a file's bytes lack, the sweep, the sheets a node posts and its
 //     answer, and how each is kept.
+//   - pictures.go: a file's pictures and sheets as the API serves them.
 //   - forget.go: the pictures forgotten when a file's facts change or no file names its bytes, and
 //     the images no row names.
 package trickplay

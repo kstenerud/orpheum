@@ -65,8 +65,13 @@ func (agent *Agent) makeTrickplay(
 	}
 	defer closeFilm()
 	err = agent.workers.Trickplayer.Make(ctx, film, command, func(index int, webp []byte) error {
+		// A sheet whose size cannot be read is FFmpeg's output gone wrong: the run's failure.
+		pictureHeight, unread := trickplay.PictureHeight(webp, command.SheetRows)
+		if unread != nil {
+			return fmt.Errorf("sheet %d: %w", index, unread)
+		}
 		if posted := agent.postSheet(ctx, nodeID, nodeproto.TrickplaySheet{
-			JobID: held.jobID, AttemptToken: held.token, Index: index, WebP: webp,
+			JobID: held.jobID, AttemptToken: held.token, Index: index, WebP: webp, PictureHeight: pictureHeight,
 		}); posted != nil {
 			return sheetNotTakenError{err: posted}
 		}

@@ -41,6 +41,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/core/systemvideos"
 	"github.com/kstenerud/orpheum/internal/core/together"
+	"github.com/kstenerud/orpheum/internal/core/trickplay"
 	"github.com/kstenerud/orpheum/internal/core/turn"
 	"github.com/kstenerud/orpheum/internal/core/unexpected"
 	"github.com/kstenerud/orpheum/internal/core/waits"
@@ -96,6 +97,8 @@ type Dependencies struct {
 	SystemVideos *systemvideos.Service
 	// Artwork serves the images titles show.
 	Artwork *artwork.Service
+	// Trickplay serves the scrub bar's pictures of each video made so far (trickplay.md section 5).
+	Trickplay *trickplay.Service
 	// Playback decides how a file plays and says where its bytes are.
 	Playback *playback.Service
 	// Chunks are a playback's film cut into chunks at each quality, made on request (D247 §10).

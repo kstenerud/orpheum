@@ -207,6 +207,9 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// A file's segments, which reaches the file as getUpNext does
 		// (TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere).
 		"getFileSegments",
+		// A file's scrub-bar pictures and their sheets, after ReachFile
+		// (TestTrickplay_AFilesPicturesAreItsSheetsKeptServedByContentToThoseReachingIt).
+		"getFileTrickplay", "getFileTrickplaySheet",
 		// An other library's folders (TestBrowse_OneLibrarysListAndALibraryNotReached).
 		"getLibraryFolder",
 		// A viewer's playback is reach-checked against the host's libraries

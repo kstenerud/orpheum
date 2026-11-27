@@ -69,6 +69,26 @@ func (q *Queries) GetTrickplay(ctx context.Context, arg GetTrickplayParams) (Tri
 	return i, err
 }
 
+const hasTrickplaySheetFile = `-- name: HasTrickplaySheetFile :one
+SELECT EXISTS (
+  SELECT 1 FROM trickplay_sheet
+  WHERE payload_hash = ?1 AND sheet_sha256_hex = ?2
+)
+`
+
+type HasTrickplaySheetFileParams struct {
+	PayloadHash    []byte
+	SheetSha256Hex string
+}
+
+// Whether a sheet of the bytes, at any version, is the file: what a file's sheet is served by.
+func (q *Queries) HasTrickplaySheetFile(ctx context.Context, arg HasTrickplaySheetFileParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, hasTrickplaySheetFile, arg.PayloadHash, arg.SheetSha256Hex)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const listTrickplayPayloadHashes = `-- name: ListTrickplayPayloadHashes :many
 SELECT payload_hash FROM trickplay
 UNION
@@ -128,7 +148,7 @@ func (q *Queries) ListTrickplaySheetFilesOf(ctx context.Context, payloadHash []b
 }
 
 const listTrickplaySheets = `-- name: ListTrickplaySheets :many
-SELECT sheet_index, sheet_sha256_hex, size_bytes, made_at
+SELECT sheet_index, sheet_sha256_hex, size_bytes, picture_height, made_at
 FROM trickplay_sheet
 WHERE payload_hash = ?1 AND version = ?2
 ORDER BY sheet_index
@@ -143,6 +163,7 @@ type ListTrickplaySheetsRow struct {
 	SheetIndex     int64
 	SheetSha256Hex string
 	SizeBytes      int64
+	PictureHeight  int64
 	MadeAt         int64
 }
 
@@ -160,6 +181,7 @@ func (q *Queries) ListTrickplaySheets(ctx context.Context, arg ListTrickplayShee
 			&i.SheetIndex,
 			&i.SheetSha256Hex,
 			&i.SizeBytes,
+			&i.PictureHeight,
 			&i.MadeAt,
 		); err != nil {
 			return nil, err
@@ -241,13 +263,15 @@ func (q *Queries) UpsertTrickplay(ctx context.Context, arg UpsertTrickplayParams
 }
 
 const upsertTrickplaySheet = `-- name: UpsertTrickplaySheet :exec
-INSERT INTO trickplay_sheet (payload_hash, version, sheet_index, sheet_sha256_hex, size_bytes, made_at)
+INSERT INTO trickplay_sheet (payload_hash, version, sheet_index, sheet_sha256_hex, size_bytes, picture_height,
+  made_at)
 VALUES (?1, ?2, ?3, ?4,
-  ?5, ?6)
+  ?5, ?6, ?7)
 ON CONFLICT (payload_hash, version, sheet_index) DO UPDATE
-SET sheet_sha256_hex = excluded.sheet_sha256_hex, size_bytes = excluded.size_bytes, made_at = excluded.made_at
-WHERE (trickplay_sheet.sheet_sha256_hex, trickplay_sheet.size_bytes)
-  IS NOT (excluded.sheet_sha256_hex, excluded.size_bytes)
+SET sheet_sha256_hex = excluded.sheet_sha256_hex, size_bytes = excluded.size_bytes,
+  picture_height = excluded.picture_height, made_at = excluded.made_at
+WHERE (trickplay_sheet.sheet_sha256_hex, trickplay_sheet.size_bytes, trickplay_sheet.picture_height)
+  IS NOT (excluded.sheet_sha256_hex, excluded.size_bytes, excluded.picture_height)
 `
 
 type UpsertTrickplaySheetParams struct {
@@ -256,6 +280,7 @@ type UpsertTrickplaySheetParams struct {
 	SheetIndex     int64
 	SheetSha256Hex string
 	SizeBytes      int64
+	PictureHeight  int64
 	MadeAt         int64
 }
 
@@ -269,6 +294,7 @@ func (q *Queries) UpsertTrickplaySheet(ctx context.Context, arg UpsertTrickplayS
 		arg.SheetIndex,
 		arg.SheetSha256Hex,
 		arg.SizeBytes,
+		arg.PictureHeight,
 		arg.MadeAt,
 	)
 	return err

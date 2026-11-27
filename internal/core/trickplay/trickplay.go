@@ -62,6 +62,7 @@ type Queue interface {
 // instancedir.Directories.
 type Sheets interface {
 	WriteTrickplaySheet(sha256Hex string, contents []byte) error
+	ReadTrickplaySheet(sha256Hex string) ([]byte, error)
 	RemoveTrickplaySheet(sha256Hex string) error
 	ListTrickplaySheets() ([]string, error)
 }
@@ -180,15 +181,17 @@ func (service *Service) made(ctx context.Context, payloadHash []byte) (bool, []i
 
 // takeSheet keeps one sheet a node posted for a run the core holds: its image by its SHA-256 in the
 // cache directory, then its row. A sheet posted again, as a node does whose answer was lost, changes
-// nothing; one that is no image at all, or past any film's length, is refused for what it is.
+// nothing; one that is no image at all, of pictures of no height, or past any film's length, is
+// refused for what it is.
 func (service *Service) takeSheet(ctx context.Context, attempt nodes.Attempt, sheet nodeproto.TrickplaySheet) error {
 	command := attempt.Work.MakeTrickplay
 	payloadHash, err := hex.DecodeString(command.Video.PayloadHash)
 	if err != nil || len(payloadHash) == 0 {
 		return fmt.Errorf("%w: a payload hash %q", nodes.ErrMalformedResult, command.Video.PayloadHash)
 	}
-	if len(sheet.WebP) == 0 || sheet.Index < 0 || sheet.Index >= maxSheetIndex {
-		return fmt.Errorf("%w: sheet %d of %d bytes", nodes.ErrMalformedResult, sheet.Index, len(sheet.WebP))
+	if len(sheet.WebP) == 0 || sheet.Index < 0 || sheet.Index >= maxSheetIndex || sheet.PictureHeight <= 0 {
+		return fmt.Errorf("%w: sheet %d of %d bytes, its pictures %d px high", nodes.ErrMalformedResult, sheet.Index,
+			len(sheet.WebP), sheet.PictureHeight)
 	}
 	sum := sha256.Sum256(sheet.WebP)
 	sha256Hex := hex.EncodeToString(sum[:])
@@ -201,7 +204,8 @@ func (service *Service) takeSheet(ctx context.Context, attempt nodes.Attempt, sh
 	err = service.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		return queries.UpsertTrickplaySheet(ctx, cachegen.UpsertTrickplaySheetParams{
 			PayloadHash: payloadHash, Version: StoredVersion(), SheetIndex: int64(sheet.Index),
-			SheetSha256Hex: sha256Hex, SizeBytes: int64(len(sheet.WebP)), MadeAt: service.clock.Now().UnixMilli(),
+			SheetSha256Hex: sha256Hex, SizeBytes: int64(len(sheet.WebP)),
+			PictureHeight: int64(sheet.PictureHeight), MadeAt: service.clock.Now().UnixMilli(),
 		})
 	})
 	if err != nil {

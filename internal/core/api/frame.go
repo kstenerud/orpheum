@@ -30,7 +30,7 @@ func (server *Server) registerFrame() {
 			"and kept nowhere: what a cast's remote shows (D545)",
 		Tags: []string{tagPlayback},
 		Responses: map[string]*huma.Response{
-			"200": {Description: "The key frame", Content: map[string]*huma.MediaType{"image/webp": {}}},
+			"200": {Description: "The key frame", Content: map[string]*huma.MediaType{webpType: {}}},
 		},
 		Extensions: callableBy(capabilityMedia, schemeSession, schemeMedia),
 	}, server.getFileFrame)

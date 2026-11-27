@@ -197,6 +197,9 @@ var wireShapeByVersion = map[int]string{
 	// 75 raises QualityRecipe to 3, a VAAPI node's quality decoded and scaled on the GPU: a node of
 	// 74 would make a quality's chunks the old way under the new recipe's key.
 	75: "b7d14e08be41754e40269ab90a22a45eaa205a64c148bd7eb5a534bb144fe7c8",
+	// 76 adds a trickplay sheet's picture height, read by the node from its WebP (trickplay.md §5): a
+	// core of 76 refuses a node of 75's sheets as of no height.
+	76: "54d7cb919927aea3ab9b917c012edab3ce9c8f901fa4849a3e59b73ddaa82fd8",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
@@ -291,6 +294,15 @@ var routesByVersion = map[int][]string{
 	},
 	// 75 raises QualityRecipe; the routes are 74's.
 	75: {
+		"PathBytesChunks /bytes/v1/chunks/", "PathBytesFile /bytes/v1/file", "PathBytesFolders /bytes/v1/folders",
+		"PathBytesFrame /bytes/v1/frame", "PathBytesProbe /bytes/v1/probe",
+		"PathBytesRecentLog /bytes/v1/recent-log", "PathBytesResult /bytes/v1/result/",
+		"PathChanged /node/v1/changed", "PathCommands /node/v1/commands", "PathHello /node/v1/hello",
+		"PathLocked /node/v1/locked", "PathProgress /node/v1/progress", "PathResult /node/v1/result",
+		"PathStatus /node/v1/status", "PathTrickplaySheet /node/v1/trickplay-sheet",
+	},
+	// 76 adds a sheet's picture height; the routes are 74's.
+	76: {
 		"PathBytesChunks /bytes/v1/chunks/", "PathBytesFile /bytes/v1/file", "PathBytesFolders /bytes/v1/folders",
 		"PathBytesFrame /bytes/v1/frame", "PathBytesProbe /bytes/v1/probe",
 		"PathBytesRecentLog /bytes/v1/recent-log", "PathBytesResult /bytes/v1/result/",

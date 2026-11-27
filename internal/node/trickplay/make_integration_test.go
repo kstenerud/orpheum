@@ -78,6 +78,11 @@ func TestMake_EachPictureIsTheKeyframeAtOrBeforeItsMark(t *testing.T) {
 		}
 	}
 	for index := range fixtureSheetCount {
+		// 64 × 36 at 32 across is 18 high, the short last sheet's pictures too (trickplay.md §5).
+		if height, err := PictureHeight(sheets[index], fixtureCommand().SheetRows); err != nil || height != 18 {
+			t.Errorf("sheet %d's pictures are %d px high (%v); want 18, the picture's shape at 32 across", index,
+				height, err)
+		}
 		lumas := tileLumas(t, runner, sheets[index])
 		for tile, luma := range lumas {
 			mark := float64(index*4 + tile)

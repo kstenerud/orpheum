@@ -6,7 +6,7 @@
 -- A job's kind is checked in Go where a job is written (internal/core/jobs' Enqueue, against
 -- jobs.Kinds()), not by a CHECK here, since version 54: a new kind changes nothing here, so it
 -- discards no cache (the code audit of 2026-11-21, finding 2).
--- cache schema version 56
+-- cache schema version 57
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -255,6 +255,9 @@ CREATE TABLE trickplay_sheet (                             -- trickplay.md secti
   -- Its WebP's SHA-256: the file cache/trickplay/<it>.webp, content-addressed as artwork is
   sheet_sha256_hex TEXT NOT NULL,
   size_bytes       INTEGER NOT NULL CHECK (size_bytes > 0),
+  -- Each picture's height, as the node read it from the WebP (nodeproto.TrickplaySheet), for the
+  -- scrub bar to cut them by (trickplay.md section 5); since cache schema version 57
+  picture_height   INTEGER NOT NULL CHECK (picture_height > 0),
   made_at          INTEGER NOT NULL,
   PRIMARY KEY (payload_hash, version, sheet_index)
 ) WITHOUT ROWID, STRICT;

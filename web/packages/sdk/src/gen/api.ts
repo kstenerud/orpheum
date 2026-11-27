@@ -177,6 +177,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bytes/trickplay/{id}/{sheet}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One sheet of a file's scrub-bar pictures, a WebP, content-addressed as an image is (D212) */
+        get: operations["getFileTrickplaySheet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/client-manifest": {
         parameters: {
             query?: never;
@@ -444,6 +461,23 @@ export interface paths {
         put?: never;
         /** Fetch a subtitle for a file; spends one of the account's daily downloads (D224) */
         post: operations["fetchFileSubtitle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/files/{id}/trickplay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A file's scrub-bar pictures made so far, their sizes and each sheet's address (trickplay.md); 404 while none is made */
+        get: operations["getFileTrickplay"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6254,6 +6288,49 @@ export interface components {
             /** @description The guest receiver's session; absent for a Watch Together guest's grant */
             token?: string;
         };
+        TrickplayOutputBody: {
+            /**
+             * Format: int64
+             * @description A sheet's pictures across
+             */
+            columns: number;
+            /**
+             * Format: int64
+             * @description The time between pictures: picture n is of n·intervalMs, the keyframe at or before it
+             */
+            intervalMs: number;
+            /**
+             * Format: int64
+             * @description The whole film's pictures, made or not
+             */
+            pictureCount: number;
+            /**
+             * Format: int64
+             * @description Each picture's height in the sheet, in pixels
+             */
+            pictureHeight: number;
+            /**
+             * Format: int64
+             * @description Each picture's width in the sheet, in pixels
+             */
+            pictureWidth: number;
+            /**
+             * Format: int64
+             * @description A sheet's pictures down
+             */
+            rows: number;
+            /** @description Each sheet made, in order; a stretch whose sheet is missing has no pictures yet */
+            sheets: components["schemas"]["TrickplaySheetBody"][] | null;
+        };
+        TrickplaySheetBody: {
+            /**
+             * Format: int64
+             * @description The sheet's place from the film's start: it holds pictures index·columns·rows onwards
+             */
+            index: number;
+            /** @description The sheet's image, a WebP named by its content and kept for good, under /bytes/ */
+            url: string;
+        };
         UnavailableBody: {
             /** @description The machine that holds it */
             nodeName: string;
@@ -7131,6 +7208,57 @@ export interface operations {
             };
         };
     };
+    getFileTrickplaySheet: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
+                "Orpheum-Viewer"?: string;
+                /** @description The browser's Sec-Fetch-Site */
+                "Sec-Fetch-Site"?: string;
+            };
+            path: {
+                /** @description The file */
+                id: number;
+                /** @description The sheet's SHA-256 and format, from its list */
+                sheet: string;
+            };
+            cookie?: {
+                /** @description The media cookie sign-in sets over TLS, for an <img> */
+                "__Host-orpheum_media"?: string;
+                /** @description A Watch Together viewer's over TLS, set as their playback starts */
+                "__Host-orpheum_viewer"?: string;
+                /** @description The media cookie sign-in sets over plain HTTP, for an <img> */
+                orpheum_media?: string;
+                /** @description A Watch Together viewer's over plain HTTP, set as their playback starts */
+                orpheum_viewer?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sheet */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    "Content-Type"?: string;
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/webp": unknown;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getClientManifest: {
         parameters: {
             query?: never;
@@ -7659,6 +7787,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FetchSubtitleOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getFileTrickplay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The file */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrickplayOutputBody"];
                 };
             };
             /** @description Error */

@@ -33,18 +33,20 @@ SELECT payload_hash FROM trickplay_sheet;
 -- name: UpsertTrickplaySheet :exec
 -- One sheet the node posted: a repeat of it, as a node that sends again after a lost answer posts,
 -- changes nothing, and one made again replaces it.
-INSERT INTO trickplay_sheet (payload_hash, version, sheet_index, sheet_sha256_hex, size_bytes, made_at)
+INSERT INTO trickplay_sheet (payload_hash, version, sheet_index, sheet_sha256_hex, size_bytes, picture_height,
+  made_at)
 VALUES (sqlc.arg(payload_hash), sqlc.arg(version), sqlc.arg(sheet_index), sqlc.arg(sheet_sha256_hex),
-  sqlc.arg(size_bytes), sqlc.arg(made_at))
+  sqlc.arg(size_bytes), sqlc.arg(picture_height), sqlc.arg(made_at))
 ON CONFLICT (payload_hash, version, sheet_index) DO UPDATE
-SET sheet_sha256_hex = excluded.sheet_sha256_hex, size_bytes = excluded.size_bytes, made_at = excluded.made_at
+SET sheet_sha256_hex = excluded.sheet_sha256_hex, size_bytes = excluded.size_bytes,
+  picture_height = excluded.picture_height, made_at = excluded.made_at
 -- Only when it changes something (D303, DL9).
-WHERE (trickplay_sheet.sheet_sha256_hex, trickplay_sheet.size_bytes)
-  IS NOT (excluded.sheet_sha256_hex, excluded.size_bytes);
+WHERE (trickplay_sheet.sheet_sha256_hex, trickplay_sheet.size_bytes, trickplay_sheet.picture_height)
+  IS NOT (excluded.sheet_sha256_hex, excluded.size_bytes, excluded.picture_height);
 
 -- name: ListTrickplaySheets :many
 -- The sheets of a video's pictures at the version, in order.
-SELECT sheet_index, sheet_sha256_hex, size_bytes, made_at
+SELECT sheet_index, sheet_sha256_hex, size_bytes, picture_height, made_at
 FROM trickplay_sheet
 WHERE payload_hash = sqlc.arg(payload_hash) AND version = sqlc.arg(version)
 ORDER BY sheet_index;
@@ -62,3 +64,10 @@ DELETE FROM trickplay_sheet WHERE payload_hash = sqlc.arg(payload_hash);
 
 -- name: DeleteTrickplayOf :execrows
 DELETE FROM trickplay WHERE payload_hash = sqlc.arg(payload_hash);
+
+-- name: HasTrickplaySheetFile :one
+-- Whether a sheet of the bytes, at any version, is the file: what a file's sheet is served by.
+SELECT EXISTS (
+  SELECT 1 FROM trickplay_sheet
+  WHERE payload_hash = sqlc.arg(payload_hash) AND sheet_sha256_hex = sqlc.arg(sheet_sha256_hex)
+);

@@ -47,6 +47,10 @@ type TrickplaySheet struct {
 	Index int `json:"index"`
 	// WebP is the sheet's image.
 	WebP []byte `json:"webp"`
+	// PictureHeight is each picture's height in pixels, read by the node from the sheet's WebP
+	// header: the sheet's height over its rows. The core cannot know it without decoding the image
+	// (D193 §1), and the scrub bar cuts the pictures from their sheet by it (trickplay.md §5).
+	PictureHeight int `json:"pictureHeight"`
 }
 
 // TrickplayResult is how a run of CommandMakeTrickplay ended, its sheets posted: done, with none of

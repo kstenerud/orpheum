@@ -247,6 +247,7 @@ func Build(ctx context.Context, parts Parts) (*Services, error) {
 	})
 	dependencies.Playback, dependencies.Subtitles, dependencies.Artwork, dependencies.Chunks =
 		services.playback, services.subtitles, services.artwork, services.chunks
+	dependencies.Trickplay = services.Trickplay
 	if err := services.wireJobsInto(ctx, parts); err != nil {
 		return nil, err
 	}

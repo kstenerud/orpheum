@@ -56,14 +56,15 @@ func (harness testHarness) startTrickplay(
 	return command, finished
 }
 
-// postSheet posts sheet index of command's run from node 1, as its node does.
+// postSheet posts sheet index of command's run from node 1, as its node does, its pictures 180 px
+// high.
 func (harness testHarness) postSheet(
 	t *testing.T, command nodeproto.Command, jobID int64, index int, webp string,
 ) error {
 	t.Helper()
 	//nolint:wrapcheck // the test reads the exchanges' own error
 	return harness.exchanges.DeliverTrickplaySheet(t.Context(), 1, nodeproto.TrickplaySheet{
-		JobID: jobID, AttemptToken: command.AttemptToken, Index: index, WebP: []byte(webp),
+		JobID: jobID, AttemptToken: command.AttemptToken, Index: index, WebP: []byte(webp), PictureHeight: 180,
 	})
 }
 
@@ -295,7 +296,7 @@ func (harness testHarness) keepSharedAndStrayImages(t *testing.T) string {
 	err := harness.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		return queries.UpsertTrickplaySheet(t.Context(), cachegen.UpsertTrickplaySheetParams{
 			PayloadHash: gone, Version: trickplay.StoredVersion(), SheetIndex: 0, SheetSha256Hex: shaOf("RIFF shared"),
-			SizeBytes: 11, MadeAt: 1,
+			SizeBytes: 11, PictureHeight: 180, MadeAt: 1,
 		})
 	})
 	if err != nil {
