@@ -188,6 +188,11 @@
 //     TestEndedAttempts_ListTheResultsNotYetAcknowledged.
 //   - The status carries the disk of each root and of the prepared directory, or why one could
 //     not be measured (D225). TestStatus_CarriesTheDisksOfTheRootsAndThePreparedDirectory.
+//   - The speed trials (internal/node/speedtrial) start once the node has said hello, each run of
+//     chunks tells them it started and then ended, so none goes beside it, and the status carries
+//     their results (start-quality-by-node-speed.md §1).
+//     TestAgent_StartsTheSpeedTrialsAfterHelloAndTellsThemOfEachRunOfChunks,
+//     TestStatus_CarriesTheSpeedTrials.
 //   - Each session posts the watcher's notices, those held while there was none first, and the
 //     status says whether each library folder is watched (D272 §9).
 //     TestAgent_PostsTheWatchersNoticesAndSaysEachRootsWatchInItsStatus. The watcher watches the

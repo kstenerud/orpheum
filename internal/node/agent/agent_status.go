@@ -68,6 +68,9 @@ func (agent *Agent) status(ctx context.Context) nodeproto.Status {
 		SentAt: agent.clock.Now().UnixMilli(), Disks: disks, Held: held, TakenCommandSeq: takenCommandSeq,
 		SelfUse: selfUse,
 	}
+	if agent.workers.SpeedTrials != nil {
+		status.SpeedTrials = agent.workers.SpeedTrials.Results()
+	}
 	if agent.workers.Stuck != nil {
 		status.Stuck = agent.workers.Stuck()
 	}

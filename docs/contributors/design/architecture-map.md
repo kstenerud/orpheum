@@ -117,6 +117,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/node/chunks` | R3 | — (its encoder and mix filters are `internal/node/encode`'s; its stores are `internal/node/prepared`'s, D247 §10) |
 | `internal/node/diskschedule` | R8 | — (D329 §3, work-scheduling.md §8: for one device, which read goes next, by tier, deadline and arrival, with background reads held to a rate a slow playback read halves; a pure decider the node and `internal/schedtest` both drive; not yet wired into the node) |
 | `internal/node/prepared` | R3 (custody of the stores of chunks) | — |
+| `internal/node/speedtrial` | start-quality-by-node-speed.md §1 (how fast the node makes each kind of film, from clips of its own FFmpeg) | — (idle FFmpeg runs with a run of chunks' arguments (`internal/node/chunks`), one at a time, never beside a run of chunks) |
 | `internal/node/probe` | R2 | — |
 | `internal/node/readthrough` | R3 | — (its mix filters are `internal/node/encode`'s, loudness.go; was `internal/node/loudness` until 2026-10-05) |
 | `internal/node/scan` | R2 | — |

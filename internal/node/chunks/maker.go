@@ -170,7 +170,7 @@ func (maker *Maker) Make(
 	defer finishWriting()
 	decoding := maker.decodingOf(command)
 	last, err := maker.makeRun(ctx, source, command, onChunk, decoding)
-	if decoding == encode.DecodedOnGPU && isDecodeFailure(ctx, err) {
+	if decoding == encode.DecodedOnGPU && IsDecodeFailure(ctx, err) {
 		maker.decodeOnCPU(command)
 		maker.logger.WarnContext(ctx, "a run decoding on the GPU failed; its video is decoded on the CPU from now",
 			slogx.EventKey, "gpuDecodeFailed", "storeDir", command.StoreDir, "videoCodec", command.VideoCodec,
@@ -212,9 +212,10 @@ func (maker *Maker) decodeOnCPU(command nodeproto.MakeChunks) {
 	maker.decodedOnCPU[videoKey(command)] = true
 }
 
-// isDecodeFailure is whether a run's err is FFmpeg's own failure, exiting of itself while the run was
-// wanted: not a stall, a stop, or a failure of the node's.
-func isDecodeFailure(ctx context.Context, err error) bool {
+// IsDecodeFailure is whether a run's err is FFmpeg's own failure, exiting of itself while the run was
+// wanted: not a stall, a stop, or a failure of the node's. A run decoding on the GPU that fails so is
+// made again decoded on the CPU, here and in a speed trial (internal/node/speedtrial).
+func IsDecodeFailure(ctx context.Context, err error) bool {
 	var failure *execx.RunError
 	var stalled *execx.StalledError
 	return ctx.Err() == nil && errors.As(err, &failure) && failure.ExitStatus > 0 && !errors.As(err, &stalled)

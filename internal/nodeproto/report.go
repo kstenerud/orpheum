@@ -83,6 +83,10 @@ type Status struct {
 	// SelfUse is what the node, with the FFmpeg runs it started, has used of its machine, read as it
 	// made the status; absent when it could not read it. The core keeps it once a minute.
 	SelfUse *SelfUse `json:"selfUse,omitempty"`
+	// SpeedTrials are the node's start-up trials of how fast it makes each kind of film's qualities,
+	// every one, once all have ended; absent until then, and on a node that makes no chunks
+	// (design/plans/start-quality-by-node-speed.md §1).
+	SpeedTrials []SpeedTrial `json:"speedTrials,omitempty"`
 }
 
 // SelfUse is what a process has used of its machine, read at one moment (selfuse.Sample).

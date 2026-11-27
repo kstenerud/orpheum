@@ -4,6 +4,7 @@ package chunks
 
 import (
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -374,13 +375,8 @@ func Arguments(
 			arguments = append(arguments, "-bsf:v", retimingFilter)
 		}
 	case nodeproto.StreamQuality:
-		arguments = append(arguments, "-map", "0:"+strconv.Itoa(command.VideoStreamIndex))
-		arguments = append(arguments,
-			encoder.QualityArguments(command.Stream.BitRateKbps, command.Stream.Height, keyframeTimes(command),
-				decoding)...)
-		arguments = append(arguments, encodeTimeBase()...)
-		arguments = append(arguments, encodeCutTimes()...)
-		arguments = append(arguments, encodeStartDecodeTimes()...)
+		arguments = append(arguments, qualityEncoding(command.VideoStreamIndex, command.Stream.BitRateKbps,
+			command.Stream.Height, keyframeTimes(command), encoder, decoding)...)
 	case nodeproto.StreamSound:
 		sound := command.Stream.Sound
 		arguments = append(arguments, "-map", "0:a:"+strconv.Itoa(sound.AudioTrackIndex),
@@ -401,6 +397,29 @@ func Arguments(
 		"-segment_format_options", "movflags="+rawMovFlags(command)+":use_editlist=0:write_tmcd=0",
 		filepath.Join(rawPath, "%05d.mp4"),
 	)
+}
+
+// qualityEncoding is a quality's encode of the picture at streamIndex, at kbps and height with keyframes
+// at keyframesAt, decoded as decoding says: the same for a run of chunks and a speed trial
+// (TrialArguments), so a trial measures what a run does.
+func qualityEncoding(
+	streamIndex, kbps, height int, keyframesAt string, encoder encode.Encoder, decoding encode.Decoding,
+) []string {
+	return slices.Concat([]string{"-map", "0:" + strconv.Itoa(streamIndex)},
+		encoder.QualityArguments(kbps, height, keyframesAt, decoding),
+		encodeTimeBase(), encodeCutTimes(), encodeStartDecodeTimes())
+}
+
+// TrialArguments is FFmpeg's command line for a speed trial (internal/node/speedtrial), after execx's
+// hardening flags: input, a file's whose picture is its first stream, made into the quality kbps at
+// height with keyframes at keyframesAt, decoded as decoding says, with the arguments a run of chunks
+// makes that quality with, and written to nothing.
+func TrialArguments(
+	input []string, kbps, height int, keyframesAt string, encoder encode.Encoder, decoding encode.Decoding,
+) []string {
+	return slices.Concat([]string{"-v", "error", "-nostats"}, encoder.DecodeArguments(decoding), input,
+		qualityEncoding(0, kbps, height, keyframesAt, encoder, decoding),
+		[]string{"-an", "-sn", "-dn", "-f", "null", "-"})
 }
 
 // rawMovFlags are the MP4 muxer's flags for a run's raw files: fragmented, the init first. A sound

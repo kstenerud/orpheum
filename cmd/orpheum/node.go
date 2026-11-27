@@ -206,7 +206,7 @@ func runNodeWith(ctx context.Context, config Config, log processLog, seams nodeS
 	scanner := newScanner(config, roots, runner, hello, disks)
 	// A node that cannot use its prepared directory still scans and serves files as they are; it
 	// says why it makes no chunks, and each run it is asked for is refused with that reason.
-	directory, err := openPreparedDirectory(config, runner, detected.encoderChoice.Chosen, logger)
+	directory, err := openPreparedDirectory(config, runner, detected.encoderChoice.Chosen, hello, logger)
 	if err != nil {
 		logger.ErrorContext(ctx, "this node cannot make chunks; it serves files as they are",
 			slogx.EventKey, "chunkMakingUnavailable", "err", err)
@@ -268,6 +268,7 @@ func withPreparedDirectory(workers *agent.Workers, directory preparedDirectory) 
 	}
 	workers.ChunkMaker, workers.PreparedShelf = directory.chunkMaker, directory.shelf
 	workers.PreparedDirectory = directory.root.Path()
+	workers.SpeedTrials = directory.speedTrials
 }
 
 // startWatching starts the watcher of the library folders inside the node's roots that the core names
@@ -379,6 +380,8 @@ type preparedDirectory struct {
 	root       *confine.MediaRoot
 	chunkMaker *chunks.Maker
 	shelf      *prepared.Shelf
+	// speedTrials are the node's start-up speed trials of making chunks (internal/node/speedtrial).
+	speedTrials agent.SpeedTrials
 }
 
 // preparedBudget is what the node's config says its prepared directory may hold (D217 §5).
@@ -395,7 +398,7 @@ func preparedBudget(config Config) prepared.Budget {
 // openPreparedDirectory makes the node's prepared directory, in its instance's cache directory
 // (D242 §3), if it is missing, and opens it.
 func openPreparedDirectory(
-	config Config, runner *execx.Runner, encoder encode.Encoder, logger *slog.Logger,
+	config Config, runner *execx.Runner, encoder encode.Encoder, hello nodeproto.Hello, logger *slog.Logger,
 ) (preparedDirectory, error) {
 	path := config.Instance.preparedDir()
 	if err := os.MkdirAll(path, 0o750); err != nil {
@@ -407,7 +410,9 @@ func openPreparedDirectory(
 	}
 	shelf := prepared.New(root.Path(), preparedBudget(config), clock.System{}, logger)
 	chunkMaker := chunks.NewMaker(runner, shelf, root.Path(), encoder, logger)
-	return preparedDirectory{root: root, chunkMaker: chunkMaker, shelf: shelf}, nil
+	directory := preparedDirectory{root: root, chunkMaker: chunkMaker, shelf: shelf}
+	directory.speedTrials = speedTrialsOf(config, runner, hello, encoder, directory, logger)
+	return directory, nil
 }
 
 // byteSocketShares are what the byte socket shares with the node's agent: the results it holds,

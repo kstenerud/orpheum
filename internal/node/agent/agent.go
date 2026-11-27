@@ -56,6 +56,16 @@ type StillTaker interface {
 	Still(ctx context.Context, film execx.Film, streamIndex int, at time.Duration) ([]byte, error)
 }
 
+// SpeedTrials are the node's start-up speed trials: speedtrial.Trials.
+type SpeedTrials interface {
+	// Start runs them once, in the background, on the node's lifetime.
+	Start(ctx context.Context)
+	// ChunksRunStarts says a run of chunks started, which stops a trial going; ends says it ended.
+	ChunksRunStarts() (ends func())
+	// Results are every trial once all have ended; nil before.
+	Results() []nodeproto.SpeedTrial
+}
+
 // Workers are what the agent runs commands with.
 type Workers struct {
 	Scanner   Scanner
@@ -120,6 +130,10 @@ type Workers struct {
 	// ReadSelfUse reads what the node, with the FFmpeg runs it started, uses of its machine, for its
 	// status: selfuse.Read. Nil says nothing of it.
 	ReadSelfUse func() (selfuse.Sample, error)
+	// SpeedTrials are the node's start-up speed trials (internal/node/speedtrial), started after the
+	// first hello, out of each run of chunks' way, whose results the status carries; nil on a node
+	// that makes no chunks.
+	SpeedTrials SpeedTrials
 	// SetLogLevel writes the node's log at the level the core names (nodeproto.Tuning.LogLevel, D525
 	// §1), called when the core says one other than the last; nil keeps the level as it is.
 	SetLogLevel func(ctx context.Context, name string)
@@ -324,6 +338,9 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	agent.takeTuning(ctx, reply.Tuning)
 	agent.watchFolders(reply.WatchFolders)
 	agent.ended.saidHello()
+	if agent.workers.SpeedTrials != nil {
+		agent.workers.SpeedTrials.Start(nodeCtx)
+	}
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 	var sessionTasks sync.WaitGroup

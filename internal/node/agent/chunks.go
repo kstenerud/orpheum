@@ -36,6 +36,10 @@ func (agent *Agent) chunksWork(
 ) heldWork {
 	jobID := held.jobID
 	return heldWork{saysHowFar: true, run: func(jobCtx context.Context) {
+		if agent.workers.SpeedTrials != nil {
+			ends := agent.workers.SpeedTrials.ChunksRunStarts()
+			defer ends()
+		}
 		times := chunksRunTimes{startedAt: agent.clock.Now()}
 		report := agent.runChunks(jobCtx, nodeID, held, command, &times)
 		run := append([]any{

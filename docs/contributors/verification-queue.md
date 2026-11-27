@@ -4401,3 +4401,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   the finger without lag, and whether it is above the finger, not under it. Then cast the film from
   the phone and drag the remote's bar: report the same. Last, open a film whose pictures are not
   made yet: report that the bar shows the time alone, as before.
+- [ ] **VQ425** — A node runs its start-up speed trials once, out of the way of a film playing, and
+  says how fast it makes each kind of film (start-quality-by-node-speed.md §1, phase S1). The
+  sandbox's machine is not a node in use, so only staging's NUC7 and production's J3455 can show it.
+  On each, after the node starts on this build, leave it idle and read its log: report the
+  `speedTrialsDone` line's `trials` (want 18) and `took`, and, with the node's log at debug, each
+  `speedTrial` line's codec, height, made quality, `speedPercent` and `decodedOn`, and any
+  `gpuDecodeFailure`, `notTried` or `failure`. Then play a film while a trial runs (the first ten
+  minutes after a start): report that the film's first chunk comes as fast as without trials and
+  that the trials end later. Restart the node unchanged: report that no `speedTrialsDone` line
+  follows and that the core still holds the trials (the node's status carries them).

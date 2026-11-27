@@ -200,6 +200,10 @@ var wireShapeByVersion = map[int]string{
 	// 76 adds a trickplay sheet's picture height, read by the node from its WebP (trickplay.md §5): a
 	// core of 76 refuses a node of 75's sheets as of no height.
 	76: "54d7cb919927aea3ab9b917c012edab3ce9c8f901fa4849a3e59b73ddaa82fd8",
+	// 77 adds the node's start-up speed trials to its status, Status.SpeedTrials
+	// (start-quality-by-node-speed.md §1): a core of 76 would refuse a node of 77's status for a field
+	// it does not know.
+	77: "3875362c0e505b90c90daf0280107980bb11cdcf00d33cc13445887d210fbbac",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
@@ -303,6 +307,15 @@ var routesByVersion = map[int][]string{
 	},
 	// 76 adds a sheet's picture height; the routes are 74's.
 	76: {
+		"PathBytesChunks /bytes/v1/chunks/", "PathBytesFile /bytes/v1/file", "PathBytesFolders /bytes/v1/folders",
+		"PathBytesFrame /bytes/v1/frame", "PathBytesProbe /bytes/v1/probe",
+		"PathBytesRecentLog /bytes/v1/recent-log", "PathBytesResult /bytes/v1/result/",
+		"PathChanged /node/v1/changed", "PathCommands /node/v1/commands", "PathHello /node/v1/hello",
+		"PathLocked /node/v1/locked", "PathProgress /node/v1/progress", "PathResult /node/v1/result",
+		"PathStatus /node/v1/status", "PathTrickplaySheet /node/v1/trickplay-sheet",
+	},
+	// 77 adds a field to the status; the routes are 76's.
+	77: {
 		"PathBytesChunks /bytes/v1/chunks/", "PathBytesFile /bytes/v1/file", "PathBytesFolders /bytes/v1/folders",
 		"PathBytesFrame /bytes/v1/frame", "PathBytesProbe /bytes/v1/probe",
 		"PathBytesRecentLog /bytes/v1/recent-log", "PathBytesResult /bytes/v1/result/",
