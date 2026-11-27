@@ -11,9 +11,10 @@ container, inside the container (`pct enter <id>` on the Proxmox host).
 
 Devices away from home then reach the server only where IPv4 lets them. If your home has no public
 IPv4 of its own, as with DS-Lite (common in Germany), or behind a provider's shared address
-(carrier-grade NAT), IPv6 is the only way a phone away from home reaches the server without a
-relay. The server has no relay, so a device that can meet it only through one does not connect;
-the server's Remote access page counts each time.
+(carrier-grade NAT), IPv6 is the only way a phone away from home reaches the server directly.
+Without it, a household with an account at orpheum.cc is carried by the service's relay, which
+is slower than a direct path; a server with no account has no relay, and such a device does not
+connect.
 
 - **A Proxmox container has no IPv6 until its network is given it.** In the Proxmox web UI: the
   container → **Network** → `net0` → **Edit** → **IPv6: SLAAC** → **OK**, then restart the

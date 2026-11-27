@@ -883,9 +883,9 @@ An account needs an invitation. During the closed beta, the project's owner send
 ten people; the beta opens to the public later.
 
 Your router's address, on the **System** page under **The house's network**, lets the server ask the
-router to forward its HTTPS port, which helps where the router allows it. There is no relay: a
-device that can reach the server only through one does not connect, and the Remote access page
-counts each time this happens.
+router to forward its HTTPS port, which helps where the router allows it. Where a device and the
+server cannot reach each other directly, the service's relay carries the film between them, still
+encrypted from one to the other; a direct path is faster, so the forwarded port is worth having.
 
 ### Your account at orpheum.cc
 

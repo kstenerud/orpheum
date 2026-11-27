@@ -121,3 +121,12 @@ The guide's own order holds for everyone: install the server, make the
 [first library](install.md#your-first-library), connect it to the account if they have one, and
 [watch](install.md#watching). When a step fails, [setup-problems.md](setup-problems.md) lists what
 has gone wrong before, and the fix.
+
+## Keep notes for the project
+
+A first install shows what the guide gets wrong, and few of them are ever written down. As you help,
+keep the notes [install-notes.md](install-notes.md) lists: the machine, how long each stage took,
+and for each place the person hesitated or a step failed, the guide's heading, the screen's exact
+words, what they expected and what fixed it. Leave out what that page says to leave out. When the
+install is done, or given up on, show the person the notes and ask whether they will send them to
+whoever invited them. They decide; you send nothing yourself.
