@@ -50,8 +50,17 @@ type Offer struct {
 	StreamName  string
 	AverageKbps int64
 	// IsHeldByUpload is whether the start took a lower quality than its link carries, to keep within
-	// what is left of the server's upload (StartAtMostKbps).
-	IsHeldByUpload bool
+	// what is left of the server's upload (StartAtMostKbps), and UploadCeilingKbps the average with its
+	// sound's of the highest quality within it, which its player is held under, zero where not held:
+	// AverageKbps but where its node's speed held the start lower still (StartBound).
+	IsHeldByUpload    bool
+	UploadCeilingKbps int64
+	// StartBound is what bounded the start on a ladder, and ExpectedSpeedPercent how fast its node is
+	// expected to make the quality, in percent of real time, by its speed trials: 0 for the film's own
+	// picture copied, a node whose trials measured nothing, or a start not on a ladder's own
+	// (start-quality-by-node-speed.md §2).
+	StartBound           StartBound
+	ExpectedSpeedPercent int
 	// SoundStreamName is the stream of the sound playing (playingSoundOf), empty for a film with
 	// none, and FromMs where in the film both are made from: what the playback wants until its player
 	// says (D309 §1).
@@ -153,6 +162,12 @@ type chosenPicture struct {
 	isHeldByUpload bool
 	// sharePercent is the share of the link it was chosen within, which the player chooses by too.
 	sharePercent int64
+	// uploadCeiling is the highest picture within the playback's StartAtMostKbps, stream or higher;
+	// bound what held the start where it is, and expectedSpeedPercent how fast its node is expected
+	// to make it, 0 when not judged: the start on a ladder's alone (StartOnLadder).
+	uploadCeiling        Stream
+	bound                StartBound
+	expectedSpeedPercent int
 }
 
 // startAt starts the runs of the chosen picture of the film's and the playback's starting sound from
@@ -175,17 +190,23 @@ func (service *Service) startAt(
 	}
 	soundKbps := film.soundKbpsWith(offered, playback, picture)
 	offer := Offer{
-		Quality:            film.qualityOf(picture),
-		StartAtBps:         film.variantOf(picture, soundKbps).bandwidthBps,
-		IsBelowTheLowest:   chosen.isBelowTheLowest,
-		FilmPictureKbps:    max(0, film.pictureAverageBps()/1000),
-		StreamName:         picture.Name(),
-		AverageKbps:        film.averageWithSoundKbps(picture, soundKbps),
-		IsHeldByUpload:     chosen.isHeldByUpload,
-		FromMs:             film.grid.StartsMs[chunk],
-		LinkSharePercent:   chosen.sharePercent,
-		IsOnTime:           film.kind == OnTime,
-		IsOnKeyframesAlone: film.kind == OnKeyframes,
+		Quality:              film.qualityOf(picture),
+		StartAtBps:           film.variantOf(picture, soundKbps).bandwidthBps,
+		IsBelowTheLowest:     chosen.isBelowTheLowest,
+		FilmPictureKbps:      max(0, film.pictureAverageBps()/1000),
+		StreamName:           picture.Name(),
+		AverageKbps:          film.averageWithSoundKbps(picture, soundKbps),
+		IsHeldByUpload:       chosen.isHeldByUpload,
+		StartBound:           chosen.bound,
+		ExpectedSpeedPercent: chosen.expectedSpeedPercent,
+		FromMs:               film.grid.StartsMs[chunk],
+		LinkSharePercent:     chosen.sharePercent,
+		IsOnTime:             film.kind == OnTime,
+		IsOnKeyframesAlone:   film.kind == OnKeyframes,
+	}
+	if chosen.isHeldByUpload {
+		ceiling := chosen.uploadCeiling
+		offer.UploadCeilingKbps = film.averageWithSoundKbps(ceiling, film.soundKbpsWith(offered, playback, ceiling))
 	}
 	if playback.HasStartingAudio {
 		sound := offered.playingSoundOf(playback, picture)

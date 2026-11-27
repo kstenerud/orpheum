@@ -10,10 +10,12 @@ import (
 // its own copied first where its player decodes it, then each quality below. It starts at the top,
 // or, with its link remembered at linkKbps, at the highest within linkShareForQualityPercent of it, or the
 // lowest when none is; it starts that picture's run and the starting sound's from the chunk at
-// positionMs, and returns the offer. Its player moves along the ladder by itself from there. A film
-// with no grid yet is ErrNoGrid, and is read through; one that offers no picture,
-// ErrNoQualityOffered, or ErrTooSlowToEncode where it would offer one its node encodes too slowly
-// (D457).
+// positionMs, and returns the offer. The start is held lower still, within the playback's
+// StartAtMostKbps (heldByUpload), and to a quality its node is expected to make at
+// startSpeedPercent (heldByNodeSpeed), and never raised by either. Its player moves along the
+// ladder by itself from there. A film with no grid yet is ErrNoGrid, and is read through; one that
+// offers no picture, ErrNoQualityOffered, or ErrTooSlowToEncode where it would offer one its node
+// encodes too slowly (D457).
 func (service *Service) StartOnLadder(
 	ctx context.Context, playback Playback, positionMs, linkKbps int64,
 ) (Offer, error) {
@@ -37,10 +39,40 @@ func (service *Service) StartOnLadder(
 	}
 	chosen, isBelowTheLowest := film.startingPicture(offered.pictures, linkKbps, sharePercent)
 	held := film.heldByUpload(offered, playback, chosen)
+	fast, expectedSpeedPercent := service.heldByNodeSpeed(film, offered, held)
 	return service.startAt(ctx, playback, film, offered, chosenPicture{
-		stream: offered.pictures[held], isBelowTheLowest: isBelowTheLowest, chunk: film.grid.chunkAt(positionMs),
+		stream: offered.pictures[fast], isBelowTheLowest: isBelowTheLowest, chunk: film.grid.chunkAt(positionMs),
 		isHeldByUpload: held != chosen, sharePercent: sharePercent,
+		uploadCeiling: offered.pictures[held], bound: startBoundOf(linkKbps, chosen, held, fast),
+		expectedSpeedPercent: expectedSpeedPercent,
 	})
+}
+
+// StartBound is what bounded the quality a playback starts on its ladder at, as its log line says it.
+type StartBound string
+
+// The bounds of a start: none, at the top with no link remembered; the link remembered; the
+// playback's StartAtMostKbps, the upload left or its data cap; or its node's speed (plan
+// start-quality-by-node-speed.md §2). A start is at the lowest of them.
+const (
+	StartBoundTop         StartBound = "top"
+	StartBoundLink        StartBound = "link"
+	StartBoundStartAtMost StartBound = "startAtMost"
+	StartBoundNodeSpeed   StartBound = "nodeSpeed"
+)
+
+// startBoundOf is what bounded a start the link put at chosen, StartAtMostKbps held at held and its
+// node's speed at fast, places among the pictures, highest first: the lowest of them.
+func startBoundOf(linkKbps int64, chosen, held, fast int) StartBound {
+	switch {
+	case fast != held:
+		return StartBoundNodeSpeed
+	case held != chosen:
+		return StartBoundStartAtMost
+	case linkKbps > 0:
+		return StartBoundLink
+	}
+	return StartBoundTop
 }
 
 // heldByUpload is the place among the offered pictures, highest first, a start the link put at

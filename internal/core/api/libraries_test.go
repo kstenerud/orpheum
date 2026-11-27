@@ -51,6 +51,8 @@ type fakeNodes struct {
 	build build.Provenance
 	// hardware is what its hello said about hardware encoding.
 	hardware nodeproto.Hardware
+	// speedTrials are what its last status said of its start-up speed trials.
+	speedTrials []nodeproto.SpeedTrial
 	// prepared is what its last status said its prepared directory holds, when it said.
 	prepared *nodeproto.PreparedUsage
 	// disks are what its last status said of its disks.
@@ -307,6 +309,14 @@ func (nodes *fakeNodes) EncodeSpeedPercent(nodeID int64) int {
 		return 0
 	}
 	return nodes.hardware.EncodeSpeedPercent
+}
+
+// SpeedTrials are node 1's, as the test set them; none for any other.
+func (nodes *fakeNodes) SpeedTrials(nodeID int64) []nodeproto.SpeedTrial {
+	if nodeID != 1 {
+		return nil
+	}
+	return nodes.speedTrials
 }
 
 // SelfUses are what the connected nodes said they use, as the test set them.

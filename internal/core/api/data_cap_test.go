@@ -86,7 +86,7 @@ func TestPlayback_ACappedDeviceStartsOnItsLadderUnderItsCap(t *testing.T) {
 			"ladder, at a rung under the cap", capped, capped.OnLadder)
 	}
 	harness.logs.AwaitEvent(t, "playbackStarted", `"networkKind":"mobile"`, `"dataCapKbps":1000`,
-		`"ladderQuality":"q700k432p"`)
+		`"ladderQuality":"q700k432p"`, `"ladderStartBound":"startAtMost"`)
 	for _, kind := range []string{"wifi", ""} {
 		body := chrome(1)
 		if kind != "" {

@@ -12,6 +12,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
 )
@@ -109,11 +110,13 @@ type HoldBack interface {
 	HoldBackFor(ctx context.Context, nodeID int64, until time.Time) int
 }
 
-// Encoders say whether a node encodes on a GPU, and how fast it encodes the lowest quality, in
-// percent of real time, zero for unmeasured (D457): nodes.Service.
+// Encoders say whether a node encodes on a GPU, how fast it encodes the lowest quality, in percent
+// of real time, zero for unmeasured (D457), and its start-up speed trials, none before they end
+// (start-quality-by-node-speed.md §1): nodes.Service.
 type Encoders interface {
 	EncodesOnAGPU(nodeID int64) bool
 	EncodeSpeedPercent(nodeID int64) int
+	SpeedTrials(nodeID int64) []nodeproto.SpeedTrial
 }
 
 // Service cuts films into chunks made on request (D247 §10): the grid each is cut on, the

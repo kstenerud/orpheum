@@ -26,6 +26,15 @@
 //     Enforced by TestOffered_BelowTheTwinTheQualitiesStepDownFromItsRate and
 //     TestOffered_TheLadderFollowsTheFilmsNodesEncoder.
 //
+//   - A start on the ladder is held, never raised, to the highest quality its node's speed trials
+//     expect it to make at startSpeedPercent of real time or faster, the lowest when none is, beside
+//     the link's choice and StartAtMostKbps: judged by the trials of the film's kind, else of the
+//     nearest kind no easier, else of the slowest; a quality between a kind's two measured judged by
+//     the time its pixels put on the line between them; the film's own picture copied, and a node whose
+//     trials measured nothing, not held (start-quality-by-node-speed.md §2). Enforced by
+//     TestStartOnLadder_AStartIsHeldToAQualityItsNodeMakesFast and
+//     TestTrialLineFor_TakesTheNearestKindNoEasierElseTheSlowest.
+//
 //   - A film whose node encodes the lowest quality slower than chunkRunSlowestSpeedPercent
 //     offers only its own picture, copied; a player that cannot decode it is ErrTooSlowToEncode
 //     (D457). A node whose speed is not known offers its whole ladder. Enforced by

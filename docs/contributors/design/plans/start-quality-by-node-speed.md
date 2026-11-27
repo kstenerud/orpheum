@@ -9,7 +9,8 @@
   and *"We'd likely need to have the core choose based on what the hardware can actually provide
   (i.e. do test encodes to find out what it's capable of, before choosing the base rate to start
   at)"*. Phase S1 (the node's trials) follows from those words; question 1 at the end is open, built at its
-  proposed mark; question 2 is answered. §3 is the owner's addition of the same day.
+  proposed mark; question 2 is answered. §3 is the owner's addition of the same day. S1 and S2 are
+  built (2026-11-27).
 - **Depends on:** D568 (decode on the card), D457 (a machine too slow to convert), D257 and D381
   (the quality a playback starts on), D265 (the player's own choosing).
 
@@ -55,6 +56,26 @@ path a real run takes.
   the upload's cap. Where none is, the lowest.
 - A film of a kind not tried takes the figures of the nearest kind tried that is no easier: the
   same codec at the next size up, or else the slowest the node measured on the CPU.
+- **The lead's reading, built in S2** (open to the owner):
+  - *A quality between the two a kind measured* is judged by the time each second of film takes,
+    taken as growing in a straight line with the pixels made, from the lowest's to the top's: the
+    decode costs the same at every quality, the encode grows with the pixels. The rows say each
+    quality's height and the trials' picture is 16:9, so a quality's pixels are its height by the
+    film's own shape. The rows cannot part the rate's share from the pixels', so the rate is not
+    weighed. This line is slower than the straight line between the two speeds, the cautious one.
+    Below the lowest a quality is no faster than the lowest; above the top, further along the line.
+  - *A kind* counts only where both its trials measured a speed; one with either failed or not
+    tried borrows, as a kind not tried does.
+  - *No easier* is the same codec at the same or a greater bit depth, a height and a width no
+    smaller than the film's (the trials' width is 16:9 of their height), the smallest such, by
+    height then bit depth; else the kind whose top the node made slowest of all, wherever it was
+    decoded, the slower reading of "the slowest the node measured on the CPU".
+  - *The film's own picture, copied,* is never held: nothing is made of it. A node whose trials
+    measured nothing starts as before.
+  - The hold is the third bound on a start, after the link's and `StartAtMostKbps`'s, and can only
+    lower it; the upload's ceiling stays the highest quality within the upload, so the player may
+    climb to it. The start's log line says which bound decided it (`ladderStartBound`: top, link,
+    startAtMost, nodeSpeed) and the speed expected of the quality (`ladderExpectedSpeedPercent`).
 - The figure D457 judges by becomes the slowest of these and not the generated picture's, in a
   later phase, once nodes in use have shown the trials sound.
 
@@ -83,7 +104,7 @@ same day: *"those sound fine"*.
 | Phase | What | Done when |
 | --- | --- | --- |
 | S1 | **The node:** the clips, the trials, the kept results, the message | A node with a faked FFmpeg reports each kind once and nothing after a restart; no trial starts while a run goes. Built 2026-11-27 (node protocol 77) |
-| S2 | **The core:** the figures kept for a node, the cap at a start | A film whose kind measured slow starts on the highest quality measured fast; one not measured starts as today |
+| S2 | **The core:** the figures kept for a node, the cap at a start | A film whose kind measured slow starts on the highest quality measured fast; one not measured starts as today. Built 2026-11-27 |
 | S3 | **Real runs:** the run's speed and decode in its result, the kept figures, the trial's giving way | A kind with three fair runs starts by their figure and not the trial's; a run beside another counts for nothing |
 | S4 | **The player:** one jump to the link's quality, and today's climb after a jump that failed | A capped player with ten seconds buffered asks its link's quality at once; after a stall there it steps down and climbs by today's holds |
 | S5 | **On devices:** a VQ item on production's J3455 with the card's decode refused | The owner's run |

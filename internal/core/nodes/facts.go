@@ -104,7 +104,8 @@ func (service *Service) RootWatches(nodeID int64) map[string]nodeproto.RootWatch
 
 // SpeedTrials are a node's start-up speed trials as its last status said them, every trial once all
 // have ended (design/plans/start-quality-by-node-speed.md §1); none before, from a node that makes no
-// chunks, or when it has said none since the core started. Nothing chooses by them yet.
+// chunks, or when it has said none since the core started. A playback's start is held by them
+// (chunks.StartOnLadder, §2).
 func (service *Service) SpeedTrials(nodeID int64) []nodeproto.SpeedTrial {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()

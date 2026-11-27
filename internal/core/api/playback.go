@@ -472,24 +472,6 @@ func deliveryOf(started playback.Started) string {
 	return string(started.Decision.Delivery)
 }
 
-// ladderStart is where on its film's ladder a playback starts, for its log line: the quality's stream
-// and the sound's it starts with, such as picture and sound0-own (D368 §5); nothing off it.
-func ladderStart(started playback.Started) []any {
-	if started.OnLadder == nil {
-		return nil
-	}
-	return []any{"ladderQuality", started.OnLadder.StreamName, "ladderSound", started.OnLadder.SoundStreamName}
-}
-
-// startsOnLadderKbps is the rate of the picture on its film's ladder a playback starts at, 0 when it
-// plays as its decision says (D260).
-func startsOnLadderKbps(started playback.Started) int {
-	if started.OnLadder == nil {
-		return 0
-	}
-	return started.OnLadder.Quality.Kbps
-}
-
 // logPlaybackRefused says a playback was refused, with why.
 func (server *Server) logPlaybackRefused(ctx context.Context, who []any, err error) {
 	server.logger.InfoContext(ctx, "a playback was refused",

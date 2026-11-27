@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -122,5 +123,23 @@ func TestStartAtMostKbps_IsAnEvenPartForAGroupsPlayers(t *testing.T) {
 	unanswered := uploadService(clock, 0, map[string]*tokenPlayback{})
 	if got, err := unanswered.startAtMostKbps(t.Context(), host, 91); err != nil || got != 0 {
 		t.Errorf("with the setting unanswered a start may take %d (%v); want 0, no bound", got, err)
+	}
+}
+
+// A start held within the upload is held under the highest quality within it, not under the lower
+// one its node's speed started it on, so its player climbs to the upload's ceiling once its node has
+// a start made (start-quality-by-node-speed.md §2; D286 §5).
+func TestKeepStartsNeed_ACeilingIsTheUploadsThoughTheNodeStartedItLower(t *testing.T) {
+	t.Parallel()
+	clock := clocktest.NewFake(time.Date(2026, 11, 27, 20, 0, 0, 0, time.UTC))
+	playing := &tokenPlayback{userID: 1, sessionKey: "s", fileID: 1, lastUsedAt: clock.Now()}
+	service := uploadService(clock, 0, map[string]*tokenPlayback{"mac": playing})
+	service.keepStartsNeed(playing, &chunks.Offer{
+		StreamName: "q400k360p", AverageKbps: 496, IsHeldByUpload: true, UploadCeilingKbps: 1296,
+		StartBound: chunks.StartBoundNodeSpeed,
+	})
+	if playing.ceilingKbps != 1296 || playing.picturesNeed.kbps != 496 {
+		t.Errorf("the ceiling = %d kb/s, the need %d; want the upload's 1296, the start's 496",
+			playing.ceilingKbps, playing.picturesNeed.kbps)
 	}
 }

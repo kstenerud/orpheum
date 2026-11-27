@@ -3,8 +3,6 @@
 package problemreport
 
 import (
-	"regexp"
-	"strconv"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -98,27 +96,10 @@ func (file gatheredFile) shape() *FileShape {
 	for _, stream := range file.Probe.Streams {
 		shape.Streams = append(shape.Streams, Stream{
 			Index: stream.StreamIndex, Kind: stream.Kind, Codec: stream.Codec, Profile: stream.CodecProfile,
-			BitDepth: bitDepthOf(stream.Video.PixelFormat), Width: stream.Video.Width, Height: stream.Video.Height,
+			BitDepth: stream.Video.BitDepth(), Width: stream.Video.Width, Height: stream.Video.Height,
 			FrameRate: stream.Video.FrameRate, ChannelLayout: stream.Audio.ChannelLayout, Language: stream.Language,
 			Dispositions: stream.Disposition,
 		})
 	}
 	return shape
-}
-
-// pixelFormatDepth is the bit depth FFmpeg's pixel format names: "yuv420p10le" is 10.
-var pixelFormatDepth = regexp.MustCompile(`p(\d{1,2})(?:le|be)?$`)
-
-// bitDepthOf is the bit depth of a picture of pixelFormat: 8 for a format naming none, 0 for none.
-func bitDepthOf(pixelFormat string) int {
-	if pixelFormat == "" {
-		return 0
-	}
-	if match := pixelFormatDepth.FindStringSubmatch(pixelFormat); match != nil {
-		depth, err := strconv.Atoi(match[1])
-		if err == nil {
-			return depth
-		}
-	}
-	return 8 //nolint:mnd // a pixel format naming no depth is FFmpeg's eight bits
 }

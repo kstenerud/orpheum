@@ -360,7 +360,8 @@ func (service *Service) startAtMostKbps(ctx context.Context, holder Holder, file
 // keepStartsNeed counts a playback starting on its ladder at offer as needing its rate from now,
 // before its player asks for anything, so the starts of a group's players, a moment apart, each see
 // the others' (the owner's test, 2026-10-12: every device started at 1.7 to 1.8 Mbit/s, together
-// past the share); and, where the start was held lower to keep within the upload, at that ceiling.
+// past the share); and, where the start was held lower to keep within the upload, at that ceiling,
+// the highest quality within it, though its node's speed held the start lower still.
 // A playback not on its ladder, a nil offer, is counted by what it is sent.
 func (service *Service) keepStartsNeed(playback *tokenPlayback, offer *chunks.Offer) {
 	if offer == nil {
@@ -369,6 +370,6 @@ func (service *Service) keepStartsNeed(playback *tokenPlayback, offer *chunks.Of
 	now := service.clock.Now()
 	playback.picturesNeed, playback.pictureStream = streamNeed{kbps: offer.AverageKbps, at: now}, offer.StreamName
 	if offer.IsHeldByUpload {
-		playback.ceilingKbps, playback.loweredAt = offer.AverageKbps, now
+		playback.ceilingKbps, playback.loweredAt = offer.UploadCeilingKbps, now
 	}
 }
