@@ -117,7 +117,23 @@ the log says whether a device took the relay needlessly (the owner, 2026-11-26):
 
 ## 6. Availability (D567)
 
-Built for the relay and the core, 2026-11-27; the discovery's part is owed (orpheum-connect).
+Built, 2026-11-27: the relay and the core here, the discovery in orpheum-connect (its address is
+`POST /relay/v1/announcement`; it keeps the last announcement's time across a restart). On the edge
+VPS and staging since that day; production's discovery answers the relay 404 until its next
+package.
+
+Walked on staging, 2026-11-27, with a browser held to the relay's TLS address:
+
+- it connected through the relay twice running, the core keeping the relay;
+- its first try came seconds after the core started, with no credential yet: the try failed, the
+  core asked how it stood at once (`relayCredentialAsked`), and the next try connected;
+- with the household's mark off (D567 §7) it was given no credential: no allocation at the relay;
+- with the relay's announcements to staging stopped, the discovery said "not announced" three
+  minutes after the last and named the relay to no one, and said "announced again" ten seconds
+  after they returned. Neither mail was sent: staging has no operator with a mail address.
+
+Not walked: a relay unreachable from one core alone (the staging host gives the lead no firewall),
+and the louder alert, which needs two households.
 
 - **The relay announces itself** to each discovery its configuration names in `[[announce]]`
   (`url`, an https URL, and `secret_line`, the line of the secrets file it shares with that
@@ -178,7 +194,7 @@ Built for the relay and the core, 2026-11-27; the discovery's part is owed (orph
 5. **A relay that does not answer holds the core's answer** to an offer with a relayed candidate
    until the core has a reflexive candidate, or for five seconds and then fails it where it has no
    STUN server (seen in D559 §2's test, 2026-11-26). Before D559 §2 that was every offer. Built for
-   the relay and the core (2026-11-27, §6); the discovery's part is owed.
+   the relay, the core and the discovery (2026-11-27, §6).
    The owner's design, 2026-11-27, in place of the lead's (a two-second wait and a minute left
    out): the relay announces that it is available and keeps announcing; a connection that fails
    through it is the sign that it is not, and from then until it next announces it is not offered
