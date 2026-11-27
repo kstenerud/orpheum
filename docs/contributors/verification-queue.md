@@ -4375,4 +4375,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   a seek, first chunks in 1.1 to 2.3 s, FFmpeg using 30 to 75 % of one core of four; the Main 10
   picture was clean and rightly coloured. H.264 High 10 (file 3131), RealVideo (17525) and MPEG-1
   (18253) ran `cpu` and played. Left for a hand: stepping between Original and a ladder quality,
-  and the `gpuDecodeFailed` line, which the node did not yet log.
+  and nothing else: played again once the node logged it, the High 10 film's first run failed on the
+  card as the source says ("Failed setup for format vaapi: hwaccel initialisation returned error",
+  then "Impossible to convert between the formats supported by the filter…"), was made again at
+  once and finished `decodedOn=cpu`.
