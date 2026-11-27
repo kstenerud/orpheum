@@ -196,10 +196,12 @@ func openFilm(command *exec.Cmd, film *fdproxy.Config) (*fdproxy.Channel, error)
 	return channel, nil
 }
 
-// startCommand starts command, with its film's channel when the run reads one, and serves the film
-// once it has started; on failure it abandons the progress pipe and the channel.
+// startCommand starts command by start, its Start or that on an idle thread (startIdle), with its
+// film's channel when the run reads one, and serves the film once it has started; on failure it
+// abandons the progress pipe and the channel.
 func (runner *Runner) startCommand(
-	ctx context.Context, tool Tool, command *exec.Cmd, progress *progressPipe, film *fdproxy.Config,
+	ctx context.Context, tool Tool, command *exec.Cmd, start func() error, progress *progressPipe,
+	film *fdproxy.Config,
 ) (*fdproxy.Channel, error) {
 	var channel *fdproxy.Channel
 	if film != nil {
@@ -209,7 +211,7 @@ func (runner *Runner) startCommand(
 			return nil, &RunError{Tool: tool, ExitStatus: -1, Err: err}
 		}
 	}
-	if err := command.Start(); err != nil {
+	if err := start(); err != nil {
 		progress.abandon()
 		if channel != nil {
 			channel.Abandon()

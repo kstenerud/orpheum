@@ -11,3 +11,8 @@ import "syscall"
 func toolProcessAttributes() *syscall.SysProcAttr {
 	return &syscall.SysProcAttr{Setpgid: true}
 }
+
+// startIdle starts a tool by start: only Linux has the idle scheduling class.
+func startIdle(start func() error, _ <-chan struct{}) error {
+	return start()
+}

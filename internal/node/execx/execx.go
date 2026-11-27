@@ -266,6 +266,10 @@ type WatchedRun struct {
 	// Film, when set, is the run's input served through the node over fdproxy (D330), which the
 	// arguments name with StreamedInput. The run's verdict then also takes the channel's account.
 	Film *fdproxy.Config
+	// IsIdle starts the run in Linux's SCHED_IDLE class, which gets a processor only when nothing
+	// else wants one, it and every thread and process it starts (trickplay.md §3). An unprivileged
+	// process may lower itself into it, so it needs no capability. Elsewhere it is ignored.
+	IsIdle bool
 }
 
 // Ran is what a watched run left: its stdout and the end of its log, as its WatchedRun asked.
@@ -282,7 +286,7 @@ type Ran struct {
 func (runner *Runner) RunWatched(ctx context.Context, run WatchedRun) (Ran, error) {
 	streams := pipes{
 		stdin: run.Input, stdout: io.Discard, stderrTailLimitBytes: stderrTailBytes, watch: &run.Watch,
-		pausing: pausingOf(ctx), moved: movedOf(ctx), film: run.Film,
+		pausing: pausingOf(ctx), moved: movedOf(ctx), film: run.Film, isIdle: run.IsIdle,
 	}
 	var stdout *limitedBuffer
 	switch {
@@ -335,6 +339,17 @@ type pipes struct {
 	pausing              *Pausing
 	moved                func()
 	film                 *fdproxy.Config
+	// isIdle starts the run in the idle scheduling class (WatchedRun.IsIdle).
+	isIdle bool
+}
+
+// startOf is how a run's command starts: in the idle scheduling class when it is idle, its starting
+// thread kept until the tool exits.
+func startOf(command *exec.Cmd, isIdle bool, ending runEnding) func() error {
+	if !isIdle {
+		return command.Start
+	}
+	return func() error { return startIdle(command.Start, ending.exited) }
 }
 
 // runToExit runs tool to its end, with its streams as streams says, and returns the end of its stderr.
@@ -374,7 +389,8 @@ func (runner *Runner) runToExit(
 		}
 	}
 
-	film, err := runner.startCommand(ctx, tool, command, progress, streams.film)
+	start := startOf(command, streams.isIdle, ending)
+	film, err := runner.startCommand(ctx, tool, command, start, progress, streams.film)
 	if err != nil {
 		return nil, err
 	}

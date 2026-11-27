@@ -14,6 +14,10 @@
 //
 // # Invariants
 //
+//   - A watched run asked to be idle (WatchedRun.IsIdle) starts its tool in the idle scheduling
+//     class on Linux, set on a locked thread that lives until the tool exits so the tool's
+//     parent-death signal is not sent early; another starts in the normal class (trickplay.md §3).
+//     TestRunWatched_AnIdleRunStartsInTheIdleSchedulingClassAndAnotherDoesNot.
 //   - A watched run made on a context carrying a Pausing is paused with SIGSTOP to its process and
 //     its group and continued with SIGCONT, and its paused time is neither a stall nor spent deadline
 //     (D240 §6). TestRunWatched_APausedRunNeitherStallsNorSpendsItsDeadlineAndIsJudgedAgainOnceContinued.
@@ -132,6 +136,7 @@
 //     disc.go: a disc image's main title as a run's film. cutdown.go: a film's index cut down to
 //     a run's stretch.
 //     proc_linux.go: reading a process group from /proc. stuck.go: the processes left running.
-//     process_linux.go and process_other.go: a tool's process group and parent-death signal.
+//     process_linux.go and process_other.go: a tool's process group and parent-death signal, and
+//     startIdle, an idle run's start.
 //     The shim itself is internal/node/confine's.
 package execx
