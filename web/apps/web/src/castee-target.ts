@@ -95,3 +95,28 @@ export function isCasteeWaitingForOKIn(snapshot: TogetherSnapshot | undefined): 
     ) === true
   );
 }
+
+/**
+ * How the castee's device stands in the cast's session (D569 §1, §6), its roster's word for it: the
+ * leader, or another of this remote's member's devices that plays. "absent" where the roster shows
+ * none; "loading" where it stands so, which the server says of a device that has never yet said it
+ * is ready to play; else "present". Read from the session, not this page's memory, a page opened
+ * during the start says the same.
+ */
+export function casteeStandingIn(
+  snapshot: TogetherSnapshot | undefined,
+): "absent" | "loading" | "present" {
+  if (snapshot === undefined) {
+    return "absent";
+  }
+  const own = snapshot.roster.find((member) => member.id === snapshot.memberId);
+  const castee =
+    leaderOf(snapshot) ??
+    own?.devices.find(
+      (each) => each.id !== snapshot.deviceId && (each.role === "video" || each.role === "both"),
+    );
+  if (castee === undefined) {
+    return "absent";
+  }
+  return castee.status === "loading" ? "loading" : "present";
+}

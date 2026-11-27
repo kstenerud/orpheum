@@ -32411,7 +32411,7 @@ proposed §1–4 ("Yes the above sounds good"); §5–6 are the owner's own: "Ma
 'connecting to ‹x›' and have a cancel button on the offer area of the cast page itself? Otherwise
 we'd need to bring the cast submenu back up, and I think that's worse UX".
 
-**Status:** decided. No code yet.
+**Status:** decided. It has code: `web/apps/web/src/castee-start.tsx` (VQ424). A cast to a Chromecast shows no cast page between the press and its receiver joining: the film's own page stands under the Cast panel, busy, then "Asking ‹TV›…" with its own Cancel, until the cast is made.
 
 1. **From the choice of a TV until its first picture, the caster's page states one thing**:
    "Connecting to ‹TV›…" until the TV is reached, then "Loading on ‹TV›…". It amends D548 §9,

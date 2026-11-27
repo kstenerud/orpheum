@@ -69,8 +69,16 @@ export const enCast = {
     over: {
       lost: "The cast ended: the server no longer knows it.",
     },
-    /** The castee not yet reached (D548 §9), on its Play page. */
-    reaching: "Reaching {{name}}…",
+    /** The castee not yet reached, on its Play page (D569 §1, amending D548 §9's "Reaching"). */
+    connecting: "Connecting to {{name}}…",
+    /** The castee reached, yet to show its first picture (D569 §1). */
+    loading: "Loading on {{name}}…",
+    /** A cast's start gone about 20 s with no picture (D569 §4). */
+    slowToStart: "{{name}} is slow to start",
+    /** Ends a cast being started, as Stop casting does (D569 §5). */
+    cancel: "Cancel",
+    /** The castee ready, standing paused (D569 §3). */
+    pausedOn: "Paused on {{name}}",
     /** The castee reached, holding the cast for a press on its own remote (D468 §2, D564 §2). */
     waitingForOK: "Waiting for someone to press OK on {{name}}",
     /** The castee's Play page's own connection to the server lost, reconnecting (D553 §4). */

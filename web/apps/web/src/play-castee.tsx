@@ -4,7 +4,7 @@ import "./cast.css";
 import "./play-castee.css";
 import "./cast-words.ts";
 
-import type { CastSending, TogetherSnapshot } from "@orpheum/sdk";
+import type { CastSending } from "@orpheum/sdk";
 import { useEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -30,7 +30,8 @@ import {
   type CastOn,
   type PlaysHereFrom,
 } from "./castee-session.tsx";
-import { isCasteeWaitingForOKIn, useCasteeTarget, type WorkedSession } from "./castee-target.ts";
+import { CasteeCentre, useCasteeStart } from "./castee-start.tsx";
+import { useCasteeTarget, type WorkedSession } from "./castee-target.ts";
 import { ScrubPicturesContext, useScrubPictures } from "./scrub-pictures.tsx";
 import { EndsAt, leftMsOf } from "./convenience-area.tsx";
 import { useLeavesFullScreen } from "./film-fullscreen.ts";
@@ -38,7 +39,6 @@ import { useShowsARemote } from "./hidden-need.ts";
 import { isOnTelevision } from "./input-mode.ts";
 import { useLatest } from "./latest.ts";
 import { useShowsACasteesVolume, useVolumeShown, VolumeShown } from "./over-the-picture.tsx";
-import { Pill } from "./pill.tsx";
 import { OverlayUp, PlayUpwardContext } from "./play-up.tsx";
 import type { PlaybackTarget } from "./playback-target.ts";
 import { useStageCommands, usePlayersControls } from "./player-commands.ts";
@@ -228,7 +228,8 @@ function useCasteeCommands(target: PlaybackTarget): RefObject<HTMLDivElement | n
  * shows this same page. One column upright, two on its side or a computer's wide window
  * (play-castee.css). The castee is the target (D555 §8); its session the one it is commanded in, the
  * hosted session's while this tab hosts Watch Together (D364 §11), its sound and choices the cast's.
- * While the castee is not heard, nothing takes a press (D555 §6). The page is the player's own
+ * While the castee is not heard, nothing takes a press (D555 §6); through the cast's start, from the
+ * choice of the TV until its first picture, only Cancel and the volume do (D569 §2, castee-start.tsx). The page is the player's own
  * controls for the castee's stage (usePlayersControls), so Space and M are the player's on it.
  */
 function CasteePlaying(props: {
@@ -244,7 +245,7 @@ function CasteePlaying(props: {
   const around = useAroundTold(sent.fileId, onAround);
   const moves = useRemoteMoves(sent, around);
   const title = useRemoteTitle(props.casts, sent);
-  const isDisabled = !target.isReady;
+  const start = useCasteeStart(target, isHeard, props.cast.snapshot); // D569 §2
   const stageRef = useCasteeCommands(target);
   const pageRef = useRef<HTMLDivElement>(null);
   usePlayersControls(pageRef, stageRef);
@@ -263,25 +264,26 @@ function CasteePlaying(props: {
           art={title.art}
           centre={
             <CasteeCentre
-              receiverName={sent.receiverName}
-              wait={casteeWaitOf(target, isHeard, props.cast.snapshot)}
+              sent={sent}
+              shown={start}
               isServerLost={isServerLostIn([props.cast, hosted])}
             >
               <VolumeShown sound={target.sound} isShown={volume.isShown} />
             </CasteeCentre>
           }
         />
-        <CasteeTimeline fileId={sent.fileId} source={target} isDisabled={isDisabled} />
+        <CasteeTimeline fileId={sent.fileId} source={target} isDisabled={start.isDisabled} />
         <RemotePad
           source={target}
           moves={moves}
           shown={shown}
           sound={remoteSoundMovesOf(target.sound, volume.show)}
-          isDisabled={isDisabled}
+          isDisabled={start.isDisabled}
+          {...start.pad}
         />
         <PadMenus
           menus={
-            <RemoteButtons isDisabled={isDisabled}>
+            <RemoteButtons isDisabled={start.isDisabled}>
               <TargetMenus target={target} />
             </RemoteButtons>
           }
@@ -309,56 +311,6 @@ function CasteeTimeline(props: {
         hasArrowsAsCommands={false}
       />
     </ScrubPicturesContext>
-  );
-}
-
-/**
- * What the castee keeps the remote waiting on: "forOK" while it is heard, over a connected session, holding the cast
- * for a press on its own remote (D564 §2), which comes before the pad's own reading, as a castee waiting
- * for its press plays nothing and so says no position, the pad disabled as if it were not reached;
- * else "reaching" while the pad is disabled; undefined once it plays.
- */
-function casteeWaitOf(
-  target: { readonly isReady: boolean },
-  isHeard: boolean,
-  snapshot: TogetherSnapshot | undefined,
-): "reaching" | "forOK" | undefined {
-  if (isHeard && snapshot?.status === "connected" && isCasteeWaitingForOKIn(snapshot)) {
-    return "forOK";
-  }
-  return target.isReady ? undefined : "reaching";
-}
-
-/**
- * The offer area's centre: while the castee is not reached, "Reaching ‹TV›…" or the server lost;
- * while it waits for a press on its own remote (D564 §2), "Waiting for someone to press OK on ‹TV›",
- * with no spinner, as nothing here moves it on; else children, the volume a moment after it was set.
- */
-function CasteeCentre(props: {
-  readonly receiverName: string;
-  readonly wait: "reaching" | "forOK" | undefined;
-  readonly isServerLost: boolean;
-  readonly children: ReactNode;
-}): JSX.Element {
-  const { t } = useTranslation();
-  if (props.wait === undefined) {
-    return <>{props.children}</>;
-  }
-  if (props.wait === "forOK") {
-    return (
-      <span className="castee-play__centre">
-        <Pill>{t("cast.waitingForOK", { name: props.receiverName })}</Pill>
-      </span>
-    );
-  }
-  return (
-    <span className="castee-play__centre">
-      <Pill icon={<span className="cast-remote__spinner" />}>
-        {props.isServerLost
-          ? t("cast.serverLost")
-          : t("cast.reaching", { name: props.receiverName })}
-      </Pill>
-    </span>
   );
 }
 

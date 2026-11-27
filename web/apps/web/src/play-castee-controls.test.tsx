@@ -488,7 +488,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
       // The receiver no longer heard, its leader gone from the cast's roster: not the remote's own
       // connection dropping, which says it can't reach the server (D553 §4).
       await sockets.session.say({ type: "roster", roster: [] });
-      expect(pill()).toBe("Reaching Fire TV…");
+      expect(pill()).toBe("Connecting to Fire TV…");
       expect(buttonNamed(page, "Play")?.getAttribute("aria-disabled")).toBe("true");
       expect(page.querySelector(".cast-remote__buttons")?.getAttribute("aria-disabled")).toBe(
         "true",
@@ -502,7 +502,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
       });
       expect(page.textContent).not.toContain("Casting ended");
       expect(ends()).toEqual([]);
-      expect(pill()).toBe("Reaching Fire TV…");
+      expect(pill()).toBe("Connecting to Fire TV…");
     } finally {
       vi.useRealTimers();
     }

@@ -95,7 +95,7 @@ describe("the cast remote reaches for a receiver the server no longer hears (D55
     step(3_000);
     expect(time()).not.toBe(before); // heard, the time moves on
     await sockets.live.say(receiverGone);
-    expect(pill()).toBe("Reaching Fire TV…");
+    expect(pill()).toBe("Connecting to Fire TV…");
     expect(isPadDisabled()).toBe(true);
     step(1_500); // the last second's tick
     const standing = time();
@@ -112,7 +112,7 @@ describe("the cast remote reaches for a receiver the server no longer hears (D55
       type: "roster",
       roster: [{ id: 2, name: "owner", isHost: true, devices: [{ id: 5, role: "panel" }] }],
     });
-    expect(pill()).toBe("Reaching Fire TV…");
+    expect(pill()).toBe("Connecting to Fire TV…");
     expect(isPadDisabled()).toBe(true);
     step(1_500);
     const standing = time();
@@ -140,7 +140,7 @@ describe("the cast remote reaches for a receiver the server no longer hears (D55
       type: "roster",
       roster: [{ id: 2, name: "owner", isHost: true, devices: [{ id: 5, role: "panel" }] }],
     });
-    expect(pill()).toBe("Reaching Fire TV…");
+    expect(pill()).toBe("Connecting to Fire TV…");
   });
 
   // The owner, 2026-11-25: the phone in airplane mode 26 s lost its Cast session with no Stop, while
@@ -172,7 +172,7 @@ describe("the cast remote reaches for a receiver the server no longer hears (D55
     const { sockets } = await casting({}, { welcome: playing });
     await sockets.session.say({ type: "roster", roster: receiverLeads });
     await sockets.live.say(receiverGone);
-    expect(pill()).toBe("Reaching Fire TV…");
+    expect(pill()).toBe("Connecting to Fire TV…");
     await sockets.live.say(bothConnected);
     expect(pill()).toBeUndefined();
     expect(isPadDisabled()).toBe(false);
@@ -273,7 +273,7 @@ describe("the cast remote says the receiver waits for a press on its own remote 
     expect(pill()).toBe("Waiting for someone to press OK on Fire TV");
     expect(mounted.container.querySelector(".cast-remote__spinner")).toBeNull();
     await sockets.session.say(rosterSaying("running"));
-    expect(pill()).toBeUndefined();
+    expect(pill()).toBe("Paused on Fire TV"); // ready, paused as the session has it (D569 §3)
   });
 
   // On the devices the television said "Press OK to start" and the phone "Reaching Fire TV…": a

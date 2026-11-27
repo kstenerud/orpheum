@@ -116,7 +116,7 @@ describe("the Play page over the castee (D555 §5, §8)", () => {
   it("shows the reconnecting sign over the key frame, the pad taking no press, while the castee is not heard, and leaves the end to the server", async () => {
     const { sockets, onPlayHere } = await casting();
     await sockets.live.say(receiverGone);
-    expect(pill()).toBe("Reaching Fire TV…");
+    expect(pill()).toBe("Connecting to Fire TV…");
     expect(buttonNamed(page(), "Play")?.getAttribute("aria-disabled")).toBe("true");
     expect(onPlayHere).not.toHaveBeenCalled();
     await sockets.live.say(bothConnected);

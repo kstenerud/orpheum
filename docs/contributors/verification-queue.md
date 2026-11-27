@@ -4411,3 +4411,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   minutes after a start): report that the film's first chunk comes as fast as without trials and
   that the trials end later. Restart the node unchanged: report that no `speedTrialsDone` line
   follows and that the core still holds the trials (the node's status carries them).
+
+- [ ] **VQ424** — A cast being started says so on the cast's page, with Cancel, its controls waiting
+  for the TV's first picture (D569). On an Android phone in Chrome, cast a film playing here to the
+  Fire TV whose app is closed: report the words over the cast page's picture, in order ("Connecting
+  to Fire TV…", then "Loading on Fire TV…"), whether Play, the seeks and Next take no press until the
+  TV shows its picture while the volume steps work the TV, and whether the words go once it plays.
+  Cast a film paused here: report whether the page says "Paused on Fire TV" with Play focused, and
+  whether Play starts the TV. Cast again and press Cancel while it loads: report whether the TV stops
+  and the film plays here where it stood. With the Fire TV's network unplugged, cast and wait 25 s:
+  report whether the page says the TV is slow to start, Cancel still under it. Then cast to the
+  Chromecast and report what the phone shows between the press and the TV's first picture.

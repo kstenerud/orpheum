@@ -436,7 +436,7 @@ describe("a Play page's video area as the cast's remote as its cast is taken bac
       act(() => {
         tellCastSessionLost(9);
       });
-      expect(pill()).toBe("Reaching Fire TV…");
+      expect(pill()).toBe("Connecting to Fire TV…");
       act(() => {
         vi.advanceTimersByTime(longWaitMs);
       });

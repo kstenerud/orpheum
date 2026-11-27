@@ -123,6 +123,8 @@ export function RemotePad(props: {
   readonly shown: readonly OverlayControl[];
   readonly sound: RemoteSoundMoves | undefined;
   readonly isDisabled: boolean;
+  /** Whether the volume's row takes no press, as isDisabled where unsaid; a cast's start leaves it usable (D569 §2). */
+  readonly isSoundDisabled?: boolean | undefined;
   readonly playRef?: RefObject<HTMLButtonElement | null> | undefined;
 }): JSX.Element {
   const { source, moves, shown, sound, isDisabled } = props;
@@ -140,7 +142,9 @@ export function RemotePad(props: {
         isDisabled={isDisabled}
         playRef={props.playRef}
       />
-      {sound === undefined ? null : <VolumeRow sound={sound} isDisabled={isDisabled} />}
+      {sound === undefined ? null : (
+        <VolumeRow sound={sound} isDisabled={props.isSoundDisabled ?? isDisabled} />
+      )}
     </div>
   );
 }
