@@ -5329,3 +5329,17 @@ Agreed in the design conversation (the owner, 2026-11-25), to be carried into th
   playing itself has none.
 - **A by-link guest's top bar** carries the session's name, cast and leave.
 - **Joining or leaving a session mid-cast** takes the castee along; the cast does not end.
+
+## A missing key stub says what to do, next batch (the owner, 2026-11-27: "ok sounds good")
+
+The owner ran a release's signing on a computer other than the ceremony's. `discovery-sign` asked
+for the key "e1", then failed with ssh-keygen's own words, "Couldn't load public key
+…/stubs/publisher-e1: No such file or directory" and "Refused: ssh-keygen did not finish: exit
+status 255", and offered to try the key again, which cannot help. `stubs/` is kept out of git, so
+it is only on the computer the ceremony ran on.
+
+To build: before running ssh-keygen, `discovery-sign` checks that the key's stub is there, and
+where it is not says that this computer has no stub for that key, and that the owner either signs
+on the computer that has it or writes it back from the key with `ssh-keygen -K` (the keys are
+resident, `cmd/discovery-sign/keygen.go`), under the name the tool expects. It does not offer to
+try again.
