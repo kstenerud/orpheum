@@ -148,10 +148,32 @@ the log says whether a device took the relay needlessly (the owner, 2026-11-26):
    limit, would have named finding 1 at once. It now does (§5 item 2).
 5. **A relay that does not answer holds the core's answer** to an offer with a relayed candidate
    until the core has a reflexive candidate, or for five seconds and then fails it where it has no
-   STUN server (seen in D559 §2's test, 2026-11-26). Before D559 §2 that was every offer. Open;
-   proposed to the owner, 2026-11-27: the core answers with the candidates it has once a relay
-   has had two seconds, STUN's bound, failing only with none at all; and a relay that did not
-   answer is left out of the next offers for a minute, so one dead relay costs one wait.
+   STUN server (seen in D559 §2's test, 2026-11-26). Before D559 §2 that was every offer. Open.
+   The owner's design, 2026-11-27, in place of the lead's (a two-second wait and a minute left
+   out): the relay announces that it is available and keeps announcing; a connection that fails
+   through it is the sign that it is not, and from then until it next announces it is not offered
+   as a path, and the person responsible is told; failures while it keeps announcing are a louder
+   alert, a fault in a critical service. The lead's fit of it to what is built, proposed and not
+   yet agreed:
+
+   - **The relay announces to the discovery, not to the cores.** A relay knows no core: it shares
+     a secret with a discovery and nothing else (§1). Every minute it sends the discovery a short
+     message signed under that secret; before sending, it makes an allocation on its own public
+     listeners, so the announcement says "an allocation works from outside", not "the process
+     runs".
+   - **The discovery names the relay only while announced**: to no core and no device once three
+     minutes pass with no announcement. The operators are mailed once when that happens and once
+     when it returns, and the console's Overview shows the state.
+   - **A core that gets nothing from the relay answers with what it has** after two seconds,
+     failing only with no candidate at all, and leaves the relay out of its own answers from
+     then on. It tells the discovery at once, and takes the relay back when a status carries an
+     announcement newer than the failure.
+   - **The discovery does not withdraw the relay from everyone on one core's word**: that core's
+     own network may block the relay. It counts the reports. Reports from two households within
+     ten minutes while the relay announces are the louder alert, mailed with the count.
+   - A device's failures are not reported in this step: a browser cannot tell a dead relay from
+     its own network, and its problem report already carries the kinds of candidates it gathered
+     (§5 item 3).
 6. **Firefox never connected through the relay**, on the owner's phone on production and on
    staging: the relay's refusal of a permission for the core's other candidates carries no error
    code, and Firefox then drops every relayed candidate. Decided as D560: every permission is

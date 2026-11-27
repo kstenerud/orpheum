@@ -529,7 +529,8 @@ which it already followed. The pad's volume and mute set the TV's own volume thr
 Cast session, and follow the TV's remote. Not offered: the original file (the receiver asks for
 no container of a file's own), the film's own channel (the device's volume stands for it), a
 file's sound offset, and a subtitle found from the remote until the next film (the receiver's
-README and its panels say why). After a page reload the pad has no volume for a cast it did not
+README and its panels say why); the owner, 2026-11-27: left out until something needs them. After a
+page reload the pad has no volume for a cast it did not
 start: the Cast session is that page's (idiosyncrasies.md). VQ407 walks it on the device. The
 Watch Together volumes and a guest's tracks and timing went into the bar's menus, as the
 "Next batch" item above says.
