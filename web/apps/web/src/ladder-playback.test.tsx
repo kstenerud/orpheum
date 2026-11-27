@@ -314,3 +314,43 @@ describe("a film on its ladder handed to AirPlay and back (D473, D523)", () => {
     expect(played.starts).toEqual([61]);
   });
 });
+
+describe("a film on its ladder whose start its node's speed held (start-quality-by-node-speed.md §4)", () => {
+  let mounted: Mounted | undefined;
+  const heldStarts: (boolean | undefined)[] = [];
+  const notingPlay = ((video, url, options): ChunkedPlayback => {
+    heldStarts.push(options.isStartHeldByNodeSpeed);
+    return fakePlayChunked(video, url, options);
+  }) satisfies typeof playChunked;
+
+  function Held(props: { readonly isHeld: boolean }): JSX.Element {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const starting = {
+      offer: { ...offer, isStartHeldByNodeSpeed: props.isHeld },
+      positionMs: 0,
+      shouldStartByRememberedLink: true,
+      play: notingPlay,
+    };
+    useChunkedPlayback(videoRef, starting, noFailure);
+    // eslint-disable-next-line jsx-a11y-x/media-has-caption -- a stand-in for the player's element
+    return <video ref={videoRef} />;
+  }
+
+  beforeEach(() => {
+    heldStarts.length = 0;
+  });
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  it("tells its player so, which may then jump once to its link's quality", async () => {
+    mounted = await mount(withServices(<Held isHeld />, servedBy({}, [], "token")));
+    expect(heldStarts).toEqual([true]);
+  });
+
+  it("tells its player nothing of it where the start was not held", async () => {
+    mounted = await mount(withServices(<Held isHeld={false} />, servedBy({}, [], "token")));
+    expect(heldStarts).toEqual([undefined]);
+  });
+});
