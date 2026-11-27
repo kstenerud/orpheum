@@ -648,4 +648,8 @@ Added by the owner, 2026-11-26, from the same walk's unfixed observations:
     `RelayCredentials` (`rtc-relay-credentials.ts`), and a rung of a connection's ladder that asks a
     relay first fetches them again from the discovery's `/paths` (`connectThrough`'s
     `iceServersAgain`) where they are within a minute of the expiry their TURN username states, the
-    rung without a relay waiting on no fetch; walked on a device by VQ417.
+    rung without a relay waiting on no fetch; walked on a device by VQ417. And (C) (§4): while the
+    live connection is down, the Cast panel says "Reconnecting to the server…" and keeps the
+    devices it listed last, disabled, though a read of them fails meanwhile; once it has been down
+    `reconnectingSaidForMs` (30 s, `cast-to.tsx`), a failed read says the server could not be
+    reached, as before; walked on a device by VQ418.

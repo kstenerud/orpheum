@@ -318,8 +318,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   button disabled, a cast to it refused as "‹Device› is showing another cast" (D386 §1: no device
   takes a receiving one over, the same sender's included), and listing none in the Watch Together
   session the person is in (D384 §3, the server's `isInYourWatchTogether`); while the live connection
-  is down (`useLive().isConnected`) the list is as last told, so it says "Reconnecting…" and offers no
-  device (`CastTargets`, `src/cast-to.test.tsx`); one chosen starts a session, moving the film of
+  is down (`useLive().isConnected`) the list is as last told, so it says "Reconnecting to the
+  server…" and offers no device, keeping the devices it listed though a read of them fails, until
+  it has been down `reconnectingSaidForMs` (30 s; D564 §4) (`CastTargets`, `src/cast-to.test.tsx`,
+  `src/cast-to-live.test.tsx`); one chosen starts a session, moving the film of
   the Play page under it at its position (`src/playing-here.ts`). There is no casting page (D384 §2):
   an old `/casting` address goes to the Play page of the film the cast plays, else home
   (`src/old-addresses.tsx`).

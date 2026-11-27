@@ -15,6 +15,7 @@ export const enCast = {
     receivingAnother: "{{name}} is showing another cast. Cast to it once that cast ends.",
     castingHere:
       "{{name}} is casting to this device, so this device cannot cast to it. Stop that cast on {{name}} first.",
+    reconnecting: "Reconnecting to the server…",
     chromecast: "Chromecast",
     airPlay: "AirPlay",
     playingOnAirPlay: "Playing on AirPlay",

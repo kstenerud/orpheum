@@ -4326,3 +4326,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   reconnects within a minute, and, from the page's problem report, whether its steps say "the
   relay's credentials were stale; fetched them again" and a connection through the attempt that
   asked the relay.
+- [ ] **VQ418** — The Cast panel says it is reconnecting while a page makes new connections (D564
+  §4; the owner's phone, production, 2026-11-26, said the server could not be reached while it
+  reconnected): only a real network change shows how long a page takes to connect again. On the
+  phone's Chrome, open a film's page with the Fire TV's Orpheum tab in front, open the Cast panel,
+  then close it. Turn the phone's Wi-Fi off (or the VPN on) and open the Cast panel again at once.
+  Report whether it says "Reconnecting to the server…" with the Fire TV still listed and not
+  pressable, whether the Fire TV becomes pressable once the page has connected again, and, if the
+  page has not connected within thirty seconds, whether it then says the server could not be
+  reached.

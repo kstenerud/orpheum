@@ -32276,7 +32276,7 @@ fallback for a receiver that says no channel, and nothing else of it.
 bring it back to the phone in the same state it was in. So paused if paused, playing if playing.
 […] We should say on the caster page that the tv is waiting for someone to press ok".
 
-**Status:** decided. It has no code yet.
+**Status:** decided. It has code.
 
 1. **A film whose cast is stopped comes back to the caster's device as it was on the TV**: at the
    cast's position, playing if it was playing there and paused if it was paused. Before, it came

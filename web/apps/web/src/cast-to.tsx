@@ -5,10 +5,11 @@ import "./cast-words.ts";
 
 import type { CastSending, TogetherEndReason } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
-import { listMyDevices, myDevicesKey, type Device } from "./accounts.ts";
+import type { Device } from "./accounts.ts";
+import { useDevicesOpen } from "./cast-devices-open.ts";
 import { useIsOnAirPlay } from "./airplay-here.ts";
 import { AirPlayEntry } from "./airplay-entry.tsx";
 import { BusyGroup } from "./busy-group.tsx";
@@ -41,7 +42,7 @@ import { problemText } from "./problem.ts";
 import { useServices, useToken, type AskGuestCastGrant } from "./services.tsx";
 import { useOpenedAs } from "./around-file.ts";
 import { useRequest } from "./use-request.ts";
-import { heldAnswer, useResource, type Resource } from "./use-resource.ts";
+import type { Resource } from "./use-resource.ts";
 import { useTogether } from "./use-together.ts";
 import { watchingOf } from "./watching.ts";
 import { StatusNote } from "./status-note.tsx";
@@ -72,13 +73,27 @@ export function CastTargets(props: CastTargetsProps): JSX.Element {
   return useIsOnAirPlay() ? <OnAirPlayAlone {...props} /> : <CastTargetsOffered {...props} />;
 }
 
-/** Cast's menu with no AirPlay on: the devices, Chromecast and AirPlay (CastTargets). */
+/**
+ * How long Cast's menu says it is reconnecting to the server, the devices it listed kept, before a
+ * read of them that failed says so (D564 §4): a page whose network changed makes new connections
+ * for some seconds (the owner's phone, production, 2026-11-26, where it said the server could not
+ * be reached while it did). A justified constant.
+ */
+export const reconnectingSaidForMs = 30_000;
+
+/**
+ * Cast's menu with no AirPlay on: the devices, Chromecast and AirPlay (CastTargets). While the live
+ * connection is down it says it is reconnecting, offering nothing; for reconnectingSaidForMs of it
+ * the devices it listed last stay in place, though a read of them fails meanwhile (D564 §4).
+ */
 function CastTargetsOffered(props: CastTargetsProps): JSX.Element {
   const { t } = useTranslation();
   const { isConnected, connectedDeviceIds, inFrontDeviceIds, receivingDeviceIds, sending } =
     useLive();
   const guest = useGuestCast();
-  const devices = useDevicesOpen(connectedDeviceIds);
+  const isUnreachedLong = useHasWaited(!isConnected, reconnectingSaidForMs);
+  const isReconnecting = !isConnected && !isUnreachedLong;
+  const devices = useDevicesOpen(connectedDeviceIds, isReconnecting);
   const [asking, setAsking] = useState<Asking | undefined>(undefined);
   const [answered, setAnswered] = useState<string | undefined>(undefined);
   const [settledCastId, setSettledCastId] = useState<number | undefined>(undefined);
@@ -108,7 +123,7 @@ function CastTargetsOffered(props: CastTargetsProps): JSX.Element {
     <section className="cast-to" aria-labelledby="cast-to-heading">
       <h2 id="cast-to-heading">{t("cast.heading")}</h2>
       <BusyGroup isBusy={isBusy}>
-        {isConnected ? null : <output>{t("together.reconnecting")}</output>}
+        {isConnected ? null : <output>{t("cast.reconnecting")}</output>}
         <Targets
           devices={devices}
           isStale={!isConnected}
@@ -553,47 +568,6 @@ function TargetList(props: {
 }
 
 /**
- * The person's other devices open now, from the list of their devices the tab holds (one key with
- * the account's, "my-devices"), which the live connection's ids pick from: opening the menu asks
- * nothing while that list names every device connected (D480 §3). A device connected that it does
- * not name, or no list held, reads the list again, behind what it holds.
- */
-function useDevicesOpen(connectedDeviceIds: readonly number[]): Resource<Device[]> {
-  const { api } = useServices();
-  const held = heldAnswer<readonly Device[]>(myDevicesKey);
-  const isEveryOneNamed =
-    held !== undefined && connectedDeviceIds.every((id) => held.some((each) => each.id === id));
-  const [listed] = useResource(myDevicesKey, () => listMyDevices(api), {
-    given: isEveryOneNamed ? { value: held } : undefined,
-  });
-  return useMemo(
-    () =>
-      listed.state === "loaded"
-        ? { state: "loaded", value: otherDevicesOpen(listed.value, connectedDeviceIds) }
-        : listed,
-    [listed, connectedDeviceIds],
-  );
-}
-
-/**
- * The person's devices open now but this one, as their list orders them, most recently used first,
- * and none in the Watch Together session they are in, whose cast would take it from the session (D384
- * §3: the owner's S23, casting to the Mac that hosted the session, ended it, 2026-10-30).
- */
-export function otherDevicesOpen(
-  devices: readonly Device[],
-  connectedDeviceIds: readonly number[],
-): Device[] {
-  return devices.filter(
-    (device) =>
-      !device.isThisDevice &&
-      device.isSignedIn &&
-      device.isInYourWatchTogether !== true &&
-      connectedDeviceIds.includes(device.id),
-  );
-}
-
-/**
  * How long a Play page waits to hear from the server whether this device casts before it plays here,
  * in milliseconds: the live connection says so as it opens, a round trip after a page is loaded; a
  * server that has not said by then plays the film here rather than hold it up. A justified constant.
@@ -741,21 +715,34 @@ function firstWhere(
     : { kind: "sending", castId: taken.castId };
 }
 
-/** Whether sendingKnownWithinMs has gone by while isWaiting. */
+/** Whether sendingKnownWithinMs has gone by while isWaiting: once it has, for good. */
 function useTimesOut(isWaiting: boolean): boolean {
+  const hasWaited = useHasWaited(isWaiting, sendingKnownWithinMs);
   const [isTimedOut, setIsTimedOut] = useState(false);
+  if (hasWaited && !isTimedOut) {
+    setIsTimedOut(true);
+  }
+  return isTimedOut;
+}
+
+/** Whether isWaiting has held for waitMs, until it no longer does. */
+function useHasWaited(isWaiting: boolean, waitMs: number): boolean {
+  const [hasWaited, setHasWaited] = useState(false);
+  if (!isWaiting && hasWaited) {
+    setHasWaited(false);
+  }
   useEffect(() => {
     if (!isWaiting) {
       return undefined;
     }
     const timer = setTimeout(() => {
-      setIsTimedOut(true);
-    }, sendingKnownWithinMs);
+      setHasWaited(true);
+    }, waitMs);
     return () => {
       clearTimeout(timer);
     };
-  }, [isWaiting]);
-  return isTimedOut;
+  }, [isWaiting, waitMs]);
+  return isWaiting && hasWaited;
 }
 
 /**
