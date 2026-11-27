@@ -97,6 +97,15 @@ export function isCasteeWaitingForOKIn(snapshot: TogetherSnapshot | undefined): 
 }
 
 /**
+ * Whether the session, its group said, holds no film yet: a cast's own session from its opening
+ * until its castee puts the cast's film on (the core's together/cast.go openAlone, group.go
+ * changeItem). Where its group plays nothing, where it stands, 0:00 paused, is no place of the film.
+ */
+export function holdsNoFilmIn(snapshot: TogetherSnapshot | undefined): boolean {
+  return snapshot?.group?.fileId === 0;
+}
+
+/**
  * How the castee's device stands in the cast's session (D569 §1, §6), its roster's word for it: the
  * leader, or another of this remote's member's devices that plays. "absent" where the roster shows
  * none; "loading" where it stands so, which the server says of a device that has never yet said it

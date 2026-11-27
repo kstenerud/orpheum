@@ -31,7 +31,7 @@ import {
   type PlaysHereFrom,
 } from "./castee-session.tsx";
 import { CasteeCentre, useCasteeStart } from "./castee-start.tsx";
-import { useCasteeTarget, type WorkedSession } from "./castee-target.ts";
+import { holdsNoFilmIn, useCasteeTarget, type WorkedSession } from "./castee-target.ts";
 import { ScrubPicturesContext, useScrubPictures } from "./scrub-pictures.tsx";
 import { EndsAt, leftMsOf } from "./convenience-area.tsx";
 import { useLeavesFullScreen } from "./film-fullscreen.ts";
@@ -44,6 +44,7 @@ import type { PlaybackTarget } from "./playback-target.ts";
 import { useStageCommands, usePlayersControls } from "./player-commands.ts";
 import { useStageNow } from "./overlay-stage.ts";
 import { useControlsShown } from "./player-overlay.tsx";
+import { isPausedHere, positionPlayedHere } from "./playing-here.ts";
 import { PadMenus, PadTimeline, RemotePad, remoteSoundMovesOf } from "./remote-pad.tsx";
 import type { ReopenAt } from "./reopen.ts";
 import { TargetMenus } from "./target-menus.tsx";
@@ -104,9 +105,16 @@ function CasteePlayOf(props: {
   const episodes = useEpisodesMovedTo();
   const sent = filmOn(props.sent, snapshot, episodes.of);
   const hosted = useHostedPanel();
-  const stoodRef = useWhereItStood(hosted?.snapshot ?? snapshot);
+  const worked = hosted?.snapshot ?? snapshot;
+  const stoodRef = useWhereItStood(worked);
   const playHere = usePlaysHere(sent, pageFileId, props.onPlayHere);
-  useSwapsBackAtTheEnd(sent.castId, over, { stoodRef, isInASession: useIsInASession(), playHere });
+  useSwapsBackAtTheEnd(sent.castId, over, {
+    stoodRef,
+    isInASession: useIsInASession(),
+    playHere,
+    fileId: sent.fileId,
+    isFilmless: holdsNoFilmIn(worked),
+  });
   useLeavesAtTheCastsEnd(sent.fileId, pageFileId, episodes.of);
   useAddressFollowsTheCast(sent.fileId, pageFileId, episodes.of);
   if (over !== undefined) {
@@ -153,7 +161,12 @@ function useIsInASession(): boolean {
  * own start (D549 §3); playing on in a Watch Together session. The person alone, it comes back as the
  * castee had it where this tab's Stop ended the cast (D564 §1: the pad's, the panel's or Chrome's own
  * Stop for a Chromecast), playing where it played and paused where it was paused, and paused at every
- * other end. A start the browser refuses is the player's, as at any film's start (start-refused.ts).
+ * other end. A cast ended before its castee put the film on in its session (holdsNoFilmIn), as
+ * Cancel ends a start (D569 §5), stood nowhere there, and the server's answer, the empty session's
+ * 0:00 paused, is no place of the film: it comes back where it stood here as it was cast, playing or
+ * paused as the person had it (stoodHereOf; the lead's walk, staging, 2026-11-27: Cancel left it
+ * black at 0:00). A start the browser refuses is the player's, as at any film's start
+ * (start-refused.ts).
  */
 function useSwapsBackAtTheEnd(
   castId: number,
@@ -162,6 +175,10 @@ function useSwapsBackAtTheEnd(
     readonly stoodRef: RefObject<ReopenAt | undefined>;
     readonly isInASession: boolean;
     readonly playHere: (atMs: number | undefined, isPaused?: boolean) => void;
+    /** The cast's film, where it stood here as it was cast. */
+    readonly fileId: number;
+    /** Whether the session the castee is commanded in holds no film yet (holdsNoFilmIn). */
+    readonly isFilmless: boolean;
   },
 ): void {
   const { stoodRef } = ways;
@@ -178,11 +195,18 @@ function useSwapsBackAtTheEnd(
     const isStoppedHere = endAskedOf(castId) === "stopped";
     const answered = takeEndAnswerOf(castId) ?? Promise.resolve(undefined);
     void answered.then((ended) => {
-      const from = ended ?? stoodRef.current ?? over.stood;
+      const { isFilmless, fileId } = waysRef.current;
+      const from = isFilmless ? stoodHereOf(fileId) : (ended ?? stoodRef.current ?? over.stood);
       const isPausedAlone = isStoppedHere ? (from?.isPaused ?? true) : true;
       waysRef.current.playHere(from?.positionMs, !waysRef.current.isInASession && isPausedAlone);
     });
   }, [castId, over, stoodRef, waysRef]);
+}
+
+/** Where this tab played fileId as it was cast, and whether paused there; undefined where unknown. */
+function stoodHereOf(fileId: number): ReopenAt | undefined {
+  const positionMs = positionPlayedHere(fileId);
+  return positionMs === undefined ? undefined : { positionMs, isPaused: isPausedHere(fileId) };
 }
 
 /** The castee's stage holds no video: its presses, keys and commands go to the castee, its target. */
@@ -246,7 +270,8 @@ function CasteePlaying(props: {
   const moves = useRemoteMoves(sent, around);
   const title = useRemoteTitle(props.casts, sent);
   const start = useCasteeStart(target, isHeard, props.cast.snapshot); // D569 §2
-  const stageRef = useCasteeCommands(target);
+  // The keys wait through the start as its buttons do (D569 §2): a TV loading may already say a place.
+  const stageRef = useCasteeCommands(start.isDisabled ? { ...target, isReady: false } : target);
   const pageRef = useRef<HTMLDivElement>(null);
   usePlayersControls(pageRef, stageRef);
   const volume = useVolumeShown();

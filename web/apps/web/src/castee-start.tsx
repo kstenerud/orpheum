@@ -9,7 +9,7 @@ import type { TogetherSnapshot } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
-import { casteeStandingIn, isCasteeWaitingForOKIn } from "./castee-target.ts";
+import { casteeStandingIn, holdsNoFilmIn, isCasteeWaitingForOKIn } from "./castee-target.ts";
 import { ActionPill, Pill } from "./pill.tsx";
 import type { PlaybackTarget } from "./playback-target.ts";
 import { StatusNote } from "./status-note.tsx";
@@ -20,23 +20,46 @@ import { useCastEnding } from "./stop-casting-here.tsx";
  * while it is heard, over a connected session, holding the cast for a press on its own remote (D564
  * §2), first, as a castee waiting for its press plays nothing and so says no position; "connecting"
  * while it is not reached (useReceiverHeard, D550: this amends D548 §9's "Reaching ‹TV›…");
- * "loading" while, reached, it is yet to show its first picture (casteeStandingIn) or its session
+ * "loading" while, reached, it is yet to show its first picture (useCasteeStanding) or its session
  * holds no place for it; undefined once it plays.
  */
 export type CasteeWait = "connecting" | "loading" | "forOK" | undefined;
 
+/** How the castee stands in the cast's session (casteeStandingIn, useCasteeStanding). */
+type CasteeStanding = ReturnType<typeof casteeStandingIn>;
+
 function casteeWaitOf(
   target: Pick<PlaybackTarget, "isReady">,
   isHeard: boolean,
-  snapshot: TogetherSnapshot | undefined,
+  session: { readonly snapshot: TogetherSnapshot | undefined; readonly standing: CasteeStanding },
 ): CasteeWait {
+  const { snapshot, standing } = session;
   if (isHeard && snapshot?.status === "connected" && isCasteeWaitingForOKIn(snapshot)) {
     return "forOK";
   }
   if (!isHeard) {
     return "connecting";
   }
-  return casteeStandingIn(snapshot) === "loading" || !target.isReady ? "loading" : undefined;
+  return standing === "loading" || !target.isReady ? "loading" : undefined;
+}
+
+/**
+ * How the castee stands (casteeStandingIn), its standing in a roster the session told while its
+ * group held no film (holdsNoFilmIn) taken for loading once the group holds one: the server says a
+ * castee's status of the film it plays (the core's together/standing.go), and tells the film put on
+ * in the group before the roster after it (group.go's announce), so between the two the castee
+ * stands with no word of its film, which is no word that it is ready (the lead's walk, staging,
+ * 2026-11-27: Cancel went and the volume waited while the TV still loaded).
+ */
+function useCasteeStanding(snapshot: TogetherSnapshot | undefined): CasteeStanding {
+  const [filmless, setFilmless] = useState<TogetherSnapshot["roster"] | undefined>(undefined);
+  const isFilmless = holdsNoFilmIn(snapshot);
+  if (isFilmless && snapshot !== undefined && snapshot.roster !== filmless) {
+    setFilmless(snapshot.roster); // kept as it renders, so the render the film is put on knows it
+  }
+  const standing = casteeStandingIn(snapshot);
+  const isToldBeforeTheFilm = !isFilmless && snapshot !== undefined && snapshot.roster === filmless;
+  return standing === "present" && isToldBeforeTheFilm ? "loading" : standing;
 }
 
 /** How long a start may go without a picture before the page says the TV is slow to start (D569 §4). */
@@ -45,7 +68,8 @@ export const slowStartMs = 20_000;
 /**
  * Where the cast's start stands on this page (D569): "unsaid" until the session shows how the castee
  * stands; "starting" where it shows the castee not reached, reached and yet to show its first picture
- * (casteeStandingIn), or waiting for its press (CasteeWait), until it is first ready; then
+ * (useCasteeStanding), waiting for its press (CasteeWait), or yet to put the cast's film on in its
+ * session (holdsNoFilmIn), until it is first ready; then
  * "pausedOn" while the TV, ready, stands paused, until it plays (§3), else "on". A castee the roster
  * first shows ready starts nothing, and one lost after its start and reached again (D550) is no start: no Cancel, no
  * slow notice. Read from the session (§6), a page opened over a start says the same.
@@ -63,25 +87,37 @@ export interface CastStartShown {
   readonly isSlow: boolean;
 }
 
-/** Whether the session shows the castee starting: not reached, loading, or waiting for OK. */
-function isStartingIn(castee: {
+/** How the castee waits and stands, and whether its session holds no film yet (holdsNoFilmIn). */
+interface CasteeNow {
   readonly wait: CasteeWait;
-  readonly standing: ReturnType<typeof casteeStandingIn>;
-}): boolean {
-  return castee.standing === "loading" || castee.wait === "connecting" || castee.wait === "forOK";
+  readonly standing: CasteeStanding;
+  readonly isFilmless: boolean;
 }
 
-/** The start CastStart moves on to from start, as the castee waits, stands (casteeStandingIn) and is paused. */
+/**
+ * Whether the session shows the castee starting: not reached, loading, waiting for OK, or with no
+ * film put on yet.
+ */
+function isStartingIn(castee: CasteeNow): boolean {
+  return (
+    castee.isFilmless ||
+    castee.standing === "loading" ||
+    castee.wait === "connecting" ||
+    castee.wait === "forOK"
+  );
+}
+
+/** Whether the castee plays the cast's film, waiting on nothing (CasteeNow). */
+function isPlayingIn(castee: CasteeNow): boolean {
+  return castee.wait === undefined && castee.standing === "present" && !castee.isFilmless;
+}
+
+/** The start CastStart moves on to from start, as the castee waits, stands and is paused. */
 function startAfter(
   start: CastStart,
-  castee: {
-    readonly wait: CasteeWait;
-    readonly standing: ReturnType<typeof casteeStandingIn>;
-    readonly isPaused: boolean;
-  },
+  castee: CasteeNow & { readonly isPaused: boolean },
 ): CastStart {
-  const { wait, standing } = castee;
-  const isPlaying = wait === undefined && standing === "present";
+  const isPlaying = isPlayingIn(castee);
   if (start === "unsaid") {
     if (isStartingIn(castee)) {
       return "starting";
@@ -96,14 +132,13 @@ function startAfter(
 
 /** The cast's start as the castee moves it on (CastStart), Play focused as it ends paused. */
 function useCastStart(
-  wait: CasteeWait,
-  castee: { readonly snapshot: TogetherSnapshot | undefined; readonly isPaused: boolean },
+  castee: CasteeNow & { readonly isPaused: boolean },
   playRef: RefObject<HTMLButtonElement | null>,
 ): CastStartShown {
+  const { wait } = castee;
   const [was, setWas] = useState<CastStart>("unsaid");
   const [isSlow, setIsSlow] = useState(false);
-  const standing = casteeStandingIn(castee.snapshot);
-  const start = startAfter(was, { wait, standing, isPaused: castee.isPaused });
+  const start = startAfter(was, castee);
   if (start !== was) {
     setWas(start); // kept as it renders, so this render already shows where the start moved to
   }
@@ -148,9 +183,14 @@ export function useCasteeStart(
   snapshot: TogetherSnapshot | undefined,
 ): CasteeStart {
   const playRef = useRef<HTMLButtonElement>(null);
+  const standing = useCasteeStanding(snapshot);
   const shown = useCastStart(
-    casteeWaitOf(target, isHeard, snapshot),
-    { snapshot, isPaused: target.isPaused },
+    {
+      wait: casteeWaitOf(target, isHeard, { snapshot, standing }),
+      standing,
+      isFilmless: holdsNoFilmIn(snapshot),
+      isPaused: target.isPaused,
+    },
     playRef,
   );
   const isDisabled = !target.isReady || shown.wait !== undefined;
