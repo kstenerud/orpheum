@@ -80,9 +80,6 @@ describe("a device's data caps (D488)", () => {
   // A copy gone bad was read as none without a word to the core's log (D494).
   it("read anything kept that is not a rate as none, and tell the core's log", () => {
     const sent: string[] = [];
-    // What the files before this one reported in the same worker is dropped first, or it counts
-    // against the most a page sends (failure-reports.test.ts).
-    sendFailuresTo(() => undefined);
     sendFailuresTo((text) => sent.push(text));
     const { storage, held } = heldStorage();
     const caps = new DataCaps(storage, undefined);

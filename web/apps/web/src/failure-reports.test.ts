@@ -1,19 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { noteForTheLog, reportFailure, sendFailuresTo } from "@orpheum/sdk";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { noteForTheLog, reportFailure } from "@orpheum/sdk";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { sendFailuresToCore } from "./failure-reports.ts";
 import { failOnUnexpectedRequests, servedBy, type Heard } from "./test-dom.tsx";
 
 describe("the page's failures", () => {
-  // The fast tests share a worker's modules, so the SDK holds what the files before this one
-  // reported with nowhere to send it, and counts it against a page's most: dropped here, or a
-  // fresh checkout's order of files sent those in this file's place (CI, 2026-11-27).
-  beforeEach(() => {
-    sendFailuresTo(() => undefined);
-  });
-
   afterEach(() => {
     vi.restoreAllMocks();
     // This file never mounts, so it owns the check unmount() would otherwise do for it (finding 2,

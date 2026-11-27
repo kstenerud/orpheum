@@ -92,6 +92,8 @@ const config: ViteUserConfig = defineConfig({
           include: fastTestFiles,
           exclude: EXCLUDE,
           isolate: false,
+          // What a file before left in the modules they share is dropped (test-fast-file-setup.ts).
+          setupFiles: ["./packages/sdk/src/test-fast-file-setup.ts"],
           ...SHARED,
         },
       },
