@@ -24,6 +24,8 @@
 //     trial again. TestRun_KeptResultsRunNothingUntilTheKeyChanges.
 //   - No trial goes while a run of chunks does, nor until quietAfterRun after it; a run starting stops
 //     the trial going at once, and it is made again after. TestRun_NoTrialGoesWhileARunOfChunksDoes.
+//   - A node that ends stops the trial going and waits until it has ended, so none writes on after
+//     the node. TestStop_EndsTheTrialGoingAndWaitsForIt.
 //   - The real FFmpeg makes a clip and measures it. TestRun_TheRealFFmpegMakesAClipAndMeasuresIt
 //     (integration tier).
 //

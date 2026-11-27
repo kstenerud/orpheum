@@ -65,6 +65,9 @@ type Trials struct {
 	config   Config
 	yielding *yielding
 	started  sync.Once
+	// running is the background run Start made, and stop ends it (Stop).
+	running sync.WaitGroup
+	stop    context.CancelFunc
 
 	mutex   sync.Mutex
 	results []nodeproto.SpeedTrial
@@ -79,16 +82,34 @@ func New(config Config) *Trials {
 	return &Trials{config: config, yielding: newYielding(config.Clock)}
 }
 
-// Start runs the trials once, in the background, until they end or ctx does.
+// Start runs the trials once, in the background, until they end, ctx does or Stop is called.
 func (trials *Trials) Start(ctx context.Context) {
 	trials.started.Do(func() {
-		go func() {
-			if err := trials.Run(ctx); err != nil && ctx.Err() == nil {
-				trials.config.Logger.WarnContext(ctx, "the speed trials stopped",
+		runCtx, stop := context.WithCancel(ctx)
+		trials.mutex.Lock()
+		trials.stop = stop
+		trials.mutex.Unlock()
+		trials.running.Go(func() {
+			defer stop()
+			if err := trials.Run(runCtx); err != nil && runCtx.Err() == nil {
+				trials.config.Logger.WarnContext(runCtx, "the speed trials stopped",
 					slogx.EventKey, "speedTrialsFailed", "why", err.Error())
 			}
-		}()
+		})
 	})
+}
+
+// Stop ends the trials Start began and waits until they have: a node that ends leaves no trial's
+// FFmpeg running on, writing where the node's directories were.
+func (trials *Trials) Stop() {
+	trials.started.Do(func() {}) // none starts after
+	trials.mutex.Lock()
+	stop := trials.stop
+	trials.mutex.Unlock()
+	if stop != nil {
+		stop()
+	}
+	trials.running.Wait()
 }
 
 // ChunksRunStarts says a run of chunks has started; the func it returns says it has ended. No trial

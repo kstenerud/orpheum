@@ -46,6 +46,8 @@ type fakeFFmpeg struct {
 	mutex  sync.Mutex
 	clips  []string
 	trials [][]string
+	// stopped counts the trials that ended with their context.
+	stopped int
 }
 
 func (fake *fakeFFmpeg) Run(context.Context, execx.Tool, confine.Access, []string, int) ([]byte, error) {
@@ -69,6 +71,9 @@ func (fake *fakeFFmpeg) RunWatched(ctx context.Context, run execx.WatchedRun) (e
 	if fake.started != nil {
 		fake.started <- arguments
 		<-ctx.Done()
+		fake.mutex.Lock()
+		fake.stopped++
+		fake.mutex.Unlock()
 		return execx.Ran{}, ctx.Err()
 	}
 	if fake.failsOnGPU && slices.Contains(arguments, "-hwaccel") {
@@ -281,6 +286,25 @@ func waitForTrialOrNone(started chan []string) <-chan []string {
 		}
 	}()
 	return result
+}
+
+// A node that ends stops the trial going and waits until its FFmpeg has ended: the node's tests
+// found a trial writing on in a directory already being removed (the gate, 2026-11-27).
+func TestStop_EndsTheTrialGoingAndWaitsForIt(t *testing.T) {
+	t.Parallel()
+	fake := newFake()
+	fake.started = make(chan []string)
+	trials := newTrials(t, fake, t.TempDir(), testKey(), encode.EncoderX264, nil)
+	trials.config.Kinds = trials.config.Kinds[:1]
+	trials.Start(t.Context())
+	<-fake.started
+	trials.Stop()
+	fake.mutex.Lock()
+	stopped := fake.stopped
+	fake.mutex.Unlock()
+	if stopped != 1 {
+		t.Fatalf("Stop returned with %d trials ended; the one going is to have ended", stopped)
+	}
 }
 
 func TestListedEncoders_AreTheNamesAfterTheLegend(t *testing.T) {

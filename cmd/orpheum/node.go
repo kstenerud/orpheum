@@ -35,6 +35,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/probe"
 	"github.com/kstenerud/orpheum/internal/node/readthrough"
 	"github.com/kstenerud/orpheum/internal/node/scan"
+	"github.com/kstenerud/orpheum/internal/node/speedtrial"
 	"github.com/kstenerud/orpheum/internal/node/subtitle"
 	"github.com/kstenerud/orpheum/internal/node/systemvideo"
 	"github.com/kstenerud/orpheum/internal/node/trickplay"
@@ -211,7 +212,7 @@ func runNodeWith(ctx context.Context, config Config, log processLog, seams nodeS
 		logger.ErrorContext(ctx, "this node cannot make chunks; it serves files as they are",
 			slogx.EventKey, "chunkMakingUnavailable", "err", err)
 	} else {
-		defer readonly.Close(directory.root)
+		defer directory.shut()
 		if _, evictErr := directory.shelf.Evict(ctx); evictErr != nil {
 			logger.WarnContext(ctx, "could not bring the prepared directory within its budget", "err", evictErr)
 		}
@@ -268,7 +269,9 @@ func withPreparedDirectory(workers *agent.Workers, directory preparedDirectory) 
 	}
 	workers.ChunkMaker, workers.PreparedShelf = directory.chunkMaker, directory.shelf
 	workers.PreparedDirectory = directory.root.Path()
-	workers.SpeedTrials = directory.speedTrials
+	if directory.speedTrials != nil {
+		workers.SpeedTrials = directory.speedTrials
+	}
 }
 
 // startWatching starts the watcher of the library folders inside the node's roots that the core names
@@ -381,7 +384,14 @@ type preparedDirectory struct {
 	chunkMaker *chunks.Maker
 	shelf      *prepared.Shelf
 	// speedTrials are the node's start-up speed trials of making chunks (internal/node/speedtrial).
-	speedTrials agent.SpeedTrials
+	speedTrials *speedtrial.Trials
+}
+
+// shut ends what the node did in its prepared directory: its speed trials first, waited for, so none
+// writes on, then the directory itself.
+func (directory preparedDirectory) shut() {
+	directory.speedTrials.Stop()
+	readonly.Close(directory.root)
 }
 
 // preparedBudget is what the node's config says its prepared directory may hold (D217 §5).

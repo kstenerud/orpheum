@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"path/filepath"
 
-	"github.com/kstenerud/orpheum/internal/node/agent"
 	"github.com/kstenerud/orpheum/internal/node/encode"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/speedtrial"
@@ -32,7 +31,7 @@ func (instance Instance) speedTrialsDir() string {
 func speedTrialsOf(
 	config Config, runner *execx.Runner, hello nodeproto.Hello, encoder encode.Encoder,
 	directory preparedDirectory, logger *slog.Logger,
-) agent.SpeedTrials {
+) *speedtrial.Trials {
 	if directory.root == nil {
 		return nil
 	}
