@@ -7,12 +7,15 @@
  * last sink named. A file's test naming its own sink was handed what the files before it had
  * left, in an order that comes from Vitest's kept results, so three tests failed on a fresh
  * checkout alone (polling.test.ts, failure-reports.test.ts, data-cap.test.ts; CI, 2026-11-27).
- * Each file now starts with nothing held, nothing counted and a sink that drops.
+ * Each file now starts with nothing held, nothing counted and a sink that drops. Not exported by
+ * the package (index.ts).
  */
 
 import { sendFailuresTo } from "./problem.ts";
-import { beforeAll } from "vitest";
+import { forgetSteps } from "./steps.ts";
 
-beforeAll(() => {
-  sendFailuresTo(() => undefined);
-});
+// Vitest runs a setup file again before each file, in a shared worker too.
+sendFailuresTo(() => undefined);
+// The steps a page took are kept the same way: steps.test.ts counted those a file before it had
+// noted, one fresh run in four with two workers.
+forgetSteps();
