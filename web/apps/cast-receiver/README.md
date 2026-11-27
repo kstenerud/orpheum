@@ -54,10 +54,16 @@ answered is gone (D555 §12).
   `src/cast-remote-keep.ts`), as the Play page keeps it, and a later cast starts with them. A track switches
   in place; levelling and the timing are Web Audio's, made only once the sound needs them; subtitles
   show as the video's own WebVTT track. It offers no original (it asks for no container of a file's
-  own), no film channel (its volume is the Cast device's, which the sender sets through its Cast
-  session) and no file offset (D537), which asks for the film again. `src/sound-panel.test.ts`,
+  own) and no file offset (D537), which asks for the film again. `src/sound-panel.test.ts`,
   the web app's `src/cast-remote-keep.test.tsx`,
   `src/picture-panel.test.ts`, `src/device-follow.test.ts`; only a device shows the whole: VQ407.
+- **Says the Cast device's own volume as its film's channel, and sets it as its remote chooses**
+  (D557 §5): CAF's system volume, its level and mute (`src/caf.ts`'s `systemVolumeOf`), said in its
+  state and again at each `SYSTEM_VOLUME_CHANGED`, so a change made with the TV's remote shows on the
+  caster's pad; a channel the remote sends sets it. The volume goes through the cast's session as
+  every other control does, not the sender's own Cast session, which Chrome on Android leaves unable
+  to send once the phone's network has dropped and come back (`docs/contributors/idiosyncrasies.md`,
+  the owner, 2026-11-27). `src/device-follow.test.ts`; only a device shows the whole: VQ414.
 - **Casts under a grant with nothing kept** (D465 §2): on `urn:x-cast:org.orpheum.cast`, a sender's
   launch carries a grant for one cast and its core's reach, with no session. The receiver reaches the
   core through the discovery, its first offer proven by the grant (`targetOfGuestGrant`), trades the

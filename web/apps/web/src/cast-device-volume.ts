@@ -5,8 +5,11 @@
  * Cast session's sender sets (cast-sdk.ts's CastDeviceVolume), as Google's sender design checklist
  * has every sender do ("Sender apps must allow users to control volume using hardware buttons and/or
  * software sliders"). The Cast link (google-cast.ts's linkCastSession) tells it the session's, and
- * the castee's target (castee-target.ts) shows it on the pad's volume where the castee says no film
- * channel of its own, as a Chromecast does (the owner, 2026-11-26: "Anything it can do, I want").
+ * the castee's target (castee-target.ts) shows it on the pad's volume only where the castee says no
+ * film channel of its own: our Cast receiver says its device's volume as that channel and sets it
+ * through the cast's session (D557 §5), as Chrome on Android keeps a Cast session that no longer
+ * sends once the phone's network came back (docs/contributors/idiosyncrasies.md), so this is the
+ * way for a receiver from before that alone.
  * A page loaded again, or whose session Chrome gave up and handed back while it was in the
  * background, has its cast's Cast session rejoined and linked anew
  * (google-cast.ts's useRejoinsTheCastSessionOfItsCast), so its device volume is the pad's again.

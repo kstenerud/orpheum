@@ -16,6 +16,8 @@ import type {
   SoundTrack,
 } from "@orpheum/sdk";
 
+import type { SystemVolume } from "./caf.ts";
+
 /** What the core decides for a film the receiver plays, as far as its sound goes; an older core's may lack parts. */
 export type SoundDecision = Partial<
   Pick<
@@ -59,6 +61,11 @@ export interface PanelWays {
   readonly note: (line: string) => void;
 }
 
+/** What the sound panel works with besides: the Cast device's own volume, undefined off a Cast device. */
+export interface SoundWays extends PanelWays {
+  readonly volume?: SystemVolume | undefined;
+}
+
 /** Web Audio's parts of the sound panel, a test's stand-ins where given. */
 export interface SoundAudio {
   /** The level after the video's volume. */
@@ -74,9 +81,12 @@ export interface SoundAudio {
  * (D222, D336); levelling (D226 §4), by a gain after the volume only once the sound needs one, so a
  * film played as the core levelled it goes through no Web Audio; and how far the device moves its
  * sound from its picture, for this film alone, as the receiver keeps nothing (its README). Each
- * choice of the person's is kept for them by the sender, as the Play page keeps it, this guest receiver refused the person's routes (D465 §2). Its film's channel is not said:
- * its volume is the Cast device's own, set through the sender's Cast session (the web app's
- * cast-device-volume.ts). Nor the file's own offset (D537), which asks for the film again.
+ * choice of the person's is kept for them by the sender, as the Play page keeps it, this guest receiver refused the person's routes (D465 §2). Its film's
+ * channel is the Cast device's own volume (caf.ts's SystemVolume), the one volume the film is heard
+ * at here: said as CAF says it, again at each change, the TV's remote's too, and set as the remote
+ * chooses (D557 §5), as the sender's own Cast session could not be relied on to set it
+ * (docs/contributors/idiosyncrasies.md); it lasts as the device keeps it. The file's own offset
+ * (D537) is not said, as it asks for the film again.
  */
 export class ReceiverSoundPanel implements RemotesPanel<SoundChoice> {
   private readonly listeners = new Set<() => void>();
@@ -88,10 +98,12 @@ export class ReceiverSoundPanel implements RemotesPanel<SoundChoice> {
   private playback: SwitchesSound | undefined;
   private gain: Gain | undefined;
   private offset: SoundOffset | undefined;
+  /** Stops hearing the device's volume, heard while anything listens. */
+  private unhearVolume: (() => void) | undefined;
 
   constructor(
     private readonly decision: SoundDecision,
-    private readonly ways: PanelWays,
+    private readonly ways: SoundWays,
     private readonly audio: SoundAudio = {},
   ) {
     this.tracks = (decision.audioTracks ?? [])
@@ -119,7 +131,16 @@ export class ReceiverSoundPanel implements RemotesPanel<SoundChoice> {
 
   readonly subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+    this.unhearVolume ??= this.ways.volume?.onChange(() => {
+      this.told();
+    });
+    return () => {
+      this.listeners.delete(listener);
+      if (this.listeners.size === 0) {
+        this.unhearVolume?.();
+        this.unhearVolume = undefined;
+      }
+    };
   };
 
   /** How the film sounds now, as its remote shows it; undefined for a film with no ladder sound. */
@@ -131,12 +152,16 @@ export class ReceiverSoundPanel implements RemotesPanel<SoundChoice> {
       (each) => each.audioTrackIndex === this.audioTrackIndex,
     );
     const canBoost = this.renditionOf(this.audioTrackIndex, true) !== undefined;
+    const volume = this.ways.volume?.read();
     return {
       ...(canBoost ? { isBoostOn: this.isBoosted } : {}),
       isLevellingOn: this.isLevellingOn,
       ...(track === undefined ? {} : { audioStreamId: track.streamId }),
       audioTracks: this.tracks,
       soundOffsetMs: this.soundOffsetMs,
+      ...(volume === undefined
+        ? {}
+        : { channels: [{ channel: "film", level: volume.level, isMuted: volume.isMuted }] }),
     };
   };
 
@@ -154,12 +179,29 @@ export class ReceiverSoundPanel implements RemotesPanel<SoundChoice> {
       case "soundOffset":
         this.chooseOffset(choice.ms);
         return;
-      case "fileSoundOffset":
       case "channel":
-        // Neither is said, so no remote offers it.
+        this.chooseVolume(choice.level, choice.isMuted);
+        return;
+      case "fileSoundOffset":
+        // Not said, so no remote offers it.
         return;
     }
   };
+
+  /** Sets the device's volume as chosen, each part only where it changes; CAF tells the change. */
+  private chooseVolume(level: number, isMuted: boolean): void {
+    const { volume } = this.ways;
+    const now = volume?.read();
+    if (volume === undefined || now === undefined) {
+      return;
+    }
+    if (level !== now.level) {
+      volume.setLevel(level);
+    }
+    if (isMuted !== now.isMuted) {
+      volume.setMuted(isMuted);
+    }
+  }
 
   private chooseLevelling(isOn: boolean): void {
     this.isLevellingOn = isOn;

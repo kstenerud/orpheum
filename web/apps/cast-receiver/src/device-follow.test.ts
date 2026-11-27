@@ -260,6 +260,74 @@ describe("a Chromecast plays its cast's film along with the session as every pla
     stop();
   });
 
+  // The pad's volume went through the phone's own Cast session, which Chrome on Android left unable
+  // to send once the phone's Wi-Fi had dropped and come back, and heard no change the TV's remote
+  // made (the owner, 2026-11-27).
+  it("says the Cast device's own volume as its film's channel, again at each change of it, and sets it as its remote chooses", async () => {
+    const volumeSet: string[] = [];
+    let changed: ((event: unknown) => void) | undefined;
+    const context = {
+      getSystemVolume: () => ({ level: 0.4, muted: false }),
+      setSystemVolumeLevel: (level: number) => volumeSet.push(`level ${String(level)}`),
+      setSystemVolumeMuted: (isMuted: boolean) => volumeSet.push(`muted ${String(isMuted)}`),
+      addEventListener: (type: string, handler: (event: unknown) => void) => {
+        if (type === "systemvolumechanged") {
+          changed = handler;
+        }
+      },
+      removeEventListener: () => undefined,
+    };
+    // CAF's own names, which are not this tree's camelCase.
+    const system = Object.fromEntries<unknown>([
+      ["EventType", Object.fromEntries([["SYSTEM_VOLUME_CHANGED", "systemvolumechanged"]])],
+    ]);
+    const framework = Object.fromEntries<unknown>([
+      ["CastReceiverContext", { getInstance: () => context }],
+      ["system", system],
+    ]);
+    vi.stubGlobal("cast", { framework });
+    try {
+      const sound = {
+        audioTrackIndex: 0,
+        isOriginal: false,
+        isBoosted: false,
+        carriedGainDb: 0,
+        levelling: { isMeasured: false, gainDb: 0 },
+      };
+      const { session, sent, stop } = await leadingFilm7({
+        audioTracks: [{ audioTrackIndex: 0, streamId: 2, language: "en", kind: "plain" }],
+        startingAudioStreamId: 2,
+        tracks: { sounds: [sound], fileSounds: [] },
+      });
+      const lastChannels = (): unknown =>
+        sent
+          .map(
+            (text) =>
+              JSON.parse(text) as { type: string; playback?: { sound?: { channels?: unknown } } },
+          )
+          .filter((message) => message.type === "state")
+          .at(-1)?.playback?.sound?.channels;
+      await vi.waitFor(() => {
+        expect(lastChannels()).toEqual([{ channel: "film", level: 0.4, isMuted: false }]);
+      });
+      // The TV's own remote turns it down and mutes it: the receiver says so at once.
+      changed?.({ type: "systemvolumechanged", data: { level: 0.2, muted: true } });
+      expect(lastChannels()).toEqual([{ channel: "film", level: 0.2, isMuted: true }]);
+      session.onMessage(
+        JSON.stringify({
+          v: 3,
+          type: "sound",
+          fromDeviceId: 5,
+          sound: { kind: "channel", channel: "film", level: 0.7, isMuted: false },
+        }),
+      );
+      expect(volumeSet).toEqual(["level 0.7", "muted false"]);
+      stop();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   // Its person started a Watch Together session while casting, and the core handed the cast again in
   // that session: the receiver stayed in the one it left, silent in the new one, and its cast ended
   // as gone 20 s later (the Chromecast on staging, 2026-11-25).

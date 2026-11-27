@@ -28,8 +28,21 @@ reached there through the person's devices (D465 §4).
 Google's sender script loads only in Chrome, at the menu's first opening (the owner, 2026-11-12), so
 no page loads it until someone means to cast; the Chromecast entry shows in Chrome from the start.
 A page whose device already sends a cast to a Chromecast, loaded again, loads it too, to rejoin that
-cast's Cast session without the picker, so the pad sets the device's volume again (the owner,
-2026-11-27: the volume buttons did nothing after leaving the browser and coming back).
+cast's Cast session without the picker, so Chrome's own Stop still ends it and a receiver that says
+no volume of its own has the pad set the device's volume again (the owner, 2026-11-27: the volume
+buttons did nothing after leaving the browser and coming back).
+
+**2026-11-27, the lead's change for the owner to confirm (D557 §5): a Chromecast's volume goes
+through the cast's session.** On the owner's phone and Chromecast the lead found the sender's Cast
+session a zombie after the phone's Wi-Fi dropped and came back: still `CONNECTED`, no event, but its
+`setVolume` threw "Presentation connection is disconnected", and only a page reload rejoined
+([idiosyncrasies](../../idiosyncrasies.md#chrome-on-android-keeps-a-cast-session-that-can-no-longer-send-once-the-phones-network-has-come-back));
+after a rejoin its volume read a step behind the device's. Every other button worked, as it goes
+through the core's session to the receiver. So the receiver now says the device's own volume (CAF's
+system volume) as its film's channel, again at each change, the TV's remote's too, and sets it as
+the remote chooses; the pad works it as it works a Fire TV's film channel, with no Chromecast-only
+path. The sender's Cast session volume stays as the fallback for a receiver from before, which says
+no channel. No change to the wire or the core: the channel is the existing `film` one.
 The Cast icon is Material Symbols' `cast` (Apache-2.0), inlined as the client's other icons are, so
 no package is added.
 

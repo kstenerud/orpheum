@@ -4287,3 +4287,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   film to the Chromecast, the pad upright. Leave Chrome for another app for a minute, return,
   and press Volume up and Volume down. Then reload the page and press them again. Report, each
   time, whether "Volume ‹n› %" shows on the phone and the TV's volume changes.
+- [ ] **VQ414** — A Chromecast's volume goes through the cast's session, the receiver saying the
+  device's own (D557 §5; the owner, 2026-11-27: the pad's volume buttons did nothing once the phone
+  had reconnected, and a change made with the TV's remote did not show on the pad). On the phone's
+  Chrome, cast a film to the Chromecast, the pad upright. Press Volume up, Volume down and Mute on
+  the pad: the TV's volume changes and "Volume ‹n› %" shows. Change the volume with the TV's own
+  remote: the number shows on the pad, nothing pressed there. Turn the phone's Wi-Fi off for 40 s
+  and on again, then press Volume down: the TV's volume changes. Report each.

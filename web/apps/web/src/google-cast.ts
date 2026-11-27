@@ -376,7 +376,8 @@ let sentCastId: number | undefined;
  * ends nothing: it is a hint the remote reaches for its receiver by (tellCastSessionLost) while the
  * cast's session shows no leader, a Chromecast still leading left to play on, and the remote gives
  * up a receiver unheard for its wait (D553 §5, D554 §1, §4, amending D552 §5). The cast's end ends the session (castSentNow).
- * While linked, the session's device volume is the pad's (cast-device-volume.ts). Linked again to
+ * While linked, the session's device volume is the pad's where the receiver says none of its own
+ * (cast-device-volume.ts). Linked again to
  * castId, a session rejoined (rejoinCastSession), the one linked before is let go of quietly: its
  * passing neither ends the cast nor says it lost.
  */
@@ -433,7 +434,8 @@ function rejoinCastSession(api: Api, session: unknown, castId: number): void {
 
 /**
  * Rejoins the Cast session of the cast the live connection says this device sends to a Google Cast
- * device, so its device volume is the pad's again (cast-device-volume.ts) and Chrome's own Stop
+ * device, so its device volume is the pad's again where the receiver says none of its own
+ * (cast-device-volume.ts) and Chrome's own Stop
  * still ends it: a page loaded again, as Android's Chrome does with a tab left in the background,
  * has none linked until the SDK joins the session the page left running; and a page whose session
  * Chrome gave up while it was away is handed it back as a new object, which the link follows. In

@@ -24,7 +24,8 @@ export interface CasteeOf {
   /** The cast's session, in which the castee says how it plays and takes its choices (D434). */
   readonly cast: WorkedSession;
   /**
-   * The cast, whose Google Cast device's volume is the castee's where it says no film channel, and
+   * The cast, whose Google Cast device's volume is the castee's where it says no film channel (a
+   * Cast receiver from before it said its device's volume as one, D557 §5), and
    * the film sent to it, which Report a problem names, and how long it lasts (0 unknown).
    */
   readonly sent: {
@@ -40,9 +41,10 @@ export interface CasteeOf {
  * The castee as the playback target (PlaybackTarget, D555 §8): its film's place as the session says
  * it, moved on by the clock while it plays, a seek chosen here shown at once and sent once its moves
  * rest (useRemoteSource); play or pause sent through the session; its film's own level and mute on
- * it (useReceiverFilmSound, D548 §6), or where it says none, as a Chromecast, its Google Cast
- * device's own volume through this page's Cast session (useCastDeviceVolume), undefined where there
- * is neither; and its choices, what it says
+ * it (useReceiverFilmSound, D548 §6), a Chromecast's its device's own volume (D557 §5), or where it
+ * says none, as a Cast receiver from before that, its Google Cast device's own volume through this
+ * page's Cast session (useCastDeviceVolume), undefined where there is neither; and its choices, what
+ * it says
  * of its sound and its picture, sent to it as its own presses (CasteeChoices, D434).
  */
 export function useCasteeTarget(castee: CasteeOf): CasteeTarget {

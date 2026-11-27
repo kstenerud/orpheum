@@ -32076,7 +32076,7 @@ its own ([the rework plan](../design/plans/playing-casting-together-rework.md), 
 - 1: `web/apps/web/src/play-castee-ends.test.tsx`, `web/apps/web/src/together-viewer.test.tsx`
 - 2, 3: `web/apps/web/src/play-castee-layout.browser.test.tsx`
 - 4: `web/apps/web/src/together-voice.test.tsx`, `web/apps/web/src/together-guest-tracks.test.tsx`, `web/apps/web/src/play-layout.browser.test.tsx`
-- 5: `web/apps/web/src/target-menus.test.tsx`, `web/apps/cast-receiver/src/sound-panel.test.ts`, `web/apps/web/src/cast-sdk.test.ts`
+- 5: `web/apps/web/src/target-menus.test.tsx`, `web/apps/cast-receiver/src/sound-panel.test.ts`, `web/apps/web/src/cast-sdk.test.ts`, `web/apps/cast-receiver/src/device-follow.test.ts` (the device's volume through the cast's session, 2026-11-27), `web/apps/web/src/play-castee-volume.test.tsx`; VQ414
 - 6: `web/apps/web/src/together-viewer-keys.test.tsx`, `web/apps/web/src/player-overlay.test.tsx`; VQ410
 
 ## D558 — The paid discovery relays the connections that fail, capped at 3 Mb/s a household; a household's own relay, registered with it, is uncapped and used first

@@ -28,6 +28,7 @@ import {
   type TogetherConnection,
 } from "@orpheum/sdk";
 
+import { systemVolumeOf } from "./caf.ts";
 import { ReceiverPicturePanel } from "./picture-panel.ts";
 import type { Reached } from "./reach.ts";
 import { ReceiverSoundPanel, type SoundAudio } from "./sound-panel.ts";
@@ -59,8 +60,8 @@ type CastSession = TogetherConnection &
  * leads, and follows the session's play, pause and position by the SDK's follower, as every player
  * does (followGroup, D555 §3). Its remote works its sound and subtitles too, as a browser
  * receiver's (sound-panel.ts, picture-panel.ts; the owner, 2026-11-26: "Check what the chromecast is
- * actually capable of. Anything it can do, I want."); its volume is the Cast device's own, which the
- * sender sets through its Cast session.
+ * actually capable of. Anything it can do, I want."), its volume the Cast device's own, which its
+ * remote sets through the cast's session as every other control (D557 §5).
  */
 
 /**
@@ -433,7 +434,11 @@ export class CastDevice {
     const told: Partial<PlaybackDecision> = decision;
     const ways = { video, note };
     return {
-      sound: new ReceiverSoundPanel(told, ways, this.options.audio),
+      sound: new ReceiverSoundPanel(
+        told,
+        { ...ways, volume: systemVolumeOf() },
+        this.options.audio,
+      ),
       picture: new ReceiverPicturePanel(told, ways, {
         fetch: reached.fetch,
         authorization: `Bearer ${token}`,

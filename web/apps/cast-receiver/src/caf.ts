@@ -88,3 +88,75 @@ export function startReceiver(
     },
   };
 }
+
+/** A Cast device's own volume as CAF says it: its level from 0 to 1, and whether it is muted. */
+export interface SystemVolumeLevel {
+  readonly level: number;
+  readonly isMuted: boolean;
+}
+
+/**
+ * The Cast device's own volume, which the TV's remote changes too: CAF's system volume
+ * (CastReceiverContext's getSystemVolume, setSystemVolumeLevel and setSystemVolumeMuted, each
+ * change told by SYSTEM_VOLUME_CHANGED with its SystemVolumeData). The sender's own Cast SDK could
+ * set it too, but Chrome on Android keeps a Cast session that no longer sends once the phone's
+ * network has dropped and come back (docs/contributors/idiosyncrasies.md), so the remote sets it
+ * here, through the cast's session, as it works every other control.
+ */
+export interface SystemVolume {
+  /** The volume now, undefined before CAF has said one. */
+  readonly read: () => SystemVolumeLevel | undefined;
+  readonly setLevel: (level: number) => void;
+  readonly setMuted: (isMuted: boolean) => void;
+  /** Calls listener at each change of the volume, however made; returns the stopping. */
+  readonly onChange: (listener: () => void) => () => void;
+}
+
+/** A volume as CAF's SystemVolumeData says it, or undefined where it says none. */
+function volumeIn(data: unknown): SystemVolumeLevel | undefined {
+  const level = at(data, "level");
+  return typeof level === "number" && level >= 0 && level <= 1
+    ? { level, isMuted: at(data, "muted") === true }
+    : undefined;
+}
+
+/**
+ * The Cast device's own volume (SystemVolume), undefined where the page is not on a Cast device or
+ * its CAF has no system volume.
+ */
+export function systemVolumeOf(): SystemVolume | undefined {
+  const framework = at(globalThis, "cast", "framework");
+  const changed = at(framework, "system", "EventType", "SYSTEM_VOLUME_CHANGED");
+  if (
+    changed === undefined ||
+    typeof at(framework, "CastReceiverContext", "getInstance") !== "function"
+  ) {
+    return undefined;
+  }
+  const context = call(at(framework, "CastReceiverContext"), "getInstance");
+  if (typeof at(context, "getSystemVolume") !== "function") {
+    return undefined;
+  }
+  // As the last change told it, which CAF's own reading may not be yet while the change is heard.
+  let heard: SystemVolumeLevel | undefined;
+  return {
+    read: () => heard ?? volumeIn(call(context, "getSystemVolume")),
+    setLevel: (level) => {
+      // CAF throws on a level outside 0 to 1.
+      call(context, "setSystemVolumeLevel", Math.min(1, Math.max(0, level)));
+    },
+    setMuted: (isMuted) => {
+      call(context, "setSystemVolumeMuted", isMuted);
+    },
+    onChange: (listener) => {
+      const handler = (event: unknown): void => {
+        heard = volumeIn(at(event, "data")) ?? heard;
+        listener();
+      };
+      call(context, "addEventListener", changed, handler);
+      return () => {
+        call(context, "removeEventListener", changed, handler);
+      };
+    },
+  };
+}

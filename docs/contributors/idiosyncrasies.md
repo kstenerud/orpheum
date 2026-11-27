@@ -276,6 +276,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A Chromecast connected over WebRTC, then its request never completed: "a request over WebRTC did not arrive in time". | [Chrome before 92 neither sends nor receives an empty message on a data channel](#chrome-before-92-neither-sends-nor-receives-an-empty-message-on-a-data-channel) |
 | A cast to a Chromecast over WebRTC failed: "the answer is not the server's own: its key or signature does not match its link". | [A Chromecast's Chrome 90 has no Ed25519 in WebCrypto, so no core's answer verifies](#a-chromecasts-chrome-90-has-no-ed25519-in-webcrypto-so-no-cores-answer-verifies) |
 | The remote's pad showed no volume for a film cast to a Chromecast, and the page reloaded, none again. | [A Chromecast's volume is the Cast device's, set by the sender's Cast session, which a reloaded page no longer holds](#a-chromecasts-volume-is-the-cast-devices-set-by-the-senders-cast-session-which-a-reloaded-page-no-longer-holds) |
+| Casting from a phone's Chrome to a Chromecast, the pad's volume buttons did nothing after the phone was away long enough to reconnect; every other button worked. | [Chrome on Android keeps a Cast session that can no longer send once the phone's network has come back](#chrome-on-android-keeps-a-cast-session-that-can-no-longer-send-once-the-phones-network-has-come-back) |
 | The pad's Mute muted a Chromecast and never showed pressed; pressed again, it muted again. | [The Cast Web Sender tells no VOLUME_CHANGED for a mute set through its own session](#the-cast-web-sender-tells-no-volume_changed-for-a-mute-set-through-its-own-session) |
 | Google's Cast console would not publish a receiver application: "You must add details about at least one sender application", the Chrome website URL saved and then gone. | [Google's Cast developer console in Chrome loses a sender's details, and publishing refuses](#googles-cast-developer-console-in-chrome-loses-a-senders-details-and-publishing-refuses) |
 
@@ -1682,8 +1683,8 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   `setMute()` and the `VOLUME_CHANGED` session event ("Receiver volume and mute status can be
   controlled"), and Google's sender checklist asks every sender for it ("Users must be able to
   control content volume via hardware buttons or software sliders, which stay in sync with the Web
-  Receiver"). The receiver page's own `<video>` volume is not the TV's, so the receiver says no film
-  channel of its own. Only a page holding the session can set it, and the web app links a session
+  Receiver"). The receiver page's own `<video>` volume is not the TV's, so the receiver said no film
+  channel of its own (until 2026-11-27: see the next entry). Only a page holding the session can set it, and the web app links a session
   only as it casts (google-cast.ts's `linkCastSession`), so a page loaded again holds none for the
   cast it found playing, even where the SDK joins the device's session again on its own
   (`ORIGIN_SCOPED`).
@@ -1696,6 +1697,41 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
 - **Evidence:** Google's `cast.framework.CastSession` reference and the Web Sender design checklist
   (developers.google.com/cast/docs/reference/web_sender/cast.framework.CastSession,
   developers.google.com/cast/docs/design_checklist/sender), read 2026-11-26.
+
+### Chrome on Android keeps a Cast session that can no longer send once the phone's network has come back
+
+- **Technology:** Chrome on Android (a Pixel 3a) as a Cast sender, the Cast Web Sender SDK in the
+  page, casting to a third-generation Chromecast; 2026-11-27.
+- **Symptom:** casting from the phone, the pad's Volume up, Volume down and Mute did nothing after
+  the phone had been away from Chrome long enough to reconnect; Play, Pause, seeks and every other
+  button still worked (the owner, 2026-11-27: "It happens if I bg long enough that it has to
+  reestablish the session").
+- **Cause:** after the phone's Wi-Fi dropped and came back, the SDK's session is a zombie: the
+  context still says `CONNECTED` and `SESSION_RESUMED`, the same session object, no event fired,
+  but `setVolume` and `sendMessage` throw "InvalidStateError: Failed to execute 'send' on
+  'PresentationConnection': Presentation connection is disconnected". Calling `setOptions` again,
+  or `chrome.cast.requestSessionById`, does not revive it; only a page reload rejoins. After a
+  rejoin the session's `getVolume()` was a step behind the device's. Every other button went
+  through the core's session to the receiver, which the page's own reconnection brings back; the
+  volume alone went through the sender's Cast session.
+- **What we do:** the Cast receiver says the device's own volume, CAF's system volume
+  (`CastReceiverContext`'s `getSystemVolume()`, `setSystemVolumeLevel()`,
+  `setSystemVolumeMuted()`, and `cast.framework.system.EventType.SYSTEM_VOLUME_CHANGED`), as its
+  film's channel in its state, again at each change (the TV's remote's too), and sets it as the
+  remote's channel choice says (`web/apps/cast-receiver/src/caf.ts`'s `systemVolumeOf`,
+  `sound-panel.ts`); the pad then works it through the cast's session as every other control
+  (D557 §5). The sender's Cast session volume stays only for a receiver that says no channel.
+  Tests: the receiver's `device-follow.test.ts`, "says the Cast device's own volume as its film's
+  channel"; the web app's `play-castee-controls.test.tsx`, "works a Chromecast's volume through the
+  cast's session". VQ414 checks it on the phone and the Chromecast.
+- **Evidence:** the lead's runs on staging with the Pixel 3a and the Chromecast, 2026-11-27. The
+  receiver's names are in CAF's own script
+  (www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js, read 2026-11-27):
+  `getSystemVolume`, `setSystemVolumeLevel` (which throws on a level outside 0 to 1) and
+  `setSystemVolumeMuted` on `CastReceiverContext`, and `SYSTEM_VOLUME_CHANGED: "systemvolumechanged"`;
+  Google's reference lists the event and `SystemVolumeData` (`level`, `muted`)
+  (developers.google.com/cast/docs/reference/web_receiver/cast.framework.system.SystemVolumeData)
+  but no longer lists the three methods on `CastReceiverContext`.
 
 ### Chromecast subtitles are drawn as the video's own WebVTT track, not by JASSUB
 
