@@ -32300,7 +32300,7 @@ bring it back to the phone in the same state it was in. So paused if paused, pla
 proposal from the look into a guest's page stuck at "Checking your invitation…"
 ([plan](../design/plans/playing-casting-together-rework.md), next batch, item 4).
 
-**Status:** decided. It has no code yet.
+**Status:** decided. It has code.
 
 1. **The sdk times a request from when it is made, not only from when its body has left.** A
    request on a WebRTC connection that has stalled while still saying it is connected never sent
