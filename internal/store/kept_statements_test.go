@@ -87,11 +87,13 @@ func TestWrite_ClosesTheStatementsItKeptWhenItEnds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
+	// Deferred, not a cleanup: the test's context ends before its cleanups run, and database/sql
+	// then rolls the transaction back itself, which made this roll-back fail one run in ten.
+	defer func() {
 		if err := transaction.Rollback(); err != nil {
 			t.Errorf("roll back the panicked write: %v", err)
 		}
-	})
+	}()
 	func() {
 		defer func() {
 			if recover() == nil {
