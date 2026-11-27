@@ -16,7 +16,7 @@ import type { Upward } from "./upward.ts";
 
 /**
  * matchMedia on a device held upright, a phone's: out of full screen the Play page's controls are the
- * bar under the picture, the castee's key frame (D555 §8). A test stubs it in with
+ * bar under the picture, the castee's picture (D555 §8). A test stubs it in with
  * `vi.stubGlobal("matchMedia", heldUpright)`, undone by vi.unstubAllGlobals.
  */
 export function heldUpright(query: string): Pick<MediaQueryList, "matches" | "media"> & {

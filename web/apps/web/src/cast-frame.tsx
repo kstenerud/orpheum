@@ -2,76 +2,116 @@
 
 import "./cast-frame.css";
 
-import { apiPrefix } from "@orpheum/sdk";
-import { useEffect, useRef, useState, type JSX, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type JSX, type ReactNode } from "react";
 
-/** How often a cast's remote asks for the film's picture at the receiver's place (D545 §2). */
-export const castFrameEveryMs = 3000;
-
-/**
- * The key frame of a file at a place: the keyframe at or before it, made by its node (D545 §4).
- * Under `/bytes/`, so the image's request carries the media cookie, as artwork's does.
- */
-export function castFrameUrl(fileId: number, atMs: number): string {
-  return `${apiPrefix}/bytes/files/${String(fileId)}/frame?atMs=${String(Math.max(0, Math.round(atMs)))}`;
-}
+import { scrubCellAt, type ScrubCell, type ScrubPictures } from "./scrub-pictures.tsx";
 
 /** What a cast's remote shows where the video would be. */
 export interface CastFrameProps {
-  /** The file the receiver plays. */
-  fileId: number;
-  /** The receiver's place in it, in milliseconds. */
+  /** The film's scrub-bar pictures (useScrubPictures); undefined while none is made or read. */
+  pictures: ScrubPictures | undefined;
+  /** The receiver's place in the film, in milliseconds. */
   atMs: number;
   className?: string;
-  /** What shows until the first frame has loaded: the film's still. */
+  /** What shows until the first picture's sheet has loaded: the film's still. */
   fallback: ReactNode;
 }
 
+/** The sheets loaded, by address: each one's whole width in pixels. */
+type SheetWidths = ReadonlyMap<string, number>;
+
+/** One picture drawn: its cell, its sheet's width and the pictures' own size. */
+interface Drawn {
+  readonly cell: ScrubCell;
+  readonly sheetWidth: number;
+  readonly pictureWidth: number;
+  readonly pictureHeight: number;
+}
+
+const isSameDrawn = (a: Drawn, b: Drawn | null): boolean =>
+  b !== null &&
+  a.cell.url === b.cell.url &&
+  a.cell.leftPx === b.cell.leftPx &&
+  a.cell.topPx === b.cell.topPx &&
+  a.sheetWidth === b.sheetWidth;
+
 /**
- * The film's picture at the receiver's place (D545): every 3 s, only if the place moved since the
- * frame last asked for, and never while the page is hidden, the key frame there is loaded apart and
- * shown once it has loaded, so nothing flashes or goes blank; `fallback` until the first has. It is
- * drawn as the video is, contained in the whole box.
+ * The film's picture at the receiver's place (D571 §1): the scrub-bar picture whose interval holds
+ * it (scrubCellAt, the timeline's), cut from its sheet and drawn as the video is, contained in the
+ * whole box. Its sheet is loaded apart and the picture shown once it has loaded, the one before
+ * staying meanwhile, so nothing flashes or goes blank; `fallback` until the first has, and while the
+ * film has no pictures (D571 §2). It asks for nothing else: the pictures are the page's
+ * (useScrubPictures), read again as they are made, so they appear during the cast.
  */
-export function CastFrame({ fileId, atMs, className, fallback }: CastFrameProps): JSX.Element {
-  const [shown, setShown] = useState<{ fileId: number; url: string } | null>(null);
-  const placeRef = useRef(atMs);
-  useEffect(() => {
-    placeRef.current = atMs;
-  }, [atMs]);
-  useEffect(() => {
-    let askedAt: number | null = null;
-    let loading: HTMLImageElement | null = null;
-    const ask = (): void => {
-      if (document.visibilityState === "hidden") {
-        return;
-      }
-      const at = Math.max(0, Math.round(placeRef.current));
-      if (at === askedAt) {
-        return;
-      }
-      askedAt = at;
-      const url = castFrameUrl(fileId, at);
-      const image = new Image();
-      loading = image;
-      image.onload = () => {
-        if (loading === image) {
-          setShown({ fileId, url });
-        }
-      };
-      image.src = url;
-    };
-    ask();
-    const timer = setInterval(ask, castFrameEveryMs);
-    return () => {
-      loading = null;
-      clearInterval(timer);
-    };
-  }, [fileId]);
-  const frame = shown?.fileId === fileId ? shown.url : null;
+export function CastFrame({ pictures, atMs, className, fallback }: CastFrameProps): JSX.Element {
+  const drawable = useDrawable(pictures, atMs);
+  // The picture last drawn stays while the next one's sheet loads (state kept from a render before).
+  const [shown, setShown] = useState<Drawn | null>(null);
+  if (drawable !== null && !isSameDrawn(drawable, shown)) {
+    setShown(drawable);
+  }
+  const drawn = drawable ?? (pictures === undefined ? null : shown);
   return (
     <div className={["cast-frame", className].filter(Boolean).join(" ")}>
-      {frame === null ? fallback : <img className="cast-frame-image" src={frame} alt={""} />}
+      {drawn === null ? fallback : <CastPicture drawn={drawn} />}
     </div>
+  );
+}
+
+/** The picture at atMs (scrubCellAt, the timeline's), once its sheet has loaded; else null. */
+function useDrawable(pictures: ScrubPictures | undefined, atMs: number): Drawn | null {
+  const cell = pictures === undefined ? undefined : scrubCellAt(pictures, atMs);
+  const sheetWidth = useSheetWidth(cell?.url);
+  return pictures === undefined || cell === undefined || sheetWidth === undefined
+    ? null
+    : {
+        cell,
+        sheetWidth,
+        pictureWidth: pictures.pictureWidth,
+        pictureHeight: pictures.pictureHeight,
+      };
+}
+
+/** The width of the sheet at wanted once it has loaded, loaded apart when first asked for. */
+function useSheetWidth(wanted: string | undefined): number | undefined {
+  const [widths, setWidths] = useState<SheetWidths>(() => new Map());
+  const sheetWidth = wanted === undefined ? undefined : widths.get(wanted);
+  useEffect(() => {
+    if (wanted === undefined || sheetWidth !== undefined) {
+      return undefined;
+    }
+    let isAsked = true;
+    const image = new Image();
+    image.onload = () => {
+      if (isAsked) {
+        setWidths((before) => new Map(before).set(wanted, image.naturalWidth));
+      }
+    };
+    image.src = wanted;
+    return () => {
+      isAsked = false;
+    };
+  }, [wanted, sheetWidth]);
+  return sheetWidth;
+}
+
+/**
+ * One picture cut from its sheet: a box of the picture's shape, as large as the frame contains, the
+ * sheet in it scaled so one cell fills the box and moved by the cell's place.
+ */
+function CastPicture({ drawn }: { readonly drawn: Drawn }): JSX.Element {
+  const { cell, sheetWidth, pictureWidth, pictureHeight } = drawn;
+  const box: CSSProperties & { readonly "--cast-picture-ratio": string } = {
+    "--cast-picture-ratio": `${String(pictureWidth)} / ${String(pictureHeight)}`,
+  };
+  const sheet: CSSProperties = {
+    width: `${String((sheetWidth / pictureWidth) * 100)}%`,
+    left: `${String((-cell.leftPx / pictureWidth) * 100)}%`,
+    top: `${String((-cell.topPx / pictureHeight) * 100)}%`,
+  };
+  return (
+    <span className="cast-frame-picture" style={box}>
+      <img className="cast-frame-image" src={cell.url} style={sheet} alt={""} />
+    </span>
   );
 }

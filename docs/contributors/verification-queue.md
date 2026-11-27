@@ -4424,3 +4424,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   and the film plays here where it stood. With the Fire TV's network unplugged, cast and wait 25 s:
   report whether the page says the TV is slow to start, Cancel still under it. Then cast to the
   Chromecast and report what the phone shows between the press and the TV's first picture.
+- [ ] **VQ427** — A cast's remote shows the film's scrub-bar picture of the TV's place, not a key
+  frame made on demand (D571). On an Android phone in Chrome, cast a film whose scrub-bar pictures are
+  made to the Fire TV: report whether the picture over the cast page is the TV's place, whether it
+  changes about every ten seconds as the film plays, and whether it is sharp enough to tell the place
+  by or too soft. Seek forward a minute from the pad: report whether the picture follows once the TV
+  is there, with no blank between. Do the same from a desktop's Chrome in a wide window, where the
+  picture is drawn largest, and report sharp enough or too soft. Then cast a film just added, whose
+  pictures are not made yet: report whether its still shows, and whether the picture replaces it as
+  they are made during the cast.

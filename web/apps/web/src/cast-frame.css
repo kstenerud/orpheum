@@ -1,15 +1,28 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/* A cast's remote's picture of the film (D545): drawn as the video is, contained in the whole box. */
+/* A cast's remote's picture of the film (D571 §1): drawn as the video is, contained in the whole box. */
 .cast-frame {
   position: relative;
+  display: grid;
   width: 100%;
   height: 100%;
+  place-items: center;
+  container-type: size;
 }
 
-.cast-frame-image {
+/* The picture's box (CastPicture): its own shape, as large as the frame contains. */
+.cast-frame-picture {
+  position: relative;
   display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+  overflow: hidden;
+  width: min(100cqw, calc(100cqh * var(--cast-picture-ratio)));
+  aspect-ratio: var(--cast-picture-ratio);
+}
+
+/* Its sheet, scaled and moved so one cell fills the box. */
+.cast-frame-image {
+  position: absolute;
+  display: block;
+  max-width: none;
+  height: auto;
 }

@@ -140,7 +140,10 @@ back to decoding every frame for that file alone, which the job's estimate shows
   or the player closes (the owner, 2026-11-27), so a film opened before its pictures exist gains
   them in the order the node makes them. The sheets themselves are loaded once the film plays,
   never during its first seconds of buffering. The cast receiver
-  shows none, since it has no scrub bar; a phone controlling a cast shows them from the same API.
+  shows none, since it has no scrub bar; a phone controlling a cast shows them from the same API,
+  on its timeline and as the picture where the video would be: the picture of the TV's place, the
+  film's still until the pictures exist (D571; `web/apps/web/src/cast-frame.tsx`). No key frame is
+  made on demand.
 - **A sheet not yet made** shows the time alone for its stretch: a film half made previews its
   first half.
 

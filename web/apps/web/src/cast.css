@@ -10,8 +10,7 @@
 
 /* The castee's picture where the video would be (cast-remote-offer.tsx, D548 §2), at full
    brightness, filling its stage. */
-.cast-remote__picture,
-.cast-remote__frame .cast-frame-image {
+.cast-remote__picture {
   inline-size: 100%;
   block-size: 100%;
   object-fit: cover;

@@ -58,8 +58,8 @@ export interface PlaybackTarget extends PlayerSource {
   readonly kind: TargetKind;
   /**
    * Where the target last said its film stands, in ms, no seek chosen here counted: the video's own
-   * place here, the castee's report through the session (D555 §5: nothing is anticipated). What a
-   * castee's key frames are asked for at (the rework plan, phase 3).
+   * place here, the castee's report through the session (D555 §5: nothing is anticipated). What the
+   * castee's picture shows (RemotePicture, D571; the rework plan, phase 3).
    */
   readonly reportedAtMs: number;
   /** What the menus choose over (TargetMenus, target-menus.tsx). */

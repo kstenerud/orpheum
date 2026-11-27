@@ -10,7 +10,7 @@ import "./play-words.ts";
 import "./cast-words.ts";
 
 import type { components, CastSending } from "@orpheum/sdk";
-import type { JSX } from "react";
+import { use, type JSX } from "react";
 
 import type { UpNext } from "./around-file.ts";
 import { CastFrame } from "./cast-frame.tsx";
@@ -19,6 +19,7 @@ import { RemoteSkipOffer, useFileSegments } from "./cast-segments.tsx";
 import { moveCastOn } from "./cast.ts";
 import type { PlaybackTarget } from "./playback-target.ts";
 import { WideArt } from "./poster.tsx";
+import { ScrubPicturesContext } from "./scrub-pictures.tsx";
 import { creditsStartOf } from "./segments.tsx";
 import { useServices } from "./services.tsx";
 import { TargetUpNext } from "./up-next.tsx";
@@ -67,18 +68,22 @@ export function RemoteOffers(props: {
 
 /**
  * The film's picture where its video would be, covering the offer area at its full brightness (D548
- * §2): the key frame where the receiver says it stands, no seek chosen here counted (the rework plan,
- * phase 3), renewed every 3 s while it moves (CastFrame, D545),
- * and until the first has loaded, or where the node makes none, the film's art (RemoteArt).
+ * §2): the scrub-bar picture of where the receiver says it stands, no seek chosen here counted (the
+ * rework plan, phase 3), changing as the place crosses into the next (CastFrame, D571), and until
+ * the first has loaded, or while the film has no pictures, the film's art (RemoteArt). The pictures
+ * are the page's, the ones its timeline shows (ScrubPicturesContext); a cast moved on to another
+ * film starts again from its art.
  */
 export function RemotePicture(props: {
   readonly fileId: number;
   readonly atMs: number;
   readonly art: ArtBody | undefined;
 }): JSX.Element {
+  const pictures = use(ScrubPicturesContext);
   return (
     <CastFrame
-      fileId={props.fileId}
+      key={props.fileId}
+      pictures={pictures}
       atMs={props.atMs}
       className="cast-remote__frame"
       fallback={<RemoteArt art={props.art} />}

@@ -71,7 +71,7 @@ html:has(.castee-play) {
   white-space: nowrap;
 }
 
-/* The offer area (D548 §2): the key frame 16:9, as large as its cell lets it; upright at the cell's
+/* The offer area (D548 §2): the castee's picture 16:9, as large as its cell lets it; upright at the cell's
    foot, so the timeline is close under it (the owner, 2026-11-26). */
 .castee-play__offer-cell {
   display: grid;
@@ -125,7 +125,7 @@ html:has(.castee-play) {
   pointer-events: none;
 }
 
-/* Upright, the track a step under the key frame, its slider's room for a finger over the frame's
+/* Upright, the track a step under the castee's picture, its slider's room for a finger over the frame's
    foot, which takes no press (the owner, 2026-11-26: "In portrait mode, the scrub bar can be much
    closer to the video frame since the frame itself is non-interactive"). */
 .castee-play__page > .remote-pad__timeline {

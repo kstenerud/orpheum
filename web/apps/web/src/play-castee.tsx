@@ -5,7 +5,14 @@ import "./play-castee.css";
 import "./cast-words.ts";
 
 import type { CastSending } from "@orpheum/sdk";
-import { useEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
+import {
+  useEffect,
+  useRef,
+  type ContextType,
+  type JSX,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
@@ -57,13 +64,13 @@ import type { Resource } from "./use-resource.ts";
  * The Play page while its device casts the cast castId (D555 §8, the rework plan's phase 4 item 3):
  * the same page with the other target, the castee (useCasteeTarget), laid out as the remote was
  * (D548; the owner, 2026-11-26), upright, on its side and on a computer alike, full screen or not
- * (CasteePlaying): the castee's key frame where the video would be, with Up next and the skips over
+ * (CasteePlaying): the castee's picture of its place where the video would be, with Up next and the skips over
  * it; under it, or beside it on its side, the timeline, the 3×3 pad and the menus' row. Every end of
  * the cast swaps the target back to the video here at the castee's last place, paused alone (as the
  * castee had it, where this tab stopped the cast: D564 §1), playing on in a Watch Together session,
  * with no note and no press asked (D555 §5; useSwapsBackAtTheEnd). The cast moved into a Watch
  * Together part is no end (useCastSession). The castee not heard, the reconnecting sign shows on its
- * key frame and nothing takes a press (D555 §6); the server alone ends the cast. The page fills the
+ * picture and nothing takes a press (D555 §6); the server alone ends the cast. The page fills the
  * window under the top bar, scrolling where it does not fit (play-castee.css).
  */
 export function CasteePlay(props: {
@@ -243,7 +250,7 @@ function useCasteeCommands(target: PlaybackTarget): RefObject<HTMLDivElement | n
  * The page while a film plays on the castee, the remote's layout (D548 §1; the owner, 2026-11-26:
  * "the remote-control looking layout (3x3 pad). That should be the layout for portrait and
  * landscape mode when casting"): the bar, the way up and under it "On: ‹TV›" with when the film ends;
- * the offer area, the castee's key frame (RemotePicture) with Up next or a skip over it (RemoteOffers)
+ * the offer area, the castee's scrub-bar picture of its place (RemotePicture) with Up next or a skip over it (RemoteOffers)
  * and in its centre the reconnecting sign while the castee is not heard, the castee's wait for a
  * press on its own remote while it holds the cast for one (D564 §2), else the volume a moment after
  * the pad set it; the timeline, the time under it; the pad (RemotePad), its volume the castee's
@@ -278,7 +285,7 @@ function CasteePlaying(props: {
   useShowsACasteesVolume(target.sound, volume.show);
   const shown = useControlsShown(isOnTelevision(), moves);
   return (
-    <PlayUpwardContext value={title.upward}>
+    <CasteeContexts fileId={sent.fileId} upward={title.upward}>
       <div ref={pageRef} className="castee-play__page" data-player-controls="">
         <CasteeTop receiverName={sent.receiverName} leftMs={leftMsOf(target)} />
         <CasteeStage
@@ -297,7 +304,7 @@ function CasteePlaying(props: {
             </CasteeCentre>
           }
         />
-        <CasteeTimeline fileId={sent.fileId} source={target} isDisabled={start.isDisabled} />
+        <PadTimeline source={target} isDisabled={start.isDisabled} hasArrowsAsCommands={false} />
         <RemotePad
           source={target}
           moves={moves}
@@ -314,28 +321,25 @@ function CasteePlaying(props: {
           }
         />
       </div>
-    </PlayUpwardContext>
+    </CasteeContexts>
   );
 }
 
 /**
- * The remote's timeline, with the film's scrub-bar pictures (scrub-pictures.tsx), loaded at once, as
- * the film plays on the television, not here.
+ * The page's way up, and the film's scrub-bar pictures (scrub-pictures.tsx), read once for the page:
+ * the stage's picture and the timeline's (D571 §1), loaded at once, as the film plays on the
+ * television, not here.
  */
-function CasteeTimeline(props: {
+function CasteeContexts(props: {
   readonly fileId: number;
-  readonly source: Parameters<typeof PadTimeline>[0]["source"];
-  readonly isDisabled: boolean;
+  readonly upward: ContextType<typeof PlayUpwardContext>;
+  readonly children: ReactNode;
 }): JSX.Element {
   const pictures = useScrubPictures(props.fileId, "elsewhere");
   return (
-    <ScrubPicturesContext value={pictures}>
-      <PadTimeline
-        source={props.source}
-        isDisabled={props.isDisabled}
-        hasArrowsAsCommands={false}
-      />
-    </ScrubPicturesContext>
+    <PlayUpwardContext value={props.upward}>
+      <ScrubPicturesContext value={pictures}>{props.children}</ScrubPicturesContext>
+    </PlayUpwardContext>
   );
 }
 
@@ -364,7 +368,7 @@ function CasteeTop(props: {
 }
 
 /**
- * The offer area (D548 §2): where the video would be, the castee's key frame where it says it stands
+ * The offer area (D548 §2): where the video would be, the castee's scrub-bar picture where it says it stands
  * (RemotePicture), 16:9 and as large as its cell lets it, with Up next or a skip over it
  * (RemoteOffers) and its centre's one sign (centre).
  */
