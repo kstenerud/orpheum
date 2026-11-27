@@ -18,11 +18,21 @@ import { FilmWaitsSpinner, spinnerAfterMs } from "./film-waits.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 
 /** A video and its sign, as the player's page lays them out, its wait's chunks coming as wait says. */
-function WaitingFilm(props: { readonly wait?: LinkWait | undefined }): JSX.Element {
+function WaitingFilm(props: {
+  readonly wait?: LinkWait | undefined;
+  readonly stage: StageSize;
+}): JSX.Element {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { wait } = props;
+  const { wait, stage } = props;
   return (
-    <div style={{ position: "relative", width: "640px", height: "360px" }}>
+    <div
+      className="test-stage"
+      style={{
+        position: "relative",
+        width: `${String(stage.width)}px`,
+        height: `${String(stage.height)}px`,
+      }}
+    >
       <video ref={videoRef}>
         <track kind="captions" />
       </video>
@@ -35,9 +45,18 @@ function WaitingFilm(props: { readonly wait?: LinkWait | undefined }): JSX.Eleme
   );
 }
 
+/** A stage's size in CSS pixels. */
+interface StageSize {
+  readonly width: number;
+  readonly height: number;
+}
+
+/** The stage of a film at a desktop's width. */
+const tallStage: StageSize = { width: 640, height: 360 };
+
 /** Mounts a film that plays with nothing loaded, a stall, and waits until its sign shows. */
-async function stalledFilm(wait?: LinkWait): Promise<Mounted> {
-  const mounted = await mount(<WaitingFilm wait={wait} />);
+async function stalledFilm(wait?: LinkWait, stage: StageSize = tallStage): Promise<Mounted> {
+  const mounted = await mount(<WaitingFilm wait={wait} stage={stage} />);
   const video = mounted.container.querySelector("video");
   if (video === null) {
     throw new Error("the page has no video");
@@ -180,3 +199,100 @@ describe("the bar under the sign, a chunk held up on the link (the owner, 2026-1
     expect(mounted.container.querySelector(".film-waits__bar")).toBeNull();
   });
 });
+
+describe("the sign, its bar and its words on a stage of any height (the owner, 2026-11-27)", () => {
+  /** A wait whose chunks have half come for 3 seconds, so the bar shows. */
+  const halfCome: LinkWait = { arrivedBytes: 200_000, neededBytes: 400_000, linksForMs: 3000 };
+  /** A phone's stage in portrait: as the owner's showed it while a film started, and a film at
+   * 2.76:1, the widest made, the shortest stage at a phone's width. */
+  const phoneStages: readonly StageSize[] = [
+    { width: 328, height: 150 },
+    { width: 328, height: 119 },
+  ];
+  let mounted: Mounted | undefined;
+  let restore: (() => void) | undefined;
+  afterEach(() => {
+    restore?.();
+    restore = undefined;
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  /** A stalled film on stage, its bar showing once it has if wait says chunks are coming. */
+  async function shownOn(stage: StageSize, wait: LinkWait | undefined): Promise<Mounted> {
+    const shown = await stalledFilm(wait, stage);
+    if (wait !== undefined) {
+      await expect.poll(() => shown.container.querySelector(".film-waits__bar")).not.toBeNull();
+    }
+    return shown;
+  }
+
+  for (const [named, wait] of [
+    ["with its bar", halfCome],
+    ["without its bar", undefined],
+  ] as const) {
+    it.each(phoneStages)(
+      `keeps them all inside a phone's short stage ($width × $height), none over another, ${named}, ring or hourglass`,
+      async (phoneStage) => {
+        mounted = await shownOn(phoneStage, wait);
+        expectAllInside(mounted, wait);
+        restore = askForLessMotion();
+        expectAllInside(mounted, wait);
+      },
+    );
+
+    it(`keeps the designed places on a tall stage, the sign in its middle, ${named}`, async () => {
+      mounted = await shownOn(tallStage, wait);
+      const { stage, sign, bar, words } = boxes(mounted);
+      const middle = stage.top + stage.height / 2;
+      expect(sign.top + sign.height / 2).toBeCloseTo(middle, 0);
+      // The bar 1rem under the sign, the words 1rem under the bar's place, which is 0.75rem tall.
+      expect(words.top).toBeCloseTo(middle + 28 + 16 + 12 + 16, 0);
+      if (bar !== undefined) {
+        expect(bar.top).toBeCloseTo(middle + 28 + 16, 0);
+      }
+    });
+  }
+});
+
+/** The boxes of the stage, the sign (the ring or the hourglass), the bar if shown and the words. */
+function boxes(shown: Mounted): {
+  stage: DOMRect;
+  sign: DOMRect;
+  bar: DOMRect | undefined;
+  words: DOMRect;
+} {
+  return {
+    stage: one(shown, ".test-stage").getBoundingClientRect(),
+    // The box the ring or the hourglass stands in: the ring's own grows as it turns.
+    sign: one(shown, ".film-waits__sign").getBoundingClientRect(),
+    bar: shown.container.querySelector(".film-waits__bar")?.getBoundingClientRect(),
+    words: one(shown, ".film-waits__words .pill").getBoundingClientRect(),
+  };
+}
+
+/** Whether a lies wholly inside b. */
+function isInside(a: DOMRect, b: DOMRect): boolean {
+  return a.top >= b.top && a.bottom <= b.bottom && a.left >= b.left && a.right <= b.right;
+}
+
+/** Whether a and b share any of their area. */
+function overlaps(a: DOMRect, b: DOMRect): boolean {
+  return a.top < b.bottom && b.top < a.bottom && a.left < b.right && b.left < a.right;
+}
+
+/** Every part of the waiting sign mounted shows lies inside its stage, none over another. */
+function expectAllInside(mounted: Mounted, wait: LinkWait | undefined): void {
+  const { stage, sign, bar, words } = boxes(mounted);
+  expect(sign.height).toBeCloseTo(56, 0);
+  expect(words.height).toBeGreaterThan(0);
+  expect(isInside(words, stage)).toBe(true);
+  expect(isInside(sign, stage)).toBe(true);
+  expect(overlaps(words, sign)).toBe(false);
+  expect(bar === undefined).toBe(wait === undefined);
+  if (bar !== undefined) {
+    expect(isInside(bar, stage)).toBe(true);
+    expect(overlaps(words, bar)).toBe(false);
+    expect(overlaps(sign, bar)).toBe(false);
+  }
+}

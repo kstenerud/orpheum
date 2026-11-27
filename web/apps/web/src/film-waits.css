@@ -90,6 +90,50 @@
   background: var(--color-video-card);
 }
 
+/* On a stage too short for those places (a phone in portrait, a wide film, or a video whose shape
+   is not yet known, which a browser draws 2:1: about 150 px tall at a phone's width), the words
+   fell below the stage, under the controls (the owner, 2026-11-27). There the group (the sign, the
+   bar's place, the words) moves up as one until its words keep a gap above the stage's foot, never
+   past a gap below its head; below about 150 px its two gaps tighten too, from 1rem to an eighth
+   of it. A stage tall enough keeps the places above unchanged: g is 1rem and t is the sign's top
+   in the middle. A browser without container queries (a Chromecast's, a TV's) keeps those places;
+   its stage is tall. */
+@supports (container-type: size) {
+  .film-waits {
+    container-type: size;
+
+    /* The gap between the sign, the bar's place and the words, and the margin kept to the stage. */
+    --film-waits-margin: var(--space-2);
+    --film-waits-gap: clamp(
+      0.125rem,
+      (100cqh - 2 * var(--film-waits-margin) - 3.5rem - 0.75rem - 2rem) / 2,
+      var(--space-4)
+    );
+
+    /* The sign's top: in the middle where the group fits under it, else as high as the words need. */
+    --film-waits-top: max(
+      0px,
+      min(
+        50cqh - 1.75rem,
+        100cqh - var(--film-waits-margin) - 3.5rem - 0.75rem - 2rem - 2 * var(--film-waits-gap)
+      )
+    );
+  }
+
+  .film-waits__sign {
+    align-self: start;
+    margin-block-start: var(--film-waits-top);
+  }
+
+  .film-waits__bar {
+    top: calc(var(--film-waits-top) + 3.5rem + var(--film-waits-gap));
+  }
+
+  .film-waits__words {
+    top: calc(var(--film-waits-top) + 3.5rem + 0.75rem + 2 * var(--film-waits-gap));
+  }
+}
+
 /* The filler fades out and back in every 2 seconds, so a bar that has not moved still says the
    film is waiting. */
 .film-waits__fill {
