@@ -49,6 +49,22 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A100 — Told the owner a release needed only signing, a day after its key list changed (2026-11-27)
+
+- **What happened:** the owner had added a second everyday key, which made version 2 of both key
+  lists, and asked about the uncommitted files it left. The lead said that committing them and
+  running `make release-sign` was all that was owed. The record the release workflow had made
+  carried `root-version 1`, and a core that has followed the list to version 2 passes over such a
+  record in silence, so v0.8.15 was signed, served and offered to no one. The lead had read what
+  the key's addition wrote and not what the next signature would be made over.
+- **Caught by:** the lead, reading the record orpheum.cc served after the owner's "v0.8.15 is
+  signed"; the owner signed it again (`release-resign`, which now raises the record to the list
+  served).
+- **Gate:** none yet. Filed to build in plans/navigation-and-widgets-answers-2026-10-27.md, "A
+  record signed under an older key list": the signing tool refuses such a record, and a core says
+  so. The practice: after a change to a key list, read every signed thing's root version before
+  saying what is owed.
+
 ### A99 — Sent the owner to staging to cast to a Chromecast staging's receiver is not registered on (2026-11-27)
 
 - **What happened:** production not yet having v0.8.14, the lead told the owner that casting from
