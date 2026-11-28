@@ -564,3 +564,9 @@ func checkWindowProgress(
 		}
 	}
 }
+
+func (releasedChunkMaker) StretchOf(nodeproto.MakeChunks) execx.Stretch { return execx.Stretch{} }
+
+func (releasedChunkMaker) DecodingOf(nodeproto.MakeChunks) encode.Decoding {
+	return encode.DecodedOnCPU
+}
