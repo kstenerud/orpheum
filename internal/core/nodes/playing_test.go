@@ -105,3 +105,46 @@ func TestHoldBackFor_StopsWhatIsNotPlayedAndGivesNoneUntilItEnds(t *testing.T) {
 		t.Errorf("a read-through once the hold ended was answered %v; want it given", answer)
 	}
 }
+
+// trickplayOf is a run of a video's scrub-bar pictures, of a film under /media.
+func trickplayOf() nodeproto.Command {
+	return nodeproto.Command{Work: nodeproto.Work{
+		Type: nodeproto.CommandMakeTrickplay, MakeTrickplay: &nodeproto.MakeTrickplay{
+			Video:      nodeproto.BytesFile{RootPath: "/media", Path: []byte("Film.mkv")},
+			IntervalMs: 10_000, PictureWidth: 320, SheetColumns: 10, SheetRows: 10, WebPQuality: 80,
+		},
+	}}
+}
+
+// A hold to measure a played run alone (D572), on a node that encodes on a GPU as on one in
+// software, stops a trickplay run going there and gives none until the hold ends, when it is given
+// again and resumes at its next sheet (TestTrickplay_ARunStoppedPartWayResumesAfterTheSheetsKept,
+// internal/core/api); another player's run of a quality goes on, never stopped.
+func TestHoldBackFor_StopsATrickplayRunAndGivesNoneUntilItEndsOnAGPUToo(t *testing.T) {
+	t.Parallel()
+	bench := newPlayingBench(t, false)
+	bench.exchanges.Handle(jobs.KindTrickplay, assignedRun(bench.resolved, nil))
+	bench.mustAssign(1, jobs.KindMakeChunks, jobs.PriorityPlayNow, qualityRunOf())
+	bench.mustAssign(2, jobs.KindTrickplay, jobs.PriorityBackground, trickplayOf())
+	until := bench.now.Now().Add(35 * time.Second)
+	if stopped := bench.exchanges.HoldBackFor(t.Context(), 1, until); stopped != 1 {
+		t.Fatalf("held back, the node's work stopped was %d; want the trickplay run alone", stopped)
+	}
+	if stop := testutil.Receive(t, bench.sender.sent, "the stop"); stop.Type != nodeproto.CommandCancel ||
+		stop.JobID != 2 {
+		t.Errorf("held back, the node was sent %+v; want the trickplay run told to stop", stop)
+	}
+	if answer := testutil.Receive(t, bench.resolved, "the stopped trickplay's answer"); answer == nil {
+		t.Error("the stopped trickplay run was answered nothing; want it bumped")
+	}
+	parking, isParked := jobqueue.ParkingOf(bench.assign(3, jobs.KindTrickplay, jobs.PriorityBackground, trickplayOf()))
+	if !isParked || parking.Destination != jobs.PlayingDestination(1) || !parking.ProbeAt.Equal(until) {
+		t.Errorf("a trickplay run while held back was parked %v (%+v); want it waiting until the hold ends",
+			isParked, parking)
+	}
+	bench.now.Advance(35 * time.Second)
+	if answer := bench.assign(4, jobs.KindTrickplay, jobs.PriorityBackground, trickplayOf()); !jobqueue.IsAssigned(
+		answer) {
+		t.Errorf("a trickplay run once the hold ended was answered %v; want it given", answer)
+	}
+}

@@ -169,9 +169,12 @@
 //   - Playing is not starved (D324 §5): a node that encodes in software and holds a played encode
 //     is given no other encode, which waits on its encode slot; held back (HoldBackFor), its played
 //     encode behind playback, it stops the work no one plays and is given none until the hold ends,
-//     on its playing destination. A node that encodes on a GPU runs work beside it.
+//     on its playing destination. A node that encodes on a GPU runs work beside it. The same hold
+//     measures a played run alone (D572, internal/core/chunks): it stops a trickplay run, on a GPU
+//     too, and gives none until it ends; a played run is never stopped.
 //     TestAssign_NoOtherEncodeIsGivenBesideAPlayedEncodeInSoftware,
-//     TestHoldBackFor_StopsWhatIsNotPlayedAndGivesNoneUntilItEnds; whether a node encodes in software
+//     TestHoldBackFor_StopsWhatIsNotPlayedAndGivesNoneUntilItEnds,
+//     TestHoldBackFor_StopsATrickplayRunAndGivesNoneUntilItEndsOnAGPUToo; whether a node encodes in software
 //     is its last hello's, TestHello_TellsTheCoreWhetherEachNodeEncodesInSoftware.
 //   - A job no one waits for any more is told to its node at its new priority, no longer
 //     play-driven (D234 §3). TestReprioritize_TellsTheNodeHoldingAJobsAttemptItsNewPriority.
