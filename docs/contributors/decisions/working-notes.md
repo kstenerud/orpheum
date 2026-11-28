@@ -32512,3 +32512,35 @@ answers.
 5. **A played run is never stopped**: another player's run of a quality goes on, and the run it
    goes beside during the window stays unfair. Sound and copied-picture runs still count as
    beside nothing.
+
+## D573 — A first play goes before a fair reading: no hold while its film's pictures are to be made, and a hold ends with its window
+
+**Decided** (2026-11-28), by the project owner, on production's finding (v0.8.16, a Celeron J3455)
+that D572's hold starved the film being played: with no estimate the hold ran its 90 s cap, every
+new run renewed it, each stopped the played film's own trickplay job, which then displaced no
+background trickplay, and the cancelled runs whose windows were made were thrown away: *"The
+first-time experience is the most important one, so we want to make sure we prioritize jobs that
+directly provide that experience. The person will likely be at home during this first-time
+experience, so the rougher estimates from synthetic readings will likely be good enough while we
+cater to the user's more immediate needs (plus it comes up with the ratios as they play films
+anyway)."*
+
+**Status:** decided. It has code: `holdBackToMeasure`, `endMeasuring` and the kept windows in
+`internal/core/chunks/run_speed.go`; `HoldBackToMeasure`, `EndHoldToMeasure` in
+`internal/core/nodes/playing.go`; `displaceForPlayedTrickplay` in `internal/core/nodes/bump.go`;
+`Progress.SpeedWindow` in `internal/nodeproto`; node protocol 81.
+
+It amends D572 §2 and §3.
+
+1. **While the played film's trickplay job is open, a played run holds nothing back to measure.**
+   It goes beside the trickplay run, is not fair and is not kept; the start-up trials' estimate
+   serves meanwhile. Once the film's pictures are made, D572's hold applies again. The D324 §5
+   hold for an encode behind playback is unchanged.
+2. **A hold to measure ends as soon as the core hears the run made its window's film**, from the
+   progress of the chunk that reaches it, or when the run ends, and at the latest at D572's
+   limit. It is a hold of its own beside the D324 one, which it never shortens.
+3. **A run cancelled after its window was made keeps its reading, if the window went alone.** The
+   node sends the window's figures on the progress of the chunk that closed it; the core keeps
+   them on the run's cancel. A run that ends keeps its report's, as before.
+4. **A played film's trickplay run displaces the background trickplay on its node**, running or
+   waiting, through the existing bump; it stays background work on the node (`priorityOnNode`).
