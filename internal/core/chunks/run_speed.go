@@ -5,15 +5,13 @@ package chunks
 import (
 	"context"
 	"slices"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
-
-// fairRunFilmMs is the least film a run of a quality makes to be a fair measure of its node's speed:
-// half a minute (design/plans/start-quality-by-node-speed.md §3, the owner's mark of 2026-11-27).
-const fairRunFilmMs = 30_000
 
 // runsToTakeOver is how many fair runs of a node's kind of film and quality its runs' figure takes
 // over from its trials' at: three (§3).
@@ -46,10 +44,11 @@ func kindOf(picture nodeproto.ProbeStream) filmKind {
 }
 
 // isFairRun is whether a run's report is a fair measure of its node's speed (§3): a run of a quality
-// that finished, made at least fairRunFilmMs of film and went alone on its node.
+// that finished, made its speed window's film, nodeproto.SpeedWindowFilmMs, and went alone on its node
+// over the window (D572).
 func isFairRun(command nodeproto.MakeChunks, report nodeproto.MakeChunksReport) bool {
 	return report.State == nodeproto.RunDone && command.Stream.Kind == nodeproto.StreamQuality &&
-		!report.WasBesideAnotherRun && report.FilmMadeMs >= fairRunFilmMs && report.SpeedPercent > 0 &&
+		!report.WasBesideAnotherRun && report.FilmMadeMs >= nodeproto.SpeedWindowFilmMs && report.SpeedPercent > 0 &&
 		report.DecodedOn != ""
 }
 
@@ -138,4 +137,52 @@ func (service *Service) runSpeedsOf(ctx context.Context, nodeID int64, kind film
 func middleOf(speeds []int) int {
 	sorted := slices.Sorted(slices.Values(speeds))
 	return sorted[(len(sorted)-1)/2]
+}
+
+// measuringHoldStartup is what a hold to measure a run allows past twice the window's expected time:
+// the run's start, its FFmpeg opening the film and reaching its first chunk, which the node times as
+// part of the window, and the stopped work's FFmpeg ending (D572).
+const measuringHoldStartup = 5 * time.Second
+
+// measuringHoldMost is the longest a hold to measure a run keeps its node's other work back, however
+// slow the node is judged: at chunkRunSlowestSpeedPercent's default, 110 %, the window takes 27 s, and
+// twice that with its start is under a minute, so the cap is met only by a node judged slower than a
+// film plays, or not judged at all. It bounds what one start costs the background work, a library's
+// scrub-bar pictures above all, which a node starting often would otherwise never finish (D572).
+const measuringHoldMost = 90 * time.Second
+
+// holdBackToMeasure holds back the other work of film's node while a played run of a quality makes
+// its speed window, so the run goes alone on its node and is a fair measure of its speed (D572,
+// start-quality-by-node-speed.md §3): the node's background work, its trickplay above all, is
+// stopped and given none until twice the window's expected time at the speed the run is expected at,
+// with its start (measuringHoldStartup), and never past measuringHoldMost. It holds nothing for a run
+// no one waits to play, of sound or a copied picture, shorter than the window, of a node whose runs
+// are not kept (not heard since the core started), or of a quality the node's runs have taken over
+// for the film's kind: those need no more measuring. A node that encodes on a GPU is held too: its
+// runs are measured as one in software's are. Another player's run, played, is never stopped
+// (nodes.Exchanges.HoldBackFor), and the run it goes beside stays unfair. It is called before the
+// run is given, so the node is told to stop its work before it is told to start the run.
+func (service *Service) holdBackToMeasure(ctx context.Context, job jobs.Job, film cutFilm, run storedRun) {
+	if service.holdBack == nil || service.encoders == nil || job.Priority < jobs.PriorityPlayNow ||
+		run.stream.Kind != nodeproto.StreamQuality ||
+		film.grid.endMs(run.LastChunk)-film.grid.StartsMs[run.FirstChunk] < nodeproto.SpeedWindowFilmMs {
+		return
+	}
+	nodeID := film.file.NodeID
+	if service.encoders.SpeedKey(nodeID) == "" {
+		return
+	}
+	speeds := service.nodeSpeedsFor(ctx, film)
+	if _, isTakenOver := speeds.ran[run.stream.Quality]; isTakenOver {
+		return
+	}
+	wait := measuringHoldMost
+	if speed, _, isJudged := speeds.of(run.stream.Quality); isJudged && speed > 0 {
+		windowTakesMs := float64(nodeproto.SpeedWindowFilmMs) * 100 / speed
+		wait = min(wait, 2*time.Duration(windowTakesMs)*time.Millisecond+measuringHoldStartup)
+	}
+	until := service.clock.Now().Add(wait)
+	stopped := service.holdBack.HoldBackFor(ctx, nodeID, until)
+	service.logger.InfoContext(ctx, "held a node's other work back to measure a played run alone", "nodeId", nodeID,
+		"jobId", job.ID, "stream", run.stream.Name(), "stoppedCount", stopped, "heldBackUntil", until)
 }

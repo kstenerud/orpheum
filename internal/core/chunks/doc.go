@@ -35,7 +35,8 @@
 //     TestStartOnLadder_AStartIsHeldToAQualityItsNodeMakesFast and
 //     TestTrialLineFor_TakesTheNearestKindNoEasierElseTheSlowest.
 //
-//   - A node's fair runs of a quality, finished, alone on it and of fairRunFilmMs of film or more, are
+//   - A node's fair runs of a quality, finished, alone on it over their speed window and of its film,
+//     nodeproto.SpeedWindowFilmMs, are
 //     kept in cache.db's node_run_speed under its speed key, the film's kind and the quality, the
 //     last runSpeedsKept; once runsToTakeOver of a kind and quality are kept their median judges that
 //     quality at a start, over the trials', which judge the rest; a run under another key starts
@@ -43,6 +44,14 @@
 //     Enforced by TestStartOnLadder_ANodesFairRunsTakeOverFromItsTrials,
 //     TestKeepRunSpeed_KeepsOnlyTheLastRuns and
 //     TestKeepRunSpeed_FiguresOutlastAReopenedCacheAndStartOverOnANewKey.
+//
+//   - A played run of a quality, of the speed window's film or more, on a node whose runs are kept
+//     and have not taken over for the film's kind and the quality, holds the node's other work back
+//     (HoldBack) before the run is given, so the run is measured alone: until twice the window's
+//     expected time at the speed it is expected at, with measuringHoldStartup, never past
+//     measuringHoldMost; a node that encodes on a GPU too, beside the D324 §5 hold, which skips it.
+//     Nothing is held once the runs have taken over (D572). Enforced by
+//     TestHandleMakeChunks_APlayedRunNotYetMeasuredHoldsItsNodesOtherWorkBackForItsWindow.
 //
 //   - A film whose node encodes the lowest quality slower than chunkRunSlowestSpeedPercent
 //     offers only its own picture, copied; a player that cannot decode it is ErrTooSlowToEncode

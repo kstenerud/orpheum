@@ -99,6 +99,7 @@ func (service *Service) HandleMakeChunks(ctx context.Context, job jobs.Job) erro
 		return err
 	}
 	command.Video = source
+	service.holdBackToMeasure(ctx, job, film, run)
 	service.runs.knowStoreID(command.StoreDir, job.ChunkStoreID)
 	service.runs.given(command.StoreDir, run.FirstChunk, run.LastChunk, job.ID, film.file.NodeID,
 		service.clock.Now())
