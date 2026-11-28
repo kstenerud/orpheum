@@ -79,3 +79,46 @@ func TestRun_RefusesAnOlderReleaseOrAnotherDigestForAVersion(t *testing.T) {
 		t.Errorf("a refused release left the record %+v, %v; want it as it was", again, readErr)
 	}
 }
+
+// A root version older than the record's own is refused, writing nothing: a core takes no record
+// under an older chain (release.Record.IsNewerThan), so v0.8.16's, written under a workflow variable
+// left at 1 after the chain's rotation to 2, failed only at its signing (the owner, 2026-11-28). The
+// record's own version and a newer one are taken.
+func TestRun_RefusesARootVersionOlderThanTheRecords(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "release")
+	digest := "sha256:" + strings.Repeat("e", 64)
+	now := time.UnixMilli(1_800_000_000_000)
+	write := func(version, rootVersion string) (int, string) {
+		var stdout, stderr bytes.Buffer
+		status := run([]string{
+			"--record", path, "--version", version, "--digest", digest, "--id", "op1-x", "--root-version", rootVersion,
+		}, now, &stdout, &stderr)
+		return status, stderr.String()
+	}
+	if status, said := write("v0.3.1", "2"); status != exitSuccess {
+		t.Fatalf("the first release: %d %s", status, said)
+	}
+	status, said := write("v0.3.2", "1")
+	if status != exitFailure || !strings.Contains(said, "--root-version 1 is older than the record's own, 2") {
+		t.Errorf("root version 1 after 2: status %d, %q; want refused, naming both", status, said)
+	}
+	if record := mustRead(t, path); record.Latest != "v0.3.1" || record.RootVersion != 2 {
+		t.Errorf("the refused release left %+v; want the record as it was", record)
+	}
+	for _, step := range [][2]string{{"v0.3.2", "2"}, {"v0.3.3", "3"}} {
+		if status, said := write(step[0], step[1]); status != exitSuccess {
+			t.Errorf("%s under root version %s: %d %s; want written", step[0], step[1], status, said)
+		}
+	}
+}
+
+// mustRead is the record at path.
+func mustRead(t *testing.T, path string) release.Record {
+	t.Helper()
+	record, err := release.Read(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return record
+}

@@ -53,6 +53,11 @@ func run(arguments []string, now time.Time, stdout, stderr io.Writer) int {
 		if *identity != "" {
 			record.ID = *identity
 		}
+		if *rootVersion > 0 && *rootVersion < record.RootVersion {
+			return write(stderr, fmt.Sprintf("release-record: --root-version %d is older than the record's own, %d: "+
+				"no core would take the record. Set the workflow's PUBLISHER_ROOT_VERSION to %d, or leave it unset\n",
+				*rootVersion, record.RootVersion, record.RootVersion), exitFailure)
+		}
 		if *rootVersion > 0 {
 			record.RootVersion = *rootVersion
 		}

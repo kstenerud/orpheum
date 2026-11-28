@@ -18,6 +18,8 @@
 //     a release older than the latest, or a version given another digest, writes nothing and exits
 //     non-zero; a written record says how to sign it.
 //     TestRun_WritesEachReleaseIntoTheRecordAndRefusesAnOlderOne.
+//   - A --root-version older than the record's own writes nothing and exits non-zero, in the workflow
+//     and not at the signing. TestRun_RefusesARootVersionOlderThanTheRecords.
 //
 // # Read before changing
 //
