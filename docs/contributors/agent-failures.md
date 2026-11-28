@@ -49,6 +49,21 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A102 — Told the owner a played film would wait days for its scrub-bar pictures (2026-11-28)
+
+- **What happened:** asked whether the batch was ready to release, the lead said a film's scrub bar
+  and its cast's remote would show no pictures until the sweep of the whole library reached it,
+  days on a slow node, and that the remote would show only the time. Both were wrong against the
+  lead's own plan: playing a film raises its picture job above the sweep (trickplay.md), and the
+  remote shows the film's still until pictures exist. The claim was written from memory of the
+  sweep's pace, without reading the plan's section on what raises a job.
+- **Caught by:** the owner: "Wouldn't playing a film cause the trickplay sweep to happen for that
+  film, and therefore have images available very quickly?"
+- **Gate:** none for the claim. That the raised job then made nothing on production while the film
+  was watched was caught by the owner's own film, not by a test: the walk before the release
+  played a film on staging without checking that its pictures arrived while it played. The fix's
+  tests and the release walk now check it.
+
 ### A101 — Handed the owner a Chromecast walk the lead's own test devices could make (2026-11-27)
 
 - **What happened:** D569's cast-start state and VQ422's paused cast were built, and the lead asked

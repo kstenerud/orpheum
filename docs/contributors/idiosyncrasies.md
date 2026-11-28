@@ -40,6 +40,7 @@ User-Agent (D263; the User-Agent is logged only).
 
 | Symptom | Entry |
 |---|---|
+| On an iPhone, in Chrome too, the Cast menu offers no Chromecast. | [No browser on iOS has Google's Cast sender](#no-browser-on-ios-has-googles-cast-sender) |
 | On a VAAPI node a quality run logged `decodedOn=cpu`, or ran twice, once failing at its first picture with "Impossible to convert between the formats". | [FFmpeg falls back to decoding on the CPU without a word when a VAAPI card cannot decode a picture](#ffmpeg-falls-back-to-decoding-on-the-cpu-without-a-word-when-a-vaapi-card-cannot-decode-a-picture) |
 | Production stopped downloading posters a moment after it started: TMDB's image server "down", never back, though the host reached it. | [TMDB's CDN serves some images with no Content-Type](#tmdbs-cdn-serves-some-images-with-no-content-type) |
 | Back in the browser on a phone after another app: a moment of the page, about 7 s of black, then drawn again; a film page said a failure the app does not expect. | [A phone freezes a page in the background, and hands it back with its WebRTC connection still saying connected](#a-phone-freezes-a-page-in-the-background-and-hands-it-back-with-its-webrtc-connection-still-saying-connected) |
@@ -707,6 +708,22 @@ User-Agent (D263; the User-Agent is logged only).
   player, fills the whole screen in Chrome too (the owner, 2026-11-11).
 - **Evidence:** the owner's iPhone, photos and the page's log of its sizes, 2026-11-11 (A68).
 
+
+### No browser on iOS has Google's Cast sender
+
+- **Technology:** every browser on iOS and iPadOS (2026-11-28), Chrome included, which there is
+  WebKit under Chrome's own interface.
+- **Symptom:** on an iPhone the Cast menu lists the household's other devices but no Chromecast,
+  in Chrome as in Safari.
+- **Cause:** Google's Cast Web Sender SDK works through Chromium's own Cast support, on Chrome for
+  the desktop and Android (and Edge). **[web]** Google's
+  [Web Sender documentation](https://developers.google.com/cast/docs/web_sender) names those
+  alone; on iOS a page cannot reach a Chromecast, only an app built with the iOS Cast SDK can.
+- **What we do:** nothing more: cast-sdk.ts loads the sender, which never says casting is
+  available there, so the menu offers no Chromecast. A device running the web app (a Fire TV, a
+  browser) is cast to from an iPhone as from anywhere, since that is our own messages (D434). A
+  Chromecast from an iPhone waits for a native app.
+- **Evidence:** the owner's question about an iPhone, and Google's documentation, 2026-11-28.
 
 ### Chrome on iOS refuses a film's start a moment after the press
 
