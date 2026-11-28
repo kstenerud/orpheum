@@ -106,3 +106,15 @@ jobs:
       - name: Everything (nightly)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: ./dev make check-everything VERBOSE=1
+      # A failed browser test leaves a screenshot of its page (web/vitest.browser.config.ts): kept a
+      # week, so a failure that does not reproduce locally can still be read (a Firefox test of a
+      # page's arrival failed once here on the v0.8.16 commit and never again, 2026-11-28). The
+      # pages are the tests' own fixtures, nothing of a library.
+      - name: Keep the failed browser tests' screenshots
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: browser-test-screenshots
+          path: .dev/browser-mode-results/
+          if-no-files-found: ignore
+          retention-days: 7
