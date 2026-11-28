@@ -50,8 +50,12 @@
 //     (HoldBack) before the run is given, so the run is measured alone: until twice the window's
 //     expected time at the speed it is expected at, with measuringHoldStartup, never past
 //     measuringHoldMost; a node that encodes on a GPU too, beside the D324 §5 hold, which skips it.
-//     Nothing is held once the runs have taken over (D572). Enforced by
-//     TestHandleMakeChunks_APlayedRunNotYetMeasuredHoldsItsNodesOtherWorkBackForItsWindow.
+//     Nothing is held once the runs have taken over (D572), nor while the film's own trickplay job
+//     is open, its scrub-bar pictures still to be made: the first play goes before a fair reading
+//     (D573). The hold ends as soon as the core hears the run made its window's film, or the run
+//     ends, whichever is first (D573). Enforced by
+//     TestHandleMakeChunks_APlayedRunNotYetMeasuredHoldsItsNodesOtherWorkBackForItsWindow and
+//     TestTakeProgress_AHoldToMeasureEndsAsTheRunsWindowIsMade.
 //
 //   - A film whose node encodes the lowest quality slower than chunkRunSlowestSpeedPercent
 //     offers only its own picture, copied; a player that cannot decode it is ErrTooSlowToEncode

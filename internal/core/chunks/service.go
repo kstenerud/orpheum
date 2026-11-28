@@ -105,9 +105,13 @@ type Parts struct {
 }
 
 // HoldBack stops the work on a node no one plays, and gives it none until a time, reporting how
-// many it stopped: the Exchanges', which a test may stand in for.
+// many it stopped: the Exchanges', which a test may stand in for. HoldBackFor holds it while a
+// played encode is behind playback (D324 §5); HoldBackToMeasure while a played run's speed window
+// is made (D572), a hold EndHoldToMeasure lifts as soon as it is (D573).
 type HoldBack interface {
 	HoldBackFor(ctx context.Context, nodeID int64, until time.Time) int
+	HoldBackToMeasure(ctx context.Context, nodeID int64, until time.Time) int
+	EndHoldToMeasure(ctx context.Context, nodeID int64)
 }
 
 // Encoders say whether a node encodes on a GPU, how fast it encodes the lowest quality, in percent
@@ -141,6 +145,8 @@ type Service struct {
 	// holdBack stops a node's other work while a run players want, encoded in software, is behind
 	// playback (D324 §5): the exchanges; nil holds nothing back.
 	holdBack HoldBack
+	// measuring is the run, by node, each node's work is held back to measure (D572, D573).
+	measuring *measuredRuns
 	// runs are the chunks known made and the runs making more, by store: in memory, since a node's
 	// answer for a chunk is the truth and a restart only asks it again.
 	runs *runTracker
@@ -167,6 +173,7 @@ func NewService(parts Parts) *Service {
 		destinations: parts.Destinations, nodes: parts.Nodes,
 		exchanges: parts.Exchanges, loudness: parts.Loudness, readThrough: parts.ReadThrough, logger: parts.Logger,
 		clock: parts.Clock, encoders: parts.Encoders, absences: parts.Absences, runs: newRunTracker(),
+		measuring: &measuredRuns{byNode: map[int64]runAt{}},
 	}
 	if parts.Exchanges != nil {
 		service.holdBack = parts.Exchanges

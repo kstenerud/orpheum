@@ -5,6 +5,7 @@ package chunks
 import (
 	"context"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
@@ -160,8 +161,13 @@ const measuringHoldMost = 90 * time.Second
 // are not kept (not heard since the core started), or of a quality the node's runs have taken over
 // for the film's kind: those need no more measuring. A node that encodes on a GPU is held too: its
 // runs are measured as one in software's are. Another player's run, played, is never stopped
-// (nodes.Exchanges.HoldBackFor), and the run it goes beside stays unfair. It is called before the
-// run is given, so the node is told to stop its work before it is told to start the run.
+// (nodes.Exchanges.HoldBackToMeasure), and the run it goes beside stays unfair. It is called before
+// the run is given, so the node is told to stop its work before it is told to start the run. The
+// hold ends as soon as the run's window is made, or the run ends (endMeasuring, D573).
+//
+// Nor does it hold anything while the film's own scrub-bar pictures are still to be made (D573): a
+// person's first play is worth more than a fair reading, and the start-up speed trials' estimate
+// serves until one comes. The run goes beside the film's trickplay, and is not kept.
 func (service *Service) holdBackToMeasure(ctx context.Context, job jobs.Job, film cutFilm, run storedRun) {
 	if service.holdBack == nil || service.encoders == nil || job.Priority < jobs.PriorityPlayNow ||
 		run.stream.Kind != nodeproto.StreamQuality ||
@@ -176,13 +182,79 @@ func (service *Service) holdBackToMeasure(ctx context.Context, job jobs.Job, fil
 	if _, isTakenOver := speeds.ran[run.stream.Quality]; isTakenOver {
 		return
 	}
+	if service.isTrickplayOpen(ctx, film.file.ID) {
+		service.logger.InfoContext(ctx, "held nothing back to measure a played run: its film's scrub-bar "+
+			"pictures are still to be made", "nodeId", nodeID, "jobId", job.ID, "stream", run.stream.Name())
+		return
+	}
 	wait := measuringHoldMost
 	if speed, _, isJudged := speeds.of(run.stream.Quality); isJudged && speed > 0 {
 		windowTakesMs := float64(nodeproto.SpeedWindowFilmMs) * 100 / speed
 		wait = min(wait, 2*time.Duration(windowTakesMs)*time.Millisecond+measuringHoldStartup)
 	}
 	until := service.clock.Now().Add(wait)
-	stopped := service.holdBack.HoldBackFor(ctx, nodeID, until)
+	service.measuring.measure(nodeID, runAt{storeDir: run.dir(), firstChunk: run.FirstChunk})
+	stopped := service.holdBack.HoldBackToMeasure(ctx, nodeID, until)
 	service.logger.InfoContext(ctx, "held a node's other work back to measure a played run alone", "nodeId", nodeID,
 		"jobId", job.ID, "stream", run.stream.Name(), "stoppedCount", stopped, "heldBackUntil", until)
+}
+
+// isTrickplayOpen is whether the file's trickplay job is open, its scrub-bar pictures still to be
+// made. One it cannot read is taken as open: the hold it then skips is the one that costs a person.
+func (service *Service) isTrickplayOpen(ctx context.Context, fileID int64) bool {
+	open, err := service.cache.Jobs().OpenJobsOfFile(ctx, jobs.KindTrickplay, fileID)
+	if err != nil {
+		service.logger.WarnContext(ctx, "could not read whether a film's scrub-bar pictures are made", "fileId", fileID,
+			"err", err)
+		return true
+	}
+	return len(open) > 0
+}
+
+// runAt names a run of chunks: its store's directory and its first chunk.
+type runAt struct {
+	storeDir   string
+	firstChunk int
+}
+
+// measuredRuns are the runs, by node, whose speed window each node's other work is held back for.
+type measuredRuns struct {
+	mutex  sync.Mutex
+	byNode map[int64]runAt // guarded by mutex
+}
+
+// measure notes the run nodeID is held back for, in place of any before it.
+func (runs *measuredRuns) measure(nodeID int64, run runAt) {
+	runs.mutex.Lock()
+	defer runs.mutex.Unlock()
+	runs.byNode[nodeID] = run
+}
+
+// isMeasuredDone forgets the run nodeID is held back for and reports true when it is run.
+func (runs *measuredRuns) isMeasuredDone(nodeID int64, run runAt) bool {
+	runs.mutex.Lock()
+	defer runs.mutex.Unlock()
+	if measured, isHeld := runs.byNode[nodeID]; !isHeld || measured != run {
+		return false
+	}
+	delete(runs.byNode, nodeID)
+	return true
+}
+
+// endMeasuring lifts the hold to measure on nodeID when it was for the run of command, whose window
+// is made or which ended (D573): the work held is given again then, not at the hold's estimate.
+func (service *Service) endMeasuring(ctx context.Context, nodeID int64, command nodeproto.MakeChunks) {
+	if service.holdBack == nil ||
+		!service.measuring.isMeasuredDone(nodeID, runAt{storeDir: command.StoreDir, firstChunk: command.FirstChunk}) {
+		return
+	}
+	service.holdBack.EndHoldToMeasure(ctx, nodeID)
+	service.logger.InfoContext(ctx, "ended the hold to measure a played run: its speed window is made or it ended",
+		"nodeId", nodeID, "storeDir", command.StoreDir)
+}
+
+// isWindowMade is whether a run of command has made its speed window's film once it made its chunks
+// through madeEndMs.
+func isWindowMade(command nodeproto.MakeChunks, madeEndMs int64) bool {
+	return madeEndMs-command.BoundsMs[0] >= nodeproto.SpeedWindowFilmMs
 }

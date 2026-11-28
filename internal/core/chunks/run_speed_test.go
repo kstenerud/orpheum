@@ -213,20 +213,45 @@ func TestKeepRunSpeed_FiguresOutlastAReopenedCacheAndStartOverOnANewKey(t *testi
 	}
 }
 
-// measuringHold records node 1's holds, and how many commands its node had been sent at each, so a
-// test sees a hold come before the run it is for is given.
+// measuringHold records node 1's holds to measure, how many commands its node had been sent at
+// each, so a test sees a hold come before the run it is for is given, and how many times the hold
+// was ended. It holds nothing back for an encode behind playback.
 type measuringHold struct {
 	sent       chan nodeproto.Command
 	holds      []time.Time
 	sentAtEach []int
+	ended      int
 }
 
-func (hold *measuringHold) HoldBackFor(_ context.Context, nodeID int64, until time.Time) int {
+func (*measuringHold) HoldBackFor(context.Context, int64, time.Time) int { return 0 }
+
+func (hold *measuringHold) HoldBackToMeasure(_ context.Context, nodeID int64, until time.Time) int {
 	if nodeID == 1 {
 		hold.holds = append(hold.holds, until)
 		hold.sentAtEach = append(hold.sentAtEach, len(hold.sent))
 	}
 	return 0
+}
+
+func (hold *measuringHold) EndHoldToMeasure(_ context.Context, nodeID int64) {
+	if nodeID == 1 {
+		hold.ended++
+	}
+}
+
+// openTrickplayOf queues file fileID's trickplay job, its scrub-bar pictures still to be made.
+func openTrickplayOf(t *testing.T, service *Service, fileID int64) {
+	t.Helper()
+	err := service.cache.Jobs().Enqueue(t.Context(), jobs.KindTrickplay, store.JobTarget{FileID: fileID},
+		func(jobqueue.Open[store.JobTarget]) (jobqueue.Change, error) {
+			return jobqueue.Change{
+				Action: jobqueue.ActionInsert, ArgsJSON: "{}", Priority: jobs.PriorityPlayNow,
+				RunnableAt: service.clock.Now(), CreatedAt: service.clock.Now(),
+			}, nil
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 // gpuTried are trials of a node that encodes on a GPU.
@@ -240,7 +265,8 @@ func (gpuTried) EncodesOnAGPU(int64) bool { return true }
 // trials make 1080p at 200 %, so the half minute takes 15 s, and the hold lasts 35 s. Judged by
 // nothing, it lasts measuringHoldMost. A node that encodes on a GPU is held too. Nothing is held
 // once the runs have taken over, nor for a run no one waits to play, one short of the window, or one
-// of a node whose runs are not kept (D572).
+// of a node whose runs are not kept (D572), nor while the film's own scrub-bar pictures are still to
+// be made (D573).
 func TestHandleMakeChunks_APlayedRunNotYetMeasuredHoldsItsNodesOtherWorkBackForItsWindow(t *testing.T) {
 	t.Parallel()
 	slowAtTheTop := triedAt(kindTried("h264", 8, 1080, 200, 600))
@@ -250,6 +276,7 @@ func TestHandleMakeChunks_APlayedRunNotYetMeasuredHoldsItsNodesOtherWorkBackForI
 		runs       []ranRun
 		isUnplayed bool
 		isShort    bool
+		isPictured bool          // its film's trickplay job is open
 		want       time.Duration // 0 holds nothing
 	}{
 		{name: "not yet measured", encoders: slowAtTheTop, want: 35 * time.Second},
@@ -260,6 +287,7 @@ func TestHandleMakeChunks_APlayedRunNotYetMeasuredHoldsItsNodesOtherWorkBackForI
 		{name: "no one waits to play it", encoders: slowAtTheTop, isUnplayed: true},
 		{name: "short of the window", encoders: slowAtTheTop, isShort: true},
 		{name: "runs not kept", encoders: keyedTrials{triedAt: slowAtTheTop}},
+		{name: "its scrub-bar pictures still to be made", encoders: slowAtTheTop, isPictured: true},
 	} {
 		node := fakeNode{sent: make(chan nodeproto.Command, 1)}
 		service, _ := chunksFixture(t, newFakeQueue(), node)
@@ -268,6 +296,9 @@ func TestHandleMakeChunks_APlayedRunNotYetMeasuredHoldsItsNodesOtherWorkBackForI
 		keepRuns(t, service, start.runs...)
 		hold := &measuringHold{sent: node.sent}
 		service.holdBack = hold
+		if start.isPictured {
+			openTrickplayOf(t, service, 1)
+		}
 		grid := mustGrid(t, service)
 		last := grid.chunkAt(nodeproto.SpeedWindowFilmMs + 10_000)
 		if start.isShort {
@@ -305,5 +336,89 @@ func TestHandleMakeChunks_APlayedRunNotYetMeasuredHoldsItsNodesOtherWorkBackForI
 		if slices.ContainsFunc(hold.sentAtEach, func(sent int) bool { return sent > 0 }) {
 			t.Errorf("%s: the node was held back after the run was given; want before, so it starts alone", start.name)
 		}
+	}
+}
+
+// givenToMeasure gives a played run of a quality, of a minute of film, to node 1, not yet measured,
+// so its other work is held back to measure it; and returns the run's command, as sent.
+func givenToMeasure(t *testing.T) (*Service, *measuringHold, nodeproto.Command) {
+	t.Helper()
+	node := fakeNode{sent: make(chan nodeproto.Command, 1)}
+	service, _ := chunksFixture(t, newFakeQueue(), node)
+	service.exchanges.Handle(jobs.KindMakeChunks, service.Assignee(decidingResolver{}))
+	service.encoders = triedAt(kindTried("h264", 8, 1080, 200, 600))
+	hold := &measuringHold{sent: node.sent}
+	service.holdBack = hold
+	grid := mustGrid(t, service)
+	quality := Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 4000, Height: 1080}}
+	encoded, err := json.Marshal(runArgs{FirstChunk: 0, LastChunk: grid.chunkAt(2 * nodeproto.SpeedWindowFilmMs)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	storeID, err := service.storeIDOf(t.Context(), 1, quality, testStoreKey(t, service, quality, grid.ID()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	answer := service.HandleMakeChunks(t.Context(), jobs.Job{
+		ID: 7, Kind: jobs.KindMakeChunks, Target: jobs.Target{ChunkStoreID: storeID}, ArgsJSON: string(encoded),
+		Priority: jobs.PriorityPlayNow,
+	})
+	if !jobs.IsAssigned(answer) {
+		t.Fatalf("the run was not given: %v", answer)
+	}
+	jobqueue.HandOver(t.Context(), answer)
+	command := testutil.Receive(t, node.sent, "the run's command")
+	if len(hold.holds) != 1 {
+		t.Fatalf("the holds to measure = %v; want one", hold.holds)
+	}
+	return service, hold, command
+}
+
+// decidingResolver resolves a job by its answer at once, as its runner would.
+type decidingResolver struct{}
+
+func (decidingResolver) ResolveBy(_ context.Context, id int64, decide func(job jobs.Job) error) (bool, error) {
+	_ = decide(jobs.Job{ID: id, Kind: jobs.KindMakeChunks}) //nolint:errcheck // the test reads the hold, not the answer
+	return true, nil
+}
+
+// madeThrough says to the core that the run of command made its chunks through chunk.
+func madeThrough(t *testing.T, service *Service, command nodeproto.Command, chunk int) {
+	t.Helper()
+	service.exchanges.DeliverProgress(t.Context(), 1, nodeproto.Progress{
+		JobID: command.JobID, AttemptToken: command.AttemptToken, State: nodeproto.ProgressRunning,
+		ChunksMadeThrough: &chunk,
+	})
+}
+
+// A hold to measure a played run ends as soon as the core hears the run made its speed window's film,
+// not at the time the hold was given, and once: the run's end after lifts nothing more. A run that ends
+// before its window is made ends its hold too (D573).
+func TestTakeProgress_AHoldToMeasureEndsAsTheRunsWindowIsMade(t *testing.T) {
+	t.Parallel()
+	service, hold, command := givenToMeasure(t)
+	window := command.MakeChunks.BoundsMs[0] + nodeproto.SpeedWindowFilmMs
+	beforeWindow := 0
+	for command.MakeChunks.BoundsMs[beforeWindow+2] < window {
+		beforeWindow++
+	}
+	madeThrough(t, service, command, beforeWindow)
+	if hold.ended != 0 {
+		t.Errorf("short of its window the run's hold was ended %d times; want it standing", hold.ended)
+	}
+	madeThrough(t, service, command, beforeWindow+1)
+	if hold.ended != 1 {
+		t.Errorf("its window made, the run's hold was ended %d times; want once", hold.ended)
+	}
+	service.reported(t, command, nodeproto.MakeChunksReport{State: nodeproto.RunDone, LastChunk: beforeWindow + 3})
+	if hold.ended != 1 {
+		t.Errorf("after its window, the run's end ended its hold %d times in all; want once", hold.ended)
+	}
+
+	cut, cutHold, cutCommand := givenToMeasure(t)
+	madeThrough(t, cut, cutCommand, 0)
+	cut.reported(t, cutCommand, nodeproto.MakeChunksReport{State: nodeproto.RunFailed, LastChunk: 0, Failure: "x"})
+	if cutHold.ended != 1 {
+		t.Errorf("a run ended short of its window ended its hold %d times; want once", cutHold.ended)
 	}
 }

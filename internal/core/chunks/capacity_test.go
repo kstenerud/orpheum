@@ -239,6 +239,10 @@ func (hold *holding) HoldBackFor(_ context.Context, nodeID int64, until time.Tim
 	return hold.stopped
 }
 
+func (*holding) HoldBackToMeasure(context.Context, int64, time.Time) int { return 0 }
+
+func (*holding) EndHoldToMeasure(context.Context, int64) {}
+
 // gpuEncoders say node 1 encodes on a GPU.
 type gpuEncoders struct{}
 

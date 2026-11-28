@@ -294,22 +294,27 @@ func (service *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
 				return fmt.Errorf("node %d answered the run of %s with something other than a run's report",
 					attempt.NodeID, command.StoreDir)
 			}
+			service.endMeasuring(ctx, attempt.NodeID, *command)
 			return service.requeuedUnlessDone(*command,
 				service.takeEnd(ctx, job, attempt.NodeID, *command, *result.MakeChunks))
 		},
-		Unanswered: func(_ context.Context, job jobs.Job, attempt nodes.Attempt, err error) error {
+		Unanswered: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, err error) error {
 			outcome := nodes.UnansweredOutcome(job, err, func(string) error {
 				service.forgetRun(attempt)
 				return nil
 			})
 			if command := attempt.Work.MakeChunks; command != nil {
+				service.endMeasuring(ctx, attempt.NodeID, *command)
 				return service.requeuedUnlessDone(*command, outcome)
 			}
 			return outcome
 		},
 		Progress: service.takeProgress,
-		Cancelled: func(_ context.Context, attempt nodes.Attempt) error {
+		Cancelled: func(ctx context.Context, attempt nodes.Attempt) error {
 			service.forgetRun(attempt)
+			if command := attempt.Work.MakeChunks; command != nil {
+				service.endMeasuring(ctx, attempt.NodeID, *command)
+			}
 			return nil
 		},
 		// A run whose job the queue ended without its node's word, its time run out or its
@@ -359,6 +364,9 @@ func (service *Service) takeProgress(ctx context.Context, attempt nodes.Attempt,
 	if madeThrough >= command.FirstChunk {
 		madeEndMs := command.BoundsMs[madeThrough-command.FirstChunk+1]
 		service.runs.sample(command.StoreDir, command.FirstChunk, now, madeEndMs)
+		if isWindowMade(*command, madeEndMs) {
+			service.endMeasuring(ctx, attempt.NodeID, *command)
+		}
 	}
 	share := float64(madeThrough-command.FirstChunk+1) / float64(last-command.FirstChunk+1)
 	if err := service.queue.SetProgress(ctx, attempt.JobID, max(share, 0)); err != nil {
