@@ -430,3 +430,21 @@ func routesOf(t *testing.T, spec *ast.ValueSpec) []string {
 	}
 	return routes
 }
+
+// TestProtocolVersion_IsTheNewestRecorded holds that no version recorded is newer than
+// ProtocolVersion. A raise for what the wire's figures mean changes no field and no route (80,
+// D572), so its records are the version before's, and the shape's and the routes' tests pass with
+// the version taken back: this one fails.
+func TestProtocolVersion_IsTheNewestRecorded(t *testing.T) {
+	t.Parallel()
+	for version := range wireShapeByVersion {
+		if version > ProtocolVersion {
+			t.Errorf("wireShapeByVersion records protocol %d, newer than ProtocolVersion %d", version, ProtocolVersion)
+		}
+	}
+	for version := range routesByVersion {
+		if version > ProtocolVersion {
+			t.Errorf("routesByVersion records protocol %d, newer than ProtocolVersion %d", version, ProtocolVersion)
+		}
+	}
+}
