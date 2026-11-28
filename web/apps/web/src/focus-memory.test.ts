@@ -112,6 +112,27 @@ describe("focus memory", () => {
     expect(focused).toEqual([]);
   });
 
+  // A window given the keyboard back fires focusin again on what had focus all along: Firefox in
+  // CI, its test's frame behind another as a page opened, left focus on nothing (2026-11-28).
+  it("keeps waiting when a focusin comes on what already had focus, or on the body", async () => {
+    const before = document.createElement("button");
+    document.body.append(before);
+    before.focus();
+    const focused: HTMLElement[] = [];
+    const stop = restoreWhenDrawn({ href: "/titles/2", ordinal: 0 }, document.body, (element) => {
+      focused.push(element);
+    });
+    try {
+      before.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+      document.body.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+      const container = row();
+      await observed();
+      expect(focused).toEqual([container.children[1]]);
+    } finally {
+      stop();
+    }
+  });
+
   // A page's tiles come in many changes a frame, and each look reads every control's box: on a TV's
   // slow CPU a look at each change filled the frames as the page drew.
   it("looks once a frame however many changes the page's tree took in it", async () => {

@@ -18,7 +18,12 @@ import {
   searchBoxOf,
   type FocusEngine,
 } from "./focus-engine.ts";
-import { rememberingAround, watchWhileDrawn, type ContainerMemory } from "./focus-memory.ts";
+import {
+  isFocusMovedOn,
+  rememberingAround,
+  watchWhileDrawn,
+  type ContainerMemory,
+} from "./focus-memory.ts";
 import type { Direction } from "./input-buttons.ts";
 import { isOnTelevision } from "./input-mode.ts";
 
@@ -177,8 +182,8 @@ export function arriveWhenDrawn(
   const atOpening = document.activeElement;
   let given: Element | undefined;
   let hasMovedOn = false;
-  const movedOn = (): void => {
-    hasMovedOn = true;
+  const movedOn = (event: Event): void => {
+    hasMovedOn ||= isFocusMovedOn(event, atOpening);
   };
   document.addEventListener("focusin", movedOn);
   let stopWatching = (): void => undefined;

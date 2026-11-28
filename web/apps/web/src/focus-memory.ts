@@ -175,6 +175,16 @@ export function restoreWhenDrawn(
 }
 
 /**
+ * Whether a focusin says the person moved focus on from heldBefore, what had it: not one on
+ * heldBefore itself, which a window given the keyboard back fires there again with nothing moved
+ * (a page opened as its window was behind another then never took its arrival), nor one on the
+ * body, which is focus on nothing.
+ */
+export function isFocusMovedOn(event: Event, heldBefore: Element | null): boolean {
+  return event.target !== heldBefore && event.target !== document.body;
+}
+
+/**
  * Gives focus by give to what look finds as root draws: look is called now and in the frame after
  * changes to root's tree or to what in it is inert, once however many came, given give, until it answers that it is done,
  * restoreWaitsMs pass, or focus goes anywhere not by give, the person having moved on. The one watch both a page returned to
@@ -186,12 +196,14 @@ export function watchWhileDrawn(
   look: (give: (element: HTMLElement, focus: (element: HTMLElement) => void) => void) => boolean,
 ): () => void {
   let isGiving = false;
+  let held = document.activeElement;
   const give = (element: HTMLElement, focus: (element: HTMLElement) => void): void => {
     isGiving = true;
     try {
       focus(element);
     } finally {
       isGiving = false;
+      held = document.activeElement;
     }
   };
   if (look(give)) {
@@ -211,8 +223,8 @@ export function watchWhileDrawn(
   const timer = setTimeout(() => {
     stop();
   }, restoreWaitsMs);
-  const movedOn = (): void => {
-    if (!isGiving) {
+  const movedOn = (event: Event): void => {
+    if (!isGiving && isFocusMovedOn(event, held)) {
       stop();
     }
   };
