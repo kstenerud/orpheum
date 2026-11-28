@@ -712,3 +712,16 @@ Added by the owner, 2026-11-26, from the same walk's unfixed observations:
     to judge (D571 §4): the remote's picture is visibly soft on the phone, 320 px drawn about
     three times as wide. Not checked: that the volume stays through a connect, the phone's film
     page having no volume controls.
+19. **A page opened by Up in its page's place has focus on nothing** (the lead's Fire TV,
+    2026-11-28, walking the build after v0.8.16). From Home a film's page is opened, then its
+    "‹ Films" is pressed: the list is not behind, so Up puts it in the film's entry's place
+    (`navigation.ts` `up`, and `back` where nothing of the app is behind). That tells no leaving
+    listener, so the input layer takes it for a return, finds no note on the entry and gives
+    focus to nothing (`input-layer.tsx` `keepFocusOnEntries`); the page left took its focused
+    link with it. An arrow then starts at the page's start, so it costs a press and a moment
+    with no ring. Not built, the fix needing a choice:
+    telling the leaving listeners on such an Up would also let go of the episode a series' page
+    returns to (`episode-reached.ts`). A page put in another's place by `navigation.replace` (a
+    welcome step, a library just made, a joined film) goes the same way and was not walked.
+    The lead proposes a way for the input layer to hear "a page was
+    opened in place", apart from the leaving that notes and lets go.
