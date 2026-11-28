@@ -103,16 +103,17 @@ type MakeChunksReport struct {
 	RefusalCode RefusalCode `json:"refusalCode,omitempty"`
 	Stall       *Stall      `json:"stall,omitempty"`
 	// SpeedPercent, FilmMadeMs and DecodedOn are a run of a quality's figures, which the core keeps
-	// to judge its node's speed by (design/plans/start-quality-by-node-speed.md §3): the film it made
-	// over the run's whole time, in percent of real time; the film it made, in ms; and where its
-	// picture was decoded, "gpu" or "cpu". Zero and empty for a run of another stream, and for one
-	// that made nothing.
+	// to judge its node's speed by (design/plans/start-quality-by-node-speed.md §3, D572): over the
+	// run's speed window, its first SpeedWindowFilmMs of film or a little more, to the chunk that
+	// made it, the film made over the wall time from the run's start, in percent of real time; that
+	// film, in ms; and where its picture was decoded, "gpu" or "cpu". Zero and empty for a run of
+	// another stream, and for one that never made its window's film.
 	SpeedPercent int    `json:"speedPercent,omitempty"`
 	FilmMadeMs   int64  `json:"filmMadeMs,omitempty"`
 	DecodedOn    string `json:"decodedOn,omitempty"`
-	// WasBesideAnotherRun says another run went on the node at some time while this one did: a run of
-	// chunks of any stream, or a video's trickplay. Only a run alone on its node is a fair measure of
-	// it (§3).
+	// WasBesideAnotherRun says another run that makes a picture, of a quality or a video's
+	// trickplay, went on the node at some time during the run's speed window; one that started after
+	// the window closed does not count. Only a window alone on its node is a fair measure of it (§3).
 	WasBesideAnotherRun bool `json:"wasBesideAnotherRun,omitempty"`
 }
 
@@ -131,3 +132,8 @@ type StoreManifest struct {
 	// recorded, which cannot be checked and is dropped at its first use.
 	ChunkRecords int `json:"chunkRecords,omitempty"`
 }
+
+// SpeedWindowFilmMs is the film a run of a quality's speed is measured over, from its start: half a
+// minute, the least the owner set for a fair measure (design/plans/start-quality-by-node-speed.md
+// §3, 2026-11-27; D572). The node measures to it and the core holds a node's other work back for it.
+const SpeedWindowFilmMs = 30_000

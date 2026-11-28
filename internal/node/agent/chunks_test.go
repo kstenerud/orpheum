@@ -271,9 +271,9 @@ func TestAgent_ARunOfChunksIsLoggedWithTheFilmItMadeAndHowFast(t *testing.T) {
 	logs.AwaitEvent(t, "chunkRunFinished", `"jobId":5,`, `"decodedOn":"gpu"`)
 }
 
-// A run of a quality tells the core with its report how fast it made its film, how much it made,
-// where its picture was decoded and whether another run went beside it at any time while it did; a
-// run of another stream carries none of it (start-quality-by-node-speed.md §3).
+// A run of a quality tells the core with its report how fast it made its speed window's film, how
+// much that was, where its picture was decoded and whether another run went beside it during the
+// window; a run of another stream carries none of it (start-quality-by-node-speed.md §3, D572).
 func TestAgent_ARunOfAQualityReportsItsSpeedAndWhetherAnotherRunWentBesideIt(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
@@ -296,14 +296,14 @@ func TestAgent_ARunOfAQualityReportsItsSpeedAndWhetherAnotherRunWentBesideIt(t *
 	}
 	run := func(storeDir string, kind nodeproto.ChunkStreamKind) nodeproto.MakeChunks {
 		return nodeproto.MakeChunks{
-			Video: video, StoreDir: storeDir, FirstChunk: 4, BoundsMs: []int64{8000, 10000, 12000, 14000},
+			Video: video, StoreDir: storeDir, FirstChunk: 4, BoundsMs: []int64{8000, 18000, 28000, 38000},
 			Stream: nodeproto.ChunkStream{Kind: kind, BitRateKbps: 3000, Height: 720},
 		}
 	}
-	// Three chunks of two seconds each in 1.8 s: 333 % of real time.
+	// Three chunks of ten seconds each, the window's half a minute, in 1.8 s: 1666 % of real time.
 	core.sendMakeChunks(1, run("1/chunks-q3000k720p-gpu/0123456789abcdef", nodeproto.StreamQuality))
 	alone := nodeproto.MakeChunksReport{
-		State: nodeproto.RunDone, LastChunk: 6, SpeedPercent: 333, FilmMadeMs: 6000, DecodedOn: "gpu",
+		State: nodeproto.RunDone, LastChunk: 6, SpeedPercent: 1666, FilmMadeMs: 30000, DecodedOn: "gpu",
 	}
 	if report := receiveChunksReport(t, core); report != alone {
 		t.Errorf("a quality's run alone reported %+v; want %+v", report, alone)
@@ -322,11 +322,11 @@ func TestAgent_ARunOfAQualityReportsItsSpeedAndWhetherAnotherRunWentBesideIt(t *
 		}
 	}
 	core.sendMakeChunks(4, run("1/chunks-q3000k720p/0123456789abcdef", nodeproto.StreamQuality))
-	if report := receiveChunksReport(t, core); !report.WasBesideAnotherRun || report.SpeedPercent != 333 {
-		t.Errorf("a quality's run beside another reported %+v; want it beside another, at 333 %%", report)
+	if report := receiveChunksReport(t, core); !report.WasBesideAnotherRun || report.SpeedPercent != 1666 {
+		t.Errorf("a quality's run beside another reported %+v; want it beside another, at 1666 %%", report)
 	}
 	// The node's log says so too, which is how a run the core kept no figure of is explained.
-	logs.AwaitEvent(t, "chunkRunFinished", `"jobId":4,`, `"wentBesideAnotherRun":true`)
+	logs.AwaitEvent(t, "chunkRunFinished", `"jobId":4,`, `"speedWindowWentBesideAnotherRun":true`)
 	core.commands <- nodeproto.Command{CommandSeq: 5, JobID: 3, Work: nodeproto.Work{Type: nodeproto.CommandCancel}}
 }
 
@@ -336,15 +336,163 @@ func TestAgent_ARunOfAQualityReportsItsSpeedAndWhetherAnotherRunWentBesideIt(t *
 func TestRunStarts_ARunOfSoundIsBesideNoneAndNoneIsBesideIt(t *testing.T) {
 	t.Parallel()
 	node := &Agent{}
-	soundEnds := node.runStarts(nodeproto.StreamSound)
-	copiedEnds := node.runStarts(nodeproto.StreamSoundCopied)
-	qualityEnds := node.runStarts(nodeproto.StreamQuality)
-	if soundEnds() || copiedEnds() || qualityEnds() {
+	sound := node.runStarts(t.Context(), nodeproto.StreamSound)
+	copied := node.runStarts(t.Context(), nodeproto.StreamSoundCopied)
+	quality := node.runStarts(t.Context(), nodeproto.StreamQuality)
+	if sound.isBeside() || copied.isBeside() || quality.isBeside() {
 		t.Error("a quality's run beside only its sound's runs was said beside another; want each alone")
 	}
-	firstEnds, secondEnds := node.runStarts(nodeproto.StreamQuality), node.runStarts(nodeproto.StreamQuality)
-	if !firstEnds() || !secondEnds() {
+	sound.ends()
+	copied.ends()
+	quality.ends()
+	first := node.runStarts(t.Context(), nodeproto.StreamQuality)
+	if first.isBeside() {
+		t.Error("a quality's run alone was said beside another")
+	}
+	second := node.runStarts(t.Context(), nodeproto.StreamQuality)
+	if !first.isBeside() || !second.isBeside() {
 		t.Error("two runs of a quality together were not each said beside another")
+	}
+	first.ends()
+	second.ends()
+	if later := node.runStarts(t.Context(), nodeproto.StreamQuality); later.isBeside() {
+		t.Error("a run started after the others ended was said beside them")
+	}
+}
+
+// A run stopped, its FFmpeg still ending, is beside no run that starts after it: the core holds a
+// node's other work back for a played run's speed window (D572) by stopping it just before the run
+// is given, and that run would otherwise start beside what made way for it.
+func TestRunStarts_ARunStoppedIsBesideNoneThatStartsAfter(t *testing.T) {
+	t.Parallel()
+	node := &Agent{}
+	stoppedCtx, stop := context.WithCancel(t.Context())
+	stopped := node.runsGoing.starts(stoppedCtx)
+	defer stopped.ends()
+	stop()
+	if played := node.runStarts(t.Context(), nodeproto.StreamQuality); played.isBeside() || stopped.isBeside() {
+		t.Error("a run started after another was stopped was said beside it; want it alone")
+	}
+}
+
+// heldChunkMaker makes every chunk of the run in turn, each taking chunkTakes of its clock; a run of a
+// store named "...holding..." says each chunk it made on made and waits for a word on next before
+// going on, so a test can start another run at a chosen chunk.
+type heldChunkMaker struct {
+	clock      *clocktest.Fake
+	chunkTakes time.Duration
+	made       chan int
+	next       chan struct{}
+}
+
+func (maker heldChunkMaker) Make(
+	ctx context.Context, _ execx.Film, command nodeproto.MakeChunks, onChunk func(n int),
+) (int, encode.Decoding, error) {
+	last := command.FirstChunk + len(command.BoundsMs) - 2
+	for chunk := command.FirstChunk; chunk <= last; chunk++ {
+		maker.clock.Advance(maker.chunkTakes)
+		onChunk(chunk)
+		if strings.Contains(command.StoreDir, "holding") {
+			maker.made <- chunk
+			select {
+			case <-maker.next:
+			case <-ctx.Done():
+				return chunk, "", ctx.Err()
+			}
+		}
+	}
+	return last, encode.DecodedOnCPU, nil
+}
+
+func (heldChunkMaker) StretchOf(nodeproto.MakeChunks) execx.Stretch { return execx.Stretch{} }
+
+// A run of a quality is measured over its speed window, its first half a minute of film: its report
+// carries the window's speed and film, not its whole run's, and another run is beside it only if it
+// went during the window. A run that started after the window closed spoils nothing, one that went
+// within it does, and a run that never made the window's film carries no figures (D572).
+func TestAgent_ARunOfAQualityIsMeasuredOverItsSpeedWindowAlone(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	clock := clocktest.NewFake(time.Date(2026, 11, 28, 12, 0, 0, 0, time.UTC))
+	logs := &testutil.Log{}
+	maker := heldChunkMaker{
+		clock: clock, chunkTakes: 600 * time.Millisecond, made: make(chan int), next: make(chan struct{}),
+	}
+	var node *Agent
+	root, _ := startAgentWithWorkers(t, socket, Workers{ChunkMaker: maker}, func(agent *Agent) {
+		node = agent
+		agent.clock = clock
+		agent.logger = slog.New(slog.NewJSONHandler(logs, nil))
+		twoEncodes := testCapacity
+		twoEncodes.EncodeSlotCount = 2
+		agent.work = newWorkList(twoEncodes, clock)
+	})
+	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	video := nodeproto.BytesFile{
+		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: nodetest.PayloadHashHex(t, "a film"),
+	}
+	run := func(storeDir string, boundsMs ...int64) nodeproto.MakeChunks {
+		return nodeproto.MakeChunks{
+			Video: video, StoreDir: storeDir, BoundsMs: boundsMs,
+			Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 3000, Height: 720},
+		}
+	}
+	madeChunk := func(want int) {
+		t.Helper()
+		if got := testutil.Receive(t, maker.made, "a held run's chunk"); got != want {
+			t.Fatalf("a held run made chunk %d; want %d", got, want)
+		}
+	}
+	// Five chunks of ten seconds each; the third closes the window, half a minute in 1.8 s.
+	core.sendMakeChunks(1, run("1/chunks-q3000k720p-holding/0123456789abcdef", 0, 10000, 20000, 30000, 40000, 50000))
+	for chunk := range 2 {
+		madeChunk(chunk)
+		maker.next <- struct{}{}
+	}
+	madeChunk(2)
+	// After the window: a trickplay run, and another quality's run, which is itself beside the first.
+	trickplay := node.runsGoing.starts(t.Context())
+	core.sendMakeChunks(2, run("1/chunks-q8000k1080p/0123456789abcdef", 0, 10000, 20000, 30000))
+	if report := receiveChunksReport(t, core); !report.WasBesideAnotherRun {
+		t.Errorf("a run started beside another's reported %+v; want it beside another", report)
+	}
+	clock.Advance(10 * time.Second)
+	trickplay.ends()
+	for chunk := 3; chunk <= 4; chunk++ {
+		maker.next <- struct{}{}
+		madeChunk(chunk)
+	}
+	maker.next <- struct{}{}
+	windowAlone := nodeproto.MakeChunksReport{
+		State: nodeproto.RunDone, LastChunk: 4, SpeedPercent: 1666, FilmMadeMs: 30000, DecodedOn: "cpu",
+	}
+	if report := receiveChunksReport(t, core); report != windowAlone {
+		t.Errorf("a run with others only after its window reported %+v; want its window's %+v", report, windowAlone)
+	}
+	// The log keeps the whole run's figures beside the window's.
+	checkLogLine(t, logs.AwaitEvent(t, "chunkRunFinished", `"jobId":1,`), `"filmMadeMs":50000,`,
+		`"wallTimeMs":14800,`, `"speedWindowFilmMs":30000,`, `"speedWindowWallTimeMs":1800,`, `"speedWindowSpeed":16.7`)
+	// A trickplay run within the window, even one ended before the window closed, spoils it.
+	core.sendMakeChunks(3, run("1/chunks-q3000k720p-holding/0123456789abcdef", 0, 10000, 20000, 30000, 40000))
+	madeChunk(0)
+	node.runsGoing.starts(t.Context()).ends()
+	maker.next <- struct{}{}
+	for chunk := 1; chunk <= 3; chunk++ {
+		madeChunk(chunk)
+		maker.next <- struct{}{}
+	}
+	if report := receiveChunksReport(t, core); !report.WasBesideAnotherRun || report.SpeedPercent != 1666 {
+		t.Errorf("a run with a trickplay run within its window reported %+v; want it beside another", report)
+	}
+	logs.AwaitEvent(t, "chunkRunFinished", `"jobId":3,`, `"speedWindowWentBesideAnotherRun":true`)
+	// Six seconds of film never make the window.
+	core.sendMakeChunks(4, run("1/chunks-q3000k720p/0123456789abcdef", 0, 2000, 4000, 6000))
+	if report := receiveChunksReport(t, core); report != (nodeproto.MakeChunksReport{
+		State: nodeproto.RunDone, LastChunk: 2,
+	}) {
+		t.Errorf("a run short of its window reported %+v; want no figures", report)
 	}
 }
 

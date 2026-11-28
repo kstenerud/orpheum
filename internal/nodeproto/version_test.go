@@ -212,6 +212,10 @@ var wireShapeByVersion = map[int]string{
 	// DecodedOn and WasBesideAnotherRun (start-quality-by-node-speed.md §3): a core of 78 would refuse
 	// a node of 79's result for fields it does not know.
 	79: "082d3c6efa4dfd73b62e7b0650860098827d8d6b3d23d4f25ff0fd32e0892c9c",
+	// 80 measures a run of a quality's figures over its speed window, its first SpeedWindowFilmMs of
+	// film, and not its whole time (D572): a core of 80 would read a node of 79's whole-run figures,
+	// and a beside judged over the whole run, as the window's. No field changed, so the shape is 79's.
+	80: "082d3c6efa4dfd73b62e7b0650860098827d8d6b3d23d4f25ff0fd32e0892c9c",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
@@ -342,6 +346,15 @@ var routesByVersion = map[int][]string{
 	},
 	// 79 changes no route: a run's report carries its figures (start-quality-by-node-speed.md §3).
 	79: {
+		"PathBytesChunks /bytes/v1/chunks/", "PathBytesFile /bytes/v1/file", "PathBytesFolders /bytes/v1/folders",
+		"PathBytesProbe /bytes/v1/probe",
+		"PathBytesRecentLog /bytes/v1/recent-log", "PathBytesResult /bytes/v1/result/",
+		"PathChanged /node/v1/changed", "PathCommands /node/v1/commands", "PathHello /node/v1/hello",
+		"PathLocked /node/v1/locked", "PathProgress /node/v1/progress", "PathResult /node/v1/result",
+		"PathStatus /node/v1/status", "PathTrickplaySheet /node/v1/trickplay-sheet",
+	},
+	// 80 changes no route: a run's figures are its speed window's (D572).
+	80: {
 		"PathBytesChunks /bytes/v1/chunks/", "PathBytesFile /bytes/v1/file", "PathBytesFolders /bytes/v1/folders",
 		"PathBytesProbe /bytes/v1/probe",
 		"PathBytesRecentLog /bytes/v1/recent-log", "PathBytesResult /bytes/v1/result/",

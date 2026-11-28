@@ -193,10 +193,17 @@
 //     their results (start-quality-by-node-speed.md §1).
 //     TestAgent_StartsTheSpeedTrialsAfterHelloAndTellsThemOfEachRunOfChunks,
 //     TestStatus_CarriesTheSpeedTrials.
-//   - A run of a quality's report carries its speed, the film it made, where its picture was decoded
-//     and whether another run, of chunks or trickplay, went beside it at any time while it did; a
-//     run of another stream's carries none (start-quality-by-node-speed.md §3).
-//     TestAgent_ARunOfAQualityReportsItsSpeedAndWhetherAnotherRunWentBesideIt.
+//   - A run of a quality's report carries the speed and film of its speed window, its first
+//     nodeproto.SpeedWindowFilmMs of film timed from the run's start, where its picture was decoded,
+//     and whether another run making a picture, a quality's or trickplay, went beside it during the
+//     window: one that starts after the window closed does not count, nor one already stopped when
+//     it started, its FFmpeg still ending. A run that never made the
+//     window's film, or of another stream, carries none; its log line keeps the whole run's
+//     figures beside the window's (start-quality-by-node-speed.md §3, D572).
+//     TestAgent_ARunOfAQualityReportsItsSpeedAndWhetherAnotherRunWentBesideIt,
+//     TestAgent_ARunOfAQualityIsMeasuredOverItsSpeedWindowAlone,
+//     TestRunStarts_ARunOfSoundIsBesideNoneAndNoneIsBesideIt,
+//     TestRunStarts_ARunStoppedIsBesideNoneThatStartsAfter.
 //   - Each session posts the watcher's notices, those held while there was none first, and the
 //     status says whether each library folder is watched (D272 §9).
 //     TestAgent_PostsTheWatchersNoticesAndSaysEachRootsWatchInItsStatus. The watcher watches the
