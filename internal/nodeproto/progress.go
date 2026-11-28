@@ -34,4 +34,8 @@ type Progress struct {
 	// ChunksMadeThrough is the last chunk a running run of chunks has made, absent until it has
 	// made one (CommandMakeChunks).
 	ChunksMadeThrough *int `json:"chunksMadeThrough,omitempty"`
+	// SpeedWindow is a run of a quality's figures, on the progress of the chunk that closed its
+	// speed window and on no other (D573): a run cancelled after it still gives the core its reading,
+	// which its end, never reported, would not.
+	SpeedWindow *SpeedWindow `json:"speedWindow,omitempty"`
 }

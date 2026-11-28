@@ -25,6 +25,9 @@ type ChunkMaker interface {
 	// StretchOf is the stretch of its film the run reads, to which the film's long index is cut down
 	// (execx.OpenedFilm.Stretch, D512).
 	StretchOf(command nodeproto.MakeChunks) execx.Stretch
+	// DecodingOf is where a run of command decodes its picture, as it is decided at its start: what
+	// its speed window says it was decoded on (D573).
+	DecodingOf(command nodeproto.MakeChunks) encode.Decoding
 }
 
 // chunksWork is a run of chunks held until a slot of its kind is free, an encode's for a quality
@@ -85,11 +88,13 @@ type chunksRunTimes struct {
 }
 
 // speedWindow is a run's speed window, its first nodeproto.SpeedWindowFilmMs of film (D572): the film
-// made to the chunk that closed it and the wall time from the run's start to it, both in ms, and
-// whether another run that makes a picture went beside it by then. All zero until it is closed.
+// made to the chunk that closed it and the wall time from the run's start to it, both in ms, whether
+// another run that makes a picture went beside it by then, and where its picture was decoded. All
+// zero until it is closed.
 type speedWindow struct {
 	filmMs, wallTimeMs int64
 	wasBeside          bool
+	decodedOn          encode.Decoding
 }
 
 // isClosed is whether the run made its window's film.
@@ -102,17 +107,23 @@ func (times *chunksRunTimes) measuredWindow(command nodeproto.MakeChunks) (speed
 	return window, command.Stream.Kind == nodeproto.StreamQuality && window.isClosed() && window.wallTimeMs > 0
 }
 
-// noteChunk closes the run's speed window at the chunk n of command, made now, if it is the first to
-// reach the window's film.
-func (times *chunksRunTimes) noteChunk(command nodeproto.MakeChunks, n int, now time.Time) {
+// noteChunk closes the run's speed window at the chunk n of command, made now, decoding as decoding,
+// if it is the first to reach the window's film, and reports whether it did.
+func (times *chunksRunTimes) noteChunk(
+	command nodeproto.MakeChunks, n int, now time.Time, decoding encode.Decoding,
+) bool {
 	if times.window.isClosed() {
-		return
+		return false
 	}
-	if film := filmThrough(command, n); film >= nodeproto.SpeedWindowFilmMs {
-		times.window = speedWindow{
-			filmMs: film, wallTimeMs: now.Sub(times.startedAt).Milliseconds(), wasBeside: times.going.isBeside(),
-		}
+	film := filmThrough(command, n)
+	if film < nodeproto.SpeedWindowFilmMs {
+		return false
 	}
+	times.window = speedWindow{
+		filmMs: film, wallTimeMs: now.Sub(times.startedAt).Milliseconds(), wasBeside: times.going.isBeside(),
+		decodedOn: decoding,
+	}
+	return true
 }
 
 // filmThrough is the film, in ms, a run of command spans from its first chunk through chunk last; 0
@@ -144,17 +155,27 @@ func (agent *Agent) madeIn(
 }
 
 // withSpeedFigures puts a run of a quality's figures in its report, for the core to judge its node's
-// speed by (start-quality-by-node-speed.md §3, D572): its speed window's speed and film, where its
-// picture was decoded and whether another run went beside it during the window. A run of another
-// stream, or one that never made its window's film, carries none.
+// speed by (start-quality-by-node-speed.md §3, D572): speedFiguresOf.
 func withSpeedFigures(report *nodeproto.MakeChunksReport, command nodeproto.MakeChunks, times chunksRunTimes) {
+	if figures, isMeasured := speedFiguresOf(command, times); isMeasured {
+		report.SpeedWindow = figures
+	}
+}
+
+// speedFiguresOf is a run of a quality's figures, and whether it has them: its speed window's speed
+// and film, where its picture was decoded and whether another run went beside it during the window.
+// A run of another stream, or one that never made its window's film, has none. Its report carries
+// them, and so does the progress of the chunk that closed its window, for a run cancelled after
+// (D573).
+func speedFiguresOf(command nodeproto.MakeChunks, times chunksRunTimes) (nodeproto.SpeedWindow, bool) {
 	window, isMeasured := times.measuredWindow(command)
 	if !isMeasured {
-		return
+		return nodeproto.SpeedWindow{}, false
 	}
-	report.SpeedPercent = int(window.filmMs * realTimePercent / window.wallTimeMs)
-	report.FilmMadeMs, report.DecodedOn = window.filmMs, string(times.decodedOn)
-	report.WasBesideAnotherRun = window.wasBeside
+	return nodeproto.SpeedWindow{
+		SpeedPercent: int(window.filmMs * realTimePercent / window.wallTimeMs), FilmMadeMs: window.filmMs,
+		DecodedOn: string(window.decodedOn), WasBesideAnotherRun: window.wasBeside,
+	}, true
 }
 
 // speedWindowFigures are a run of a quality's speed window's numbers for its log line, beside its
@@ -230,14 +251,19 @@ func (agent *Agent) runChunks(
 	}
 	defer closeSource()
 	times.openedAt, times.isIndexCutDown = agent.clock.Now(), source.IsIndexCutDown
+	decoding := agent.workers.ChunkMaker.DecodingOf(command)
 	onChunk := func(chunk int) {
 		now := agent.clock.Now()
 		if times.firstChunkAt.IsZero() {
 			times.firstChunkAt = now
 		}
-		times.noteChunk(command, chunk, now)
 		running := held.progress(nodeproto.ProgressRunning)
 		running.ChunksMadeThrough = &chunk
+		if times.noteChunk(command, chunk, now, decoding) {
+			if figures, isMeasured := speedFiguresOf(command, *times); isMeasured {
+				running.SpeedWindow = &figures
+			}
+		}
 		agent.sayProgress(ctx, nodeID, running)
 	}
 	last, decodedOn, err := agent.workers.ChunkMaker.Make(ctx, source, command, onChunk)

@@ -173,7 +173,7 @@ func NewService(parts Parts) *Service {
 		destinations: parts.Destinations, nodes: parts.Nodes,
 		exchanges: parts.Exchanges, loudness: parts.Loudness, readThrough: parts.ReadThrough, logger: parts.Logger,
 		clock: parts.Clock, encoders: parts.Encoders, absences: parts.Absences, runs: newRunTracker(),
-		measuring: &measuredRuns{byNode: map[int64]runAt{}},
+		measuring: &measuredRuns{byNode: map[int64]runAt{}, windows: map[string]nodeproto.SpeedWindow{}},
 	}
 	if parts.Exchanges != nil {
 		service.holdBack = parts.Exchanges

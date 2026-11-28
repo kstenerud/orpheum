@@ -102,12 +102,19 @@ type MakeChunksReport struct {
 	Refusal     string      `json:"refusal,omitempty"`
 	RefusalCode RefusalCode `json:"refusalCode,omitempty"`
 	Stall       *Stall      `json:"stall,omitempty"`
-	// SpeedPercent, FilmMadeMs and DecodedOn are a run of a quality's figures, which the core keeps
-	// to judge its node's speed by (design/plans/start-quality-by-node-speed.md §3, D572): over the
-	// run's speed window, its first SpeedWindowFilmMs of film or a little more, to the chunk that
-	// made it, the film made over the wall time from the run's start, in percent of real time; that
-	// film, in ms; and where its picture was decoded, "gpu" or "cpu". Zero and empty for a run of
-	// another stream, and for one that never made its window's film.
+	// SpeedWindow is a run of a quality's figures, its fields on the report's own level; all zero for
+	// a run of another stream, and for one that never made its window's film.
+	SpeedWindow
+}
+
+// SpeedWindow is a run of a quality's figures, which the core keeps to judge its node's speed by
+// (design/plans/start-quality-by-node-speed.md §3, D572), at the end of a run (MakeChunksReport) or,
+// for a run cancelled after, at the chunk that closed its window (Progress, D573).
+type SpeedWindow struct {
+	// SpeedPercent, FilmMadeMs and DecodedOn are over the run's speed window, its first
+	// SpeedWindowFilmMs of film or a little more, to the chunk that made it: the film made over the
+	// wall time from the run's start, in percent of real time; that film, in ms; and where its
+	// picture was decoded, "gpu" or "cpu".
 	SpeedPercent int    `json:"speedPercent,omitempty"`
 	FilmMadeMs   int64  `json:"filmMadeMs,omitempty"`
 	DecodedOn    string `json:"decodedOn,omitempty"`

@@ -168,7 +168,7 @@ func (maker *Maker) Make(
 	}
 	finishWriting := maker.keeper.MarkWriting(command.StoreDir)
 	defer finishWriting()
-	decoding := maker.decodingOf(command)
+	decoding := maker.DecodingOf(command)
 	last, err := maker.makeRun(ctx, source, command, onChunk, decoding)
 	if decoding == encode.DecodedOnGPU && IsDecodeFailure(ctx, err) {
 		maker.decodeOnCPU(command)
@@ -191,9 +191,9 @@ func videoKey(command nodeproto.MakeChunks) string {
 	return command.Video.RootPath + "\x00" + string(command.Video.Path)
 }
 
-// decodingOf is where a run's picture is decoded: on the GPU for a quality the encoder decodes there,
+// DecodingOf is where a run's picture is decoded: on the GPU for a quality the encoder decodes there,
 // unless a run decoding the video there failed; otherwise on the CPU.
-func (maker *Maker) decodingOf(command nodeproto.MakeChunks) encode.Decoding {
+func (maker *Maker) DecodingOf(command nodeproto.MakeChunks) encode.Decoding {
 	if command.Stream.Kind != nodeproto.StreamQuality || !maker.encoder.DecodesOnGPU(command.VideoCodec) {
 		return encode.DecodedOnCPU
 	}

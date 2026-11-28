@@ -145,6 +145,10 @@ func filmsRunner(t *testing.T, isStreamed bool) *execx.Runner {
 
 func (filmRecordingChunkMaker) StretchOf(nodeproto.MakeChunks) execx.Stretch { return execx.Stretch{} }
 
+func (filmRecordingChunkMaker) DecodingOf(nodeproto.MakeChunks) encode.Decoding {
+	return encode.DecodedOnCPU
+}
+
 // stretchedChunkMaker is a filmRecordingChunkMaker whose every run reads stretch of its film.
 type stretchedChunkMaker struct {
 	filmRecordingChunkMaker
@@ -153,6 +157,10 @@ type stretchedChunkMaker struct {
 }
 
 func (maker stretchedChunkMaker) StretchOf(nodeproto.MakeChunks) execx.Stretch { return maker.stretch }
+
+func (stretchedChunkMaker) DecodingOf(nodeproto.MakeChunks) encode.Decoding {
+	return encode.DecodedOnCPU
+}
 
 // stretchRecordingFilms makes films as its runner does, telling stretches the stretch each run's
 // film was opened for, nil for a run that reads it whole, and saying a film opened for one was cut

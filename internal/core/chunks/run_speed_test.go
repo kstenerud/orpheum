@@ -57,8 +57,10 @@ func keepRuns(t *testing.T, service *Service, runs ...ranRun) {
 			},
 		}
 		err := service.takeEnd(t.Context(), jobs.Job{}, 1, command, nodeproto.MakeChunksReport{
-			State: nodeproto.RunDone, LastChunk: 10, SpeedPercent: run.speedPercent, FilmMadeMs: run.filmMadeMs,
-			DecodedOn: "cpu", WasBesideAnotherRun: run.wasBeside,
+			State: nodeproto.RunDone, LastChunk: 10, SpeedWindow: nodeproto.SpeedWindow{
+				SpeedPercent: run.speedPercent, FilmMadeMs: run.filmMadeMs, DecodedOn: "cpu",
+				WasBesideAnotherRun: run.wasBeside,
+			},
 		})
 		if err != nil {
 			t.Fatalf("the end of a run of %s: %v", run.streamName, err)
@@ -420,5 +422,46 @@ func TestTakeProgress_AHoldToMeasureEndsAsTheRunsWindowIsMade(t *testing.T) {
 	cut.reported(t, cutCommand, nodeproto.MakeChunksReport{State: nodeproto.RunFailed, LastChunk: 0, Failure: "x"})
 	if cutHold.ended != 1 {
 		t.Errorf("a run ended short of its window ended its hold %d times; want once", cutHold.ended)
+	}
+}
+
+// keptRunsAt1080 are node 1's kept runs of h264 at 1080p.
+func keptRunsAt1080(t *testing.T, service *Service) int {
+	t.Helper()
+	rows, err := service.cache.Read().ListNodeRunSpeedsOfKind(t.Context(), cachegen.ListNodeRunSpeedsOfKindParams{
+		NodeID: 1, SpeedKey: testSpeedKey, Codec: "h264", BitDepth: int64(nodeproto.ProbeVideo{}.BitDepth()),
+		Height: 1080,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return len(rows)
+}
+
+// A run cancelled after its speed window was made keeps its reading, which the progress of the chunk
+// that closed the window carried, when the window went alone; one beside another run keeps none
+// (D573).
+func TestCancelled_ARunCancelledAfterItsWindowKeepsItsReadingIfTheWindowWentAlone(t *testing.T) {
+	t.Parallel()
+	for _, run := range []struct {
+		name      string
+		wasBeside bool
+		want      int
+	}{{name: "alone", want: 1}, {name: "beside another run", wasBeside: true}} {
+		service, _, command := givenToMeasure(t)
+		service.encoders = triedAt(nil)
+		window := nodeproto.SpeedWindow{
+			SpeedPercent: 300, FilmMadeMs: nodeproto.SpeedWindowFilmMs, DecodedOn: "cpu",
+			WasBesideAnotherRun: run.wasBeside,
+		}
+		chunk := 3
+		service.exchanges.DeliverProgress(t.Context(), 1, nodeproto.Progress{
+			JobID: command.JobID, AttemptToken: command.AttemptToken, State: nodeproto.ProgressRunning,
+			ChunksMadeThrough: &chunk, SpeedWindow: &window,
+		})
+		service.exchanges.Cancelled(t.Context(), command.JobID)
+		if kept := keptRunsAt1080(t, service); kept != run.want {
+			t.Errorf("%s: a run cancelled after its window kept %d readings; want %d", run.name, kept, run.want)
+		}
 	}
 }

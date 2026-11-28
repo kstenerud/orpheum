@@ -47,10 +47,10 @@ func kindOf(picture nodeproto.ProbeStream) filmKind {
 // isFairRun is whether a run's report is a fair measure of its node's speed (§3): a run of a quality
 // that finished, made its speed window's film, nodeproto.SpeedWindowFilmMs, and went alone on its node
 // over the window (D572).
-func isFairRun(command nodeproto.MakeChunks, report nodeproto.MakeChunksReport) bool {
-	return report.State == nodeproto.RunDone && command.Stream.Kind == nodeproto.StreamQuality &&
-		!report.WasBesideAnotherRun && report.FilmMadeMs >= nodeproto.SpeedWindowFilmMs && report.SpeedPercent > 0 &&
-		report.DecodedOn != ""
+func isFairRun(command nodeproto.MakeChunks, window nodeproto.SpeedWindow) bool {
+	return command.Stream.Kind == nodeproto.StreamQuality &&
+		!window.WasBesideAnotherRun && window.FilmMadeMs >= nodeproto.SpeedWindowFilmMs && window.SpeedPercent > 0 &&
+		window.DecodedOn != ""
 }
 
 // keepRunSpeed keeps a fair run's speed under its node's speed key, its film's kind and its quality,
@@ -58,9 +58,9 @@ func isFairRun(command nodeproto.MakeChunks, report nodeproto.MakeChunksReport) 
 // over (§3). A run not fair, or of a node not heard since the core started, keeps nothing; a failure
 // to keep it is logged, and the run's end taken as before.
 func (service *Service) keepRunSpeed(
-	ctx context.Context, nodeID int64, command nodeproto.MakeChunks, report nodeproto.MakeChunksReport,
+	ctx context.Context, nodeID int64, command nodeproto.MakeChunks, window nodeproto.SpeedWindow,
 ) {
-	if service.encoders == nil || !isFairRun(command, report) {
+	if service.encoders == nil || !isFairRun(command, window) {
 		return
 	}
 	speedKey := service.encoders.SpeedKey(nodeID)
@@ -84,7 +84,7 @@ func (service *Service) keepRunSpeed(
 		if insertErr := queries.InsertNodeRunSpeed(ctx, cachegen.InsertNodeRunSpeedParams{
 			NodeID: nodeID, SpeedKey: speedKey, Codec: kind.codec, BitDepth: int64(kind.bitDepth),
 			Height: int64(kind.height), QualityKbps: int64(quality.BitRateKbps), QualityHeight: int64(quality.Height),
-			SpeedPercent: int64(report.SpeedPercent), FilmMadeMs: report.FilmMadeMs, DecodedOn: report.DecodedOn,
+			SpeedPercent: int64(window.SpeedPercent), FilmMadeMs: window.FilmMadeMs, DecodedOn: window.DecodedOn,
 			MadeAt: service.clock.Now().UnixMilli(),
 		}); insertErr != nil {
 			return insertErr
@@ -218,9 +218,28 @@ type runAt struct {
 }
 
 // measuredRuns are the runs, by node, whose speed window each node's other work is held back for.
+// They keep too the speed window a run's progress carried, by attempt token, until the run ends: a
+// run cancelled after keeps its reading by it (D573).
 type measuredRuns struct {
-	mutex  sync.Mutex
-	byNode map[int64]runAt // guarded by mutex
+	mutex   sync.Mutex
+	byNode  map[int64]runAt                  // guarded by mutex
+	windows map[string]nodeproto.SpeedWindow // guarded by mutex
+}
+
+// noteWindow keeps the speed window the run of token's progress carried.
+func (runs *measuredRuns) noteWindow(token string, window nodeproto.SpeedWindow) {
+	runs.mutex.Lock()
+	defer runs.mutex.Unlock()
+	runs.windows[token] = window
+}
+
+// takeWindow forgets the speed window the run of token's progress carried, and returns it.
+func (runs *measuredRuns) takeWindow(token string) (nodeproto.SpeedWindow, bool) {
+	runs.mutex.Lock()
+	defer runs.mutex.Unlock()
+	window, isNoted := runs.windows[token]
+	delete(runs.windows, token)
+	return window, isNoted
 }
 
 // measure notes the run nodeID is held back for, in place of any before it.

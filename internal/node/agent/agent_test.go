@@ -790,4 +790,12 @@ func TestStatus_SaysNothingOfWhatTheNodeUsesWhenItCannotRead(t *testing.T) {
 
 func (stopWatchingChunkMaker) StretchOf(nodeproto.MakeChunks) execx.Stretch { return execx.Stretch{} }
 
+func (stopWatchingChunkMaker) DecodingOf(nodeproto.MakeChunks) encode.Decoding {
+	return encode.DecodedOnCPU
+}
+
 func (releasedChunkMaker) StretchOf(nodeproto.MakeChunks) execx.Stretch { return execx.Stretch{} }
+
+func (releasedChunkMaker) DecodingOf(nodeproto.MakeChunks) encode.Decoding {
+	return encode.DecodedOnCPU
+}

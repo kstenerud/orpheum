@@ -303,11 +303,15 @@ func TestAgent_ARunOfAQualityReportsItsSpeedAndWhetherAnotherRunWentBesideIt(t *
 	// Three chunks of ten seconds each, the window's half a minute, in 1.8 s: 1666 % of real time.
 	core.sendMakeChunks(1, run("1/chunks-q3000k720p-gpu/0123456789abcdef", nodeproto.StreamQuality))
 	alone := nodeproto.MakeChunksReport{
-		State: nodeproto.RunDone, LastChunk: 6, SpeedPercent: 1666, FilmMadeMs: 30000, DecodedOn: "gpu",
+		State: nodeproto.RunDone, LastChunk: 6,
+		SpeedWindow: nodeproto.SpeedWindow{SpeedPercent: 1666, FilmMadeMs: 30000, DecodedOn: "gpu"},
 	}
 	if report := receiveChunksReport(t, core); report != alone {
 		t.Errorf("a quality's run alone reported %+v; want %+v", report, alone)
 	}
+	// The progress of the chunk that closed the window carries the same figures, for a run cancelled
+	// after it (D573); the chunks before it carry none.
+	checkWindowProgress(t, core.progress, 1, 6, alone.SpeedWindow)
 	core.sendMakeChunks(2, run("1/chunks-picture/0123456789abcdef", nodeproto.StreamPicture))
 	if report := receiveChunksReport(t, core); report != (nodeproto.MakeChunksReport{
 		State: nodeproto.RunDone, LastChunk: 6,
@@ -406,6 +410,8 @@ func (maker heldChunkMaker) Make(
 
 func (heldChunkMaker) StretchOf(nodeproto.MakeChunks) execx.Stretch { return execx.Stretch{} }
 
+func (heldChunkMaker) DecodingOf(nodeproto.MakeChunks) encode.Decoding { return encode.DecodedOnCPU }
+
 // A run of a quality is measured over its speed window, its first half a minute of film: its report
 // carries the window's speed and film, not its whole run's, and another run is beside it only if it
 // went during the window. A run that started after the window closed spoils nothing, one that went
@@ -466,7 +472,8 @@ func TestAgent_ARunOfAQualityIsMeasuredOverItsSpeedWindowAlone(t *testing.T) {
 	}
 	maker.next <- struct{}{}
 	windowAlone := nodeproto.MakeChunksReport{
-		State: nodeproto.RunDone, LastChunk: 4, SpeedPercent: 1666, FilmMadeMs: 30000, DecodedOn: "cpu",
+		State: nodeproto.RunDone, LastChunk: 4,
+		SpeedWindow: nodeproto.SpeedWindow{SpeedPercent: 1666, FilmMadeMs: 30000, DecodedOn: "cpu"},
 	}
 	if report := receiveChunksReport(t, core); report != windowAlone {
 		t.Errorf("a run with others only after its window reported %+v; want its window's %+v", report, windowAlone)
@@ -526,4 +533,34 @@ func TestAgent_RunsOfAnUnchangedFilmHashItOnceInTheHashesTheNodeShares(t *testin
 
 func (fakeChunkMaker) StretchOf(nodeproto.MakeChunks) execx.Stretch { return execx.Stretch{} }
 
+func (fakeChunkMaker) DecodingOf(nodeproto.MakeChunks) encode.Decoding { return encode.DecodedOnCPU }
+
 func (pacedChunkMaker) StretchOf(nodeproto.MakeChunks) execx.Stretch { return execx.Stretch{} }
+
+func (pacedChunkMaker) DecodingOf(command nodeproto.MakeChunks) encode.Decoding {
+	return decodedOnOf(command)
+}
+
+// checkWindowProgress reads job's progress until the chunk closing, which must carry the speed window
+// want, and each chunk before it none (D573).
+func checkWindowProgress(
+	t *testing.T, progresses <-chan nodeproto.Progress, job int64, closing int, want nodeproto.SpeedWindow,
+) {
+	t.Helper()
+	for {
+		progress := testutil.Receive(t, progresses, "the run's progress")
+		if progress.JobID != job || progress.ChunksMadeThrough == nil {
+			continue
+		}
+		made := *progress.ChunksMadeThrough
+		if made < closing && progress.SpeedWindow != nil {
+			t.Errorf("chunk %d, short of the window, carried %+v; want no figures", made, *progress.SpeedWindow)
+		}
+		if made == closing {
+			if progress.SpeedWindow == nil || *progress.SpeedWindow != want {
+				t.Errorf("the chunk that closed the window carried %v; want %+v", progress.SpeedWindow, want)
+			}
+			return
+		}
+	}
+}

@@ -295,6 +295,7 @@ func (service *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
 					attempt.NodeID, command.StoreDir)
 			}
 			service.endMeasuring(ctx, attempt.NodeID, *command)
+			service.measuring.takeWindow(attempt.Token) // its report carries its figures
 			return service.requeuedUnlessDone(*command,
 				service.takeEnd(ctx, job, attempt.NodeID, *command, *result.MakeChunks))
 		},
@@ -305,6 +306,7 @@ func (service *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
 			})
 			if command := attempt.Work.MakeChunks; command != nil {
 				service.endMeasuring(ctx, attempt.NodeID, *command)
+				service.measuring.takeWindow(attempt.Token)
 				return service.requeuedUnlessDone(*command, outcome)
 			}
 			return outcome
@@ -314,6 +316,10 @@ func (service *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
 			service.forgetRun(attempt)
 			if command := attempt.Work.MakeChunks; command != nil {
 				service.endMeasuring(ctx, attempt.NodeID, *command)
+				// A run cancelled after its window keeps its reading, its end never reported (D573).
+				if window, isNoted := service.measuring.takeWindow(attempt.Token); isNoted {
+					service.keepRunSpeed(ctx, attempt.NodeID, *command, window)
+				}
 			}
 			return nil
 		},
@@ -364,6 +370,9 @@ func (service *Service) takeProgress(ctx context.Context, attempt nodes.Attempt,
 	if madeThrough >= command.FirstChunk {
 		madeEndMs := command.BoundsMs[madeThrough-command.FirstChunk+1]
 		service.runs.sample(command.StoreDir, command.FirstChunk, now, madeEndMs)
+		if progress.SpeedWindow != nil {
+			service.measuring.noteWindow(attempt.Token, *progress.SpeedWindow)
+		}
 		if isWindowMade(*command, madeEndMs) {
 			service.endMeasuring(ctx, attempt.NodeID, *command)
 		}
@@ -423,7 +432,7 @@ func (service *Service) takeEnd(
 	switch report.State {
 	case nodeproto.RunDone:
 		service.runs.forget(command.StoreDir, command.FirstChunk)
-		service.keepRunSpeed(ctx, nodeID, command, report)
+		service.keepRunSpeed(ctx, nodeID, command, report.SpeedWindow)
 		return nil
 	case nodeproto.RunFailed:
 		service.recordFailure(ctx, command.StoreDir, max(report.LastChunk+1, command.FirstChunk), report.Failure)
