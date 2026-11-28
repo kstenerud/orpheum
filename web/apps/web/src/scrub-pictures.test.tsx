@@ -8,7 +8,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   isEverySheetMade,
+  ScrubPicture,
   scrubPicturesReadAgainEveryMs,
+  shownPictureWidthPx,
   useScrubPictures,
 } from "./scrub-pictures.tsx";
 import { mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
@@ -146,5 +148,44 @@ describe("whether every sheet of a film's pictures is made", () => {
     expect(isEverySheetMade(pictures(250, [0, 2]))).toBe(false);
     expect(isEverySheetMade(pictures(250, [0, 1, 2]))).toBe(true);
     expect(isEverySheetMade(pictures(200, [0, 1]))).toBe(true);
+  });
+});
+
+describe("how large a scrub-bar picture is shown (the owner, 2026-11-28)", () => {
+  const pictures = {
+    intervalMs: 10_000,
+    pictureWidth: 320,
+    pictureHeight: 180,
+    columns: 10,
+    rows: 10,
+    pictureCount: 100,
+    sheets: [{ index: 0, url: "/api/v1/bytes/trickplay/3/0.webp" }],
+  };
+
+  it("is a fifth of the window, no narrower than 160 px nor wider than 240 px", () => {
+    expect(shownPictureWidthPx(pictures, 400)).toBe(160);
+    expect(shownPictureWidthPx(pictures, 960)).toBe(192);
+    expect(shownPictureWidthPx(pictures, 1280)).toBe(240);
+    expect(shownPictureWidthPx(pictures, 1920)).toBe(240);
+  });
+
+  it("is never wider than the picture was made", () => {
+    expect(shownPictureWidthPx({ ...pictures, pictureWidth: 200 }, 1920)).toBe(200);
+  });
+
+  it("scales its sheet as the picture, so the cell it shows is the same one", async () => {
+    const mounted = await mount(
+      <ScrubPicture
+        pictures={pictures}
+        cell={{ url: "/s.webp", leftPx: 640, topPx: 180 }}
+        widthPx={160}
+      />,
+    );
+    const style = mounted.container.querySelector<HTMLElement>(".timeline__picture")?.style;
+    expect(style?.width).toBe("160px");
+    expect(style?.height).toBe("90px");
+    expect(style?.backgroundSize).toBe("1600px 900px");
+    expect(style?.backgroundPosition).toBe("-320px -90px");
+    mounted.unmount();
   });
 });

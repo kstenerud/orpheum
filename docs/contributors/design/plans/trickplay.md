@@ -135,7 +135,10 @@ back to decoding every frame for that file alone, which the job's estimate shows
   relay as posters do.
 - **The scrub bar** (`web/apps/web/src/timeline.tsx`): while a pointer hovers or drags, or a TV's
   arrow keys step the position, the picture of that point shows above it with its time, cut from
-  its sheet by CSS position. The list of the film's sheets is read when the player opens and,
+  its sheet by CSS position. It is shown at a fifth of the window's width, no narrower than 160 px nor
+  wider than 240 px, its sheet scaled with it (the owner, 2026-11-28: at its made 320 px it filled a
+  phone's width; other players show 100 to 240 px), and made at 320 px so a dense screen shows it sharp.
+  The list of the film's sheets is read when the player opens and,
   while a sheet it calls for is not made yet (a 404, or fewer sheets than its picture count,
   columns and rows call for), again every 30 seconds as the film plays, until every sheet is made
   or the player closes (the owner, 2026-11-27), so a film opened before its pictures exist gains

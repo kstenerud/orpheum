@@ -66,20 +66,40 @@ export function scrubCellAt(pictures: ScrubPictures, atMs: number): ScrubCell | 
   };
 }
 
+/** The narrowest a scrub-bar picture is shown, and the widest, in CSS pixels (the owner, 2026-11-28). */
+const shownPictureWidthLeastPx = 160;
+const shownPictureWidthMostPx = 240;
+
 /**
- * The picture's box, cut from its sheet by its background's position, its size the picture's. Its
- * place along the timeline is the caller's.
+ * How wide a scrub-bar picture is shown in a window windowWidthPx wide: a fifth of the window, no
+ * narrower than 160 px nor wider than 240 px, as other players show theirs (a phone's 160, a
+ * desktop's 240; the owner, 2026-11-28), and never wider than it was made (pictures.pictureWidth),
+ * which is larger so that a dense screen shows it sharp.
+ */
+export function shownPictureWidthPx(pictures: ScrubPictures, windowWidthPx: number): number {
+  const fifth = Math.round(windowWidthPx / 5);
+  const wanted = Math.min(Math.max(fifth, shownPictureWidthLeastPx), shownPictureWidthMostPx);
+  return Math.min(wanted, pictures.pictureWidth);
+}
+
+/**
+ * The picture's box widthPx wide (shownPictureWidthPx), cut from its sheet by its background's
+ * position, the sheet scaled as the picture is. Its place along the timeline is the caller's.
  */
 export function ScrubPicture(props: {
   readonly pictures: ScrubPictures;
   readonly cell: ScrubCell;
+  readonly widthPx: number;
 }): JSX.Element {
-  const { pictures, cell } = props;
+  const { pictures, cell, widthPx } = props;
+  const scale = pictures.pictureWidth > 0 ? widthPx / pictures.pictureWidth : 1;
+  const px = (length: number): string => `${String(Math.round(length * scale))}px`;
   const style: CSSProperties = {
-    width: `${String(pictures.pictureWidth)}px`,
-    height: `${String(pictures.pictureHeight)}px`,
+    width: px(pictures.pictureWidth),
+    height: px(pictures.pictureHeight),
     backgroundImage: `url("${cell.url}")`,
-    backgroundPosition: `${String(-cell.leftPx)}px ${String(-cell.topPx)}px`,
+    backgroundSize: `${px(pictures.pictureWidth * pictures.columns)} ${px(pictures.pictureHeight * pictures.rows)}`,
+    backgroundPosition: `${px(-cell.leftPx)} ${px(-cell.topPx)}`,
   };
   return <span className="timeline__picture" style={style} />;
 }

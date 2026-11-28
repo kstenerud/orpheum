@@ -15,7 +15,12 @@ import { useTranslation } from "react-i18next";
 
 import { clockText } from "./date-time-text.ts"; // the one way a film's clock is written
 import { fractionAlong, useTouchAnywhere } from "./range-touch.ts";
-import { ScrubPicture, scrubCellAt, type ScrubPictures } from "./scrub-pictures.tsx";
+import {
+  ScrubPicture,
+  scrubCellAt,
+  shownPictureWidthPx,
+  type ScrubPictures,
+} from "./scrub-pictures.tsx";
 
 /** How finely a drag along a timeline moves the film: a second. */
 const dragStepMs = 1000;
@@ -233,14 +238,15 @@ function TimeUnderPointer(props: {
       </span>
     );
   }
-  const centrePx = pictureCentrePx(place, pictures.pictureWidth);
+  const widthPx = shownPictureWidthPx(pictures, globalThis.innerWidth);
+  const centrePx = pictureCentrePx(place, widthPx);
   return (
     <span
       className="timeline__pointed timeline__pointed--pictured"
       style={{ insetInlineStart: `${String(centrePx)}px` }}
       aria-hidden="true"
     >
-      <ScrubPicture pictures={pictures} cell={cell} />
+      <ScrubPicture pictures={pictures} cell={cell} widthPx={widthPx} />
       <span className="timeline__picture-time">{time}</span>
     </span>
   );
