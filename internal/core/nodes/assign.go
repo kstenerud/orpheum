@@ -92,7 +92,9 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 		return notReady
 	}
 	priority := priorityOnNode(command.Work, job.Priority)
-	if full := all.parkIfWindowFull(ctx, nodeID, command.Work, priority); full != nil {
+	// A played film's trickplay run displaces the background ones on its node (D573).
+	isPlayedTrickplay := command.MakeTrickplay != nil && job.Priority >= jobs.PriorityPlayNow
+	if full := all.parkIfWindowFull(ctx, nodeID, command.Work, priority, isPlayedTrickplay); full != nil {
 		return full
 	}
 	token, err := all.newToken()
@@ -120,6 +122,9 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 		cancelled := fmt.Errorf("%w: %w", ctx.Err(), cause)
 		return errors.Join(cancelled, all.forgetAttempt(context.WithoutCancel(ctx), token))
 	}
+	if isPlayedTrickplay {
+		all.displaceForPlayedTrickplay(ctx, nodeID)
+	}
 	return jobs.AssignThen(now.Add(limit), func(context.Context) { all.sender.Enqueue(nodeID, command) })
 }
 
@@ -131,9 +136,10 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 // the background work reading it, and one person's watching never waits for another's (D240 §6).
 // Background work that reads whole files waits too while a scan is on its quick pass of its disk
 // (D255 §3), and slow work leaves a disk's last reader to faster work that came for it lately (§4).
-// It is nil while there is room, and for a node whose resources are not known.
+// A played film's trickplay run bumps a background one where its slot is full (D573). It is nil while
+// there is room, and for a node whose resources are not known.
 func (all *Exchanges) parkIfWindowFull(
-	ctx context.Context, nodeID int64, work nodeproto.Work, priority int64,
+	ctx context.Context, nodeID int64, work nodeproto.Work, priority int64, isPlayedTrickplay bool,
 ) error {
 	if priority >= jobs.PriorityPlayNow {
 		return nil
@@ -159,7 +165,7 @@ func (all *Exchanges) parkIfWindowFull(
 	all.noteFasterWork(nodeID, device, incoming)
 	if inSlot, _ := all.heldOn(nodeID, resources, slot, ""); slot != "" &&
 		inSlot >= resources.Capacity.SlotCount(slot)+int(extra) {
-		if !all.bumpFor(ctx, nodeID, incoming, func(held Attempt) bool { return held.Work.Slot() == slot }) {
+		if !all.bumpInSlot(ctx, nodeID, slot, incoming, isPlayedTrickplay) {
 			return full(jobs.SlotDestination(nodeID, string(slot)))
 		}
 	}
@@ -175,6 +181,21 @@ func (all *Exchanges) parkIfWindowFull(
 		return parked
 	}
 	return all.parkBehindQuickPass(ctx, nodeID, resources, work, priority, device)
+}
+
+// bumpInSlot makes room in nodeID's full slot for incoming work: it bumps a lower tier's attempt in
+// slot, or, for a played film's trickplay run, a background trickplay run (D573). It reports whether
+// it bumped one.
+func (all *Exchanges) bumpInSlot(
+	ctx context.Context, nodeID int64, slot nodeproto.Slot, incoming tier, isPlayedTrickplay bool,
+) bool {
+	inThisSlot := func(held Attempt) bool { return held.Work.Slot() == slot }
+	if all.bumpFor(ctx, nodeID, incoming, inThisSlot) {
+		return true
+	}
+	return isPlayedTrickplay && all.bumpWhere(ctx, nodeID, func(held Attempt) bool {
+		return inThisSlot(held) && isBackgroundTrickplay(held)
+	})
 }
 
 // heldOn counts the attempts a node holds in slot, and reading device; none for "".

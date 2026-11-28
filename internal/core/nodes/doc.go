@@ -154,6 +154,10 @@
 //     (D255 §2, D324 §4). Work of the same tier or lower waits.
 //     TestAssign_WorkOfAHigherTierBumpsTheLowestWhereNothingIsFree,
 //     TestAssign_OfOneTierTheLowestPriorityIsBumpedFirst.
+//   - A played film's trickplay run, raised by its play, displaces every trickplay run on its node
+//     that no one plays the film of, running or waiting, bumped as a higher tier's work bumps, so the
+//     played film's scrub-bar pictures are made first (D573); all stay background work on the node.
+//     TestAssign_APlayedFilmsTrickplayDisplacesTheBackgroundTrickplayOnItsNode.
 //   - Slow work leaves a device's last reader to work of a higher tier that came for it within the
 //     last five seconds, waiting on the device's last reader, its own destination, until then, so
 //     that work's next piece is not given the reader by bumping a read-through just started (D255

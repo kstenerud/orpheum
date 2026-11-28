@@ -39,11 +39,19 @@ func tierOf(work nodeproto.Work, priority int64) tier {
 // to stop and its work is thrown away; its job goes back to the head of its priority's queue at no
 // cost of an attempt. It reports whether one was.
 func (all *Exchanges) bumpFor(ctx context.Context, nodeID int64, incoming tier, uses func(held Attempt) bool) bool {
+	return all.bumpWhere(ctx, nodeID, func(held Attempt) bool {
+		return uses(held) && tierOf(held.Work, held.Priority) < incoming
+	})
+}
+
+// bumpWhere bumps, of the attempts its node holds that bumpable picks, the one bumped first
+// (isBumpedBefore): its node is told to stop and its job goes back to the head of its priority's
+// queue at no cost. It reports whether one was; bumpFor and displaceForPlayedTrickplay choose by it.
+func (all *Exchanges) bumpWhere(ctx context.Context, nodeID int64, bumpable func(held Attempt) bool) bool {
 	all.mutex.Lock()
 	var chosen *heldAttempt
 	for _, held := range all.attempts {
-		if held.NodeID != nodeID || held.isBeingBumped || !uses(held.Attempt) ||
-			tierOf(held.Work, held.Priority) >= incoming {
+		if held.NodeID != nodeID || held.isBeingBumped || !bumpable(held.Attempt) {
 			continue
 		}
 		if _, isHandled := all.assignees[held.Kind]; !isHandled {
@@ -62,6 +70,24 @@ func (all *Exchanges) bumpFor(ctx context.Context, nodeID int64, incoming tier, 
 	all.mutex.Unlock()
 	all.bump(ctx, attempt, fmt.Errorf("work of a higher priority took its place on node %d", nodeID))
 	return true
+}
+
+// isBackgroundTrickplay is whether a held attempt is a trickplay run no one plays the film of: below
+// the priority a played film's trickplay is told its node (priorityOnNode), which interest gives a
+// film looked at or played alike.
+func isBackgroundTrickplay(held Attempt) bool {
+	return held.Work.MakeTrickplay != nil && held.Priority < priorityOnNode(held.Work, jobs.PriorityPlayNow)
+}
+
+// displaceForPlayedTrickplay makes way on its node for a played film's trickplay run, once its
+// attempt is kept (D573): every trickplay run held there that no one raised, waiting or running, is
+// bumped, so the played film's scrub-bar pictures are made first. Both stay background work on the
+// node, at the idle scheduling class with background reads (priorityOnNode): only which film's
+// pictures come first changes. A bumped run's job goes back to the head of its queue, and is given
+// again to wait behind the played one; a run stopped loses at most the sheet it was making.
+func (all *Exchanges) displaceForPlayedTrickplay(ctx context.Context, nodeID int64) {
+	for all.bumpWhere(ctx, nodeID, isBackgroundTrickplay) {
+	}
 }
 
 // bump stops an attempt a bump chose, marked isBeingBumped: its node is told to stop and its work is

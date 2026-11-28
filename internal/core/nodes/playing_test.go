@@ -3,6 +3,7 @@
 package nodes_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -146,5 +147,45 @@ func TestHoldBackFor_StopsATrickplayRunAndGivesNoneUntilItEndsOnAGPUToo(t *testi
 	if answer := bench.assign(4, jobs.KindTrickplay, jobs.PriorityBackground, trickplayOf()); !jobqueue.IsAssigned(
 		answer) {
 		t.Errorf("a trickplay run once the hold ended was answered %v; want it given", answer)
+	}
+}
+
+// A played film's trickplay run displaces the trickplay runs on its node that no one plays the film
+// of, the one running and the one waiting alike, so the played film's scrub-bar pictures come first;
+// another background run is given again behind it, and a run raised only for a film looked at waits
+// on the slot as before (D573).
+func TestAssign_APlayedFilmsTrickplayDisplacesTheBackgroundTrickplayOnItsNode(t *testing.T) {
+	t.Parallel()
+	bench := newPlayingBench(t, true)
+	bench.exchanges.Handle(jobs.KindTrickplay, assignedRun(bench.resolved, nil))
+	// The trickplay slot's one run and one more.
+	bench.mustAssign(1, jobs.KindTrickplay, jobs.PriorityBackground, trickplayOf())
+	bench.mustAssign(2, jobs.KindTrickplay, jobs.PriorityBackground, trickplayOf())
+	bench.mustAssign(3, jobs.KindTrickplay, jobs.PriorityPlayNow, trickplayOf())
+	var stopped []int64
+	for _, stop := range bench.stops {
+		if stop.Type == nodeproto.CommandCancel {
+			stopped = append(stopped, stop.JobID)
+		}
+	}
+	if len(stopped) != 2 || !slices.Contains(stopped, 1) || !slices.Contains(stopped, 2) {
+		t.Errorf("for the played film's trickplay the node was told to stop jobs %v; want both background runs",
+			stopped)
+	}
+	for range 2 {
+		if answer := testutil.Receive(t, bench.resolved, "a displaced run's answer"); answer == nil ||
+			!strings.Contains(answer.Error(), "a higher priority took its place") {
+			t.Errorf("a displaced background trickplay run was answered %v; want it bumped", answer)
+		}
+	}
+	if told := bench.sent[3]; told.Priority >= jobs.PriorityPersonsRequest || told.IsPlayDriven {
+		t.Errorf("the played film's trickplay was sent at %d, play-driven %v; want background work on the node",
+			told.Priority, told.IsPlayDriven)
+	}
+	bench.mustAssign(4, jobs.KindTrickplay, jobs.PriorityBackground, trickplayOf())
+	parking, isParked := jobqueue.ParkingOf(bench.assign(5, jobs.KindTrickplay, jobs.PriorityLookedAt, trickplayOf()))
+	if !isParked || parking.Destination != jobs.SlotDestination(1, string(nodeproto.SlotTrickplay)) {
+		t.Errorf("a looked-at film's trickplay on a full slot was parked %v on %q; want it waiting on the slot",
+			isParked, parking.Destination)
 	}
 }
