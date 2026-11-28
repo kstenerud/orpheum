@@ -31,6 +31,9 @@ func (all *Exchanges) parkBesidePlaying(nodeID int64, resources Resources, work 
 	now := all.clock.Now()
 	all.mutex.Lock()
 	heldBackUntil := all.heldBackUntil[nodeID]
+	if measuringUntil := all.measuringUntil[nodeID]; measuringUntil.After(heldBackUntil) {
+		heldBackUntil = measuringUntil
+	}
 	isEncodePlayed := false
 	for _, held := range all.attempts {
 		if held.NodeID == nodeID && held.Priority >= jobs.PriorityPlayNow && held.Work.Slot() == nodeproto.SlotEncode {
@@ -58,9 +61,37 @@ func (all *Exchanges) parkBesidePlaying(nodeID int64, resources Resources, work 
 // played encode, in software, fell behind playback. Each stopped job goes back to the head of its
 // queue at no cost, as a bump's does. It reports how many it stopped.
 func (all *Exchanges) HoldBackFor(ctx context.Context, nodeID int64, until time.Time) int {
+	return all.holdBack(ctx, nodeID, until, all.heldBackUntil)
+}
+
+// HoldBackToMeasure is HoldBackFor for a played run's speed window to be measured alone (D572): it
+// stops and holds back the same work, to the time until at the latest, but on a hold of its own, which
+// EndHoldToMeasure lifts as soon as the window is made (D573).
+func (all *Exchanges) HoldBackToMeasure(ctx context.Context, nodeID int64, until time.Time) int {
+	return all.holdBack(ctx, nodeID, until, all.measuringUntil)
+}
+
+// EndHoldToMeasure lifts nodeID's hold to measure a run, its window made or the run ended (D573), and
+// brings back the work it held, unless a hold for an encode behind playback still stands
+// (HoldBackFor), which it never shortens.
+func (all *Exchanges) EndHoldToMeasure(ctx context.Context, nodeID int64) {
+	now := all.clock.Now()
 	all.mutex.Lock()
-	if until.After(all.heldBackUntil[nodeID]) {
-		all.heldBackUntil[nodeID] = until
+	wasHeld := now.Before(all.measuringUntil[nodeID])
+	delete(all.measuringUntil, nodeID)
+	isBehindPlayback := now.Before(all.heldBackUntil[nodeID])
+	all.mutex.Unlock()
+	if wasHeld && !isBehindPlayback && all.rooms != nil {
+		all.rooms.Unpark(ctx, jobs.PlayingDestination(nodeID))
+	}
+}
+
+// holdBack stops the work on nodeID no one plays and holds it back to the time until in holds, one of the
+// holds guarded by the mutex, reporting how many it stopped.
+func (all *Exchanges) holdBack(ctx context.Context, nodeID int64, until time.Time, holds map[int64]time.Time) int {
+	all.mutex.Lock()
+	if until.After(holds[nodeID]) {
+		holds[nodeID] = until
 	}
 	var stopping []Attempt
 	for _, held := range all.attempts {

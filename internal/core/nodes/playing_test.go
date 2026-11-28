@@ -189,3 +189,41 @@ func TestAssign_APlayedFilmsTrickplayDisplacesTheBackgroundTrickplayOnItsNode(t 
 			isParked, parking.Destination)
 	}
 }
+
+// A hold to measure a played run is lifted as soon as its window is made, not at the time it was
+// given (D573): the work it held is brought back and given again at once. It never shortens a hold for
+// an encode behind playback, which stands to its own end.
+func TestEndHoldToMeasure_LiftsItsHoldAtOnceButNeverAHoldForAnEncodeBehindPlayback(t *testing.T) {
+	t.Parallel()
+	bench := newPlayingBench(t, false)
+	bench.exchanges.Handle(jobs.KindTrickplay, assignedRun(bench.resolved, nil))
+	bench.mustAssign(1, jobs.KindMakeChunks, jobs.PriorityPlayNow, qualityRunOf())
+	bench.exchanges.HoldBackToMeasure(t.Context(), 1, bench.now.Now().Add(90*time.Second))
+	if _, isParked := jobqueue.ParkingOf(bench.assign(2, jobs.KindTrickplay, jobs.PriorityBackground,
+		trickplayOf())); !isParked {
+		t.Fatal("a trickplay run while held to measure was given; want it held back")
+	}
+	bench.now.Advance(6 * time.Second)
+	bench.exchanges.EndHoldToMeasure(t.Context(), 1)
+	if !slices.Contains(bench.sender.unparked.list(), jobs.PlayingDestination(1)) {
+		t.Errorf("the hold lifted, the work brought back was on %v; want the film playing there's",
+			bench.sender.unparked.list())
+	}
+	bench.mustAssign(3, jobs.KindTrickplay, jobs.PriorityBackground, trickplayOf())
+
+	behind := newPlayingBench(t, true)
+	behind.mustAssign(1, jobs.KindMakeChunks, jobs.PriorityPlayNow, qualityRunOf())
+	behindUntil := behind.now.Now().Add(20 * time.Second)
+	behind.exchanges.HoldBackFor(t.Context(), 1, behindUntil)
+	behind.exchanges.HoldBackToMeasure(t.Context(), 1, behind.now.Now().Add(90*time.Second))
+	behind.exchanges.EndHoldToMeasure(t.Context(), 1)
+	parking, isParked := jobqueue.ParkingOf(behind.assign(2, jobs.KindReadThrough, jobs.PriorityBackground,
+		readThroughOf("/media")))
+	if !isParked || !parking.ProbeAt.Equal(behindUntil) {
+		t.Errorf("with an encode behind playback, the measuring hold lifted, a read-through was parked %v (%+v); "+
+			"want it held back to the encode's hold's end", isParked, parking)
+	}
+	if slices.Contains(behind.sender.unparked.list(), jobs.PlayingDestination(1)) {
+		t.Error("the measuring hold lifted under an encode's hold brought its work back; want it left held")
+	}
+}
