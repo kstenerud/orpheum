@@ -34,7 +34,7 @@ func TestTrickplay_ARaisedRunIsNeverSentPlayDrivenNorAtAPersonsPriority(t *testi
 		t.Errorf("a trickplay at a play's priority was sent play-driven %v at priority %d; want neither",
 			sent.IsPlayDriven, sent.Priority)
 	}
-	bench.exchanges.Reprioritize(7, jobs.PriorityPlayNow)
+	bench.exchanges.Reprioritize(t.Context(), 7, jobs.PriorityPlayNow)
 	raised := testutil.Receive(t, bench.sender.sent, "the trickplay's new priority")
 	if raised.Type != nodeproto.CommandReprioritize || raised.IsPlayDriven ||
 		raised.Priority >= jobs.PriorityPersonsRequest {

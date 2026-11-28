@@ -88,7 +88,7 @@ func TestReprioritize_TellsTheNodeHoldingAJobsAttemptItsNewPriority(t *testing.T
 	bench := newExchanges(t)
 	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(make(answers, 2), nil))
 	sent := bench.assign(t)
-	bench.exchanges.Reprioritize(7, jobs.PriorityBackground)
+	bench.exchanges.Reprioritize(t.Context(), 7, jobs.PriorityBackground)
 	told := testutil.Receive(t, bench.sender.sent, "the reprioritize command")
 	if told.Type != nodeproto.CommandReprioritize || told.JobID != 7 || told.AttemptToken != sent.AttemptToken ||
 		told.Priority != jobs.PriorityBackground || told.IsPlayDriven {

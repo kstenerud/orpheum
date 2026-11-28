@@ -190,6 +190,35 @@ func TestAssign_APlayedFilmsTrickplayDisplacesTheBackgroundTrickplayOnItsNode(t 
 	}
 }
 
+// A trickplay run its node already holds, raised as its film is played, displaces the background
+// trickplay there as one given already raised does: the film's pictures do not wait for another
+// film's run to end. A raise below a play's, a film looked at, displaces nothing (D573).
+func TestReprioritize_ATrickplayRaisedToAPlayedFilmsDisplacesTheBackgroundTrickplayOnItsNode(t *testing.T) {
+	t.Parallel()
+	bench := newPlayingBench(t, true)
+	bench.exchanges.Handle(jobs.KindTrickplay, assignedRun(bench.resolved, nil))
+	bench.mustAssign(1, jobs.KindTrickplay, jobs.PriorityBackground, trickplayOf())
+	bench.mustAssign(2, jobs.KindTrickplay, jobs.PriorityBackground, trickplayOf())
+	bench.exchanges.Reprioritize(t.Context(), 2, jobs.PriorityLookedAt)
+	told := testutil.Receive(t, bench.sender.sent, "the looked-at priority")
+	if told.Type != nodeproto.CommandReprioritize {
+		t.Fatalf("for a looked-at film's trickplay the node was told %+v; want its new priority alone", told)
+	}
+	bench.exchanges.Reprioritize(t.Context(), 2, jobs.PriorityPlayNow)
+	told = testutil.Receive(t, bench.sender.sent, "the played priority")
+	if told.Type != nodeproto.CommandReprioritize {
+		t.Fatalf("for the played film's trickplay the node was first told %+v; want its new priority", told)
+	}
+	stop := testutil.Receive(t, bench.sender.sent, "the background run's stop")
+	if stop.Type != nodeproto.CommandCancel || stop.JobID != 1 {
+		t.Errorf("for the played film's raised trickplay the node was told %+v; want job 1 stopped", stop)
+	}
+	if answer := testutil.Receive(t, bench.resolved, "the displaced run's answer"); answer == nil ||
+		!strings.Contains(answer.Error(), "a higher priority took its place") {
+		t.Errorf("the displaced background trickplay run was answered %v; want it bumped", answer)
+	}
+}
+
 // A hold to measure a played run is lifted as soon as its window is made, not at the time it was
 // given (D573): the work it held is brought back and given again at once. It never shortens a hold for
 // an encode behind playback, which stands to its own end.

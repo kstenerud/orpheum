@@ -259,7 +259,10 @@ func (all *Exchanges) keep(ctx context.Context, attempt Attempt) error {
 
 // Reprioritize tells the node holding a job's attempt its new priority (D234 §3): past its "wanted
 // until", play-driven work falls to background priority on the node too, and pauses nothing more.
-func (all *Exchanges) Reprioritize(jobID, priority int64) {
+// A trickplay run raised to a played film's while its node holds it displaces the background
+// trickplay there, as one given to the node already raised does (D573): a film played while its
+// pictures wait behind another's is not left waiting for that one to end.
+func (all *Exchanges) Reprioritize(ctx context.Context, jobID, priority int64) {
 	all.mutex.Lock()
 	var held []Attempt
 	for _, attempt := range all.attempts {
@@ -271,6 +274,9 @@ func (all *Exchanges) Reprioritize(jobID, priority int64) {
 	all.mutex.Unlock()
 	for _, attempt := range held {
 		all.sender.Enqueue(attempt.NodeID, ReprioritizeCommand(attempt.JobID, attempt.Token, attempt.Priority))
+		if attempt.Work.MakeTrickplay != nil && priority >= jobs.PriorityPlayNow {
+			all.displaceForPlayedTrickplay(ctx, attempt.NodeID)
+		}
 	}
 }
 

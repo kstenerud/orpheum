@@ -124,7 +124,7 @@ func (room *waitingRoom) Unpark(_ context.Context, destination jobs.Destination)
 	room.unparked = append(room.unparked, destination)
 }
 
-func (room *waitingRoom) Reprioritize(jobID, _ int64) {
+func (room *waitingRoom) Reprioritize(_ context.Context, jobID, _ int64) {
 	room.reprioritized = append(room.reprioritized, jobID)
 }
 

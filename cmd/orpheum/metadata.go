@@ -196,7 +196,7 @@ func demoteUnwanted(
 		}
 		for _, job := range demoted {
 			if job.IsAssigned {
-				exchanges.Reprioritize(job.ID, jobs.PriorityShownInterest)
+				exchanges.Reprioritize(ctx, job.ID, jobs.PriorityShownInterest)
 			}
 		}
 		if len(demoted) > 0 {

@@ -27,7 +27,7 @@ type Jobs interface {
 
 // Nodes tells the node holding a raised job its new priority: nodes.Exchanges.
 type Nodes interface {
-	Reprioritize(jobID, priority int64)
+	Reprioritize(ctx context.Context, jobID, priority int64)
 }
 
 // Waiting brings back the work waiting on a destination: jobs.Queue.
@@ -234,7 +234,7 @@ func (raiser *Raiser) raise(ctx context.Context, interested jobs.Interested, pri
 		switch {
 		case job.IsAssigned:
 			if job.HasRisen {
-				raiser.parts.Nodes.Reprioritize(job.ID, job.Priority)
+				raiser.parts.Nodes.Reprioritize(ctx, job.ID, job.Priority)
 			}
 		case job.Priority >= jobs.PriorityPersonsRequest && isRoomOnANode(job.Destination) &&
 			!slices.Contains(waitingOn, job.Destination):
