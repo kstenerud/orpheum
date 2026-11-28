@@ -90,18 +90,21 @@ those to fine-tune what we believe the hardware is capable of."*
   outlasts a restart; a node's changed FFmpeg, encoder or recipe starts it over, as it does the
   trials.
 - **Only a fair run counts:** one that made at least half a minute of film while no other run
-  went on its node. A node made slow by its load is `keepRunsFast`'s matter (D250 §6), not what
+  went on its node. Since D572 the half minute is a window, the run's first half minute of film,
+  and the figures are the window's. A node made slow by its load is `keepRunsFast`'s matter (D250 §6), not what
   its hardware can do.
   Another run is one that makes a picture, another quality's or the scrub-bar pictures': a
   sound's or a copied picture's run costs little and goes beside every playback's picture, so
   counting it would leave no run fair (the lead's reading, 2026-11-27; the owner's to change).
-  **Found on staging, 2026-11-27:** while the scrub-bar pictures' sweep of a library runs, hours on
-  the NUC7 and longer on a slower node, it goes beside every quality's run, so none is fair and the
-  trial judges alone until the sweep ends: four finished runs of five minutes of film each said
-  they went beside another, and none was kept. The sweep runs at idle priority, so its cost to a
-  run beside it may be small, but it is not measured: the four made their film at 12, 28, 28 and
-  28 times real time, with no run alone to compare. Whether a run beside the sweep alone should count is the owner's
-  question; nothing is changed.
+  **Found on staging, 2026-11-27:** while the scrub-bar pictures' sweep of a library ran, it went
+  beside every quality's run, so none was fair: four finished runs of five minutes of film each
+  said they went beside another, and none was kept. **Answered (D572, 2026-11-28):** the owner
+  asked to *"pause bg jobs … for long enough to measure"*, since *"you only need a certain amount
+  of film transcoded"*. A run is measured over its **speed window**, its first half minute of film,
+  timed from its start, and judged beside another over the window alone; and the core holds the
+  node's background work back for that window when it gives a played run of a quality its node's
+  runs have not yet taken over, then lets it go on. A run beside the sweep still counts for
+  nothing; the sweep makes way instead.
 - **The real figure takes over from the trial's as runs are counted:** the trial alone until
   three fair runs, then the middle one of the last several. A kind the trials never tried gets a
   figure of its own this way, and no longer borrows its neighbour's.
@@ -116,6 +119,7 @@ same day: *"those sound fine"*.
 | S1 | **The node:** the clips, the trials, the kept results, the message | A node with a faked FFmpeg reports each kind once and nothing after a restart; no trial starts while a run goes. Built 2026-11-27 (node protocol 77) |
 | S2 | **The core:** the figures kept for a node, the cap at a start | A film whose kind measured slow starts on the highest quality measured fast; one not measured starts as today. Built 2026-11-27 |
 | S3 | **Real runs:** the run's speed and decode in its result, the kept figures, the trial's giving way | A kind with three fair runs starts by their figure and not the trial's; a run beside another counts for nothing. Built 2026-11-27 (node protocol 79, cache schema 58). Readings: "another run" is any run of chunks of any stream, or a trickplay run, at any time beside it; the speed is the film made over the run's whole time, its open included, as a trial's; only a finished run counts; the figure is kept per quality, and a quality with fewer than three keeps the trials' line; of an even count the slower middle is taken; the key is FFmpeg's version and SHA-256, the chosen encoder and the quality recipe, and a run under a new one deletes the node's others; a node not heard since the core started keeps and reads none |
+| S3b | **The speed window and the hold for it** (D572) | A played run on a node that lacks three fair runs of its kind and quality holds the node's background work back until its window's expected end; the run's figures are its first half minute's, and a run beside it after the window spoils nothing. Built 2026-11-28 (node protocol 80). Readings: the window closes at the first chunk that reaches half a minute of film, so it may hold a little more; only a finished run still counts; a run already stopped when the played run starts is not beside it; the hold lasts twice the window's expected time at the speed the start expected, with 5 s for its start, never past 90 s, and 90 s when nothing judged the quality; it is asked before the run is given, for a run of at least the window's film; a node that encodes on a GPU is held too; a played run of another player is never stopped, and leaves the run unfair |
 | S4 | **The player:** one jump to the link's quality, and today's climb after a jump that failed | A capped player with ten seconds buffered asks its link's quality at once; after a stall there it steps down and climbs by today's holds. Built 2026-11-27: the link's quality is the step-up's own (its confident estimate with its headroom), the jump is spent if the link carries nothing higher at 10 s ahead, a give-up falls back as a stall does, a held start ignores the remembered link (D381), and only a playback's own start, not the page's, is held |
 | S5 | **On devices:** a VQ item on production's J3455 with the card's decode refused | The owner's run |
 

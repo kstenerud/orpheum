@@ -32473,3 +32473,42 @@ every 3 s, an FFmpeg run each time, on a node that may be making the film being 
    behind them. One way to show a place's picture.
 4. **If the picture proves too soft** (the owner's to say), the remedy is wider scrub-bar pictures,
    at their cost in storage, not the on-demand frame back.
+
+## D572 — A played run is measured over its first half minute, its node's other work held back for it
+
+**Decided** (2026-11-28), by the project owner, on the staging finding that the scrub-bar pictures'
+sweep went beside every run and left none fair: *"Can't we pause bg jobs (that aren't essential to
+the currently playing film, such as trickplay images) for long enough to measure when they play
+something"*, and *"you only need a certain amount of film transcoded ... only a minimum section of
+playback with nothing beside it. So then things only get paused long enough for a reading and then
+continue."*
+
+**Status:** decided. It has code: the speed window in `internal/node/agent/chunks.go` and
+`runs_beside.go`, `nodeproto.SpeedWindowFilmMs`, and the hold in `internal/core/chunks/run_speed.go`
+(`holdBackToMeasure`); node protocol 80.
+
+It amends §3 of `design/plans/start-quality-by-node-speed.md`, whose fair run was one alone on its
+node over its whole run, and whose open question, what to do about the sweep beside every run, it
+answers.
+
+1. **A run of a quality is measured over its speed window**: its first half minute of film
+   (`SpeedWindowFilmMs`, the §3 mark), timed from the run's start to the chunk that reaches it.
+   Its report's speed, film and decode are the window's, and "beside another run" is judged over
+   the window alone: a run that starts after the window closes spoils nothing. A run that never
+   makes the window's film carries no figures. A run already stopped when another starts, its
+   FFmpeg still ending, is beside none after it. The node's log line keeps the whole run's figures
+   beside the window's.
+2. **The core holds the node's background work back for the window.** When it gives a played run
+   of a quality, of the window's film or more, to a node whose runs have not taken over for the
+   film's kind and the quality (fewer than three fair runs under its speed key), it first holds the
+   node back by the existing hold (D324 §5): the node's work no one plays, its trickplay above all,
+   is stopped and given none until twice the window's expected time at the speed the start
+   expected, with 5 s for the run's start, never past 90 s, the cap on what one start costs the
+   background work. The stopped trickplay resumes at its next sheet.
+3. **Nothing is held once the runs have taken over**, nor for a run no one waits to play, one
+   shorter than the window, or a node not heard since the core started, whose runs are not kept.
+4. **A node that encodes on a GPU is held too**, though the D324 hold beside it is not: the
+   measure is of the node's speed, which background work spoils there as well.
+5. **A played run is never stopped**: another player's run of a quality goes on, and the run it
+   goes beside during the window stays unfair. Sound and copied-picture runs still count as
+   beside nothing.

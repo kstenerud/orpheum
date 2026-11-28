@@ -577,6 +577,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D569](working-notes.md#d569--a-cast-being-started-says-so-on-the-casts-page-with-cancel-and-its-controls-wait-for-the-tvs-first-picture) A cast being started says so on the cast's page, with Cancel, and its controls wait for the TV's first picture — *revisited by D570*
 - [D570](working-notes.md#d570--a-chromecast-being-connected-says-so-on-the-films-page-with-cancel-from-the-pick-in-chromes-picker) A Chromecast being connected says so on the film's page, with Cancel, from the pick in Chrome's picker
 - [D571](working-notes.md#d571--a-casts-remote-shows-the-films-scrub-bar-picture-of-the-tvs-place-and-no-key-frame-is-made-on-demand) A cast's remote shows the film's scrub-bar picture of the TV's place, and no key frame is made on demand
+- [D572](working-notes.md#d572--a-played-run-is-measured-over-its-first-half-minute-its-nodes-other-work-held-back-for-it) A played run is measured over its first half minute, its node's other work held back for it
 
 ## Archived
 
